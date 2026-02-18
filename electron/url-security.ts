@@ -54,7 +54,11 @@ function normalizeOrigin(origin: string): string {
 }
 
 function normalizeHostname(hostname: string): string {
-  return hostname.trim().toLowerCase();
+  const normalized = hostname.trim().toLowerCase();
+  if (normalized.startsWith('[') && normalized.endsWith(']')) {
+    return normalized.slice(1, -1);
+  }
+  return normalized;
 }
 
 function normalizePath(value: string): string {
@@ -176,7 +180,7 @@ export function isAllowedLocalCallbackTarget(
     return false;
   }
 
-  const hostname = callbackUrl.hostname.toLowerCase();
+  const hostname = normalizeHostname(callbackUrl.hostname);
   if (!CALLBACK_HOSTS.has(hostname)) {
     return false;
   }

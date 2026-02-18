@@ -189,6 +189,31 @@ function sanitizeValue(value: unknown): unknown {
   return value;
 }
 
+function sanitizeStringRecord(value: unknown): Record<string, string> {
+  const output: Record<string, string> = {};
+
+  if (!isRecord(value)) {
+    return output;
+  }
+
+  for (const [key, item] of Object.entries(value)) {
+    const sanitized = sanitizeValue(item);
+    output[key] = typeof sanitized === 'string' ? sanitizeSensitiveText(sanitized) : String(sanitized);
+  }
+
+  return output;
+}
+
+function sanitizeQueryParams(value: unknown): string {
+  if (typeof value === 'string') {
+    return sanitizeSensitiveText(value);
+  }
+
+  const queryParams = sanitizeStringRecord(value);
+  const normalized = new URLSearchParams(queryParams);
+  return normalized.toString();
+}
+
 if (isWindows) {
   app.setAppUserModelId('io.stateset.desktop');
 }
@@ -223,16 +248,16 @@ if (sentryDsn) {
           event.request.url = sanitizeSensitiveText(event.request.url);
         }
         if (event.request.query_string) {
-          event.request.query_string = sanitizeSensitiveText(event.request.query_string);
+          event.request.query_string = sanitizeQueryParams(event.request.query_string);
         }
         if (event.request.headers) {
-          event.request.headers = sanitizeValue(event.request.headers) as Record<string, unknown>;
+          event.request.headers = sanitizeStringRecord(event.request.headers);
         }
         if (event.request.data) {
           event.request.data = sanitizeValue(event.request.data) as Record<string, unknown>;
         }
         if (event.request.cookies) {
-          event.request.cookies = sanitizeValue(event.request.cookies) as Record<string, unknown>;
+          event.request.cookies = sanitizeStringRecord(event.request.cookies);
         }
       }
       if (event.user) {

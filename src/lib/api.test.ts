@@ -2,6 +2,20 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { API_CONFIG } from '../config/api.config';
 import { agentApi } from './api';
 
+const mockCircuitBreaker = vi.hoisted(() => ({
+  isCallPermitted: vi.fn(() => true),
+  onSuccess: vi.fn(),
+  onError: vi.fn(),
+  getStatus: vi.fn(() => ({
+    state: 'CLOSED' as const,
+    consecutiveFailures: 0,
+    consecutiveSuccesses: 0,
+    lastFailure: null,
+    lastSuccess: null,
+    isHealthy: true,
+  })),
+}));
+
 // Mock the auth store before importing api
 vi.mock('../stores/auth', () => ({
   useAuthStore: {
@@ -22,25 +36,11 @@ vi.mock('./logger', () => ({
 // Mock request deduplication (pass-through)
 vi.mock('./requestDeduplication', () => ({
   apiDeduplicator: {
+    has: vi.fn(() => false),
     dedupe: vi.fn((_key: string, fn: () => Promise<unknown>) => fn()),
   },
   createRequestKey: vi.fn((method: string, path: string) => `${method}:${path}`),
 }));
-
-// Mock the circuit breaker
-const mockCircuitBreaker = {
-  isCallPermitted: vi.fn(() => true),
-  onSuccess: vi.fn(),
-  onError: vi.fn(),
-  getStatus: vi.fn(() => ({
-    state: 'CLOSED' as const,
-    consecutiveFailures: 0,
-    consecutiveSuccesses: 0,
-    lastFailure: null,
-    lastSuccess: null,
-    isHealthy: true,
-  })),
-};
 
 vi.mock('./circuit-breaker', () => ({
   apiCircuitBreaker: mockCircuitBreaker,
@@ -55,6 +55,19 @@ vi.mock('./circuit-breaker', () => ({
 }));
 
 // We need to test the retry logic and helper functions
+let fetchMock: ReturnType<typeof vi.fn<() => Promise<MockResponse>>>;
+
+beforeEach(() => {
+  fetchMock = vi.fn<() => Promise<MockResponse>>();
+  global.fetch = fetchMock as unknown as typeof fetch;
+  vi.clearAllMocks();
+  mockCircuitBreaker.isCallPermitted.mockReturnValue(true);
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
 describe('API Helper Functions', () => {
   describe('calculateBackoff', () => {
     // Test exponential backoff calculation
@@ -154,17 +167,9 @@ interface MockResponse {
 }
 
 describe('API Request Integration', () => {
-  let fetchMock: ReturnType<typeof vi.fn<() => Promise<MockResponse>>>;
-
   beforeEach(() => {
-    fetchMock = vi.fn<() => Promise<MockResponse>>();
-    global.fetch = fetchMock as unknown as typeof fetch;
     vi.clearAllMocks();
     mockCircuitBreaker.isCallPermitted.mockReturnValue(true);
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
   });
 
   it('should include authorization header with API key', async () => {
