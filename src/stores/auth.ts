@@ -325,12 +325,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   logout: async () => {
     useAuditLogStore.getState().log('user.logout', 'User logged out');
     if (window.electronAPI) {
-      await window.electronAPI.auth.clearApiKey();
-      // Note: We don't clear sandbox key on logout - it's a separate credential
+      await Promise.allSettled([
+        window.electronAPI.auth.clearApiKey?.() ?? Promise.resolve(false),
+        window.electronAPI.auth.clearSandboxApiKey?.() ?? Promise.resolve(false),
+      ]);
     }
     set({
       isAuthenticated: false,
       apiKey: null,
+      sandboxApiKey: null,
       tenant: null,
       currentBrand: null,
       brands: [],

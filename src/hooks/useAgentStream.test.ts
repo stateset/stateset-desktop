@@ -104,7 +104,7 @@ describe('useAgentStream logic', () => {
 
   describe('auth candidates', () => {
     it('normalizes whitespace and keeps token candidates distinct from api key candidates', () => {
-      const candidates = buildStreamAuthCandidates(' token-123 ', ' api-key-456 ');
+      const candidates = buildStreamAuthCandidates(' token-123 ', ' api-key-456 ', true);
       expect(candidates).toEqual([
         { headers: { Authorization: 'Bearer token-123' }, description: 'Bearer stream token' },
         { headers: { Authorization: 'ApiKey token-123' }, description: 'ApiKey stream token' },
@@ -113,7 +113,7 @@ describe('useAgentStream logic', () => {
     });
 
     it('does not duplicate identical ApiKey candidates', () => {
-      const candidates = buildStreamAuthCandidates('same-token', 'same-token');
+      const candidates = buildStreamAuthCandidates('same-token', 'same-token', true);
       expect(candidates).toEqual([
         { headers: { Authorization: 'Bearer same-token' }, description: 'Bearer stream token' },
         { headers: { Authorization: 'ApiKey same-token' }, description: 'ApiKey stream token' },
@@ -121,7 +121,7 @@ describe('useAgentStream logic', () => {
     });
 
     it('extracts stream auth candidates in secure order', () => {
-      const candidates = buildStreamAuthCandidates('token-123', 'api-key-456');
+      const candidates = buildStreamAuthCandidates('token-123', 'api-key-456', true);
       expect(candidates).toEqual([
         { headers: { Authorization: 'Bearer token-123' }, description: 'Bearer stream token' },
         { headers: { Authorization: 'ApiKey token-123' }, description: 'ApiKey stream token' },
@@ -130,9 +130,17 @@ describe('useAgentStream logic', () => {
     });
 
     it('uses api key only when no token is available', () => {
-      const candidates = buildStreamAuthCandidates(null, 'api-key-456');
+      const candidates = buildStreamAuthCandidates(null, 'api-key-456', true);
       expect(candidates).toEqual([
         { headers: { Authorization: 'ApiKey api-key-456' }, description: 'API key' },
+      ]);
+    });
+
+    it('skips API key candidates when disabled by config', () => {
+      const candidates = buildStreamAuthCandidates('token-123', 'api-key-456', false);
+      expect(candidates).toEqual([
+        { headers: { Authorization: 'Bearer token-123' }, description: 'Bearer stream token' },
+        { headers: { Authorization: 'ApiKey token-123' }, description: 'ApiKey stream token' },
       ]);
     });
   });

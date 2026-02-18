@@ -71,12 +71,32 @@ type StreamAuthCandidate = {
   description: string;
 };
 
+const shouldAllowApiKeyInStreamHeader = (): boolean => {
+  const raw = import.meta.env.VITE_ALLOW_STREAM_API_KEY;
+  if (typeof raw !== 'string') {
+    return false;
+  }
+
+  const normalized = raw.trim().toLowerCase();
+  return normalized === 'true' || normalized === '1' || normalized === 'yes' || normalized === 'on';
+};
+
 export function buildStreamAuthCandidates(
   token: string | null,
   apiKey: string | null
+): StreamAuthCandidate[];
+
+export function buildStreamAuthCandidates(
+  token: string | null,
+  apiKey: string | null,
+  allowApiKeyFallback: boolean
 ): StreamAuthCandidate[] {
   const candidates: StreamAuthCandidate[] = [];
   const seenHeaders = new Set<string>();
+  const isApiKeyFallbackEnabled =
+    typeof allowApiKeyFallback === 'boolean'
+      ? allowApiKeyFallback
+      : shouldAllowApiKeyInStreamHeader();
 
   const sanitize = (value: string | null): string | null => {
     if (!value || typeof value !== 'string') {
@@ -101,7 +121,7 @@ export function buildStreamAuthCandidates(
   }
 
   const apiKeyValue = sanitize(apiKey);
-  if (apiKeyValue) {
+  if (isApiKeyFallbackEnabled && apiKeyValue) {
     addCandidate('API key', `ApiKey ${apiKeyValue}`);
   }
 
@@ -587,14 +607,19 @@ export function useAgentStream({
         return;
       }
 
+      const allowApiKeyFallback = shouldAllowApiKeyInStreamHeader();
       const token = await agentApi.getStreamToken(tenantId, brandId, sessionId);
 
       if (!isCurrentAttempt() || !connectRequestedRef.current) {
         return;
       }
 
-      if (!token && !apiKey) {
-        setStreamError('Secure stream token unavailable and no API key is configured.');
+      if (!token && (!allowApiKeyFallback || !apiKey)) {
+        setStreamError(
+          allowApiKeyFallback
+            ? 'Secure stream token unavailable.'
+            : 'Secure stream token unavailable and API key fallback is disabled.'
+        );
         setIsConnecting(false);
         return;
       }
@@ -603,7 +628,7 @@ export function useAgentStream({
       const streamController = new AbortController();
       streamAbortRef.current = streamController;
 
-      const streamAuthCandidates = buildStreamAuthCandidates(token, apiKey);
+      const streamAuthCandidates = buildStreamAuthCandidates(token, apiKey, allowApiKeyFallback);
       let response: Response | null = null;
       let lastResponseStatus: number | null = null;
 
