@@ -132,7 +132,7 @@ export default function Templates() {
           agentType="interactive"
           config={{
             mcp_servers: [],
-            model: 'claude-sonnet-4-20250514',
+            model: 'claude-sonnet-4-6',
             temperature: 0.7,
             loop_interval_ms: 1000,
             max_iterations: 100,

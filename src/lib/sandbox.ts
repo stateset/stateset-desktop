@@ -15,6 +15,8 @@ type SandboxRequestOptions = RequestInit & {
   maxRetries?: number;
   skipRetry?: boolean;
   retryOn?: 'safe' | 'all';
+  clearAuthOnUnauthorized?: boolean;
+  includeAuthHeader?: boolean;
 };
 
 // ============================================
@@ -52,12 +54,60 @@ export interface SandboxHealth {
 // Helper Functions
 // ============================================
 
-function getSandboxHeaders(): HeadersInit {
-  const sandboxApiKey = useAuthStore.getState().sandboxApiKey;
-  return {
-    'Content-Type': 'application/json',
-    ...(sandboxApiKey ? { Authorization: `ApiKey ${sandboxApiKey}` } : {}),
-  };
+function shouldSendJsonContentType(body: RequestInit['body']): boolean {
+  if (body === undefined || body === null) {
+    return false;
+  }
+  if (typeof body === 'string') {
+    return body.length > 0;
+  }
+  if (body instanceof FormData) {
+    return false;
+  }
+  if (body instanceof URLSearchParams) {
+    return false;
+  }
+  return true;
+}
+
+type SandboxAuthHeaderCandidate = Record<string, string>;
+
+function buildAuthHeaderCandidates(apiKey: string): SandboxAuthHeaderCandidate[] {
+  return [
+    { Authorization: `ApiKey ${apiKey}` },
+    { Authorization: `Bearer ${apiKey}` },
+    { 'X-API-Key': apiKey },
+  ];
+}
+
+function buildHeaders(
+  extraHeaders: HeadersInit | undefined,
+  body: RequestInit['body'],
+  authHeaders: SandboxAuthHeaderCandidate
+): Record<string, string> {
+  const headers: Record<string, string> = { ...authHeaders };
+
+  if (extraHeaders) {
+    if (extraHeaders instanceof Headers) {
+      extraHeaders.forEach((value, key) => {
+        headers[key] = value;
+      });
+    } else if (Array.isArray(extraHeaders)) {
+      extraHeaders.forEach(([key, value]) => {
+        headers[key] = value;
+      });
+    } else {
+      Object.entries(extraHeaders).forEach(([key, value]) => {
+        headers[key] = value;
+      });
+    }
+  }
+
+  if (shouldSendJsonContentType(body) && !('Content-Type' in headers)) {
+    headers['Content-Type'] = 'application/json';
+  }
+
+  return headers;
 }
 
 function isRetryableError(error: unknown, status?: number): boolean {
@@ -79,6 +129,8 @@ async function sandboxRequest<T>(path: string, options: SandboxRequestOptions = 
     maxRetries = 2,
     skipRetry = false,
     retryOn = 'safe',
+    clearAuthOnUnauthorized = true,
+    includeAuthHeader = true,
     ...fetchOptions
   } = options;
 
@@ -93,16 +145,39 @@ async function sandboxRequest<T>(path: string, options: SandboxRequestOptions = 
     const timeoutId = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
 
     try {
-      const response = await fetch(`${SANDBOX_API_URL}${path}`, {
-        ...fetchOptions,
-        signal: fetchOptions.signal ?? controller?.signal,
-        headers: {
-          ...getSandboxHeaders(),
-          ...fetchOptions.headers,
-        },
-      });
+      const sandboxApiKey = useAuthStore.getState().sandboxApiKey;
+      const authCandidates: SandboxAuthHeaderCandidate[] =
+        includeAuthHeader && sandboxApiKey ? buildAuthHeaderCandidates(sandboxApiKey) : [{}];
 
-      lastStatus = response.status;
+      let response: Response | null = null;
+
+      for (let candidateIndex = 0; candidateIndex < authCandidates.length; candidateIndex++) {
+        response = await fetch(`${SANDBOX_API_URL}${path}`, {
+          ...fetchOptions,
+          signal: fetchOptions.signal ?? controller?.signal,
+          headers: {
+            ...buildHeaders(
+              fetchOptions.headers,
+              fetchOptions.body,
+              authCandidates[candidateIndex]
+            ),
+          },
+        });
+
+        lastStatus = response.status;
+        const isAuthError = response.status === 401 || response.status === 403;
+        if (!isAuthError) {
+          break;
+        }
+
+        if (candidateIndex < authCandidates.length - 1) {
+          continue;
+        }
+      }
+
+      if (!response) {
+        throw new Error('Request failed to receive a response');
+      }
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -115,6 +190,13 @@ async function sandboxRequest<T>(path: string, options: SandboxRequestOptions = 
         }
         const error = new Error(errorMessage);
         lastError = error;
+
+        if (clearAuthOnUnauthorized && (response.status === 401 || response.status === 403)) {
+          const authState = useAuthStore.getState();
+          if (authState.sandboxApiKey && includeAuthHeader) {
+            void authState.clearSandboxApiKey();
+          }
+        }
 
         if (allowRetry && attempt < maxRetries && isRetryableError(error, response.status)) {
           continue;
@@ -164,7 +246,10 @@ export const sandboxApi = {
    * Check Sandbox API health
    */
   health: async (): Promise<SandboxHealth> => {
-    return sandboxRequest<SandboxHealth>('/health');
+    return sandboxRequest<SandboxHealth>('/health', {
+      clearAuthOnUnauthorized: false,
+      includeAuthHeader: false,
+    });
   },
 
   /**

@@ -35,7 +35,7 @@ export const TEMPLATES: AgentTemplate[] = [
       iteration_timeout_secs: 30,
       pause_on_error: true,
       mcp_servers: ['gorgias', 'zendesk'],
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       temperature: 0.7,
       custom_instructions:
         'You are a helpful customer support agent. Be friendly, professional, and concise. Always verify user identities before accessing order information. For complex issues, escalate to a human agent.',
@@ -59,7 +59,7 @@ export const TEMPLATES: AgentTemplate[] = [
       iteration_timeout_secs: 60,
       pause_on_error: true,
       mcp_servers: ['shopify', 'shipstation'],
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       temperature: 0.5,
       custom_instructions:
         'Monitor for new orders and process them automatically. Verify stock levels before fulfilling. Handle shipping label generation and tracking updates. Report any errors or low stock immediately.',
@@ -107,7 +107,7 @@ export const TEMPLATES: AgentTemplate[] = [
       iteration_timeout_secs: 120,
       pause_on_error: true,
       mcp_servers: ['shopify', 'klaviyo', 'recharge'],
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       temperature: 0.3,
       custom_instructions:
         'Continuously sync data between platforms. Maintain consistency and handle conflicts gracefully. Log all sync operations and report discrepancies.',
@@ -131,7 +131,7 @@ export const TEMPLATES: AgentTemplate[] = [
       iteration_timeout_secs: 300,
       pause_on_error: false,
       mcp_servers: ['shopify', 'klaviyo'],
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       temperature: 0.4,
       custom_instructions:
         'Generate comprehensive analytics reports. Include key metrics, trends, and actionable insights. Format reports for business stakeholders.',
@@ -155,7 +155,7 @@ export const TEMPLATES: AgentTemplate[] = [
       iteration_timeout_secs: 45,
       pause_on_error: true,
       mcp_servers: ['recharge', 'shopify'],
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       temperature: 0.6,
       custom_instructions:
         'Manage the full subscription lifecycle automatically. Process renewals, handle failed payments, and manage cancellations or modifications. Communicate clearly with customers about subscription events.',
@@ -202,7 +202,7 @@ export const TEMPLATES: AgentTemplate[] = [
       iteration_timeout_secs: 30,
       pause_on_error: true,
       mcp_servers: [],
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       temperature: 0.7,
     },
     tags: ['custom', 'flexible'],
@@ -257,7 +257,7 @@ export function templateToAgentConfig(template: AgentTemplate): AgentSessionConf
     pause_on_error: template.config.pause_on_error ?? true,
     custom_instructions: template.config.custom_instructions,
     mcp_servers: template.config.mcp_servers || [],
-    model: template.config.model || 'claude-sonnet-4-20250514',
+    model: template.config.model || 'claude-sonnet-4-6',
     temperature: template.config.temperature || 0.7,
   };
 }

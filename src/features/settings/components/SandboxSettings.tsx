@@ -15,6 +15,7 @@ export function SandboxSettings({ secureStorageAvailable }: { secureStorageAvail
   const [isTestingSandbox, setIsTestingSandbox] = useState(false);
   const [isCreatingSandbox, setIsCreatingSandbox] = useState(false);
   const [sandboxCreateResult, setSandboxCreateResult] = useState<string | null>(null);
+  const [sandboxHealthError, setSandboxHealthError] = useState<string | null>(null);
 
   const maskApiKey = (key: string) => {
     if (key.length <= 12) return key;
@@ -36,11 +37,15 @@ export function SandboxSettings({ secureStorageAvailable }: { secureStorageAvail
 
   const testSandboxConnection = async () => {
     setIsTestingSandbox(true);
+    setSandboxHealthError(null);
     try {
       const health = await sandboxApi.health();
       setSandboxHealthStatus(health.status === 'healthy' ? 'healthy' : 'error');
-    } catch {
+    } catch (error) {
       setSandboxHealthStatus('error');
+      setSandboxHealthError(
+        error instanceof Error ? error.message : 'Failed to connect to sandbox API'
+      );
     } finally {
       setIsTestingSandbox(false);
     }
@@ -50,13 +55,14 @@ export function SandboxSettings({ secureStorageAvailable }: { secureStorageAvail
     if (sandboxKeyInput.trim()) {
       await setSandboxApiKey(sandboxKeyInput.trim());
       setSandboxKeyInput('');
-      testSandboxConnection();
+      await testSandboxConnection();
     }
   };
 
   const removeSandboxApiKey = async () => {
     await clearSandboxApiKey();
     setSandboxHealthStatus('unknown');
+    setSandboxHealthError(null);
     setSandboxCreateResult(null);
   };
 
@@ -153,6 +159,14 @@ export function SandboxSettings({ secureStorageAvailable }: { secureStorageAvail
                 ) : (
                   <span className="text-gray-500">Unknown</span>
                 )}
+                {sandboxHealthError ? (
+                  <span
+                    className="text-xs text-red-300 block mt-1 max-w-xs truncate"
+                    title={sandboxHealthError}
+                  >
+                    {sandboxHealthError}
+                  </span>
+                ) : null}
               </div>
               <button
                 onClick={testSandboxConnection}

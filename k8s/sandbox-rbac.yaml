@@ -44,6 +44,9 @@ subjects:
   - kind: ServiceAccount
     name: stateset-sandbox-sa
     namespace: apps
+  - kind: ServiceAccount
+    name: default
+    namespace: apps
 roleRef:
   kind: Role
   name: sandbox-pod-manager
@@ -77,6 +80,9 @@ metadata:
 subjects:
   - kind: ServiceAccount
     name: stateset-sandbox-sa
+    namespace: apps
+  - kind: ServiceAccount
+    name: default
     namespace: apps
 roleRef:
   kind: Role

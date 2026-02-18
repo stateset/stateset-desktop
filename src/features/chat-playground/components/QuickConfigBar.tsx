@@ -20,7 +20,7 @@ export function QuickConfigBar({
           onChange={(e) => onModelChange(e.target.value)}
           className="px-2 py-1 bg-gray-800 border border-gray-700 rounded text-gray-300 focus:outline-none focus:border-brand-500"
         >
-          <option value="claude-sonnet-4-20250514">Sonnet 4</option>
+          <option value="claude-sonnet-4-6">Sonnet 4.6</option>
           <option value="claude-opus-4-20250514">Opus 4</option>
           <option value="claude-3-5-sonnet-20241022">Sonnet 3.5</option>
         </select>

@@ -27,8 +27,9 @@ export const AgentSessionConfigSchema = z.object({
   pause_on_error: z.boolean().default(false),
   custom_instructions: z.string().optional().nullable(),
   mcp_servers: z.array(z.string()).nullable().default([]),
-  model: z.string().default('claude-sonnet-4-5-20250929'),
+  model: z.string().default('claude-sonnet-4-6'),
   temperature: z.number().default(0.7),
+  sandbox_api_key: z.string().nullable().optional(),
 });
 
 export const AgentSessionMetricsSchema = z.object({

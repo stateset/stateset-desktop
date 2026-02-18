@@ -8,6 +8,68 @@ import { API_CONFIG } from '../config/api.config';
 
 const ENGINE_API_URL = API_CONFIG.baseUrl;
 
+type ApiErrorPayload = {
+  message?: unknown;
+  error?: unknown;
+  detail?: unknown;
+  details?: unknown;
+  code?: string;
+};
+
+async function parseAuthError(response: Response, defaultMessage: string): Promise<Error> {
+  const status = response.status;
+
+  const responseText = await response.text().catch(() => '');
+  let payload: ApiErrorPayload | null = null;
+
+  if (responseText) {
+    try {
+      payload = JSON.parse(responseText) as ApiErrorPayload;
+    } catch {
+      payload = null;
+    }
+  }
+
+  const fallbackMessage =
+    typeof responseText === 'string' && responseText.trim() ? responseText.trim() : undefined;
+
+  const bodyMessage =
+    typeof payload?.message === 'string'
+      ? payload.message
+      : typeof payload?.error === 'string'
+        ? payload.error
+        : typeof payload?.error === 'object' && payload.error !== null && 'message' in payload.error
+          ? (payload.error as { message?: unknown }).message
+          : undefined;
+  const bodyMessageText = typeof bodyMessage === 'string' ? bodyMessage : undefined;
+  const detailsText =
+    typeof payload?.details === 'string'
+      ? payload.details
+      : typeof payload?.detail === 'string'
+        ? payload.detail
+        : fallbackMessage;
+  const code = payload?.code;
+
+  if (status >= 500) {
+    const serverHint = code ? ` (code: ${code})` : '';
+    return new Error(
+      detailsText
+        ? `${defaultMessage}: ${detailsText}${serverHint}`
+        : bodyMessageText
+          ? `${bodyMessageText}${serverHint}`
+          : `${defaultMessage}${serverHint}`
+    );
+  }
+
+  return new Error(
+    typeof bodyMessageText === 'string' && bodyMessageText.trim()
+      ? bodyMessageText
+      : code
+        ? `${defaultMessage} (code: ${code})`
+        : defaultMessage
+  );
+}
+
 // ============================================
 // Types
 // ============================================
@@ -116,8 +178,7 @@ export async function registerUser(data: RegistrationRequest): Promise<Registrat
         'Registration is not yet available. Please use an API key to sign in, or contact support for access.'
       );
     }
-    const error = await response.json().catch(() => ({ message: 'Registration failed' }));
-    throw new Error(error.message || error.error || 'Registration failed');
+    throw await parseAuthError(response, 'Registration failed');
   }
 
   return response.json();
@@ -154,8 +215,7 @@ export async function loginWithEmail(data: LoginRequest): Promise<LoginResponse>
     if (response.status === 404) {
       throw new Error('Email login is not yet available. Please use an API key to sign in.');
     }
-    const error = await response.json().catch(() => ({ message: 'Login failed' }));
-    throw new Error(error.message || error.error || 'Invalid email or password');
+    throw await parseAuthError(response, 'Invalid email or password');
   }
 
   return response.json();
@@ -189,8 +249,7 @@ export async function requestPasswordReset(email: string): Promise<void> {
   }
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Request failed' }));
-    throw new Error(error.message || error.error || 'Failed to send reset email');
+    throw await parseAuthError(response, 'Failed to send reset email');
   }
 }
 

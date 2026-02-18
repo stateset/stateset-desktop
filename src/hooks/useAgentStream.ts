@@ -68,6 +68,7 @@ const normalizeStreamStatusErrorMessage = (status: number | null): string => {
 
 type StreamAuthCandidate = {
   headers: Record<string, string>;
+  query: Record<string, string>;
   description: string;
 };
 
@@ -79,6 +80,27 @@ const shouldAllowApiKeyInStreamHeader = (): boolean => {
 
   const normalized = raw.trim().toLowerCase();
   return normalized === 'true' || normalized === '1' || normalized === 'yes' || normalized === 'on';
+};
+
+const buildStreamUrl = (baseUrl: string, query: Record<string, string>): string => {
+  const entries = Object.entries(query).filter(([, value]) => Boolean(value));
+  if (!entries.length) {
+    return baseUrl;
+  }
+
+  try {
+    const nextUrl = new URL(baseUrl);
+    entries.forEach(([key, value]) => {
+      nextUrl.searchParams.set(key, value);
+    });
+    return nextUrl.toString();
+  } catch (error) {
+    void error;
+    const queryString = entries
+      .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
+      .join('&');
+    return `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}${queryString}`;
+  }
 };
 
 export function buildStreamAuthCandidates(
@@ -98,7 +120,7 @@ export function buildStreamAuthCandidates(
   allowApiKeyFallback?: boolean
 ): StreamAuthCandidate[] {
   const candidates: StreamAuthCandidate[] = [];
-  const seenHeaders = new Set<string>();
+  const seenSignatures = new Set<string>();
   const isApiKeyFallbackEnabled =
     typeof allowApiKeyFallback === 'boolean'
       ? allowApiKeyFallback
@@ -112,23 +134,43 @@ export function buildStreamAuthCandidates(
     return trimmed || null;
   };
 
-  const addCandidate = (description: string, authorization: string): void => {
-    if (seenHeaders.has(authorization)) {
+  const addCandidate = (
+    description: string,
+    headers: Record<string, string>,
+    query: Record<string, string> = {}
+  ): void => {
+    const normalizedHeaders = Object.entries(headers)
+      .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
+      .reduce<Record<string, string>>((acc, [key, value]) => {
+        acc[key] = value;
+        return acc;
+      }, {});
+    const normalizedQuery = Object.entries(query)
+      .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
+      .reduce<Record<string, string>>((acc, [key, value]) => {
+        acc[key] = value;
+        return acc;
+      }, {});
+    const signature = JSON.stringify({ headers: normalizedHeaders, query: normalizedQuery });
+
+    if (seenSignatures.has(signature)) {
       return;
     }
-    seenHeaders.add(authorization);
-    candidates.push({ description, headers: { Authorization: authorization } });
+    seenSignatures.add(signature);
+    candidates.push({ description, headers, query: normalizedQuery });
   };
 
   const tokenValue = sanitize(token);
   if (tokenValue) {
-    addCandidate('Bearer stream token', `Bearer ${tokenValue}`);
-    addCandidate('ApiKey stream token', `ApiKey ${tokenValue}`);
+    addCandidate('Stream token', {}, { token: tokenValue });
+    addCandidate('Stream token (alias)', {}, { stream_token: tokenValue });
   }
 
   const apiKeyValue = sanitize(apiKey);
   if (isApiKeyFallbackEnabled && apiKeyValue) {
-    addCandidate('API key', `ApiKey ${apiKeyValue}`);
+    addCandidate('API key query', {}, { api_key: apiKeyValue });
+    addCandidate('API key header', { Authorization: `ApiKey ${apiKeyValue}` });
+    addCandidate('Bearer API key header', { Authorization: `Bearer ${apiKeyValue}` });
   }
 
   return candidates;
@@ -620,12 +662,8 @@ export function useAgentStream({
         return;
       }
 
-      if (!token && (!allowApiKeyFallback || !apiKey)) {
-        setStreamError(
-          allowApiKeyFallback
-            ? 'Secure stream token unavailable.'
-            : 'Secure stream token unavailable and API key fallback is disabled.'
-        );
+      if (!token && !apiKey) {
+        setStreamError('Secure stream token unavailable.');
         setIsConnecting(false);
         return;
       }
@@ -634,21 +672,28 @@ export function useAgentStream({
       const streamController = new AbortController();
       streamAbortRef.current = streamController;
 
-      const streamAuthCandidates = buildStreamAuthCandidates(token, apiKey, allowApiKeyFallback);
+      const shouldTryApiKeyFallback = allowApiKeyFallback || token === null;
+      const streamAuthCandidates = buildStreamAuthCandidates(
+        token,
+        apiKey,
+        shouldTryApiKeyFallback
+      );
       let response: Response | null = null;
       let lastResponseStatus: number | null = null;
+      let hadUnauthorizedResponse = false;
 
       for (const candidate of streamAuthCandidates) {
         if (!isCurrentAttempt() || !connectRequestedRef.current) {
           return;
         }
+        const streamUrlWithAuth = buildStreamUrl(streamUrl, candidate.query);
         const headers = {
           Accept: 'text/event-stream',
           ...candidate.headers,
         };
 
         try {
-          const streamResponse = await fetch(streamUrl, {
+          const streamResponse = await fetch(streamUrlWithAuth, {
             signal: streamController.signal,
             headers,
           });
@@ -658,6 +703,9 @@ export function useAgentStream({
             break;
           }
           lastResponseStatus = streamResponse.status;
+          if (streamResponse.status === 401 || streamResponse.status === 403) {
+            hadUnauthorizedResponse = true;
+          }
 
           void streamResponse.body?.cancel();
 
@@ -682,6 +730,15 @@ export function useAgentStream({
 
       if (!response || !isCurrentAttempt() || !connectRequestedRef.current) {
         if (isCurrentAttempt() && connectRequestedRef.current) {
+          if (hadUnauthorizedResponse) {
+            setStreamError(normalizeStreamStatusErrorMessage(lastResponseStatus ?? 401));
+            setIsConnecting(false);
+            setIsConnected(false);
+            if (streamAbortRef.current === streamController) {
+              streamAbortRef.current = null;
+            }
+            return;
+          }
           setStreamError(normalizeStreamStatusErrorMessage(lastResponseStatus));
         }
         setIsConnecting(false);
@@ -694,9 +751,15 @@ export function useAgentStream({
 
       if (!response.ok) {
         const status = response?.status ?? lastResponseStatus ?? null;
+        const isAuthError = status === 401 || status === 403;
         setStreamError(normalizeStreamStatusErrorMessage(status));
         setIsConnecting(false);
-        scheduleReconnect();
+        if (isAuthError) {
+          setIsConnected(false);
+        }
+        if (!isAuthError) {
+          scheduleReconnect();
+        }
         if (streamAbortRef.current === streamController) {
           streamAbortRef.current = null;
         }

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useAuthStore } from '../stores/auth';
+import { useAuthStore, normalizeSandboxApiKey } from '../stores/auth';
 import {
   Bot,
   Mail,
@@ -30,7 +30,7 @@ export default function Register() {
   const [showPassword, setShowPassword] = useState(false);
   const [step, setStep] = useState<'form' | 'success'>('form');
 
-  const { login, setSandboxApiKey } = useAuthStore();
+  const { login, setSandboxApiKey, clearSandboxApiKey } = useAuthStore();
   const navigate = useNavigate();
 
   const passwordValidation = validatePassword(formData.password);
@@ -68,14 +68,17 @@ export default function Register() {
         company: formData.company.trim() || undefined,
       });
 
-      // Auto-set both API keys
+      // Auto-set API key pair
       if (result.credentials) {
         // Set Engine API key via login
         await login(result.credentials.engine_api_key);
 
-        // Set Sandbox API key
-        if (result.credentials.sandbox_api_key) {
-          await setSandboxApiKey(result.credentials.sandbox_api_key);
+        // Set sandbox API key only when a real sandbox key is available
+        const sandboxApiKey = normalizeSandboxApiKey(result.credentials.sandbox_api_key);
+        if (sandboxApiKey) {
+          await setSandboxApiKey(sandboxApiKey);
+        } else {
+          await clearSandboxApiKey();
         }
       }
 

@@ -15,7 +15,7 @@ export interface AgentTemplate {
 
 /** Default configuration for new agents */
 export const DEFAULT_AGENT_CONFIG: Partial<AgentSessionConfig> = {
-  model: 'claude-sonnet-4-20250514',
+  model: 'claude-sonnet-4-6',
   temperature: 0.7,
   max_iterations: 50,
   iteration_timeout_secs: 30,
@@ -28,7 +28,7 @@ export const DEFAULT_AGENT_CONFIG: Partial<AgentSessionConfig> = {
 /** Available models for agent configuration */
 export const AVAILABLE_MODELS = [
   {
-    id: 'claude-sonnet-4-20250514',
+    id: 'claude-sonnet-4-6',
     name: 'Claude Sonnet 4',
     description: 'Balanced performance and speed',
   },

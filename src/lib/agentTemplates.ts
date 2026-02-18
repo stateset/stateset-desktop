@@ -15,7 +15,7 @@ export const BUILT_IN_TEMPLATES: AgentTemplate[] = [
     agentType: 'interactive',
     config: {
       mcp_servers: [],
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       temperature: 0.7,
       loop_interval_ms: 1000,
       max_iterations: 100,
@@ -33,7 +33,7 @@ export const BUILT_IN_TEMPLATES: AgentTemplate[] = [
     agentType: 'interactive',
     config: {
       mcp_servers: ['gorgias'],
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       temperature: 0.5,
       loop_interval_ms: 2000,
       max_iterations: 50,
@@ -53,7 +53,7 @@ export const BUILT_IN_TEMPLATES: AgentTemplate[] = [
     agentType: 'interactive',
     config: {
       mcp_servers: ['shopify'],
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       temperature: 0.3,
       loop_interval_ms: 2000,
       max_iterations: 100,
@@ -73,7 +73,7 @@ export const BUILT_IN_TEMPLATES: AgentTemplate[] = [
     agentType: 'interactive',
     config: {
       mcp_servers: ['shopify', 'gorgias'],
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       temperature: 0.5,
       loop_interval_ms: 5000,
       max_iterations: 200,
@@ -91,7 +91,7 @@ export const BUILT_IN_TEMPLATES: AgentTemplate[] = [
     agentType: 'interactive',
     config: {
       mcp_servers: ['gorgias'],
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       temperature: 0.2,
       loop_interval_ms: 3000,
       max_iterations: 500,
@@ -111,7 +111,7 @@ export const BUILT_IN_TEMPLATES: AgentTemplate[] = [
     agentType: 'interactive',
     config: {
       mcp_servers: ['shopify', 'shipstation'],
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       temperature: 0.1,
       loop_interval_ms: 10000,
       max_iterations: 1000,
@@ -131,7 +131,7 @@ export const BUILT_IN_TEMPLATES: AgentTemplate[] = [
     agentType: 'interactive',
     config: {
       mcp_servers: ['shopify', 'gorgias'],
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       temperature: 0.3,
       loop_interval_ms: 2000,
       max_iterations: 100,
@@ -151,7 +151,7 @@ export const BUILT_IN_TEMPLATES: AgentTemplate[] = [
     agentType: 'interactive',
     config: {
       mcp_servers: ['shopify'],
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       temperature: 0.4,
       loop_interval_ms: 5000,
       max_iterations: 50,

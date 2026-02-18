@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useAuthStore, type AuthError } from '../stores/auth';
+import { useAuthStore, normalizeSandboxApiKey, type AuthError } from '../stores/auth';
 import {
   Bot,
   Key,
@@ -73,6 +73,7 @@ export default function Login() {
   const {
     login,
     setSandboxApiKey,
+    clearSandboxApiKey,
     initialize,
     isAuthenticated,
     error: authError,
@@ -135,8 +136,12 @@ export default function Login() {
 
         if (result.credentials) {
           await login(result.credentials.engine_api_key);
-          if (result.credentials.sandbox_api_key) {
-            await setSandboxApiKey(result.credentials.sandbox_api_key);
+          // Set only a valid sandbox key to avoid using invalid placeholder values.
+          const sandboxApiKey = normalizeSandboxApiKey(result.credentials.sandbox_api_key);
+          if (sandboxApiKey) {
+            await setSandboxApiKey(sandboxApiKey);
+          } else {
+            await clearSandboxApiKey();
           }
         }
       } else {

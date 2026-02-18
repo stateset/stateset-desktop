@@ -9,6 +9,7 @@ import type {
 import { useAuthStore } from '../stores/auth';
 import { apiCircuitBreaker, CircuitBreakerError } from './circuit-breaker';
 import { API_CONFIG } from '../config/api.config';
+import { useAuthStore } from '../stores/auth';
 import { apiDeduplicator, createRequestKey } from './requestDeduplication';
 import { apiLogger } from './logger';
 import { recordApiCall } from './metrics';
@@ -36,12 +37,131 @@ function encodeQueryValue(value: string): string {
 }
 
 // Helper to get auth headers
-function getHeaders(): HeadersInit {
+type AuthHeaderCandidate = {
+  headers: Record<string, string>;
+  description: string;
+};
+
+function getStoredApiKey(): string | null {
   const apiKey = useAuthStore.getState().apiKey;
-  return {
-    'Content-Type': 'application/json',
-    ...(apiKey ? { Authorization: `ApiKey ${apiKey}` } : {}),
+  if (typeof apiKey !== 'string') {
+    return null;
+  }
+  const trimmed = apiKey.trim();
+  return trimmed || null;
+}
+
+function buildAuthHeaderCandidates(apiKey: string | null): AuthHeaderCandidate[] {
+  if (!apiKey) {
+    return [{ headers: {}, description: 'No API key' }];
+  }
+
+  const candidates: AuthHeaderCandidate[] = [];
+  const seenSignatures = new Set<string>();
+
+  const addCandidate = (description: string, headers: Record<string, string>): void => {
+    const normalized = JSON.stringify(
+      Object.entries(headers)
+        .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+        .reduce<Record<string, string>>((acc, [key, value]) => {
+          acc[key] = value;
+          return acc;
+        }, {})
+    );
+
+    if (seenSignatures.has(normalized)) {
+      return;
+    }
+    seenSignatures.add(normalized);
+    candidates.push({ headers, description });
   };
+
+  addCandidate('ApiKey Authorization', { Authorization: `ApiKey ${apiKey}` });
+  addCandidate('Bearer Authorization', { Authorization: `Bearer ${apiKey}` });
+  addCandidate('X-API-Key', { 'X-API-Key': apiKey });
+
+  // Keep a no-auth fallback for endpoints that permit unauthenticated access (health, etc.).
+  addCandidate('No Authorization', {});
+  return candidates;
+}
+
+function shouldSendJsonContentType(body: RequestInit['body']): boolean {
+  if (body === undefined || body === null) {
+    return false;
+  }
+  if (typeof body === 'string') {
+    return body.length > 0;
+  }
+  if (body instanceof FormData) {
+    return false;
+  }
+  if (body instanceof URLSearchParams) {
+    return false;
+  }
+  return true;
+}
+
+function getAuthCandidateFromHeaders(headers: Record<string, string>): AuthHeaderCandidate | null {
+  if (headers.Authorization) {
+    return {
+      headers: { Authorization: headers.Authorization },
+      description: 'Explicit Authorization',
+    };
+  }
+  if (headers['X-API-Key']) {
+    return { headers: { 'X-API-Key': headers['X-API-Key'] }, description: 'Explicit X-API-Key' };
+  }
+  if (headers['X-Api-Key']) {
+    return { headers: { 'X-Api-Key': headers['X-Api-Key'] }, description: 'Explicit X-Api-Key' };
+  }
+  return null;
+}
+
+function normalizeHeaders(headers: HeadersInit | undefined): Record<string, string> {
+  if (!headers) {
+    return {};
+  }
+
+  if (headers instanceof Headers) {
+    const copy: Record<string, string> = {};
+    headers.forEach((value, key) => {
+      copy[key] = value;
+    });
+    return copy;
+  }
+
+  if (Array.isArray(headers)) {
+    return headers.reduce<Record<string, string>>((acc, [key, value]) => {
+      acc[key] = value;
+      return acc;
+    }, {});
+  }
+
+  return { ...headers } as Record<string, string>;
+}
+
+function buildRequestHeaders(
+  authHeader: AuthHeaderCandidate,
+  headers: HeadersInit | undefined | undefined,
+  body: RequestInit['body']
+): Record<string, string> {
+  const normalizedHeaders = normalizeHeaders(headers);
+  delete normalizedHeaders.Authorization;
+  delete normalizedHeaders.authorization;
+
+  const requestHeaders: Record<string, string> = {
+    ...normalizedHeaders,
+  };
+
+  Object.entries(authHeader.headers).forEach(([headerName, headerValue]) => {
+    requestHeaders[headerName] = headerValue;
+  });
+
+  if (shouldSendJsonContentType(body) && !('Content-Type' in requestHeaders)) {
+    requestHeaders['Content-Type'] = 'application/json';
+  }
+
+  return requestHeaders;
 }
 
 type ApiRequestOptions = RequestInit & {
@@ -139,14 +259,52 @@ async function apiRequestInternal<T>(path: string, options: ApiRequestOptions = 
     const timeoutId = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
 
     try {
-      const response = await fetch(`${API_URL}${path}`, {
-        ...fetchOptions,
-        signal: fetchOptions.signal ?? controller?.signal,
-        headers: {
-          ...getHeaders(),
-          ...fetchOptions.headers,
-        },
-      });
+      const requestedApiKey = getStoredApiKey();
+      const explicitHeaders = normalizeHeaders(fetchOptions.headers);
+      const explicitApiKeyHeader = explicitHeaders['X-API-Key']
+        ? {
+            headers: { 'X-API-Key': explicitHeaders['X-API-Key'] },
+            description: 'Explicit X-API-Key',
+          }
+        : explicitHeaders['X-Api-Key']
+          ? {
+              headers: { 'X-API-Key': explicitHeaders['X-Api-Key'] },
+              description: 'Explicit X-Api-Key',
+            }
+          : null;
+      const explicitAuthCandidate =
+        getAuthCandidateFromHeaders(explicitHeaders) ?? explicitApiKeyHeader;
+
+      const authHeaderCandidates = explicitAuthCandidate
+        ? [explicitAuthCandidate]
+        : buildAuthHeaderCandidates(requestedApiKey);
+      let response: Response | null = null;
+
+      for (let candidateIndex = 0; candidateIndex < authHeaderCandidates.length; candidateIndex++) {
+        const authHeader = authHeaderCandidates[candidateIndex];
+        const candidateResponse = await fetch(`${API_URL}${path}`, {
+          ...fetchOptions,
+          signal: fetchOptions.signal ?? controller?.signal,
+          headers: buildRequestHeaders(authHeader, fetchOptions.headers, fetchOptions.body),
+        });
+        response = candidateResponse;
+
+        if (candidateResponse.ok) {
+          break;
+        }
+
+        lastStatus = candidateResponse.status;
+        const isAuthError = lastStatus === 401 || lastStatus === 403;
+        if (isAuthError && candidateIndex < authHeaderCandidates.length - 1) {
+          void candidateResponse.body?.cancel();
+          continue;
+        }
+        break;
+      }
+
+      if (!response) {
+        throw new Error('Request failed to receive response');
+      }
 
       lastStatus = response.status;
       const contentType = response.headers.get('content-type') || '';
@@ -154,20 +312,22 @@ async function apiRequestInternal<T>(path: string, options: ApiRequestOptions = 
       const isJson = contentType.includes('application/json');
 
       if (!response.ok) {
-        let errorMessage = `HTTP ${response.status}`;
-
-        if (isJson && bodyText) {
+        const parsedError = (() => {
+          if (!isJson || !bodyText) {
+            return bodyText || `HTTP ${response.status}`;
+          }
           try {
             const parsed = JSON.parse(bodyText) as { error?: string; message?: string };
-            errorMessage = parsed.error || parsed.message || errorMessage;
+            return parsed.error || parsed.message || `HTTP ${response.status}`;
           } catch {
-            // Ignore JSON parse errors
+            return bodyText || `HTTP ${response.status}`;
           }
-        } else if (bodyText) {
-          errorMessage = bodyText;
-        }
+        })();
+        let errorMessage = `HTTP ${response.status}`;
+        errorMessage = parsedError;
 
         const error = new Error(errorMessage);
+        (error as Error & { status: number }).status = response.status;
         lastError = error;
 
         // Check if we should retry
@@ -312,11 +472,20 @@ export const agentApi = {
     agentType: string,
     config?: Partial<AgentSessionConfig>
   ): Promise<AgentSession> => {
+    const storedSandboxApiKey = useAuthStore.getState().sandboxApiKey;
+    const enrichedConfig =
+      storedSandboxApiKey || config
+        ? {
+            ...(config ?? {}),
+            sandbox_api_key: config?.sandbox_api_key || storedSandboxApiKey || undefined,
+          }
+        : undefined;
+
     const raw = await apiRequest<unknown>(
       buildPath('tenants', tenantId, 'brands', brandId, 'agents'),
       {
         method: 'POST',
-        body: JSON.stringify({ agent_type: agentType, config }),
+        body: JSON.stringify({ agent_type: agentType, config: enrichedConfig }),
       }
     );
     const response = validateResponse(SessionResponseSchema, raw);
@@ -406,7 +575,7 @@ export const agentApi = {
     );
   },
 
-  // Get SSE stream URL (base stream endpoint; auth is sent via headers)
+  // Get SSE stream URL (auth is provided via query params by the desktop client).
   getStreamUrl: (tenantId: string, brandId: string, sessionId: string): string => {
     return `${API_URL}${buildPath('tenants', tenantId, 'brands', brandId, 'agents', sessionId, 'stream')}`;
   },

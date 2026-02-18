@@ -7,7 +7,7 @@ export const DEFAULT_AGENT_CONFIG: AgentSessionConfig = {
   pause_on_error: false,
   custom_instructions: '',
   mcp_servers: [],
-  model: 'claude-sonnet-4-20250514',
+  model: 'claude-sonnet-4-6',
   temperature: 0.7,
 };
 
@@ -58,6 +58,10 @@ export function normalizeAgentConfig(
   const customInstructions =
     typeof merged.custom_instructions === 'string' ? merged.custom_instructions.trim() : '';
   const pauseOnError = Boolean(merged.pause_on_error);
+  const sandboxApiKey =
+    merged.sandbox_api_key === null || merged.sandbox_api_key === undefined
+      ? undefined
+      : String(merged.sandbox_api_key);
 
   return {
     loop_interval_ms: loopInterval,
@@ -68,5 +72,6 @@ export function normalizeAgentConfig(
     mcp_servers: mcpServers,
     model,
     temperature,
+    sandbox_api_key: sandboxApiKey,
   };
 }

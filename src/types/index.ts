@@ -17,6 +17,7 @@ export interface AgentSessionConfig {
   mcp_servers: string[] | null;
   model: string;
   temperature: number;
+  sandbox_api_key?: string | null;
 }
 
 export interface AgentSessionMetrics {

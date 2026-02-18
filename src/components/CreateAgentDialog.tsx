@@ -113,11 +113,11 @@ export function CreateAgentDialog({
                 <label className="space-y-1">
                   <span className="text-sm text-gray-400">Model</span>
                   <select
-                    value={finalConfig.model || 'claude-sonnet-4-20250514'}
+                    value={finalConfig.model || 'claude-sonnet-4-6'}
                     onChange={(e) => updateCustomConfig({ model: e.target.value })}
                     className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500"
                   >
-                    <option value="claude-sonnet-4-20250514">Claude Sonnet 4 (Recommended)</option>
+                    <option value="claude-sonnet-4-6">Claude Sonnet 4.6 (Recommended)</option>
                     <option value="claude-opus-4-20250514">Claude Opus 4</option>
                     <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
                   </select>

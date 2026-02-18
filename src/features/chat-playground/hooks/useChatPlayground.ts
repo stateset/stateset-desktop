@@ -22,7 +22,7 @@ export function useChatPlayground(options: UseChatPlaygroundOptions = {}) {
     const bid = requireBrandId(currentBrand);
 
     const session = await agentApi.createSession(tid, bid, 'interactive', {
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       temperature: 0.7,
       loop_interval_ms: 1000,
       max_iterations: 50,

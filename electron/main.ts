@@ -118,6 +118,22 @@ const ALLOWED_PERMISSION_TYPES = new Set(['clipboard-read', 'clipboard-write']);
 const APP_RENDERER_ROOT = path.normalize(path.join(__dirname, '../renderer'));
 const CONFIGURED_API_ENDPOINT = getConfiguredApiEndpoint();
 const CONFIGURED_API_URL = new URL(CONFIGURED_API_ENDPOINT);
+const CONFIGURED_SANDBOX_API_URL =
+  process.env.VITE_SANDBOX_API_URL ||
+  process.env.SANDBOX_API_URL ||
+  'https://api.sandbox.stateset.app';
+const SANDBOX_API_URL = (() => {
+  try {
+    return new URL(CONFIGURED_SANDBOX_API_URL);
+  } catch {
+    return new URL('https://api.sandbox.stateset.app');
+  }
+})();
+const CORS_ORIGIN_URLS = [
+  `${CONFIGURED_API_URL.protocol}//${CONFIGURED_API_URL.host}/*`,
+  `${SANDBOX_API_URL.protocol}//${SANDBOX_API_URL.host}/*`,
+];
+const API_REQUEST_URL_PATTERNS = Array.from(new Set(CORS_ORIGIN_URLS));
 const CONFIGURED_API_WS_SCHEME = CONFIGURED_API_URL.protocol === 'https:' ? 'wss:' : 'ws:';
 const CSP_CONNECT_HOSTS = app.isPackaged
   ? `${CONFIGURED_API_URL.origin} ${CONFIGURED_API_WS_SCHEME}//${CONFIGURED_API_URL.host}`
@@ -198,7 +214,8 @@ function sanitizeStringRecord(value: unknown): Record<string, string> {
 
   for (const [key, item] of Object.entries(value)) {
     const sanitized = sanitizeValue(item);
-    output[key] = typeof sanitized === 'string' ? sanitizeSensitiveText(sanitized) : String(sanitized);
+    output[key] =
+      typeof sanitized === 'string' ? sanitizeSensitiveText(sanitized) : String(sanitized);
   }
 
   return output;
@@ -733,10 +750,9 @@ function createWindow() {
     },
   });
 
-  // Inject CORS headers for API requests so the renderer can reach the API
-  const API_HOST = CONFIGURED_API_URL.host;
+  // Inject CORS headers for API requests so the renderer can reach the API/sandbox endpoints
   mainWindow.webContents.session.webRequest.onHeadersReceived(
-    { urls: [`${CONFIGURED_API_URL.protocol}//${API_HOST}/*`] },
+    { urls: API_REQUEST_URL_PATTERNS },
     (details, callback) => {
       const headers = { ...details.responseHeaders };
       const allowedOrigin = resolveCorsOrigin(details);

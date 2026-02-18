@@ -3,6 +3,36 @@ import type { Tenant, Brand } from '../types';
 import { API_CONFIG } from '../config/api.config';
 import { useAuditLogStore } from './auditLog';
 
+const INVALID_SANDBOX_API_KEY_VALUES = new Set([
+  'sandbox_key_pending',
+  'placeholder',
+  'pending',
+  'not_set',
+  'none',
+  'null',
+  'undefined',
+]);
+
+const normalize = (value: string): string => value.trim();
+
+export function normalizeSandboxApiKey(raw?: string | null): string | null {
+  if (!raw || typeof raw !== 'string') {
+    return null;
+  }
+
+  const trimmed = normalize(raw);
+  if (!trimmed) {
+    return null;
+  }
+
+  const lowered = trimmed.toLowerCase();
+  if (INVALID_SANDBOX_API_KEY_VALUES.has(lowered)) {
+    return null;
+  }
+
+  return trimmed;
+}
+
 /**
  * Authentication error types for better error handling
  */
@@ -138,12 +168,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       const e2eAuth = typeof window !== 'undefined' ? window.__E2E_AUTH__ : null;
       const isE2ETest = window.electronAPI?.app?.isE2ETest === true;
+      const effectiveSandboxKey = normalizeSandboxApiKey(storedSandboxKey);
+      if (
+        storedSandboxKey &&
+        !effectiveSandboxKey &&
+        window.electronAPI?.auth?.clearSandboxApiKey
+      ) {
+        await window.electronAPI.auth.clearSandboxApiKey();
+      }
 
       if (isE2ETest && e2eAuth?.tenant && Array.isArray(e2eAuth.brands)) {
         set({
           isAuthenticated: true,
           apiKey: storedKey || 'e2e-test-key',
-          sandboxApiKey: storedSandboxKey || null,
+          sandboxApiKey: effectiveSandboxKey || null,
           tenant: e2eAuth.tenant,
           brands: e2eAuth.brands,
           currentBrand: e2eAuth.brands?.[0] || null,
@@ -171,7 +209,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             set({
               isAuthenticated: true,
               apiKey: storedKey,
-              sandboxApiKey: storedSandboxKey || null,
+              sandboxApiKey: effectiveSandboxKey,
               tenant: data.tenant,
               brands: data.brands || [],
               currentBrand: data.brands?.[0] || null,
@@ -186,7 +224,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             await window.electronAPI.auth.clearApiKey();
             set({
               isLoading: false,
-              sandboxApiKey: storedSandboxKey || null,
+              sandboxApiKey: effectiveSandboxKey,
               error: {
                 code: 'SESSION_EXPIRED',
                 message: 'Your session has expired',
@@ -207,7 +245,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           set({
             isAuthenticated: true,
             apiKey: storedKey,
-            sandboxApiKey: storedSandboxKey || null,
+            sandboxApiKey: effectiveSandboxKey,
             isLoading: false,
             error: {
               code: 'NETWORK_ERROR',
@@ -220,7 +258,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
 
       // Even if not authenticated, load sandbox key if present
-      set({ isLoading: false, sandboxApiKey: storedSandboxKey || null });
+      set({ isLoading: false, sandboxApiKey: effectiveSandboxKey });
     } catch (error) {
       console.error('Failed to initialize auth:', error);
       set({
@@ -357,10 +395,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   setSandboxApiKey: async (apiKey: string) => {
-    if (window.electronAPI) {
-      await window.electronAPI.auth.setSandboxApiKey(apiKey);
+    const normalizedApiKey = normalizeSandboxApiKey(apiKey);
+
+    if (!normalizedApiKey) {
+      if (window.electronAPI) {
+        await window.electronAPI.auth.clearSandboxApiKey();
+      }
+      set({ sandboxApiKey: null });
+      return;
     }
-    set({ sandboxApiKey: apiKey });
+
+    if (window.electronAPI) {
+      await window.electronAPI.auth.setSandboxApiKey(normalizedApiKey);
+    }
+    set({ sandboxApiKey: normalizedApiKey });
   },
 
   clearSandboxApiKey: async () => {

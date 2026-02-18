@@ -12,7 +12,7 @@ import type { ChatConversation } from '../../../types';
 
 export function ChatPlayground() {
   const { showToast } = useToast();
-  const [model, setModel] = useState('claude-sonnet-4-20250514');
+  const [model, setModel] = useState('claude-sonnet-4-6');
   const [temperature, setTemperature] = useState(0.7);
   const [activeConvoId, setActiveConvoId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
