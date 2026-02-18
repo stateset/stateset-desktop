@@ -256,11 +256,24 @@ jobs:
           merge-multiple: false
 
       - name: Collect release files
+        id: collect_release_files
         run: |
           mkdir -p release-assets
-          find artifacts -type f \( -name "*.dmg" -o -name "*.zip" -o -name "*.exe" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.yml" -o -name "*.blockmap" \) -exec cp {} release-assets/ \;
+          while IFS= read -r -d '' file; do
+            artifact_dir=${file#artifacts/}
+            artifact_name=${artifact_dir%%/*}
+            base_name=${artifact_dir##*/}
+            cp "$file" "release-assets/${artifact_name}-${base_name}"
+          done < <(find artifacts -type f \
+            \( -name "*.dmg" -o -name "*.zip" -o -name "*.exe" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.yml" -o -name "*.blockmap" \) \
+            -print0)
           echo "Release assets:"
           ls -lh release-assets/
+          {
+            echo "files<<EOF"
+            find release-assets -type f -print
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Get version from tag
         id: version
@@ -279,7 +292,8 @@ jobs:
           draft: false
           prerelease: ${{ contains(steps.version.outputs.version, 'beta') || contains(steps.version.outputs.version, 'alpha') }}
           generate_release_notes: true
-          files: release-assets/*
+          files: ${{ steps.collect_release_files.outputs.files }}
+          fail_on_unmatched_files: true
           body: |
             ## StateSet Desktop v${{ steps.version.outputs.version }}
 
