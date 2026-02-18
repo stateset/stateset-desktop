@@ -1,0 +1,320 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [main, master]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+    inputs:
+      release:
+        description: 'Create a release'
+        required: false
+        type: boolean
+        default: false
+
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  # Run tests first
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linter
+        run: npm run lint
+
+      - name: Run type check
+        run: npm run typecheck
+
+      - name: Run unit tests
+        run: npm run test
+
+      - name: Build Electron (tsc)
+        run: npm run build:electron
+
+      - name: Build Renderer (Vite)
+        run: npm run build:vite
+
+  e2e:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    # Run E2E on all events (PRs included) to catch regressions before merge
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright dependencies
+        run: npx playwright install --with-deps
+
+      - name: Run E2E tests
+        run: xvfb-run -a npm run test:e2e
+        env:
+          CI: true
+          STATESET_ENGINE_API_KEY: ${{ secrets.STATESET_ENGINE_API_KEY }}
+          STATESET_SANDBOX_API_KEY: ${{ secrets.STATESET_SANDBOX_API_KEY }}
+
+      - name: Upload Playwright artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts
+          path: |
+            playwright-report
+            test-results
+
+  # Build for macOS
+  build-macos:
+    needs: [test, e2e]
+    runs-on: macos-latest
+    if: ${{ always() && (github.event_name == 'pull_request' || needs.e2e.result == 'success') }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check code signing
+        id: signing
+        run: |
+          if [ -n "$CSC_LINK" ]; then
+            echo "has_certs=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_certs=false" >> $GITHUB_OUTPUT
+          fi
+        env:
+          CSC_LINK: ${{ secrets.MAC_CERTS }}
+
+      - name: Build Electron app (signed)
+        if: steps.signing.outputs.has_certs == 'true'
+        run: npm run build:mac -- --publish never
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_LINK: ${{ secrets.MAC_CERTS }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTS_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      - name: Build Electron app (unsigned)
+        if: steps.signing.outputs.has_certs != 'true'
+        run: npm run build:mac -- --publish never
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-builds
+          path: |
+            release/*.dmg
+            release/*.zip
+            release/*.yml
+            release/*.blockmap
+          if-no-files-found: error
+
+  # Build for Windows
+  build-windows:
+    needs: [test, e2e]
+    runs-on: windows-latest
+    if: ${{ always() && (github.event_name == 'pull_request' || needs.e2e.result == 'success') }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check code signing
+        id: signing
+        shell: bash
+        run: |
+          if [ -n "$WIN_CSC_LINK" ]; then
+            echo "has_certs=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_certs=false" >> $GITHUB_OUTPUT
+          fi
+        env:
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+
+      - name: Build Electron app (signed)
+        if: steps.signing.outputs.has_certs == 'true'
+        run: npm run build:win -- --publish never
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+
+      - name: Strip signing config for unsigned build
+        if: steps.signing.outputs.has_certs != 'true'
+        shell: bash
+        run: node -e "const fs=require('fs'), p=JSON.parse(fs.readFileSync('package.json','utf8')); delete p.build.win.signtoolOptions; fs.writeFileSync('package.json', JSON.stringify(p, null, 2)+'\n')"
+
+      - name: Build Electron app (unsigned)
+        if: steps.signing.outputs.has_certs != 'true'
+        run: npm run build:win -- --publish never
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-builds
+          path: |
+            release/*.exe
+            release/*.yml
+            release/*.blockmap
+          if-no-files-found: error
+
+  # Build for Linux
+  build-linux:
+    needs: [test, e2e]
+    runs-on: ubuntu-latest
+    if: ${{ always() && (github.event_name == 'pull_request' || needs.e2e.result == 'success') }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Electron app
+        run: npm run build:linux -- --publish never
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Linux artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-builds
+          path: |
+            release/*.AppImage
+            release/*.deb
+            release/*.rpm
+            release/*.yml
+            release/*.blockmap
+          if-no-files-found: error
+
+  # Create GitHub Release (only on tags or manual trigger)
+  release:
+    needs: [build-macos, build-windows, build-linux]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v') || github.event.inputs.release == 'true'
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: false
+
+      - name: Collect release files
+        run: |
+          mkdir -p release-assets
+          find artifacts -type f \( -name "*.dmg" -o -name "*.zip" -o -name "*.exe" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" -o -name "*.yml" -o -name "*.blockmap" \) -exec cp {} release-assets/ \;
+          echo "Release assets:"
+          ls -lh release-assets/
+
+      - name: Get version from tag
+        id: version
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+          else
+            echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: StateSet Desktop v${{ steps.version.outputs.version }}
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('v{0}', steps.version.outputs.version) }}
+          draft: false
+          prerelease: ${{ contains(steps.version.outputs.version, 'beta') || contains(steps.version.outputs.version, 'alpha') }}
+          generate_release_notes: true
+          files: release-assets/*
+          body: |
+            ## StateSet Desktop v${{ steps.version.outputs.version }}
+
+            Autonomous AI agents for customer service operations.
+
+            ### Downloads
+
+            | Platform | Download |
+            |----------|----------|
+            | **macOS (Intel)** | StateSet-${{ steps.version.outputs.version }}-mac-x64.dmg |
+            | **macOS (Apple Silicon)** | StateSet-${{ steps.version.outputs.version }}-mac-arm64.dmg |
+            | **Windows** | StateSet-${{ steps.version.outputs.version }}-win-x64.exe |
+            | **Linux (AppImage)** | StateSet-${{ steps.version.outputs.version }}-x86_64.AppImage |
+            | **Linux (Debian)** | StateSet-${{ steps.version.outputs.version }}-linux-amd64.deb |
+
+            ### Installation
+
+            **macOS**: Download the .dmg file, open it, and drag StateSet to your Applications folder.
+
+            **Windows**: Download and run the .exe installer.
+
+            **Linux**: Download the .AppImage, make it executable (`chmod +x`), and run it. Or install the .deb package.
+
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Update latest.yml for auto-updater (after release)
+  update-latest:
+    needs: release
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Trigger auto-updater manifest update
+        run: |
+          echo "Auto-updater will use GitHub releases automatically"
+          echo "electron-updater reads from the latest GitHub release"

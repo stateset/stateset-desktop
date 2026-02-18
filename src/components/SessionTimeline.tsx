@@ -1,0 +1,238 @@
+import { memo, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Play,
+  Pause,
+  Square,
+  AlertTriangle,
+  CheckCircle,
+  Clock,
+  MessageSquare,
+  Wrench,
+  RefreshCw,
+  Zap,
+} from 'lucide-react';
+import clsx from 'clsx';
+import { formatDistanceToNow, format } from 'date-fns';
+
+export type TimelineEventType =
+  | 'started'
+  | 'paused'
+  | 'resumed'
+  | 'stopped'
+  | 'completed'
+  | 'failed'
+  | 'message_sent'
+  | 'message_received'
+  | 'tool_call'
+  | 'loop_completed'
+  | 'error'
+  | 'config_changed';
+
+export interface TimelineEvent {
+  id: string;
+  type: TimelineEventType;
+  timestamp: number;
+  title: string;
+  description?: string;
+  metadata?: Record<string, unknown>;
+}
+
+interface SessionTimelineProps {
+  events: TimelineEvent[];
+  maxVisible?: number;
+  showRelativeTime?: boolean;
+  className?: string;
+}
+
+const eventConfig: Record<
+  TimelineEventType,
+  { icon: React.ElementType; color: string; bg: string }
+> = {
+  started: { icon: Play, color: 'text-green-400', bg: 'bg-green-900/30' },
+  paused: { icon: Pause, color: 'text-amber-400', bg: 'bg-amber-900/30' },
+  resumed: { icon: RefreshCw, color: 'text-blue-400', bg: 'bg-blue-900/30' },
+  stopped: { icon: Square, color: 'text-gray-400', bg: 'bg-gray-800' },
+  completed: { icon: CheckCircle, color: 'text-green-400', bg: 'bg-green-900/30' },
+  failed: { icon: AlertTriangle, color: 'text-red-400', bg: 'bg-red-900/30' },
+  message_sent: { icon: MessageSquare, color: 'text-brand-400', bg: 'bg-brand-900/30' },
+  message_received: { icon: MessageSquare, color: 'text-purple-400', bg: 'bg-purple-900/30' },
+  tool_call: { icon: Wrench, color: 'text-amber-400', bg: 'bg-amber-900/30' },
+  loop_completed: { icon: Zap, color: 'text-blue-400', bg: 'bg-blue-900/30' },
+  error: { icon: AlertTriangle, color: 'text-red-400', bg: 'bg-red-900/30' },
+  config_changed: { icon: RefreshCw, color: 'text-gray-400', bg: 'bg-gray-800' },
+};
+
+export const SessionTimeline = memo(function SessionTimeline({
+  events,
+  maxVisible = 50,
+  showRelativeTime = true,
+  className,
+}: SessionTimelineProps) {
+  const visibleEvents = useMemo(() => {
+    return [...events].sort((a, b) => b.timestamp - a.timestamp).slice(0, maxVisible);
+  }, [events, maxVisible]);
+
+  if (events.length === 0) {
+    return (
+      <div className={clsx('p-8 text-center text-gray-500', className)}>
+        <Clock className="w-10 h-10 mx-auto mb-2 opacity-50" />
+        <p>No events yet</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className={clsx('relative', className)}>
+      {/* Timeline line */}
+      <div className="absolute left-4 top-0 bottom-0 w-px bg-gray-800" />
+
+      {/* Events */}
+      <div className="space-y-4">
+        <AnimatePresence initial={false}>
+          {visibleEvents.map((event, index) => (
+            <TimelineItem
+              key={event.id}
+              event={event}
+              isFirst={index === 0}
+              showRelativeTime={showRelativeTime}
+            />
+          ))}
+        </AnimatePresence>
+      </div>
+
+      {/* Show more indicator */}
+      {events.length > maxVisible && (
+        <div className="mt-4 pl-10 text-sm text-gray-500">
+          +{events.length - maxVisible} more events
+        </div>
+      )}
+    </div>
+  );
+});
+
+interface TimelineItemProps {
+  event: TimelineEvent;
+  isFirst: boolean;
+  showRelativeTime: boolean;
+}
+
+const TimelineItem = memo(function TimelineItem({
+  event,
+  isFirst,
+  showRelativeTime,
+}: TimelineItemProps) {
+  const config = eventConfig[event.type] || eventConfig.started;
+  const Icon = config.icon;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: -10 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: -10 }}
+      transition={{ duration: 0.2 }}
+      className="relative pl-10"
+    >
+      {/* Icon */}
+      <div
+        className={clsx(
+          'absolute left-0 w-8 h-8 rounded-full flex items-center justify-center border-2 border-gray-900',
+          config.bg,
+          isFirst && 'ring-2 ring-offset-2 ring-offset-gray-900 ring-brand-500/50'
+        )}
+      >
+        <Icon className={clsx('w-4 h-4', config.color)} />
+      </div>
+
+      {/* Content */}
+      <div className="bg-gray-800/30 rounded-lg p-3">
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <h4 className="text-sm font-medium">{event.title}</h4>
+            {event.description && (
+              <p className="text-sm text-gray-400 mt-0.5">{event.description}</p>
+            )}
+          </div>
+          <span className="text-xs text-gray-500 flex-shrink-0">
+            {showRelativeTime
+              ? formatDistanceToNow(event.timestamp, { addSuffix: true })
+              : format(event.timestamp, 'HH:mm:ss')}
+          </span>
+        </div>
+
+        {/* Metadata */}
+        {event.metadata && Object.keys(event.metadata).length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {Object.entries(event.metadata).map(([key, value]) => (
+              <span
+                key={key}
+                className="inline-flex items-center px-2 py-0.5 text-xs bg-gray-800 text-gray-400 rounded"
+              >
+                <span className="text-gray-500 mr-1">{key}:</span>
+                {String(value)}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+    </motion.div>
+  );
+});
+
+// Compact timeline for sidebar/cards
+interface CompactTimelineProps {
+  events: TimelineEvent[];
+  maxVisible?: number;
+  className?: string;
+}
+
+export const CompactTimeline = memo(function CompactTimeline({
+  events,
+  maxVisible = 5,
+  className,
+}: CompactTimelineProps) {
+  const visibleEvents = useMemo(() => {
+    return [...events].sort((a, b) => b.timestamp - a.timestamp).slice(0, maxVisible);
+  }, [events, maxVisible]);
+
+  if (events.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className={clsx('space-y-2', className)}>
+      {visibleEvents.map((event) => {
+        const config = eventConfig[event.type] || eventConfig.started;
+        const Icon = config.icon;
+
+        return (
+          <div key={event.id} className="flex items-center gap-2 text-xs">
+            <Icon className={clsx('w-3 h-3 flex-shrink-0', config.color)} />
+            <span className="text-gray-400 truncate flex-1">{event.title}</span>
+            <span className="text-gray-600 flex-shrink-0">
+              {formatDistanceToNow(event.timestamp, { addSuffix: true })}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+});
+
+// Helper to create timeline events
+// eslint-disable-next-line react-refresh/only-export-components
+export function createTimelineEvent(
+  type: TimelineEventType,
+  title: string,
+  description?: string,
+  metadata?: Record<string, unknown>
+): TimelineEvent {
+  return {
+    id: `event-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+    type,
+    timestamp: Date.now(),
+    title,
+    description,
+    metadata,
+  };
+}

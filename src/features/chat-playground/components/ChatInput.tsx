@@ -1,0 +1,61 @@
+import { useState, useRef, useEffect } from 'react';
+import { Send } from 'lucide-react';
+
+interface ChatInputProps {
+  onSend: (message: string) => void;
+  isLoading: boolean;
+  placeholder?: string;
+}
+
+export function ChatInput({ onSend, isLoading, placeholder }: ChatInputProps) {
+  const [input, setInput] = useState('');
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Auto-focus on mount
+  useEffect(() => {
+    textareaRef.current?.focus();
+  }, []);
+
+  const handleSend = () => {
+    if (!input.trim() || isLoading) return;
+    onSend(input);
+    setInput('');
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  return (
+    <div className="p-4 border-t border-gray-800">
+      <div className="flex items-end gap-3">
+        <div className="flex-1 bg-gray-800 rounded-xl border border-gray-700 focus-within:border-brand-500 transition-colors">
+          <textarea
+            ref={textareaRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={placeholder || 'Type a message... (Shift+Enter for new line)'}
+            rows={1}
+            className="w-full px-4 py-3 bg-transparent resize-none focus:outline-none disabled:opacity-50 text-sm"
+            disabled={isLoading}
+          />
+        </div>
+        <button
+          onClick={handleSend}
+          disabled={!input.trim() || isLoading}
+          className="p-3 bg-brand-600 hover:bg-brand-500 disabled:bg-gray-700 disabled:text-gray-500 rounded-xl transition-colors"
+        >
+          {isLoading ? (
+            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+          ) : (
+            <Send className="w-5 h-5" />
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}

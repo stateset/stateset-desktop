@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Download StateSet Desktop - Autonomous AI Customer Service</title>
+    <meta name="description" content="Download StateSet Desktop to run autonomous AI agents for customer service operations across Shopify, Gorgias, Recharge, and more.">
+    <meta name="keywords" content="AI, customer service, automation, Shopify, Gorgias, Recharge, e-commerce">
+
+    <!-- Open Graph -->
+    <meta property="og:title" content="StateSet Desktop - Autonomous AI Customer Service">
+    <meta property="og:description" content="Run AI agents autonomously in the background to handle customer service operations 24/7.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://stateset.dev/download">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="https://stateset.io/favicon.png">
+
+    <style>
+        :root {
+            --bg-primary: #030712;
+            --bg-secondary: #111827;
+            --bg-card: #1f2937;
+            --text-primary: #f9fafb;
+            --text-secondary: #9ca3af;
+            --brand-500: #6366f1;
+            --brand-600: #4f46e5;
+            --brand-700: #4338ca;
+            --green-500: #22c55e;
+            --border: #374151;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        /* Header */
+        header {
+            padding: 24px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .header-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--text-primary);
+            text-decoration: none;
+        }
+
+        .logo svg {
+            width: 40px;
+            height: 40px;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 32px;
+        }
+
+        .nav-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        .nav-links a:hover {
+            color: var(--text-primary);
+        }
+
+        /* Hero Section */
+        .hero {
+            padding: 80px 0;
+            text-align: center;
+        }
+
+        .hero h1 {
+            font-size: 56px;
+            font-weight: 800;
+            margin-bottom: 24px;
+            background: linear-gradient(135deg, var(--text-primary), var(--brand-500));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero p {
+            font-size: 20px;
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin: 0 auto 48px;
+        }
+
+        /* Download Section */
+        .download-section {
+            margin-bottom: 48px;
+        }
+
+        .primary-download {
+            display: inline-flex;
+            align-items: center;
+            gap: 16px;
+            padding: 20px 40px;
+            background: var(--brand-600);
+            color: white;
+            font-size: 18px;
+            font-weight: 600;
+            border-radius: 12px;
+            text-decoration: none;
+            transition: all 0.2s;
+            margin-bottom: 16px;
+        }
+
+        .primary-download:hover {
+            background: var(--brand-700);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(99, 102, 241, 0.4);
+        }
+
+        .primary-download svg {
+            width: 24px;
+            height: 24px;
+        }
+
+        .detected-os {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .other-platforms {
+            margin-top: 32px;
+        }
+
+        .other-platforms-title {
+            color: var(--text-secondary);
+            font-size: 14px;
+            margin-bottom: 16px;
+        }
+
+        .platform-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .platform-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 24px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            font-size: 14px;
+            font-weight: 500;
+            border-radius: 8px;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .platform-btn:hover {
+            background: var(--bg-secondary);
+            border-color: var(--brand-500);
+        }
+
+        .platform-btn svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        /* Features Grid */
+        .features {
+            padding: 80px 0;
+            border-top: 1px solid var(--border);
+        }
+
+        .features h2 {
+            font-size: 36px;
+            text-align: center;
+            margin-bottom: 48px;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+        }
+
+        .feature-card {
+            padding: 32px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+        }
+
+        .feature-icon {
+            width: 48px;
+            height: 48px;
+            background: var(--brand-600);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .feature-icon svg {
+            width: 24px;
+            height: 24px;
+            color: white;
+        }
+
+        .feature-card h3 {
+            font-size: 20px;
+            margin-bottom: 12px;
+        }
+
+        .feature-card p {
+            color: var(--text-secondary);
+        }
+
+        /* Integrations */
+        .integrations {
+            padding: 80px 0;
+            text-align: center;
+            border-top: 1px solid var(--border);
+        }
+
+        .integrations h2 {
+            font-size: 36px;
+            margin-bottom: 16px;
+        }
+
+        .integrations > p {
+            color: var(--text-secondary);
+            margin-bottom: 48px;
+        }
+
+        .integration-logos {
+            display: flex;
+            justify-content: center;
+            gap: 48px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .integration-logo {
+            padding: 24px 32px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        /* Requirements */
+        .requirements {
+            padding: 80px 0;
+            border-top: 1px solid var(--border);
+        }
+
+        .requirements h2 {
+            font-size: 36px;
+            text-align: center;
+            margin-bottom: 48px;
+        }
+
+        .requirements-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 24px;
+        }
+
+        .requirement-card {
+            padding: 24px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+        }
+
+        .requirement-card h3 {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .requirement-card ul {
+            list-style: none;
+            color: var(--text-secondary);
+        }
+
+        .requirement-card li {
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .requirement-card li:last-child {
+            border-bottom: none;
+        }
+
+        /* Footer */
+        footer {
+            padding: 48px 0;
+            border-top: 1px solid var(--border);
+            text-align: center;
+            color: var(--text-secondary);
+        }
+
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 32px;
+            margin-bottom: 24px;
+        }
+
+        .footer-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+        }
+
+        .footer-links a:hover {
+            color: var(--text-primary);
+        }
+
+        /* Version Badge */
+        .version-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: var(--bg-card);
+            border-radius: 20px;
+            font-size: 14px;
+            margin-bottom: 24px;
+        }
+
+        .version-badge .status {
+            width: 8px;
+            height: 8px;
+            background: var(--green-500);
+            border-radius: 50%;
+        }
+
+        /* Mobile */
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 36px;
+            }
+
+            .hero p {
+                font-size: 16px;
+            }
+
+            .nav-links {
+                display: none;
+            }
+
+            .platform-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container header-content">
+            <a href="https://stateset.io" class="logo">
+                <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="40" height="40" rx="8" fill="#6366f1"/>
+                    <path d="M12 20h16M20 12v16" stroke="white" stroke-width="3" stroke-linecap="round"/>
+                </svg>
+                StateSet
+            </a>
+            <nav class="nav-links">
+                <a href="https://docs.stateset.io">Docs</a>
+                <a href="https://github.com/stateset/stateset-desktop">GitHub</a>
+                <a href="https://stateset.io/pricing">Pricing</a>
+                <a href="https://app.stateset.io">Sign In</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <section class="hero">
+            <div class="container">
+                <div class="version-badge">
+                    <span class="status"></span>
+                    <span>Version <span id="app-version">latest</span></span>
+                </div>
+
+                <h1>StateSet Desktop</h1>
+                <p>
+                    Run autonomous AI agents in the background to handle 100% of your customer service operations across Shopify, Gorgias, Recharge, and more.
+                </p>
+
+                <div class="download-section">
+                    <a href="#" id="primary-download" class="primary-download">
+                        <svg id="download-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="7 10 12 15 17 10"/>
+                            <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                        <span id="download-text">Download for macOS</span>
+                    </a>
+                    <p class="detected-os" id="detected-os">Detected: macOS</p>
+
+                    <div class="other-platforms">
+                        <p class="other-platforms-title">Also available for</p>
+                        <div class="platform-buttons">
+                            <a href="#" id="btn-macos" class="platform-btn">
+                                <svg viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+                                </svg>
+                                macOS
+                            </a>
+                            <a href="#" id="btn-windows" class="platform-btn">
+                                <svg viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M3 12V6.75l6-1.5v6.75H3zm7.5-8.25l10.5-2.25v9.75H10.5V3.75zM3 13.25h6v6.75l-6-1.5v-5.25zm7.5-.75h10.5V22.5l-10.5-2.25v-7z"/>
+                                </svg>
+                                Windows
+                            </a>
+                            <a href="#" id="btn-linux" class="platform-btn">
+                                <svg viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M12.504 0c-.155 0-.311.003-.467.008-2.454.086-4.661 1.182-5.939 3.116C4.82 5.058 4.464 7.545 4.914 9.94c.224 1.196.624 2.346 1.172 3.387.33.626.722 1.21 1.167 1.743.262.313.549.605.858.867.183.155.373.302.569.438.09.062.184.12.279.176l.005.003c.042.024.084.047.127.07.052.028.105.055.159.08l.006.002c.034.016.069.03.104.044.05.02.1.04.152.058l.008.003c.05.017.102.033.155.048l.01.003c.034.01.068.019.103.027.044.01.089.019.134.027l.011.002c.038.007.077.013.117.018l.011.001c.04.006.08.01.121.014l.012.001c.057.005.115.009.173.011l.007.001c.033.001.067.002.101.002h.004c.032 0 .065-.001.098-.002l.006-.001c.058-.002.116-.006.174-.011l.011-.001c.041-.004.081-.008.122-.014l.011-.001c.04-.005.079-.011.118-.018l.01-.002c.045-.008.09-.017.134-.027.035-.008.069-.017.104-.027l.009-.003c.053-.015.105-.031.156-.048l.007-.003c.052-.018.103-.038.153-.058.035-.014.07-.028.104-.044l.006-.002c.054-.025.107-.052.16-.08.043-.023.085-.046.127-.07l.004-.003c.095-.056.189-.114.28-.176a7.348 7.348 0 0 0 .569-.438c.309-.262.596-.554.858-.867.445-.533.837-1.117 1.167-1.743a11.857 11.857 0 0 0 1.172-3.387c.45-2.395.094-4.882-1.184-6.816C17.165 1.182 14.958.086 12.504 0zm-.27 1.417c1.89.065 3.61.895 4.62 2.386.906 1.336 1.188 3.14.845 4.97-.2 1.07-.546 2.068-1.02 2.965a8.22 8.22 0 0 1-.854 1.284 5.61 5.61 0 0 1-.61.618 4.874 4.874 0 0 1-.404.311c-.167.114-.343.216-.526.302v-.003c-.037.018-.074.034-.112.05-.035.015-.071.03-.107.043-.03.012-.061.022-.093.032-.046.015-.094.029-.143.04-.037.01-.075.018-.114.025-.051.01-.104.017-.157.022-.035.004-.07.007-.106.008-.076.003-.153.002-.23-.003a1.94 1.94 0 0 1-.153-.015 1.758 1.758 0 0 1-.148-.025 1.572 1.572 0 0 1-.144-.035 1.46 1.46 0 0 1-.138-.044 1.367 1.367 0 0 1-.129-.053 1.29 1.29 0 0 1-.118-.06v.002a4.885 4.885 0 0 1-.527-.302 5.612 5.612 0 0 1-.404-.311 5.732 5.732 0 0 1-.61-.618 8.219 8.219 0 0 1-.854-1.284 10.372 10.372 0 0 1-1.02-2.965c-.343-1.83-.061-3.634.845-4.97 1.01-1.49 2.73-2.321 4.62-2.386z"/>
+                                </svg>
+                                Linux
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="features">
+            <div class="container">
+                <h2>Autonomous Customer Service</h2>
+                <div class="features-grid">
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"/>
+                                <polyline points="12 6 12 12 16 14"/>
+                            </svg>
+                        </div>
+                        <h3>24/7 Background Operation</h3>
+                        <p>Runs silently in your system tray, processing customer inquiries around the clock without any intervention.</p>
+                    </div>
+
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                                <path d="M2 17l10 5 10-5"/>
+                                <path d="M2 12l10 5 10-5"/>
+                            </svg>
+                        </div>
+                        <h3>Multi-Platform Integration</h3>
+                        <p>Connect Shopify, Gorgias, Recharge, ShipStation, Zendesk, and more from a single desktop app.</p>
+                    </div>
+
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                            </svg>
+                        </div>
+                        <h3>Secure & Private</h3>
+                        <p>Your credentials are encrypted locally. Agents run in isolated sandboxes with no data leaving your control.</p>
+                    </div>
+
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 12a9 9 0 1 1-9-9"/>
+                                <path d="M21 3v6h-6"/>
+                            </svg>
+                        </div>
+                        <h3>Auto-Updates</h3>
+                        <p>Always stay current with automatic updates. New features and improvements delivered seamlessly.</p>
+                    </div>
+
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                <polyline points="14 2 14 8 20 8"/>
+                                <line x1="16" y1="13" x2="8" y2="13"/>
+                                <line x1="16" y1="17" x2="8" y2="17"/>
+                            </svg>
+                        </div>
+                        <h3>Real-Time Monitoring</h3>
+                        <p>Watch agents work in real-time. See every tool call, decision, and response as it happens.</p>
+                    </div>
+
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                                <circle cx="9" cy="7" r="4"/>
+                                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                            </svg>
+                        </div>
+                        <h3>Multi-Brand Support</h3>
+                        <p>Manage multiple brands from one app. Each with its own integrations, agents, and configurations.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="integrations">
+            <div class="container">
+                <h2>Connects With Your Stack</h2>
+                <p>Native integrations with the platforms you already use</p>
+                <div class="integration-logos">
+                    <div class="integration-logo">Shopify</div>
+                    <div class="integration-logo">Gorgias</div>
+                    <div class="integration-logo">Recharge</div>
+                    <div class="integration-logo">ShipStation</div>
+                    <div class="integration-logo">Zendesk</div>
+                    <div class="integration-logo">Loop Returns</div>
+                </div>
+            </div>
+        </section>
+
+        <section class="requirements">
+            <div class="container">
+                <h2>System Requirements</h2>
+                <div class="requirements-grid">
+                    <div class="requirement-card">
+                        <h3>
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+                            </svg>
+                            macOS
+                        </h3>
+                        <ul>
+                            <li>macOS 10.15 (Catalina) or later</li>
+                            <li>Intel or Apple Silicon (M1/M2/M3)</li>
+                            <li>4GB RAM minimum</li>
+                            <li>200MB disk space</li>
+                        </ul>
+                    </div>
+
+                    <div class="requirement-card">
+                        <h3>
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M3 12V6.75l6-1.5v6.75H3zm7.5-8.25l10.5-2.25v9.75H10.5V3.75zM3 13.25h6v6.75l-6-1.5v-5.25zm7.5-.75h10.5V22.5l-10.5-2.25v-7z"/>
+                            </svg>
+                            Windows
+                        </h3>
+                        <ul>
+                            <li>Windows 10 or later (64-bit)</li>
+                            <li>x64 or ARM64 processor</li>
+                            <li>4GB RAM minimum</li>
+                            <li>200MB disk space</li>
+                        </ul>
+                    </div>
+
+                    <div class="requirement-card">
+                        <h3>
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12.504 0c-.155 0-.311.003-.467.008-2.454.086-4.661 1.182-5.939 3.116C4.82 5.058 4.464 7.545 4.914 9.94c.224 1.196.624 2.346 1.172 3.387.33.626.722 1.21 1.167 1.743.262.313.549.605.858.867.183.155.373.302.569.438.09.062.184.12.279.176l.005.003c.042.024.084.047.127.07.052.028.105.055.159.08l.006.002c.034.016.069.03.104.044.05.02.1.04.152.058l.008.003c.05.017.102.033.155.048l.01.003c.034.01.068.019.103.027.044.01.089.019.134.027l.011.002c.038.007.077.013.117.018l.011.001c.04.006.08.01.121.014l.012.001c.057.005.115.009.173.011l.007.001c.033.001.067.002.101.002h.004c.032 0 .065-.001.098-.002l.006-.001c.058-.002.116-.006.174-.011l.011-.001c.041-.004.081-.008.122-.014l.011-.001c.04-.005.079-.011.118-.018l.01-.002c.045-.008.09-.017.134-.027.035-.008.069-.017.104-.027l.009-.003c.053-.015.105-.031.156-.048l.007-.003c.052-.018.103-.038.153-.058.035-.014.07-.028.104-.044l.006-.002c.054-.025.107-.052.16-.08.043-.023.085-.046.127-.07l.004-.003c.095-.056.189-.114.28-.176a7.348 7.348 0 0 0 .569-.438c.309-.262.596-.554.858-.867.445-.533.837-1.117 1.167-1.743a11.857 11.857 0 0 0 1.172-3.387c.45-2.395.094-4.882-1.184-6.816C17.165 1.182 14.958.086 12.504 0z"/>
+                            </svg>
+                            Linux
+                        </h3>
+                        <ul>
+                            <li>Ubuntu 18.04+, Fedora 32+, or equivalent</li>
+                            <li>x64 processor</li>
+                            <li>4GB RAM minimum</li>
+                            <li>200MB disk space</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-links">
+                <a href="https://docs.stateset.io">Documentation</a>
+                <a href="https://github.com/stateset/stateset-desktop">GitHub</a>
+                <a href="https://stateset.io/privacy">Privacy</a>
+                <a href="https://stateset.io/terms">Terms</a>
+                <a href="mailto:support@stateset.io">Support</a>
+            </div>
+            <p>&copy; 2024 StateSet Inc. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script>
+        const GITHUB_REPO = 'stateset/stateset-desktop';
+        const API_LATEST_URL = `https://api.github.com/repos/${GITHUB_REPO}/releases/latest`;
+        const RELEASES_LATEST_URL = `https://github.com/${GITHUB_REPO}/releases/latest`;
+
+        function detectPlatform() {
+            const ua = navigator.userAgent.toLowerCase();
+            const platform = navigator.platform.toLowerCase();
+
+            if (platform.includes('mac') || ua.includes('mac')) {
+                return { os: 'macos' };
+            } else if (platform.includes('win') || ua.includes('win')) {
+                return { os: 'windows' };
+            } else if (platform.includes('linux') || ua.includes('linux')) {
+                return { os: 'linux' };
+            }
+            return { os: 'unknown' };
+        }
+
+        async function detectMacArch() {
+            if (navigator.userAgentData && navigator.userAgentData.getHighEntropyValues) {
+                try {
+                    const data = await navigator.userAgentData.getHighEntropyValues(['architecture']);
+                    if (data.architecture === 'arm') {
+                        return 'arm64';
+                    }
+                    if (data.architecture === 'x86') {
+                        return 'x64';
+                    }
+                } catch (e) {
+                    // Fall back to x64 when architecture can't be detected
+                }
+            }
+            return 'x64';
+        }
+
+        function getOsDisplayName(os) {
+            const names = {
+                macos: 'macOS',
+                windows: 'Windows',
+                linux: 'Linux',
+                unknown: 'Other'
+            };
+            return names[os] || os;
+        }
+
+        function setHref(id, url) {
+            const element = document.getElementById(id);
+            if (!element) {
+                return;
+            }
+            element.href = url || RELEASES_LATEST_URL;
+        }
+
+        function pickAsset(assets, pattern) {
+            return assets.find((asset) => pattern.test(asset.name));
+        }
+
+        function buildAssetMap(assets) {
+            return {
+                macArm: pickAsset(assets, /-mac-arm64\.dmg$/i),
+                macX64: pickAsset(assets, /-mac-x64\.dmg$/i),
+                winX64: pickAsset(assets, /-win-x64\.exe$/i),
+                winArm: pickAsset(assets, /-win-arm64\.exe$/i),
+                linuxAppImage: pickAsset(assets, /-x86_64\.AppImage$/),
+                linuxDeb: pickAsset(assets, /-linux-amd64\.deb$/i)
+            };
+        }
+
+        function updateLinksFromAssets(assets, os, arch) {
+            const map = buildAssetMap(assets);
+
+            const primary =
+                os === 'macos'
+                    ? (arch === 'arm64' ? map.macArm : map.macX64) || map.macArm || map.macX64
+                    : os === 'windows'
+                        ? (arch === 'arm64' ? map.winArm : map.winX64) || map.winX64 || map.winArm
+                        : os === 'linux'
+                            ? map.linuxAppImage || map.linuxDeb
+                            : null;
+
+            setHref('primary-download', primary && primary.browser_download_url);
+            setHref('btn-macos', (map.macArm || map.macX64) && (map.macArm || map.macX64).browser_download_url);
+            setHref('btn-windows', (map.winX64 || map.winArm) && (map.winX64 || map.winArm).browser_download_url);
+            setHref('btn-linux', (map.linuxAppImage || map.linuxDeb) && (map.linuxAppImage || map.linuxDeb).browser_download_url);
+        }
+
+        async function init() {
+            const { os } = detectPlatform();
+            const arch = os === 'macos' ? await detectMacArch() : 'x64';
+
+            const downloadText = document.getElementById('download-text');
+            const detectedOs = document.getElementById('detected-os');
+
+            if (downloadText) {
+                downloadText.textContent = os === 'unknown' ? 'View latest release' : `Download for ${getOsDisplayName(os)}`;
+            }
+            if (detectedOs) {
+                detectedOs.textContent = `Detected: ${getOsDisplayName(os)}`;
+            }
+
+            setHref('primary-download', RELEASES_LATEST_URL);
+            setHref('btn-macos', RELEASES_LATEST_URL);
+            setHref('btn-windows', RELEASES_LATEST_URL);
+            setHref('btn-linux', RELEASES_LATEST_URL);
+
+            const currentPlatformBtn = document.getElementById(`btn-${os}`);
+            if (currentPlatformBtn) {
+                currentPlatformBtn.style.display = 'none';
+            }
+
+            try {
+                const response = await fetch(API_LATEST_URL);
+                if (!response.ok) {
+                    throw new Error(`GitHub API responded with ${response.status}`);
+                }
+                const data = await response.json();
+                const version = (data.tag_name || '').replace(/^v/, '');
+                if (version) {
+                    document.getElementById('app-version').textContent = version;
+                }
+
+                const assets = Array.isArray(data.assets) ? data.assets : [];
+                if (assets.length > 0) {
+                    updateLinksFromAssets(assets, os, arch);
+                }
+            } catch (e) {
+                console.log('Could not fetch latest release:', e);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            init();
+        });
+    </script>
+</body>
+</html>

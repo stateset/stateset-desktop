@@ -1,0 +1,84 @@
+# RBAC for StateSet Sandbox Service
+# The sandbox needs permissions to create/manage pods for code execution
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: stateset-sandbox-sa
+  namespace: apps
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: sandbox-pod-manager
+  namespace: apps  # Or use 'default' if sandboxes run there
+rules:
+  # Pod management for sandbox creation
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch", "create", "delete", "deletecollection"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["pods/exec"]
+    verbs: ["create"]
+  - apiGroups: [""]
+    resources: ["pods/status"]
+    verbs: ["get"]
+  # ConfigMaps for sandbox configuration
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "create", "delete"]
+  # Secrets for sandbox credentials (if needed)
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: sandbox-pod-manager-binding
+  namespace: apps
+subjects:
+  - kind: ServiceAccount
+    name: stateset-sandbox-sa
+    namespace: apps
+roleRef:
+  kind: Role
+  name: sandbox-pod-manager
+  apiGroup: rbac.authorization.k8s.io
+---
+# If sandboxes need to create pods in the 'default' namespace
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: sandbox-pod-manager
+  namespace: default
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch", "create", "delete", "deletecollection"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["pods/exec"]
+    verbs: ["create"]
+  - apiGroups: [""]
+    resources: ["pods/status"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: sandbox-pod-manager-binding
+  namespace: default
+subjects:
+  - kind: ServiceAccount
+    name: stateset-sandbox-sa
+    namespace: apps
+roleRef:
+  kind: Role
+  name: sandbox-pod-manager
+  apiGroup: rbac.authorization.k8s.io
