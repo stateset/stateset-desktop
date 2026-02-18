@@ -27,7 +27,7 @@ What actually happened.
 ## Environment
 
 - **OS:** (e.g., macOS 15, Windows 11, Ubuntu 24.04)
-- **App Version:** (e.g., 1.0.5)
+- **App Version:** (e.g., 1.0.0)
 - **Node.js Version:** (if building from source)
 
 ## Screenshots
