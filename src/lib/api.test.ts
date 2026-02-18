@@ -55,10 +55,10 @@ vi.mock('./circuit-breaker', () => ({
 }));
 
 // We need to test the retry logic and helper functions
-let fetchMock: ReturnType<typeof vi.fn<() => Promise<MockResponse>>>;
+let fetchMock: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
-  fetchMock = vi.fn<() => Promise<MockResponse>>();
+  fetchMock = vi.fn<(input?: RequestInfo, init?: RequestInit) => Promise<MockResponse>>();
   global.fetch = fetchMock as unknown as typeof fetch;
   vi.clearAllMocks();
   mockCircuitBreaker.isCallPermitted.mockReturnValue(true);
@@ -333,7 +333,7 @@ describe('Agent API', () => {
 
       await agentApi.listSessions(tenantId, brandId);
 
-      const requestedUrl = fetchMock.mock.calls[0]?.[0] as string;
+      const requestedUrl = String(fetchMock.mock.calls[0]?.[0]);
       expect(requestedUrl).toBe(
         `${API_CONFIG.baseUrl}/api/v1/tenants/${encodeURIComponent(tenantId)}/agents?brand_id=${encodeURIComponent(
           brandId
@@ -385,7 +385,7 @@ describe('Agent API', () => {
 
       await agentApi.getSession(tenantId, brandId, sessionId);
 
-      const requestedUrl = fetchMock.mock.calls[0]?.[0] as string;
+      const requestedUrl = String(fetchMock.mock.calls[0]?.[0]);
       expect(requestedUrl).toBe(
         `${API_CONFIG.baseUrl}/api/v1/tenants/${encodeURIComponent(
           tenantId

@@ -90,6 +90,12 @@ export function buildStreamAuthCandidates(
   token: string | null,
   apiKey: string | null,
   allowApiKeyFallback: boolean
+): StreamAuthCandidate[];
+
+export function buildStreamAuthCandidates(
+  token: string | null,
+  apiKey: string | null,
+  allowApiKeyFallback?: boolean
 ): StreamAuthCandidate[] {
   const candidates: StreamAuthCandidate[] = [];
   const seenHeaders = new Set<string>();
