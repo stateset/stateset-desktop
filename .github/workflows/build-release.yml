@@ -235,9 +235,7 @@ jobs:
           path: |
             release/*.AppImage
             release/*.deb
-            release/*.rpm
             release/*.yml
-            release/*.blockmap
           if-no-files-found: error
 
   # Create GitHub Release (only on tags or manual trigger)
@@ -260,7 +258,7 @@ jobs:
       - name: Collect release files
         run: |
           mkdir -p release-assets
-          find artifacts -type f \( -name "*.dmg" -o -name "*.zip" -o -name "*.exe" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" -o -name "*.yml" -o -name "*.blockmap" \) -exec cp {} release-assets/ \;
+          find artifacts -type f \( -name "*.dmg" -o -name "*.zip" -o -name "*.exe" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.yml" -o -name "*.blockmap" \) -exec cp {} release-assets/ \;
           echo "Release assets:"
           ls -lh release-assets/
 

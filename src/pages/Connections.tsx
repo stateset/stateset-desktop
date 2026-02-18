@@ -9,7 +9,7 @@ import { useToast } from '../components/ToastProvider';
 import { useConfirmDialog } from '../hooks/useConfirmDialog';
 import { requireTenantId, requireBrandId } from '../lib/auth-guards';
 import type { PlatformConnection } from '../types';
-import { Plug, Check, AlertCircle, Loader2, Trash2, RefreshCw } from 'lucide-react';
+import { Plug, Check, AlertCircle, Loader2, Trash2, RefreshCw, Plus } from 'lucide-react';
 import clsx from 'clsx';
 import { usePageTitle } from '../hooks/usePageTitle';
 
@@ -19,13 +19,23 @@ interface Platform {
   description: string;
   icon: string;
   color: string;
-  requiredFields: { key: string; label: string; type: string }[];
+  requiredFields: {
+    key: string;
+    label: string;
+    type: string;
+    required?: boolean;
+  }[];
   oauth?: {
     provider: 'shopify' | 'gorgias' | 'zendesk';
     label: string;
     fields: { key: string; label: string; type: string; placeholder?: string }[];
   };
 }
+
+const CUSTOM_MCP_FIELDS: Platform['requiredFields'] = [
+  { key: 'endpoint', label: 'MCP Endpoint / Command', type: 'text' },
+  { key: 'auth_token', label: 'Auth Token (optional)', type: 'password', required: false },
+];
 
 const PLATFORMS: Platform[] = [
   {
@@ -136,6 +146,15 @@ type ConnectionsResult = {
   vaultError?: string;
 };
 
+const BUILT_IN_PLATFORM_IDS = new Set(PLATFORMS.map((platform) => platform.id));
+
+const normalizeCustomPlatformId = (value: string): string =>
+  value
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-_]/g, '');
+
 function normalizeConnectionInput(fieldKey: string, value: string): string {
   const trimmed = value.trim();
   if (!trimmed) {
@@ -165,13 +184,32 @@ function normalizeCredentials(values: Record<string, string>): Record<string, st
   );
 }
 
-function getPlatformConfig(platformId: string): Platform | undefined {
-  return PLATFORMS.find((platform) => platform.id === platformId);
+function createCustomPlatformConfig(platformId: string): Platform {
+  return {
+    id: platformId,
+    name: platformId,
+    description: 'Custom MCP server',
+    icon: '🧩',
+    color: 'bg-indigo-600',
+    requiredFields: CUSTOM_MCP_FIELDS,
+  };
+}
+
+function isBuiltInPlatform(platformId: string): boolean {
+  return BUILT_IN_PLATFORM_IDS.has(platformId);
+}
+
+function getPlatformConfig(platformId: string): Platform {
+  return (
+    PLATFORMS.find((platform) => platform.id === platformId) ??
+    createCustomPlatformConfig(platformId)
+  );
 }
 
 function hasMissingRequiredFields(platform: Platform, values: Record<string, string>): boolean {
   return platform.requiredFields.some(
-    (field) => !normalizeConnectionInput(field.key, values[field.key] || '')
+    (field) =>
+      field.required !== false && !normalizeConnectionInput(field.key, values[field.key] || '')
   );
 }
 
@@ -180,7 +218,8 @@ function buildCredentialsForSave(
   values: Record<string, string>
 ): Record<string, string> {
   const normalizedValues = normalizeCredentials(values);
-  const missingField = platform.requiredFields.find(
+  const requiredFields = platform.requiredFields.filter((field) => field.required !== false);
+  const missingField = requiredFields.find(
     (field) => !normalizeConnectionInput(field.key, normalizedValues[field.key] || '')
   );
 
@@ -188,7 +227,9 @@ function buildCredentialsForSave(
     throw new Error(`Please provide ${missingField.label.toLowerCase()}.`);
   }
 
-  return normalizedValues;
+  return Object.fromEntries(
+    Object.entries(normalizedValues).filter(([, value]) => value.length > 0)
+  );
 }
 
 const isVaultNotConfigured = (error: unknown): boolean => {
@@ -207,6 +248,10 @@ export default function Connections() {
   const [credentials, setCredentials] = useState<Record<string, string>>({});
   const [oauthInputs, setOauthInputs] = useState<Record<string, string>>({});
   const [testingPlatform, setTestingPlatform] = useState<string | null>(null);
+  const [showCustomServerForm, setShowCustomServerForm] = useState(false);
+  const [customServerId, setCustomServerId] = useState('');
+  const [customServerEndpoint, setCustomServerEndpoint] = useState('');
+  const [customServerAuthToken, setCustomServerAuthToken] = useState('');
 
   const handleMutationError = useCallback(
     (title: string) => (error: unknown) => {
@@ -257,6 +302,18 @@ export default function Connections() {
   const connectionsMode = connectionsData?.mode ?? 'remote';
   const vaultError = connectionsData?.vaultError;
   const isLocalMode = connectionsMode === 'local';
+  const connectedPlatformIds = new Set(connections.map((connection) => connection.platform));
+  const displayedPlatforms = Array.from(
+    new Set([...PLATFORMS.map((platform) => platform.id), ...connectedPlatformIds])
+  )
+    .map((platformId) => getPlatformConfig(platformId))
+    .filter((platform) => platform.id)
+    .sort((a, b) => {
+      const aBuiltIn = isBuiltInPlatform(a.id);
+      const bBuiltIn = isBuiltInPlatform(b.id);
+      if (aBuiltIn === bBuiltIn) return a.name.localeCompare(b.name);
+      return aBuiltIn ? -1 : 1;
+    });
 
   useEffect(() => {
     if (connectionsError) {
@@ -268,10 +325,6 @@ export default function Connections() {
     const tid = requireTenantId(tenant);
     const bid = requireBrandId(currentBrand);
     const platformConfig = getPlatformConfig(platform);
-    if (!platformConfig) {
-      throw new Error(`Unknown platform: ${platform}`);
-    }
-
     const normalizedCredentials = buildCredentialsForSave(platformConfig, creds);
 
     if (isLocalMode) {
@@ -377,6 +430,13 @@ export default function Connections() {
     setOauthInputs({});
   };
 
+  const resetCustomServerForm = () => {
+    setShowCustomServerForm(false);
+    setCustomServerId('');
+    setCustomServerEndpoint('');
+    setCustomServerAuthToken('');
+  };
+
   const startManualConnect = (platform: Platform) => {
     setConnectingPlatform(platform.id);
     setConnectMode('manual');
@@ -401,6 +461,50 @@ export default function Connections() {
     await storeCredentials.mutateAsync({
       platform: platform.id,
       creds: credentials,
+    });
+  };
+
+  const handleAddCustomServer = async () => {
+    const platformId = normalizeCustomPlatformId(customServerId);
+    if (!platformId) {
+      showToast({
+        variant: 'error',
+        title: 'Missing info',
+        message: 'Please provide a server identifier.',
+      });
+      return;
+    }
+    if (!customServerEndpoint.trim()) {
+      showToast({
+        variant: 'error',
+        title: 'Missing info',
+        message: 'Please provide an MCP endpoint or command.',
+      });
+      return;
+    }
+    if (platformId.length < 3) {
+      showToast({
+        variant: 'error',
+        title: 'Invalid server id',
+        message: 'Server identifier should be at least 3 characters long.',
+      });
+      return;
+    }
+
+    const creds: Record<string, string> = { endpoint: customServerEndpoint.trim() };
+    if (customServerAuthToken.trim()) {
+      creds.auth_token = customServerAuthToken.trim();
+    }
+
+    await storeCredentials.mutateAsync({
+      platform: platformId,
+      creds,
+    });
+    resetCustomServerForm();
+    showToast({
+      variant: 'success',
+      title: 'Custom MCP server added',
+      message: `${platformId} is now available for agent configuration.`,
     });
   };
 
@@ -491,7 +595,7 @@ export default function Connections() {
   };
 
   const handleDisconnect = async (platformId: string) => {
-    const platform = PLATFORMS.find((p) => p.id === platformId);
+    const platform = getPlatformConfig(platformId);
     const confirmed = await confirm({
       title: `Disconnect ${platform?.name || 'Platform'}?`,
       message:
@@ -550,6 +654,77 @@ export default function Connections() {
         </div>
       )}
 
+      <div className="mb-4 flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold">Configured Connections</h2>
+          <p className="text-sm text-gray-400 mt-1">Manage built-ins and custom MCP servers</p>
+        </div>
+        <button
+          onClick={() => setShowCustomServerForm((prev) => !prev)}
+          className="inline-flex items-center gap-2 px-3 py-2 bg-brand-600 hover:bg-brand-500 rounded-lg text-sm transition-colors"
+        >
+          <Plus className="w-4 h-4" />
+          Add custom MCP server
+        </button>
+      </div>
+
+      {showCustomServerForm && (
+        <div className="mb-4 bg-gray-900 border border-gray-800 rounded-xl p-4">
+          <h3 className="font-semibold mb-3">Add custom MCP server</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <label className="space-y-1">
+              <span className="text-sm text-gray-400">Server identifier</span>
+              <input
+                type="text"
+                value={customServerId}
+                placeholder="my-mcp-server"
+                onChange={(e) => setCustomServerId(e.target.value)}
+                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500"
+              />
+            </label>
+            <label className="space-y-1">
+              <span className="text-sm text-gray-400">Endpoint / Command</span>
+              <input
+                type="text"
+                value={customServerEndpoint}
+                placeholder="https://... or custom command"
+                onChange={(e) => setCustomServerEndpoint(e.target.value)}
+                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500"
+              />
+            </label>
+            <label className="space-y-1 md:col-span-2">
+              <span className="text-sm text-gray-400">Auth token (optional)</span>
+              <input
+                type="password"
+                value={customServerAuthToken}
+                placeholder="Optional API key or token"
+                onChange={(e) => setCustomServerAuthToken(e.target.value)}
+                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500"
+              />
+            </label>
+          </div>
+          <div className="mt-4 flex items-center gap-2">
+            <button
+              onClick={handleAddCustomServer}
+              disabled={storeCredentials.isPending}
+              className="px-3 py-2 bg-brand-600 hover:bg-brand-500 rounded-lg text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {storeCredentials.isPending ? (
+                <Loader2 className="w-4 h-4 animate-spin mx-auto" />
+              ) : (
+                'Add server'
+              )}
+            </button>
+            <button
+              onClick={resetCustomServerForm}
+              className="px-3 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Platforms grid */}
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
@@ -557,13 +732,14 @@ export default function Connections() {
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-4">
-          {PLATFORMS.map((platform) => {
+          {displayedPlatforms.map((platform) => {
             const connected = isConnected(platform.id);
             const isLocal = isLocalConnection(platform.id);
             const isConnecting = connectingPlatform === platform.id;
             const isManual = isConnecting && connectMode === 'manual';
             const isOAuth = isConnecting && connectMode === 'oauth';
             const disableTest = testingPlatform === platform.id || isLocalMode;
+            const isBuiltIn = isBuiltInPlatform(platform.id);
 
             return (
               <div
@@ -591,6 +767,11 @@ export default function Connections() {
                             <span className="flex items-center gap-1 px-2 py-0.5 bg-green-900/50 text-green-400 text-xs rounded-full">
                               <Check className="w-3 h-3" />
                               Connected
+                            </span>
+                          )}
+                          {!isBuiltIn && (
+                            <span className="px-2 py-0.5 bg-indigo-900/40 text-indigo-300 text-xs rounded-full">
+                              Custom
                             </span>
                           )}
                           {isLocal && (
