@@ -52,7 +52,7 @@ export function mockElectronAPI() {
       set: vi.fn().mockResolvedValue(undefined),
     },
     app: {
-      getVersion: vi.fn().mockReturnValue('1.0.0-test'),
+      getVersion: vi.fn().mockReturnValue('1.0.1-test'),
       getPlatform: vi.fn().mockReturnValue('linux'),
       checkForUpdates: vi.fn().mockResolvedValue(null),
       isE2ETest: false,

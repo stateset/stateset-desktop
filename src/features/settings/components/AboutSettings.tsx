@@ -12,7 +12,7 @@ export function AboutSettings({ appVersion, platform }: { appVersion: string; pl
       <div className="p-4 space-y-4">
         <div className="flex items-center justify-between">
           <span className="text-gray-400">Version</span>
-          <span>{appVersion || '1.0.0'}</span>
+          <span>{appVersion || '1.0.1'}</span>
         </div>
         <div className="flex items-center justify-between">
           <span className="text-gray-400">Platform</span>

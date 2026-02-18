@@ -149,7 +149,7 @@ export function UpdateSettings({ appVersion }: { appVersion: string }) {
         <div className="flex items-center justify-between">
           <div>
             <p className="font-medium">Current Version</p>
-            <p className="text-sm text-gray-400">{appVersion || '1.0.0'}</p>
+            <p className="text-sm text-gray-400">{appVersion || '1.0.1'}</p>
           </div>
           <div className="flex items-center gap-2">
             {updateStatus === 'ready' ? (

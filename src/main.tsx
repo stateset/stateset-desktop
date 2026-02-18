@@ -82,7 +82,7 @@ function sanitizeStringRecord(value: Record<string, string>): Record<string, str
 // Initialize structured logging
 initializeLogger();
 log.info('Application starting', {
-  version: import.meta.env.VITE_APP_VERSION || '1.0.0',
+  version: import.meta.env.VITE_APP_VERSION || '1.0.1',
   environment: import.meta.env.MODE,
 });
 
