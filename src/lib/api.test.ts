@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi, type Mock } from 'vitest';
 import { API_CONFIG } from '../config/api.config';
 import { agentApi } from './api';
 
@@ -55,7 +55,7 @@ vi.mock('./circuit-breaker', () => ({
 }));
 
 // We need to test the retry logic and helper functions
-let fetchMock: ReturnType<typeof vi.fn>;
+let fetchMock: Mock<(input?: RequestInfo, init?: RequestInit) => Promise<MockResponse>>;
 
 beforeEach(() => {
   fetchMock = vi.fn<(input?: RequestInfo, init?: RequestInit) => Promise<MockResponse>>();

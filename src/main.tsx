@@ -50,6 +50,35 @@ function sanitizeValue(value: unknown): unknown {
   return value;
 }
 
+function sanitizeRequestQueryString(
+  value: string | Record<string, string> | Array<[string, string]>
+): string | Record<string, string> | Array<[string, string]> {
+  if (typeof value === 'string') {
+    return sanitizeSensitiveText(value);
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(([key, item]: [string, string]): [string, string] => [
+      sanitizeSensitiveText(key),
+      sanitizeSensitiveText(item),
+    ]);
+  }
+
+  const output: Record<string, string> = {};
+  for (const [key, item] of Object.entries(value)) {
+    output[key] = sanitizeSensitiveText(item);
+  }
+  return output;
+}
+
+function sanitizeStringRecord(value: Record<string, string>): Record<string, string> {
+  const output: Record<string, string> = {};
+  for (const [key, item] of Object.entries(value)) {
+    output[key] = sanitizeSensitiveText(item);
+  }
+  return output;
+}
+
 // Initialize structured logging
 initializeLogger();
 log.info('Application starting', {
@@ -91,16 +120,16 @@ if (sentryDsn) {
           event.request.url = sanitizeSensitiveText(event.request.url);
         }
         if (event.request.query_string) {
-          event.request.query_string = sanitizeSensitiveText(event.request.query_string);
+          event.request.query_string = sanitizeRequestQueryString(event.request.query_string);
         }
         if (event.request.headers) {
-          event.request.headers = sanitizeValue(event.request.headers) as Record<string, unknown>;
+          event.request.headers = sanitizeStringRecord(event.request.headers);
         }
         if (event.request.data) {
           event.request.data = sanitizeValue(event.request.data) as Record<string, unknown>;
         }
         if (event.request.cookies) {
-          event.request.cookies = sanitizeValue(event.request.cookies) as Record<string, unknown>;
+          event.request.cookies = sanitizeStringRecord(event.request.cookies);
         }
       }
       if (event.breadcrumbs) {
