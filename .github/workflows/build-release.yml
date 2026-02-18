@@ -265,7 +265,11 @@ jobs:
             artifact_dir=${file#artifacts/}
             artifact_name=${artifact_dir%%/*}
             base_name=${artifact_dir##*/}
-            cp "$file" "release-assets/${artifact_name}-${base_name}"
+            if [[ "$base_name" == *.yml ]]; then
+              cp "$file" "release-assets/$base_name"
+            else
+              cp "$file" "release-assets/${artifact_name}-${base_name}"
+            fi
           done < <(find artifacts -type f \
             \( -name "*.dmg" -o -name "*.zip" -o -name "*.exe" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.yml" -o -name "*.blockmap" \) \
             -print0)
