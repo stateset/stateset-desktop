@@ -624,7 +624,13 @@ export default function AgentConsole() {
             )}
           </AnimatePresence>
 
-          <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4 relative">
+          <div
+            ref={messagesContainerRef}
+            className="flex-1 overflow-y-auto p-4 space-y-4 relative"
+            role="log"
+            aria-live="polite"
+            aria-label="Agent messages"
+          >
             {showEmptyState ? (
               <div className="flex flex-col items-center justify-center h-full text-center">
                 <EmptyState

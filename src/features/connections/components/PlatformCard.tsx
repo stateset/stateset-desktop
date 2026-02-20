@@ -6,6 +6,7 @@ interface PlatformCardProps {
   platform: Platform;
   connected: boolean;
   isLocal: boolean;
+  isBuiltIn: boolean;
   isConnecting: boolean;
   connectMode: 'manual' | 'oauth' | null;
   credentials: Record<string, string>;
@@ -29,6 +30,7 @@ export function PlatformCard({
   platform,
   connected,
   isLocal,
+  isBuiltIn,
   isConnecting,
   connectMode,
   credentials,
@@ -75,6 +77,11 @@ export function PlatformCard({
                   <span className="flex items-center gap-1 px-2 py-0.5 bg-green-900/50 text-green-400 text-xs rounded-full">
                     <Check className="w-3 h-3" />
                     Connected
+                  </span>
+                )}
+                {!isBuiltIn && (
+                  <span className="px-2 py-0.5 bg-indigo-900/40 text-indigo-300 text-xs rounded-full">
+                    Custom
                   </span>
                 )}
                 {isLocal && (

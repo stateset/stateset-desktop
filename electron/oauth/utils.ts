@@ -43,15 +43,28 @@ export interface OAuthConfig {
 }
 
 /**
+ * Escape HTML special characters to prevent XSS in rendered templates.
+ */
+function escapeHtml(unsafe: string): string {
+  return unsafe
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+/**
  * Success HTML template for OAuth callback
  */
 export function getSuccessHtml(provider: string): string {
+  const safeProvider = escapeHtml(provider);
   return `
     <!DOCTYPE html>
     <html>
       <head>
         <meta charset="utf-8">
-        <title>Connected to ${provider}</title>
+        <title>Connected to ${safeProvider}</title>
         <style>
           body {
             font-family: system-ui, -apple-system, sans-serif;
@@ -83,7 +96,7 @@ export function getSuccessHtml(provider: string): string {
       <body>
         <div class="container">
           <div class="icon">&#x2713;</div>
-          <h1>Connected to ${provider}!</h1>
+          <h1>Connected to ${safeProvider}!</h1>
           <p>You can close this window and return to StateSet.</p>
         </div>
       </body>
@@ -95,6 +108,8 @@ export function getSuccessHtml(provider: string): string {
  * Error HTML template for OAuth callback
  */
 export function getErrorHtml(provider: string, message: string): string {
+  const safeProvider = escapeHtml(provider);
+  const safeMessage = escapeHtml(message);
   return `
     <!DOCTYPE html>
     <html>
@@ -142,8 +157,8 @@ export function getErrorHtml(provider: string, message: string): string {
         <div class="container">
           <div class="icon">&#x2717;</div>
           <h1>Connection Failed</h1>
-          <p>Could not connect to ${provider}.</p>
-          <div class="error">${message}</div>
+          <p>Could not connect to ${safeProvider}.</p>
+          <div class="error">${safeMessage}</div>
         </div>
       </body>
     </html>

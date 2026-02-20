@@ -37,17 +37,18 @@ export function useErrorHandler(options: ErrorHandlerOptions = {}) {
 
   /**
    * Handle errors from queries (API read operations)
-   * Prevents duplicate error toasts for the same message
+   * Prevents duplicate error toasts for the same query+message combination
    */
   const handleQueryError = useCallback(
-    (title: string) => (error: unknown) => {
+    (title: string, queryKey?: string) => (error: unknown) => {
       const message = getErrorMessage(error);
+      const dedupeKey = queryKey ? `${queryKey}::${message}` : message;
 
-      if (preventDuplicates && lastErrorRef.current === message) {
+      if (preventDuplicates && lastErrorRef.current === dedupeKey) {
         return;
       }
 
-      lastErrorRef.current = message;
+      lastErrorRef.current = dedupeKey;
       showToast({
         variant: 'error',
         title,

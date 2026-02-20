@@ -9,7 +9,6 @@ import type {
 import { useAuthStore } from '../stores/auth';
 import { apiCircuitBreaker, CircuitBreakerError } from './circuit-breaker';
 import { API_CONFIG } from '../config/api.config';
-import { useAuthStore } from '../stores/auth';
 import { apiDeduplicator, createRequestKey } from './requestDeduplication';
 import { apiLogger } from './logger';
 import { recordApiCall } from './metrics';
@@ -22,6 +21,8 @@ import {
   WebhooksListResponseSchema,
   WebhookResponseSchema,
   WebhookDeliveriesResponseSchema,
+  SecretsListResponseSchema,
+  SecretsTestResponseSchema,
   validateResponse,
 } from './schemas';
 
@@ -211,8 +212,16 @@ function shouldCountCircuitBreakerFailure(status?: number): boolean {
   return status >= 500 || status === 429;
 }
 
+interface ApiResult<T> {
+  data: T;
+  status: number;
+}
+
 // Core fetch logic with retry and circuit breaker
-async function apiRequestInternal<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
+async function apiRequestInternal<T>(
+  path: string,
+  options: ApiRequestOptions = {}
+): Promise<ApiResult<T>> {
   const {
     timeoutMs = 15000,
     maxRetries = 3,
@@ -312,22 +321,39 @@ async function apiRequestInternal<T>(path: string, options: ApiRequestOptions = 
       const isJson = contentType.includes('application/json');
 
       if (!response.ok) {
-        const parsedError = (() => {
+        // Extract raw detail for logging but expose only safe messages to UI
+        const rawDetail = (() => {
           if (!isJson || !bodyText) {
-            return bodyText || `HTTP ${response.status}`;
+            return bodyText || undefined;
           }
           try {
             const parsed = JSON.parse(bodyText) as { error?: string; message?: string };
-            return parsed.error || parsed.message || `HTTP ${response.status}`;
+            return parsed.error || parsed.message || undefined;
           } catch {
-            return bodyText || `HTTP ${response.status}`;
+            return bodyText || undefined;
           }
         })();
-        let errorMessage = `HTTP ${response.status}`;
-        errorMessage = parsedError;
+
+        const safeMessages: Record<number, string> = {
+          400: 'Bad request',
+          401: 'Authentication required',
+          403: 'Access denied',
+          404: 'Not found',
+          409: 'Conflict',
+          422: 'Validation error',
+          429: 'Too many requests — please try again later',
+          500: 'Internal server error',
+          502: 'Service temporarily unavailable',
+          503: 'Service temporarily unavailable',
+          504: 'Request timed out',
+        };
+        const errorMessage = safeMessages[response.status] ?? `HTTP ${response.status}`;
 
         const error = new Error(errorMessage);
-        (error as Error & { status: number }).status = response.status;
+        (error as Error & { status: number; detail?: string }).status = response.status;
+        if (rawDetail) {
+          (error as Error & { detail?: string }).detail = rawDetail;
+        }
         lastError = error;
 
         // Check if we should retry
@@ -344,14 +370,14 @@ async function apiRequestInternal<T>(path: string, options: ApiRequestOptions = 
       }
 
       if (!bodyText) {
-        return undefined as T;
+        return { data: undefined as T, status: response.status };
       }
 
       if (isJson) {
-        return JSON.parse(bodyText) as T;
+        return { data: JSON.parse(bodyText) as T, status: response.status };
       }
 
-      return bodyText as unknown as T;
+      return { data: bodyText as unknown as T, status: response.status };
     } catch (error) {
       if (timeoutId) {
         clearTimeout(timeoutId);
@@ -396,7 +422,7 @@ async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Pro
   let fromCache = false;
 
   try {
-    let result: T;
+    let result: ApiResult<T>;
 
     // Only deduplicate safe, idempotent reads
     if (RETRY_SAFE_METHODS.has(method)) {
@@ -407,8 +433,8 @@ async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Pro
       result = await apiRequestInternal<T>(path, options);
     }
 
-    status = 200; // successful (exact status lost after parsing, but success is what matters)
-    return result;
+    status = result.status;
+    return result.data;
   } catch (error) {
     if (error instanceof Error && error.message.startsWith('HTTP ')) {
       const code = parseInt(error.message.replace('HTTP ', ''), 10);
@@ -634,9 +660,10 @@ export const brandsApi = {
 export const secretsApi = {
   // List connected platforms
   listConnections: async (tenantId: string, brandId: string): Promise<PlatformConnection[]> => {
-    const response = await apiRequest<{ ok: boolean; platforms: string[] }>(
+    const raw = await apiRequest<unknown>(
       buildPath('tenants', tenantId, 'brands', brandId, 'secrets')
     );
+    const response = validateResponse(SecretsListResponseSchema, raw);
 
     // Convert to PlatformConnection format
     return response.platforms.map((platform) => ({
@@ -665,10 +692,11 @@ export const secretsApi = {
     brandId: string,
     platform: string
   ): Promise<{ success: boolean; message: string }> => {
-    const response = await apiRequest<{ ok: boolean; success: boolean; message: string }>(
+    const raw = await apiRequest<unknown>(
       buildPath('tenants', tenantId, 'brands', brandId, 'secrets', platform, 'test'),
       { method: 'POST' }
     );
+    const response = validateResponse(SecretsTestResponseSchema, raw);
     return { success: response.success, message: response.message };
   },
 

@@ -298,9 +298,9 @@ if (sentryDsn) {
 // Initialize electron store for persisting data
 const storeEncryptionKey = process.env.STORE_ENCRYPTION_KEY;
 if (!storeEncryptionKey && app.isPackaged) {
-  console.error(
-    'WARNING: STORE_ENCRYPTION_KEY is not set in production. ' +
-      'Stored configuration will use OS-level protection only where available.'
+  throw new Error(
+    'STORE_ENCRYPTION_KEY is not set. ' +
+      'A 32+ character encryption key is required in production to protect stored configuration.'
   );
 }
 const store = new Store({

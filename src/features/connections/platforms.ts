@@ -4,7 +4,7 @@ export interface Platform {
   description: string;
   icon: string;
   color: string;
-  requiredFields: { key: string; label: string; type: string }[];
+  requiredFields: { key: string; label: string; type: string; required?: boolean }[];
   oauth?: {
     provider: 'shopify' | 'gorgias' | 'zendesk';
     label: string;

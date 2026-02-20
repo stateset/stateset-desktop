@@ -128,7 +128,7 @@ export const MessageItem = memo(function MessageItem({
 
       case 'thinking':
         return (
-          <div className="flex items-center gap-2 text-gray-400 text-sm">
+          <div className="flex items-center gap-2 text-gray-400 text-sm" role="status">
             <Loader2 className="w-4 h-4 animate-spin" />
             <span>{event.content}</span>
           </div>
@@ -246,7 +246,10 @@ export const MessageItem = memo(function MessageItem({
 
       case 'error':
         return (
-          <div className="flex items-start gap-3 p-4 bg-red-900/20 border border-red-800 rounded-xl">
+          <div
+            className="flex items-start gap-3 p-4 bg-red-900/20 border border-red-800 rounded-xl"
+            role="alert"
+          >
             <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
             <div>
               <p className="font-medium text-red-400">{event.code}</p>

@@ -159,6 +159,19 @@ export const WebhookDeliveriesResponseSchema = z.object({
   deliveries: z.array(WebhookDeliverySchema),
 });
 
+// ── Secrets / Connections ────────────────────────────────────────────
+
+export const SecretsListResponseSchema = z.object({
+  ok: z.boolean(),
+  platforms: z.array(z.string()),
+});
+
+export const SecretsTestResponseSchema = z.object({
+  ok: z.boolean(),
+  success: z.boolean(),
+  message: z.string(),
+});
+
 // ── Validate helper ───────────────────────────────────────────────────
 
 /**
