@@ -37,8 +37,13 @@ export function TemplateDetailPanel({
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800">
           <h2 className="text-lg font-semibold truncate">{template.name}</h2>
-          <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-800 transition-colors">
-            <X className="w-5 h-5" />
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-2 rounded-lg hover:bg-gray-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+            aria-label="Close template details"
+          >
+            <X className="w-5 h-5" aria-hidden="true" />
           </button>
         </div>
 
@@ -118,28 +123,34 @@ export function TemplateDetailPanel({
         {/* Actions */}
         <div className="px-5 py-4 border-t border-gray-800 space-y-2">
           <button
+            type="button"
             onClick={() => onUseTemplate(template)}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-brand-600 hover:bg-brand-500 rounded-lg font-medium transition-colors"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-brand-600 hover:bg-brand-500 rounded-lg font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+            aria-label={`Use template ${template.name}`}
           >
-            <Play className="w-4 h-4" />
+            <Play className="w-4 h-4" aria-hidden="true" />
             Use This Template
           </button>
           <div className="flex gap-2">
             {!template.isCustom && (
               <button
+                type="button"
                 onClick={handleDuplicate}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm transition-colors"
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+                aria-label={`Duplicate template ${template.name}`}
               >
-                <Copy className="w-4 h-4" />
+                <Copy className="w-4 h-4" aria-hidden="true" />
                 Duplicate
               </button>
             )}
             {template.isCustom && (
               <button
+                type="button"
                 onClick={handleDelete}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gray-800 hover:bg-red-900/50 hover:text-red-400 rounded-lg text-sm transition-colors"
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gray-800 hover:bg-red-900/50 hover:text-red-400 rounded-lg text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40 focus-visible:ring-offset-1"
+                aria-label={`Delete template ${template.name}`}
               >
-                <Trash2 className="w-4 h-4" />
+                <Trash2 className="w-4 h-4" aria-hidden="true" />
                 Delete
               </button>
             )}

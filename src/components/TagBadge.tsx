@@ -42,10 +42,10 @@ export function TagBadge({ tag, onRemove, size = 'sm' }: TagBadgeProps) {
             e.stopPropagation();
             onRemove();
           }}
-          className="hover:opacity-70 transition-opacity"
+          className="hover:opacity-70 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 rounded"
           aria-label={`Remove tag ${tag}`}
         >
-          <X className="w-3 h-3" />
+          <X className="w-3 h-3" aria-hidden="true" />
         </button>
       )}
     </span>
@@ -72,7 +72,7 @@ export function TagFilter({ allTags, selectedTags, onToggleTag }: TagFilterProps
             type="button"
             onClick={() => onToggleTag(tag)}
             className={clsx(
-              'px-2 py-0.5 text-xs rounded border transition-all',
+              'px-2 py-0.5 text-xs rounded border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1',
               isSelected
                 ? `${color.bg} ${color.text} ${color.border}`
                 : 'bg-gray-800/50 text-gray-500 border-gray-700 hover:text-gray-300'

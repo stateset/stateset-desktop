@@ -38,7 +38,7 @@ export function ConfigModal({
               onChange={(e) =>
                 onUpdate({ loop_interval_ms: Math.max(100, Number(e.target.value) || 100) })
               }
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500"
+              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 focus-visible:border-brand-500"
             />
           </label>
           <label className="space-y-1">
@@ -50,7 +50,7 @@ export function ConfigModal({
               onChange={(e) =>
                 onUpdate({ max_iterations: Math.max(1, Number(e.target.value) || 1) })
               }
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500"
+              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 focus-visible:border-brand-500"
             />
           </label>
           <label className="space-y-1">
@@ -62,7 +62,7 @@ export function ConfigModal({
               onChange={(e) =>
                 onUpdate({ iteration_timeout_secs: Math.max(1, Number(e.target.value) || 1) })
               }
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500"
+              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 focus-visible:border-brand-500"
             />
           </label>
           <label className="space-y-1">
@@ -76,7 +76,7 @@ export function ConfigModal({
               onChange={(e) =>
                 onUpdate({ temperature: Math.min(2, Math.max(0, Number(e.target.value) || 0)) })
               }
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500"
+              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 focus-visible:border-brand-500"
             />
           </label>
           <label className="space-y-1 md:col-span-2">
@@ -85,7 +85,7 @@ export function ConfigModal({
               type="text"
               value={configDraft?.model ?? ''}
               onChange={(e) => onUpdate({ model: e.target.value })}
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500"
+              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 focus-visible:border-brand-500"
             />
           </label>
         </div>
@@ -103,7 +103,7 @@ export function ConfigModal({
                   .filter(Boolean),
               })
             }
-            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500"
+            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 focus-visible:border-brand-500"
           />
         </label>
 
@@ -113,7 +113,7 @@ export function ConfigModal({
             rows={4}
             value={configDraft?.custom_instructions ?? ''}
             onChange={(e) => onUpdate({ custom_instructions: e.target.value })}
-            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500"
+            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 focus-visible:border-brand-500"
           />
         </label>
 
@@ -126,7 +126,7 @@ export function ConfigModal({
           </div>
           <input
             type="checkbox"
-            className="h-4 w-4"
+            className="h-4 w-4 rounded border-gray-700 bg-gray-900 text-brand-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
             checked={configDraft?.pause_on_error ?? false}
             onChange={(e) => onUpdate({ pause_on_error: e.target.checked })}
           />

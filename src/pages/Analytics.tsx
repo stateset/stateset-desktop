@@ -168,12 +168,14 @@ export default function Analytics() {
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold">Analytics</h1>
           <p className="text-gray-400 mt-1">Monitor your agent performance and usage metrics</p>
         </div>
-        <DateRangePicker value={dateRange} onChange={setDateRange} />
+        <div className="w-full sm:w-auto">
+          <DateRangePicker value={dateRange} onChange={setDateRange} />
+        </div>
       </div>
 
       {/* Key Metrics */}
@@ -222,32 +224,32 @@ export default function Analytics() {
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Token Usage Over Time */}
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+        <div className="bg-gray-900/95 border border-gray-800/90 rounded-xl p-6">
           <h3 className="text-lg font-semibold mb-4">Token Usage Over Time</h3>
           <LineChart data={analytics.tokensByDay} height={200} color="#0ea5e9" showArea />
         </div>
 
         {/* Tool Calls Distribution */}
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+        <div className="bg-gray-900/95 border border-gray-800/90 rounded-xl p-6">
           <h3 className="text-lg font-semibold mb-4">Tool Calls by Agent Type</h3>
           <BarChart data={analytics.toolCallsByAgentType} height={200} color="#a855f7" />
         </div>
 
         {/* Agent Status Distribution */}
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+        <div className="bg-gray-900/95 border border-gray-800/90 rounded-xl p-6">
           <h3 className="text-lg font-semibold mb-4">Agent Status Distribution</h3>
           <DonutChart data={analytics.statusDistribution} size={180} thickness={30} showLegend />
         </div>
 
         {/* Performance by Agent Type */}
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+        <div className="bg-gray-900/95 border border-gray-800/90 rounded-xl p-6">
           <h3 className="text-lg font-semibold mb-4">Tokens by Agent Type</h3>
           <BarChart data={analytics.performanceByAgent} height={200} color="#22c55e" />
         </div>
       </div>
 
       {/* Summary Table */}
-      <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+      <div className="bg-gray-900/95 border border-gray-800/90 rounded-xl overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-800">
           <h3 className="text-lg font-semibold">Agent Performance Summary</h3>
         </div>

@@ -2,6 +2,31 @@
 @tailwind components;
 @tailwind utilities;
 
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+:root {
+  --ui-transition-speed: 0.18s;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  color: #e5e7eb;
+  background-color: #020617;
+}
+
 :root {
   color-scheme: dark;
 
@@ -113,6 +138,11 @@
   font-size: 15px;
 }
 
+:root[data-reduce-motion='true'],
+:root[data-reduce-motion='true'] * {
+  transition-duration: 0.001ms !important;
+}
+
 :root[data-reduce-motion='true'] {
   scroll-behavior: auto;
 }
@@ -123,6 +153,28 @@
   animation-duration: 0.001ms !important;
   animation-iteration-count: 1 !important;
   transition-duration: 0.001ms !important;
+}
+
+button,
+input,
+select,
+textarea {
+  transition:
+    background-color var(--ui-transition-speed) ease,
+    border-color var(--ui-transition-speed) ease,
+    color var(--ui-transition-speed) ease,
+    opacity var(--ui-transition-speed) ease,
+    box-shadow var(--ui-transition-speed) ease,
+    transform 0.12s ease,
+    filter 0.12s ease;
+}
+
+button:hover {
+  filter: brightness(1.05);
+}
+
+button:active {
+  transform: translateY(1px);
 }
 
 /* Custom scrollbar */

@@ -20,16 +20,22 @@ export const ThemeToggle = memo(function ThemeToggle({
 
   return (
     <button
+      type="button"
       onClick={toggleTheme}
       className={clsx(
-        'flex items-center gap-2 p-2 rounded-lg transition-colors',
+        'flex items-center gap-2 p-2 rounded-lg transition-all',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1',
         'hover:bg-gray-800 text-gray-400 hover:text-gray-200',
         className
       )}
       aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
       title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
     >
-      {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+      {theme === 'dark' ? (
+        <Sun className="w-5 h-5" aria-hidden="true" />
+      ) : (
+        <Moon className="w-5 h-5" aria-hidden="true" />
+      )}
       {showLabel && <span className="text-sm">{theme === 'dark' ? 'Light' : 'Dark'} Mode</span>}
     </button>
   );
@@ -47,9 +53,11 @@ export const AnimatedThemeToggle = memo(function AnimatedThemeToggle({
 
   return (
     <button
+      type="button"
       onClick={toggleTheme}
       className={clsx(
         'relative w-14 h-8 rounded-full transition-colors duration-200',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1',
         theme === 'dark' ? 'bg-gray-700' : 'bg-blue-100',
         className
       )}
@@ -64,9 +72,9 @@ export const AnimatedThemeToggle = memo(function AnimatedThemeToggle({
         )}
       >
         {theme === 'dark' ? (
-          <Moon className="w-3.5 h-3.5 text-gray-400" />
+          <Moon className="w-3.5 h-3.5 text-gray-400" aria-hidden="true" />
         ) : (
-          <Sun className="w-3.5 h-3.5 text-amber-500" />
+          <Sun className="w-3.5 h-3.5 text-amber-500" aria-hidden="true" />
         )}
       </span>
     </button>

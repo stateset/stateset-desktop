@@ -93,19 +93,22 @@ export const NotificationsCenter = memo(function NotificationsCenter({
     <div className="relative" data-notifications-center>
       {/* Trigger Button */}
       <button
+        type="button"
+        id="notifications-trigger"
         onClick={() => setIsOpen(!isOpen)}
         className={clsx(
-          'relative p-2 rounded-lg transition-colors',
+          'relative p-2 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900',
           isOpen ? 'bg-gray-800' : 'hover:bg-gray-800'
         )}
         aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
         aria-expanded={isOpen}
         aria-haspopup="true"
+        aria-controls="notifications-center-panel"
       >
-        <Bell className="w-5 h-5 text-gray-400" />
+        <Bell className="w-5 h-5 text-gray-400" aria-hidden="true" />
         {unreadCount > 0 && (
           <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
-            {unreadCount > 9 ? '9+' : unreadCount}
+            {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
       </button>
@@ -114,11 +117,14 @@ export const NotificationsCenter = memo(function NotificationsCenter({
       <AnimatePresence>
         {isOpen && (
           <motion.div
+            id="notifications-center-panel"
+            role="region"
+            aria-label="Notifications"
             initial={{ opacity: 0, y: 10, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.95 }}
             transition={{ duration: 0.15 }}
-            className="absolute right-0 top-full mt-2 w-96 max-h-[70vh] bg-gray-900 border border-gray-800 rounded-xl shadow-xl overflow-hidden z-50"
+            className="absolute right-0 top-full mt-2 w-[90vw] max-w-96 max-h-[70vh] bg-gray-900/95 border border-gray-800/90 rounded-xl shadow-xl backdrop-blur-md ring-1 ring-black/20 overflow-hidden z-50"
           >
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
@@ -126,20 +132,22 @@ export const NotificationsCenter = memo(function NotificationsCenter({
               <div className="flex items-center gap-2">
                 {unreadCount > 0 && (
                   <button
+                    type="button"
                     onClick={onMarkAllAsRead}
-                    className="text-xs text-brand-400 hover:text-brand-300 transition-colors"
+                    className="text-xs text-brand-400 hover:text-brand-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900 rounded"
                   >
                     Mark all read
                   </button>
                 )}
                 {notifications.length > 0 && (
                   <button
+                    type="button"
                     onClick={onClearAll}
-                    className="p-1.5 text-gray-400 hover:text-gray-200 hover:bg-gray-800 rounded-lg transition-colors"
+                    className="p-1.5 text-gray-400 hover:text-gray-200 hover:bg-gray-800 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900"
                     title="Clear all"
                     aria-label="Clear all notifications"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="w-4 h-4" aria-hidden="true" />
                   </button>
                 )}
               </div>
@@ -149,7 +157,7 @@ export const NotificationsCenter = memo(function NotificationsCenter({
             <div className="overflow-y-auto max-h-[50vh]">
               {notifications.length === 0 ? (
                 <div className="p-8 text-center text-gray-500">
-                  <Bell className="w-10 h-10 mx-auto mb-2 opacity-50" />
+                  <Bell className="w-10 h-10 mx-auto mb-2 opacity-50" aria-hidden="true" />
                   <p>No notifications</p>
                 </div>
               ) : (
@@ -218,7 +226,7 @@ const NotificationItem = memo(function NotificationItem({
             config.bg
           )}
         >
-          <Icon className={clsx('w-4 h-4', config.color)} />
+          <Icon className={clsx('w-4 h-4', config.color)} aria-hidden="true" />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
@@ -236,8 +244,10 @@ const NotificationItem = memo(function NotificationItem({
             </span>
             {notification.actionLabel && (
               <button
+                type="button"
                 onClick={handleClick}
-                className="text-xs text-brand-400 hover:text-brand-300 font-medium transition-colors"
+                className="text-xs text-brand-400 hover:text-brand-300 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900 rounded"
+                aria-label={notification.actionLabel}
               >
                 {notification.actionLabel}
               </button>
@@ -245,11 +255,12 @@ const NotificationItem = memo(function NotificationItem({
           </div>
         </div>
         <button
+          type="button"
           onClick={() => onDismiss(notification.id)}
-          className="flex-shrink-0 p-1 text-gray-500 hover:text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity"
+          className="flex-shrink-0 p-1 text-gray-500 hover:text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900 focus-visible:opacity-100"
           aria-label="Dismiss notification"
         >
-          <X className="w-4 h-4" />
+          <X className="w-4 h-4" aria-hidden="true" />
         </button>
       </div>
     </div>

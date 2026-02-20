@@ -36,7 +36,7 @@ export function AppLoadingScreen({
   const ErrorIcon = getErrorIcon();
 
   return (
-    <div className="flex flex-col items-center justify-center h-screen bg-gray-950">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-gray-950 to-slate-950">
       {/* Drag region for window controls */}
       <div className="absolute top-0 left-0 right-0 h-10 drag-region" />
 
@@ -53,7 +53,7 @@ export function AppLoadingScreen({
           transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
           className="w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-600 flex items-center justify-center mb-6 shadow-lg shadow-brand-500/20"
         >
-          <Bot className="w-9 h-9 text-white" />
+          <Bot className="w-9 h-9 text-white" aria-hidden="true" />
         </motion.div>
 
         {/* App name */}
@@ -71,7 +71,7 @@ export function AppLoadingScreen({
             >
               {/* Error icon */}
               <div className="w-12 h-12 rounded-full bg-red-900/30 flex items-center justify-center mb-4">
-                {ErrorIcon && <ErrorIcon className="w-6 h-6 text-red-400" />}
+                {ErrorIcon && <ErrorIcon className="w-6 h-6 text-red-400" aria-hidden="true" />}
               </div>
 
               {/* Error message */}
@@ -82,9 +82,10 @@ export function AppLoadingScreen({
               {onRetry && (
                 <button
                   onClick={onRetry}
-                  className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg transition-colors"
+                  type="button"
+                  className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg transition-all border border-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
                 >
-                  <RefreshCw className="w-4 h-4" />
+                  <RefreshCw className="w-4 h-4" aria-hidden="true" />
                   Try again
                 </button>
               )}
@@ -108,6 +109,7 @@ export function AppLoadingScreen({
                 key={status}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
+                aria-live="polite"
                 className="text-gray-400 text-sm"
               >
                 {statusMessages[status]}

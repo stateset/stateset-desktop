@@ -133,9 +133,11 @@ export function ChatPlayground() {
           {messages.length > 0 && (
             <button
               onClick={handleSaveConversation}
-              className="flex items-center gap-1.5 px-2.5 py-1 text-xs bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors"
+              type="button"
+              className="flex items-center gap-1.5 px-2.5 py-1 text-xs bg-gray-800 hover:bg-gray-700 rounded-lg transition-all border border-gray-800/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900"
+              aria-label="Save conversation"
             >
-              <Save className="w-3.5 h-3.5" />
+              <Save className="w-3.5 h-3.5" aria-hidden="true" />
               Save
             </button>
           )}

@@ -10,6 +10,7 @@ import {
   Plus,
   RefreshCw,
   Command,
+  X,
   BarChart3,
   MessageSquare,
   Webhook,
@@ -47,6 +48,7 @@ export function CommandPalette({
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
   const navigate = useNavigate();
 
   const statusRank = (status: string): number => {
@@ -228,15 +230,22 @@ export function CommandPalette({
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if (!isOpen) return;
+      if (filteredCommands.length === 0) {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          onClose();
+        }
+        return;
+      }
 
       switch (e.key) {
         case 'ArrowDown':
           e.preventDefault();
-          setSelectedIndex((i) => Math.min(i + 1, filteredCommands.length - 1));
+          setSelectedIndex((i) => (i + 1) % filteredCommands.length);
           break;
         case 'ArrowUp':
           e.preventDefault();
-          setSelectedIndex((i) => Math.max(i - 1, 0));
+          setSelectedIndex((i) => (i - 1 < 0 ? Math.max(filteredCommands.length - 1, 0) : i - 1));
           break;
         case 'Enter':
           e.preventDefault();
@@ -254,6 +263,21 @@ export function CommandPalette({
   );
 
   useEffect(() => {
+    if (isOpen && document.activeElement instanceof HTMLElement) {
+      returnFocusRef.current = document.activeElement;
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen && returnFocusRef.current) {
+      if (returnFocusRef.current.isConnected) {
+        returnFocusRef.current.focus();
+      }
+      returnFocusRef.current = null;
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
@@ -267,10 +291,29 @@ export function CommandPalette({
   }, [isOpen]);
 
   useEffect(() => {
-    setSelectedIndex(0);
-  }, [query]);
+    setSelectedIndex((previousIndex) => {
+      if (filteredCommands.length === 0) {
+        return 0;
+      }
+      if (previousIndex >= filteredCommands.length) {
+        return Math.max(filteredCommands.length - 1, 0);
+      }
+      return previousIndex;
+    });
+  }, [query, filteredCommands.length]);
 
-  if (!isOpen) return null;
+  useEffect(() => {
+    const selectedId = filteredCommands[selectedIndex]?.id;
+    if (!isOpen || !selectedId) return;
+
+    const selectedElement = document.getElementById(`command-option-${selectedId}`);
+    selectedElement?.scrollIntoView({
+      block: 'nearest',
+      behavior: 'smooth',
+    });
+  }, [filteredCommands, selectedIndex, isOpen]);
+
+  const selectedId = filteredCommands[selectedIndex]?.id;
 
   const groupedCommands = {
     navigation: filteredCommands.filter((c) => c.category === 'navigation'),
@@ -280,87 +323,124 @@ export function CommandPalette({
 
   return createPortal(
     <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh] bg-black/60"
-        onClick={onClose}
-      >
+      {isOpen ? (
         <motion.div
-          initial={{ opacity: 0, scale: 0.95, y: -20 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: -20 }}
-          transition={{ duration: 0.15 }}
-          className="w-full max-w-lg bg-gray-900 border border-gray-800 rounded-xl shadow-2xl overflow-hidden"
-          onClick={(e) => e.stopPropagation()}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh] bg-black/60 backdrop-blur-sm"
+          onClick={onClose}
         >
-          {/* Search input */}
-          <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-800">
-            <Search className="w-5 h-5 text-gray-500" />
-            <input
-              ref={inputRef}
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search commands..."
-              className="flex-1 bg-transparent text-white placeholder-gray-500 focus:outline-none"
-            />
-            <kbd className="hidden sm:flex items-center gap-1 px-2 py-1 text-xs text-gray-500 bg-gray-800 rounded">
-              <Command className="w-3 h-3" />K
-            </kbd>
-          </div>
-
-          {/* Results */}
-          <div className="max-h-80 overflow-y-auto p-2">
-            {filteredCommands.length === 0 ? (
-              <div className="px-4 py-8 text-center text-gray-500">No commands found</div>
-            ) : (
-              <>
-                {groupedCommands.navigation.length > 0 && (
-                  <CommandGroup
-                    title="Navigation"
-                    commands={groupedCommands.navigation}
-                    selectedIndex={selectedIndex}
-                    startIndex={0}
-                  />
-                )}
-                {groupedCommands.actions.length > 0 && (
-                  <CommandGroup
-                    title="Actions"
-                    commands={groupedCommands.actions}
-                    selectedIndex={selectedIndex}
-                    startIndex={groupedCommands.navigation.length}
-                  />
-                )}
-                {groupedCommands.agents.length > 0 && (
-                  <CommandGroup
-                    title="Agents"
-                    commands={groupedCommands.agents}
-                    selectedIndex={selectedIndex}
-                    startIndex={groupedCommands.navigation.length + groupedCommands.actions.length}
-                  />
-                )}
-              </>
-            )}
-          </div>
-
-          {/* Footer */}
-          <div className="flex items-center justify-between px-4 py-2 border-t border-gray-800 text-xs text-gray-500">
-            <div className="flex items-center gap-4">
-              <span className="flex items-center gap-1">
-                <kbd className="px-1.5 py-0.5 bg-gray-800 rounded">↑↓</kbd> Navigate
-              </span>
-              <span className="flex items-center gap-1">
-                <kbd className="px-1.5 py-0.5 bg-gray-800 rounded">↵</kbd> Select
-              </span>
-              <span className="flex items-center gap-1">
-                <kbd className="px-1.5 py-0.5 bg-gray-800 rounded">Esc</kbd> Close
-              </span>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: -20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: -20 }}
+            transition={{ duration: 0.15 }}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="command-palette-title"
+            className="w-[min(92vw,34rem)] bg-gray-900 border border-gray-800 rounded-xl shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id="command-palette-title" className="sr-only">
+              Command Palette
+            </h2>
+            {/* Search input */}
+            <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-800">
+              <Search className="w-5 h-5 text-gray-500" aria-hidden="true" />
+              <input
+                id="command-palette-search"
+                ref={inputRef}
+                role="searchbox"
+                autoComplete="off"
+                spellCheck={false}
+                aria-autocomplete="list"
+                aria-controls="command-palette-results"
+                aria-label="Search commands"
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search commands..."
+                className="flex-1 bg-transparent text-white placeholder-gray-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+              />
+              <kbd className="hidden sm:flex items-center gap-1 px-2 py-1 text-xs text-gray-500 bg-gray-800 rounded">
+                <Command className="w-3 h-3" aria-hidden="true" />K
+              </kbd>
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Close command palette"
+                className="rounded p-1 text-gray-500 hover:text-gray-300 hover:bg-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+              >
+                <X className="w-4 h-4" aria-hidden="true" />
+              </button>
             </div>
-          </div>
+
+            {/* Results */}
+            <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+              {filteredCommands.length} command{filteredCommands.length === 1 ? '' : 's'} available
+            </div>
+
+            <div
+              id="command-palette-results"
+              role="listbox"
+              aria-activedescendant={selectedId ? `command-option-${selectedId}` : undefined}
+              className="max-h-80 overflow-y-auto p-2"
+            >
+              {filteredCommands.length === 0 ? (
+                <div className="px-4 py-8 text-center text-gray-500">No commands found</div>
+              ) : (
+                <>
+                  {groupedCommands.navigation.length > 0 && (
+                    <CommandGroup
+                      title="Navigation"
+                      commands={groupedCommands.navigation}
+                      selectedIndex={selectedIndex}
+                      startIndex={0}
+                      onHoverIndex={(nextIndex) => setSelectedIndex(nextIndex)}
+                    />
+                  )}
+                  {groupedCommands.actions.length > 0 && (
+                    <CommandGroup
+                      title="Actions"
+                      commands={groupedCommands.actions}
+                      selectedIndex={selectedIndex}
+                      startIndex={groupedCommands.navigation.length}
+                      onHoverIndex={(nextIndex) => setSelectedIndex(nextIndex)}
+                    />
+                  )}
+                  {groupedCommands.agents.length > 0 && (
+                    <CommandGroup
+                      title="Agents"
+                      commands={groupedCommands.agents}
+                      selectedIndex={selectedIndex}
+                      startIndex={
+                        groupedCommands.navigation.length + groupedCommands.actions.length
+                      }
+                      onHoverIndex={(nextIndex) => setSelectedIndex(nextIndex)}
+                    />
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-between px-4 py-2 border-t border-gray-800 text-xs text-gray-500">
+              <div className="flex items-center gap-4">
+                <span className="flex items-center gap-1">
+                  <kbd className="px-1.5 py-0.5 bg-gray-800 rounded">↑↓</kbd> Navigate
+                </span>
+                <span className="flex items-center gap-1">
+                  <kbd className="px-1.5 py-0.5 bg-gray-800 rounded">↵</kbd> Select
+                </span>
+                <span className="flex items-center gap-1">
+                  <kbd className="px-1.5 py-0.5 bg-gray-800 rounded">Esc</kbd> Close
+                </span>
+              </div>
+            </div>
+          </motion.div>
         </motion.div>
-      </motion.div>
+      ) : null}
     </AnimatePresence>,
     document.body
   );
@@ -371,11 +451,18 @@ interface CommandGroupProps {
   commands: CommandItem[];
   selectedIndex: number;
   startIndex: number;
+  onHoverIndex: (index: number) => void;
 }
 
-function CommandGroup({ title, commands, selectedIndex, startIndex }: CommandGroupProps) {
+function CommandGroup({
+  title,
+  commands,
+  selectedIndex,
+  startIndex,
+  onHoverIndex,
+}: CommandGroupProps) {
   return (
-    <div className="mb-2">
+    <div role="presentation" className="mb-2">
       <div className="px-3 py-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">
         {title}
       </div>
@@ -384,14 +471,21 @@ function CommandGroup({ title, commands, selectedIndex, startIndex }: CommandGro
         const isSelected = selectedIndex === startIndex + i;
         return (
           <button
+            type="button"
             key={cmd.id}
+            id={`command-option-${cmd.id}`}
             onClick={cmd.action}
+            role="option"
+            aria-selected={isSelected}
+            aria-label={cmd.label}
+            onMouseEnter={() => onHoverIndex(startIndex + i)}
+            onFocus={() => onHoverIndex(startIndex + i)}
             className={clsx(
-              'w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors',
+              'w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1',
               isSelected ? 'bg-brand-600 text-white' : 'hover:bg-gray-800 text-gray-300'
             )}
           >
-            <Icon className="w-4 h-4 flex-shrink-0" />
+            <Icon className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
             <div className="flex-1 text-left">
               <div className="font-medium">{cmd.label}</div>
               {cmd.description && (

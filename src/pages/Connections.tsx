@@ -165,7 +165,7 @@ export default function Connections() {
 
       {/* Info banner */}
       {isLocalMode ? (
-        <div className="mb-6 p-4 bg-amber-900/20 border border-amber-800 rounded-xl">
+        <div className="mb-6 p-4 bg-amber-900/20 border border-amber-800 rounded-xl backdrop-blur-sm">
           <div className="flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
             <div>
@@ -178,7 +178,7 @@ export default function Connections() {
           </div>
         </div>
       ) : (
-        <div className="mb-6 p-4 bg-blue-900/20 border border-blue-800 rounded-xl">
+        <div className="mb-6 p-4 bg-blue-900/20 border border-blue-800 rounded-xl backdrop-blur-sm">
           <div className="flex items-start gap-3">
             <Plug className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
             <div>
@@ -191,16 +191,18 @@ export default function Connections() {
         </div>
       )}
 
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className="text-lg font-semibold">Configured Connections</h2>
           <p className="text-sm text-gray-400 mt-1">Manage built-ins and custom MCP servers</p>
         </div>
         <button
+          type="button"
           onClick={() => setShowCustomServerForm((prev) => !prev)}
-          className="inline-flex items-center gap-2 px-3 py-2 bg-brand-600 hover:bg-brand-500 rounded-lg text-sm transition-colors"
+          aria-label="Add custom MCP server"
+          className="inline-flex items-center gap-2 px-3 py-2 bg-brand-600 hover:bg-brand-500 rounded-lg text-sm border border-brand-600/40 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
         >
-          <Plus className="w-4 h-4" />
+          <Plus className="w-4 h-4" aria-hidden="true" />
           Add custom MCP server
         </button>
       </div>

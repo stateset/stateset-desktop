@@ -1,4 +1,4 @@
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../stores/auth';
 import { useUiStore } from '../stores/ui';
@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import clsx from 'clsx';
+import { motion } from 'framer-motion';
 import { ApiHealthIndicator } from './ApiHealthIndicator';
 import { CommandPalette } from './CommandPalette';
 import { KeyboardShortcutsModal } from './KeyboardShortcutsModal';
@@ -61,6 +62,7 @@ export default function Layout({ children }: LayoutProps) {
   const [showShortcutsModal, setShowShortcutsModal] = useState(false);
   const [appVersion, setAppVersion] = useState<string | null>(null);
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
   const commandPaletteOpen = useUiStore((state) => state.commandPaletteOpen);
   const commandPaletteAgents = useUiStore((state) => state.commandPaletteAgents);
@@ -240,7 +242,7 @@ export default function Layout({ children }: LayoutProps) {
   }, [showBrandDropdown]);
 
   return (
-    <div className="flex h-screen bg-gray-950">
+    <div className="flex h-screen bg-gradient-to-br from-gray-950 via-slate-950 to-gray-900">
       {/* Skip to main content link — visible on focus for keyboard users */}
       <a
         href="#main-content"
@@ -258,14 +260,14 @@ export default function Layout({ children }: LayoutProps) {
       />
 
       {/* Sidebar */}
-      <aside className="w-64 border-r border-gray-800 flex flex-col">
+      <aside className="w-64 border-r border-gray-800/90 bg-gray-900/85 backdrop-blur-md flex flex-col">
         {/* Logo & Drag Region */}
-        <div className="h-14 flex items-center px-4 border-b border-gray-800 drag-region">
+        <div className="h-14 flex items-center px-4 border-b border-gray-800/90 bg-gray-900/95 drag-region">
           <div className="flex items-center gap-2 no-drag">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-500 to-brand-600 flex items-center justify-center">
-              <Bot className="w-5 h-5 text-white" />
+              <Bot className="w-5 h-5 text-white" aria-hidden="true" />
             </div>
-            <span className="font-semibold text-lg">StateSet</span>
+            <span className="font-semibold text-lg tracking-tight">StateSet</span>
           </div>
         </div>
 
@@ -273,11 +275,12 @@ export default function Layout({ children }: LayoutProps) {
         <div className="p-3 border-b border-gray-800">
           <div className="relative" ref={brandDropdownRef}>
             <button
+              type="button"
               onClick={() => setShowBrandDropdown(!showBrandDropdown)}
               aria-label={`Select brand. Current: ${currentBrand?.name || 'None selected'}`}
               aria-expanded={showBrandDropdown}
               aria-haspopup="listbox"
-              className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-gray-900 hover:bg-gray-800 transition-colors"
+              className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-gray-900/95 hover:bg-gray-800 border border-gray-800 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
             >
               <div className="flex flex-col items-start">
                 <span className="text-xs text-gray-500">{tenant?.name}</span>
@@ -288,6 +291,7 @@ export default function Layout({ children }: LayoutProps) {
                   'w-4 h-4 text-gray-500 transition-transform',
                   showBrandDropdown && 'rotate-180'
                 )}
+                aria-hidden="true"
               />
             </button>
 
@@ -295,13 +299,18 @@ export default function Layout({ children }: LayoutProps) {
               <div
                 role="listbox"
                 aria-label="Available brands"
-                className="absolute top-full left-0 right-0 mt-1 py-1 bg-gray-900 border border-gray-800 rounded-lg shadow-xl z-50"
+                className="absolute top-full left-0 right-0 mt-1 py-1 bg-gray-900/95 border border-gray-800 rounded-lg shadow-xl backdrop-blur-sm z-50"
               >
                 {brands.map((brand) => (
                   <button
+                    type="button"
                     key={brand.id}
                     role="option"
                     aria-selected={currentBrand?.id === brand.id}
+                    className={clsx(
+                      'w-full px-3 py-2 text-left text-sm hover:bg-gray-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1',
+                      currentBrand?.id === brand.id && 'bg-gray-800 text-brand-400'
+                    )}
                     onClick={() => {
                       setCurrentBrand(brand);
                       setShowBrandDropdown(false);
@@ -311,10 +320,6 @@ export default function Layout({ children }: LayoutProps) {
                           brandId: brand.id,
                         });
                     }}
-                    className={clsx(
-                      'w-full px-3 py-2 text-left text-sm hover:bg-gray-800 transition-colors',
-                      currentBrand?.id === brand.id && 'bg-gray-800 text-brand-400'
-                    )}
                   >
                     {brand.name}
                   </button>
@@ -325,21 +330,21 @@ export default function Layout({ children }: LayoutProps) {
         </div>
 
         {/* Navigation */}
-        <nav aria-label="Main navigation" className="flex-1 p-3 space-y-1">
+        <nav aria-label="Main navigation" className="flex-1 p-3 space-y-1.5">
           {navItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
               className={({ isActive }) =>
                 clsx(
-                  'flex items-center gap-3 px-3 py-2 rounded-lg transition-colors',
+                  'group flex items-center gap-3 px-3 py-2 rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1',
                   isActive
-                    ? 'bg-brand-600/20 text-brand-400'
-                    : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/50'
+                    ? 'bg-brand-600/20 text-brand-300 border border-brand-600/40'
+                    : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/70'
                 )
               }
             >
-              <item.icon className="w-5 h-5" />
+              <item.icon className="w-5 h-5" aria-hidden="true" />
               <span>{item.label}</span>
             </NavLink>
           ))}
@@ -348,9 +353,10 @@ export default function Layout({ children }: LayoutProps) {
         {/* User Section */}
         <div className="p-3 border-t border-gray-800 space-y-2">
           <button
+            type="button"
             onClick={handleLogout}
             aria-label="Logout from StateSet"
-            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-900/20 transition-colors"
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-900/20 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40 focus-visible:ring-offset-1"
           >
             <LogOut className="w-5 h-5" aria-hidden="true" />
             <span>Logout</span>
@@ -362,31 +368,39 @@ export default function Layout({ children }: LayoutProps) {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col overflow-hidden">
+      <motion.main
+        key={location.pathname}
+        initial={{ opacity: 0.85, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.15, ease: 'easeOut' }}
+        className="flex-1 flex flex-col overflow-hidden"
+      >
         {/* Top bar for window controls (macOS style) */}
-        <div className="h-10 drag-region flex items-center justify-end px-4 border-b border-gray-800/50 gap-3">
+        <div className="h-11 drag-region flex items-center justify-end px-4 border-b border-gray-800/70 gap-2 bg-gray-950/85 backdrop-blur-md sticky top-0 z-10">
           <ApiHealthIndicator />
           <NotificationsBell />
           <ThemeToggle className="no-drag" />
           <button
+            type="button"
             onClick={openCommandPalette}
-            className="no-drag flex items-center gap-1.5 px-2 py-1 rounded text-xs text-gray-500 hover:text-gray-300 hover:bg-gray-800 transition-colors"
+            className="no-drag flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs text-gray-500 hover:text-gray-300 hover:bg-gray-800 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
             title="Command palette (Ctrl/Cmd+K)"
             aria-label="Open command palette"
           >
-            <Command className="w-3.5 h-3.5" />
+            <Command className="w-3.5 h-3.5" aria-hidden="true" />
             <span className="hidden sm:inline">Commands</span>
             <kbd className="hidden sm:inline px-1 py-0.5 text-[10px] bg-gray-800 border border-gray-700 rounded">
               Ctrl/Cmd+K
             </kbd>
           </button>
           <button
+            type="button"
             onClick={() => setShowShortcutsModal(true)}
-            className="no-drag flex items-center gap-1.5 px-2 py-1 rounded text-xs text-gray-500 hover:text-gray-300 hover:bg-gray-800 transition-colors"
+            className="no-drag flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs text-gray-500 hover:text-gray-300 hover:bg-gray-800 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
             title="Keyboard shortcuts (?)"
             aria-label="Show keyboard shortcuts"
           >
-            <Keyboard className="w-3.5 h-3.5" />
+            <Keyboard className="w-3.5 h-3.5" aria-hidden="true" />
             <span className="hidden sm:inline">Shortcuts</span>
             <kbd className="hidden sm:inline px-1 py-0.5 text-[10px] bg-gray-800 border border-gray-700 rounded">
               ?
@@ -398,7 +412,7 @@ export default function Layout({ children }: LayoutProps) {
         <div id="main-content" className="flex-1 overflow-auto">
           {children}
         </div>
-      </main>
+      </motion.main>
 
       {/* Keyboard Shortcuts Modal */}
       <KeyboardShortcutsModal

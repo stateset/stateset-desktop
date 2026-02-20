@@ -75,7 +75,7 @@ export function PlatformCard({
                 <h3 className="font-semibold">{platform.name}</h3>
                 {connected && (
                   <span className="flex items-center gap-1 px-2 py-0.5 bg-green-900/50 text-green-400 text-xs rounded-full">
-                    <Check className="w-3 h-3" />
+                    <Check className="w-3 h-3" aria-hidden="true" />
                     Connected
                   </span>
                 )}
@@ -108,7 +108,7 @@ export function PlatformCard({
                     type={field.type}
                     value={credentials[field.key] || ''}
                     onChange={(e) => onCredentialChange(field.key, e.target.value)}
-                    className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500"
+                    className="w-full px-3 py-2 bg-gray-800/90 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
                   />
                 </div>
               ))}
@@ -117,13 +117,20 @@ export function PlatformCard({
               <button
                 onClick={onSaveCredentials}
                 disabled={isStoring}
-                className="flex-1 py-2 bg-brand-600 hover:bg-brand-500 rounded-lg font-medium transition-colors"
+                type="button"
+                className="flex-1 py-2 bg-brand-600 hover:bg-brand-500 rounded-lg font-medium border border-brand-600/40 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 disabled:focus-visible:ring-0 disabled:focus-visible:ring-offset-0"
+                aria-label="Save credentials"
               >
-                {isStoring ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'Save'}
+                {isStoring ? (
+                  <Loader2 className="w-5 h-5 animate-spin mx-auto" aria-hidden="true" />
+                ) : (
+                  'Save'
+                )}
               </button>
               <button
                 onClick={onCancel}
-                className="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors"
+                type="button"
+                className="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition-all border border-gray-800/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
               >
                 Cancel
               </button>
@@ -144,7 +151,7 @@ export function PlatformCard({
                   placeholder={field.placeholder}
                   value={oauthInputs[field.key] || ''}
                   onChange={(e) => onOauthInputChange(field.key, e.target.value)}
-                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500"
+                  className="w-full px-3 py-2 bg-gray-800/90 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
                 />
               </div>
             ))}
@@ -152,17 +159,20 @@ export function PlatformCard({
               <button
                 onClick={onOAuthConnect}
                 disabled={isStoring}
-                className="flex-1 py-2 bg-brand-600 hover:bg-brand-500 rounded-lg font-medium transition-colors"
+                type="button"
+                className="flex-1 py-2 bg-brand-600 hover:bg-brand-500 rounded-lg font-medium transition-all border border-brand-600/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 disabled:focus-visible:ring-0 disabled:focus-visible:ring-offset-0"
+                aria-label={`Authenticate with ${platform.name}`}
               >
                 {isStoring ? (
-                  <Loader2 className="w-5 h-5 animate-spin mx-auto" />
+                  <Loader2 className="w-5 h-5 animate-spin mx-auto" aria-hidden="true" />
                 ) : (
                   platform.oauth.label
                 )}
               </button>
               <button
                 onClick={onCancel}
-                className="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors"
+                type="button"
+                className="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition-all border border-gray-800/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
               >
                 Cancel
               </button>
@@ -183,12 +193,14 @@ export function PlatformCard({
                       ? 'Local credentials cannot be tested without a configured vault.'
                       : 'Test connection'
                   }
-                  className="flex-1 flex items-center justify-center gap-2 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  type="button"
+                  className="flex-1 flex items-center justify-center gap-2 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed border border-gray-800/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 disabled:focus-visible:ring-0 disabled:focus-visible:ring-offset-0"
+                  aria-label={isLocalMode ? 'Test unavailable in local mode' : 'Test connection'}
                 >
                   {isTesting ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
                   ) : (
-                    <RefreshCw className="w-4 h-4" />
+                    <RefreshCw className="w-4 h-4" aria-hidden="true" />
                   )}
                   Test
                 </button>
@@ -196,24 +208,30 @@ export function PlatformCard({
                   onClick={onDisconnect}
                   title={`Disconnect ${platform.name}`}
                   aria-label={`Disconnect ${platform.name}`}
-                  className="p-2 bg-red-900/30 hover:bg-red-900/50 text-red-400 rounded-lg transition-colors"
+                  type="button"
+                  className="p-2 bg-red-900/30 hover:bg-red-900/50 text-red-400 rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40 focus-visible:ring-offset-1 border border-red-900/30 disabled:focus-visible:ring-0 disabled:focus-visible:ring-offset-0"
+                  disabled={isStoring || isTesting}
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 className="w-4 h-4" aria-hidden="true" />
                 </button>
               </>
             ) : (
               <>
                 <button
                   onClick={platform.oauth ? onStartOAuth : onStartManual}
-                  className="flex-1 flex items-center justify-center gap-2 py-2 bg-brand-600 hover:bg-brand-500 rounded-lg text-sm font-medium transition-colors"
+                  type="button"
+                  className="flex-1 flex items-center justify-center gap-2 py-2 bg-brand-600 hover:bg-brand-500 rounded-lg text-sm font-medium transition-all border border-brand-600/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 disabled:focus-visible:ring-0 disabled:focus-visible:ring-offset-0"
+                  disabled={isStoring}
                 >
-                  <Plug className="w-4 h-4" />
+                  <Plug className="w-4 h-4" aria-hidden="true" />
                   {platform.oauth ? platform.oauth.label : 'Connect'}
                 </button>
                 {platform.oauth && (
                   <button
                     onClick={onStartManual}
-                    className="px-3 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm transition-colors"
+                    type="button"
+                    className="px-3 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm transition-all border border-gray-800/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 disabled:focus-visible:ring-0 disabled:focus-visible:ring-offset-0"
+                    disabled={isStoring}
                   >
                     Manual
                   </button>

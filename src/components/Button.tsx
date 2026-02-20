@@ -11,10 +11,13 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 }
 
 const variantStyles: Record<string, string> = {
-  primary: 'bg-brand-600 hover:bg-brand-500 text-white',
-  secondary: 'bg-gray-800 hover:bg-gray-700 text-gray-200',
-  danger: 'bg-red-600 hover:bg-red-500 text-white',
-  ghost: 'bg-transparent hover:bg-gray-800 text-gray-300',
+  primary:
+    'bg-brand-600 border border-brand-600/50 text-white hover:bg-brand-500 hover:border-brand-500/60',
+  secondary:
+    'bg-gray-800/90 border border-gray-800 text-gray-200 hover:bg-gray-700/80 hover:border-gray-700/80',
+  danger: 'bg-red-600 border border-red-600/50 text-white hover:bg-red-500 hover:border-red-500/60',
+  ghost:
+    'bg-transparent border border-transparent text-gray-300 hover:bg-gray-800/80 hover:border-gray-700',
 };
 
 const sizeStyles: Record<string, string> = {
@@ -60,7 +63,8 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         ref={ref}
         disabled={disabled || loading}
         className={clsx(
-          'inline-flex items-center justify-center font-medium rounded-lg transition-colors',
+          'inline-flex items-center justify-center font-medium rounded-lg transition-all',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1',
           'disabled:opacity-50 disabled:cursor-not-allowed',
           variantStyles[variant],
           isIconOnly ? (size === 'sm' ? 'p-1' : size === 'lg' ? 'p-2.5' : 'p-2') : sizeStyles[size],

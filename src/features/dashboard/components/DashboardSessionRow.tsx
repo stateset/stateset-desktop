@@ -98,14 +98,14 @@ export const DashboardSessionRow = memo(function DashboardSessionRow({
       <div className="relative group hover:bg-gray-800/50 transition-colors">
         <button
           type="button"
-          className="w-full flex items-center gap-4 px-4 py-3 pr-36 text-left cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-inset"
+          className="w-full flex items-center gap-4 px-4 py-3 pr-36 text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-inset focus-visible:ring-offset-1"
           onClick={onClick}
           aria-label={`${sessionTitle}, status: ${getStatusText(session.status)}, ${session.metrics.loop_count} loops, ${session.metrics.tokens_used} tokens`}
         >
           {/* Status indicator */}
           <div className="relative">
             <div className="w-10 h-10 rounded-lg bg-gray-800 flex items-center justify-center">
-              <Bot className="w-5 h-5 text-gray-400" />
+              <Bot className="w-5 h-5 text-gray-400" aria-hidden="true" />
             </div>
             <div
               className={clsx(
@@ -131,7 +131,9 @@ export const DashboardSessionRow = memo(function DashboardSessionRow({
               >
                 {getStatusText(session.status)}
               </span>
-              {session.status === 'failed' && <AlertTriangle className="w-4 h-4 text-red-400" />}
+              {session.status === 'failed' && (
+                <AlertTriangle className="w-4 h-4 text-red-400" aria-hidden="true" />
+              )}
               {session.tags &&
                 session.tags.length > 0 &&
                 session.tags.map((tag) => <TagBadge key={tag} tag={tag} />)}
@@ -157,41 +159,41 @@ export const DashboardSessionRow = memo(function DashboardSessionRow({
               <button
                 type="button"
                 onClick={onStart}
-                className="p-2 rounded-lg hover:bg-green-900/30 text-green-400 transition-colors"
+                className="p-2 rounded-lg hover:bg-green-900/30 text-green-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-400/50 focus-visible:ring-offset-1"
                 title="Start agent"
                 aria-label="Start agent"
               >
-                <Play className="w-5 h-5" />
+                <Play className="w-5 h-5" aria-hidden="true" />
               </button>
             )}
             {canStop && (
               <button
                 type="button"
                 onClick={onStop}
-                className="p-2 rounded-lg hover:bg-red-900/30 text-red-400 transition-colors"
+                className="p-2 rounded-lg hover:bg-red-900/30 text-red-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/50 focus-visible:ring-offset-1"
                 title="Stop agent"
                 aria-label="Stop agent"
               >
-                <Square className="w-5 h-5" />
+                <Square className="w-5 h-5" aria-hidden="true" />
               </button>
             )}
             <button
               type="button"
               onClick={onCopy}
-              className="p-2 rounded-lg hover:bg-gray-800 text-gray-300 transition-colors"
+              className="p-2 rounded-lg hover:bg-gray-800 text-gray-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
               title="Copy session data"
               aria-label="Copy session data"
             >
-              <Copy className="w-5 h-5" />
+              <Copy className="w-5 h-5" aria-hidden="true" />
             </button>
             <button
               type="button"
               onClick={onExportSummary}
-              className="p-2 rounded-lg hover:bg-gray-800 text-gray-300 transition-colors"
+              className="p-2 rounded-lg hover:bg-gray-800 text-gray-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
               title="Export run summary"
               aria-label="Export run summary"
             >
-              <BarChart3 className="w-5 h-5" />
+              <BarChart3 className="w-5 h-5" aria-hidden="true" />
             </button>
           </div>
           <ChevronRight

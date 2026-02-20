@@ -60,7 +60,7 @@ export function CreateAgentDialog({
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-brand-600 flex items-center justify-center">
-              <Bot className="w-5 h-5 text-white" />
+              <Bot className="w-5 h-5 text-white" aria-hidden="true" />
             </div>
             <div>
               <h2 id="create-agent-title" className="text-lg font-semibold">
@@ -71,10 +71,11 @@ export function CreateAgentDialog({
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-lg hover:bg-gray-800 transition-colors"
+            type="button"
+            className="p-2 rounded-lg hover:bg-gray-800 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
             aria-label="Close dialog"
           >
-            <X className="w-5 h-5" />
+            <X className="w-5 h-5" aria-hidden="true" />
           </button>
         </div>
 
@@ -91,7 +92,8 @@ export function CreateAgentDialog({
           {/* Advanced Settings Toggle */}
           <button
             onClick={() => setShowAdvanced(!showAdvanced)}
-            className="flex items-center gap-2 text-sm text-gray-400 hover:text-gray-300 mb-4"
+            type="button"
+            className="flex items-center gap-2 text-sm text-gray-400 hover:text-gray-300 mb-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 rounded"
           >
             <span className={clsx('transition-transform', showAdvanced && 'rotate-90')}>
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -115,7 +117,7 @@ export function CreateAgentDialog({
                   <select
                     value={finalConfig.model || 'claude-sonnet-4-6'}
                     onChange={(e) => updateCustomConfig({ model: e.target.value })}
-                    className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500"
+                    className="w-full px-3 py-2 bg-gray-800/90 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
                   >
                     <option value="claude-sonnet-4-6">Claude Sonnet 4.6 (Recommended)</option>
                     <option value="claude-opus-4-20250514">Claude Opus 4</option>
@@ -136,7 +138,7 @@ export function CreateAgentDialog({
                         temperature: Math.min(2, Math.max(0, parseFloat(e.target.value) || 0)),
                       })
                     }
-                    className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500"
+                    className="w-full px-3 py-2 bg-gray-800/90 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
                   />
                 </label>
 
@@ -151,7 +153,7 @@ export function CreateAgentDialog({
                         max_iterations: Math.max(1, parseInt(e.target.value) || 1),
                       })
                     }
-                    className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500"
+                    className="w-full px-3 py-2 bg-gray-800/90 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
                   />
                 </label>
 
@@ -166,7 +168,7 @@ export function CreateAgentDialog({
                         loop_interval_ms: Math.max(100, parseInt(e.target.value) || 100),
                       })
                     }
-                    className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500"
+                    className="w-full px-3 py-2 bg-gray-800/90 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
                   />
                 </label>
               </div>
@@ -178,7 +180,7 @@ export function CreateAgentDialog({
                   value={finalConfig.custom_instructions ?? ''}
                   onChange={(e) => updateCustomConfig({ custom_instructions: e.target.value })}
                   placeholder="Add specific instructions for this agent..."
-                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500"
+                  className="w-full px-3 py-2 bg-gray-800/90 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
                 />
               </label>
 
@@ -222,23 +224,28 @@ export function CreateAgentDialog({
             <button
               onClick={onClose}
               disabled={isCreating}
-              className="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors"
+              type="button"
+              className="px-4 py-2 bg-gray-800/90 hover:bg-gray-700 rounded-lg border border-gray-800/80 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 disabled:focus-visible:ring-0 disabled:focus-visible:ring-offset-0"
             >
               Cancel
             </button>
             <button
               onClick={handleCreate}
               disabled={isCreating}
-              className="flex items-center gap-2 px-4 py-2 bg-brand-600 hover:bg-brand-500 disabled:bg-gray-700 disabled:text-gray-400 rounded-lg font-medium transition-colors"
+              type="button"
+              className="flex items-center gap-2 px-4 py-2 bg-brand-600/95 hover:bg-brand-500 disabled:bg-gray-700 disabled:text-gray-400 rounded-lg font-medium border border-brand-600/50 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 disabled:focus-visible:ring-0 disabled:focus-visible:ring-offset-0"
             >
               {isCreating ? (
                 <>
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <div
+                    className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"
+                    aria-hidden="true"
+                  />
                   Creating...
                 </>
               ) : (
                 <>
-                  <Bot className="w-4 h-4" />
+                  <Bot className="w-4 h-4" aria-hidden="true" />
                   Create Agent
                 </>
               )}

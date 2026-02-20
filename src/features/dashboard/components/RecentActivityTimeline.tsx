@@ -96,11 +96,18 @@ export const RecentActivityTimeline = memo(function RecentActivityTimeline({
       </div>
       {hasMore && (
         <button
+          type="button"
           onClick={() => setShowAll(!showAll)}
-          className="flex items-center gap-1 mt-2 text-xs text-gray-500 hover:text-gray-300 transition-colors"
+          className="flex items-center gap-1 mt-2 text-xs text-gray-500 hover:text-gray-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+          aria-label={
+            showAll
+              ? 'Show fewer activity items'
+              : `Show ${activities.length - INITIAL_VISIBLE} more activity items`
+          }
         >
           <ChevronDown
             className={clsx('w-3.5 h-3.5 transition-transform', showAll && 'rotate-180')}
+            aria-hidden="true"
           />
           {showAll ? 'Show less' : `Show ${activities.length - INITIAL_VISIBLE} more`}
         </button>

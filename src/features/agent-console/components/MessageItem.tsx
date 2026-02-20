@@ -95,7 +95,11 @@ export const MessageItem = memo(function MessageItem({
                   event.role === 'user' ? 'bg-brand-600' : 'bg-gray-700'
                 )}
               >
-                {event.role === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
+                {event.role === 'user' ? (
+                  <User className="w-4 h-4" aria-hidden="true" />
+                ) : (
+                  <Bot className="w-4 h-4" aria-hidden="true" />
+                )}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
@@ -112,14 +116,15 @@ export const MessageItem = memo(function MessageItem({
               </div>
               <button
                 onClick={() => handleCopy(event.content)}
-                className="absolute top-3 right-3 p-1.5 rounded-lg bg-gray-800/80 hover:bg-gray-700 opacity-0 group-hover/message:opacity-100 transition-opacity"
+                type="button"
+                className="absolute top-3 right-3 p-1.5 rounded-lg bg-gray-800/80 hover:bg-gray-700 opacity-0 group-hover/message:opacity-100 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
                 title="Copy message"
                 aria-label="Copy message to clipboard"
               >
                 {copied ? (
-                  <Check className="w-3.5 h-3.5 text-green-400" />
+                  <Check className="w-3.5 h-3.5 text-green-400" aria-hidden="true" />
                 ) : (
-                  <Copy className="w-3.5 h-3.5 text-gray-400" />
+                  <Copy className="w-3.5 h-3.5 text-gray-400" aria-hidden="true" />
                 )}
               </button>
             </div>
@@ -129,7 +134,7 @@ export const MessageItem = memo(function MessageItem({
       case 'thinking':
         return (
           <div className="flex items-center gap-2 text-gray-400 text-sm" role="status">
-            <Loader2 className="w-4 h-4 animate-spin" />
+            <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
             <span>{event.content}</span>
           </div>
         );
@@ -141,10 +146,10 @@ export const MessageItem = memo(function MessageItem({
             <button
               type="button"
               onClick={() => onToggle(event._id)}
-              className="flex items-center gap-2 w-full text-left"
+              className="flex items-center gap-2 w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 rounded-lg"
             >
               <div className="w-8 h-8 rounded-lg bg-amber-600/30 flex items-center justify-center flex-shrink-0">
-                <Wrench className="w-4 h-4 text-amber-400" />
+                <Wrench className="w-4 h-4 text-amber-400" aria-hidden="true" />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
@@ -157,9 +162,9 @@ export const MessageItem = memo(function MessageItem({
                 </div>
               </div>
               {isExpanded ? (
-                <ChevronDown className="w-4 h-4 text-gray-500" />
+                <ChevronDown className="w-4 h-4 text-gray-500" aria-hidden="true" />
               ) : (
-                <ChevronRight className="w-4 h-4 text-gray-500" />
+                <ChevronRight className="w-4 h-4 text-gray-500" aria-hidden="true" />
               )}
             </button>
             {isExpanded && (
@@ -186,7 +191,7 @@ export const MessageItem = memo(function MessageItem({
             <button
               type="button"
               onClick={() => onToggle(event._id)}
-              className="w-full flex items-center justify-between gap-3 text-left"
+              className="w-full flex items-center justify-between gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 rounded-lg"
               aria-expanded={isExpanded}
               aria-label={`Tool result ${event.success ? 'success' : 'failed'} (${event.duration_ms}ms)`}
             >
@@ -205,9 +210,9 @@ export const MessageItem = memo(function MessageItem({
                 </span>
               </div>
               {isExpanded ? (
-                <ChevronDown className="w-4 h-4 text-gray-500" />
+                <ChevronDown className="w-4 h-4 text-gray-500" aria-hidden="true" />
               ) : (
-                <ChevronRight className="w-4 h-4 text-gray-500" />
+                <ChevronRight className="w-4 h-4 text-gray-500" aria-hidden="true" />
               )}
             </button>
             {isExpanded && (
@@ -232,7 +237,7 @@ export const MessageItem = memo(function MessageItem({
           <div className={clsx('rounded-xl p-4', 'message-assistant')}>
             <div className="flex items-start gap-3">
               <div className="w-8 h-8 rounded-lg bg-gray-700 flex items-center justify-center flex-shrink-0">
-                <Bot className="w-4 h-4" />
+                <Bot className="w-4 h-4" aria-hidden="true" />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-gray-400 mb-1">
@@ -250,7 +255,7 @@ export const MessageItem = memo(function MessageItem({
             className="flex items-start gap-3 p-4 bg-red-900/20 border border-red-800 rounded-xl"
             role="alert"
           >
-            <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
+            <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" aria-hidden="true" />
             <div>
               <p className="font-medium text-red-400">{event.code}</p>
               <p className="text-sm text-red-300">{event.message}</p>
@@ -319,7 +324,7 @@ function ToolPayloadPanel({
               onClick={() => onViewChange('pretty')}
               aria-pressed={view === 'pretty'}
               className={clsx(
-                'px-2 py-1 text-[11px] font-medium transition-colors',
+                'px-2 py-1 text-[11px] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 rounded',
                 view === 'pretty'
                   ? 'bg-gray-800 text-gray-200'
                   : 'text-gray-500 hover:text-gray-300'
@@ -332,7 +337,7 @@ function ToolPayloadPanel({
               onClick={() => onViewChange('raw')}
               aria-pressed={view === 'raw'}
               className={clsx(
-                'px-2 py-1 text-[11px] font-medium transition-colors',
+                'px-2 py-1 text-[11px] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 rounded',
                 view === 'raw' ? 'bg-gray-800 text-gray-200' : 'text-gray-500 hover:text-gray-300'
               )}
             >
@@ -345,7 +350,7 @@ function ToolPayloadPanel({
             <button
               type="button"
               onClick={onToggleFull}
-              className="px-2 py-1 rounded-md bg-gray-900 hover:bg-gray-800 border border-gray-800 text-xs text-gray-400 transition-colors"
+              className="px-2 py-1 rounded-md bg-gray-900 hover:bg-gray-800 border border-gray-800 text-xs text-gray-400 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
               aria-label={
                 showFull
                   ? `Show preview ${label.toLowerCase()}`
@@ -358,14 +363,14 @@ function ToolPayloadPanel({
           <button
             type="button"
             onClick={onCopy}
-            className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-gray-900 hover:bg-gray-800 border border-gray-800 text-xs text-gray-400 transition-colors"
+            className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-gray-900 hover:bg-gray-800 border border-gray-800 text-xs text-gray-400 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
             title={`Copy ${label.toLowerCase()}`}
             aria-label={`Copy tool ${label.toLowerCase()} to clipboard`}
           >
             {copied ? (
-              <Check className="w-3.5 h-3.5 text-green-400" />
+              <Check className="w-3.5 h-3.5 text-green-400" aria-hidden="true" />
             ) : (
-              <Copy className="w-3.5 h-3.5 text-gray-400" />
+              <Copy className="w-3.5 h-3.5 text-gray-400" aria-hidden="true" />
             )}
             <span className="hidden sm:inline">Copy</span>
           </button>

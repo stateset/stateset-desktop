@@ -74,10 +74,12 @@ export default function Webhooks() {
           </p>
         </div>
         <button
+          type="button"
           onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-brand-600 hover:bg-brand-500 rounded-lg font-medium transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-brand-600 hover:bg-brand-500 rounded-lg font-medium border border-brand-600/40 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+          aria-label="Create webhook"
         >
-          <Plus className="w-4 h-4" />
+          <Plus className="w-4 h-4" aria-hidden="true" />
           Create Webhook
         </button>
       </div>
@@ -85,13 +87,17 @@ export default function Webhooks() {
       {/* Search */}
       {webhooks && webhooks.length > 0 && (
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+          <Search
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500"
+            aria-hidden="true"
+          />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search webhooks..."
-            className="w-full pl-10 pr-4 py-2 bg-gray-900 border border-gray-800 rounded-lg focus:outline-none focus:border-brand-500 text-sm"
+            aria-label="Search webhooks"
+            className="w-full pl-10 pr-4 py-2 bg-gray-900/90 border border-gray-800 rounded-lg focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 text-sm"
           />
         </div>
       )}
@@ -99,7 +105,10 @@ export default function Webhooks() {
       {/* Loading State */}
       {isLoading && (
         <div className="flex items-center justify-center py-20">
-          <div className="w-8 h-8 border-2 border-brand-500/30 border-t-brand-500 rounded-full animate-spin" />
+          <div
+            className="w-8 h-8 border-2 border-brand-500/30 border-t-brand-500 rounded-full animate-spin"
+            aria-hidden="true"
+          />
         </div>
       )}
 
@@ -107,17 +116,19 @@ export default function Webhooks() {
       {!isLoading && (!webhooks || webhooks.length === 0) && (
         <div className="flex flex-col items-center justify-center py-20 text-gray-500">
           <div className="w-16 h-16 rounded-2xl bg-gray-800 flex items-center justify-center mb-4">
-            <WebhookIcon className="w-8 h-8" />
+            <WebhookIcon className="w-8 h-8" aria-hidden="true" />
           </div>
           <h3 className="text-lg font-medium text-gray-300 mb-1">No webhooks configured</h3>
           <p className="text-sm mb-4">
             Create your first webhook to receive real-time notifications
           </p>
           <button
+            type="button"
             onClick={() => setShowForm(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-brand-600 hover:bg-brand-500 rounded-lg font-medium transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-brand-600 hover:bg-brand-500 rounded-lg font-medium border border-brand-600/40 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+            aria-label="Create webhook"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-4 h-4" aria-hidden="true" />
             Create Webhook
           </button>
         </div>

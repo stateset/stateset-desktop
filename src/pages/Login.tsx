@@ -163,7 +163,7 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-950 flex flex-col">
+    <div className="min-h-screen bg-gradient-to-b from-gray-950 to-slate-950 flex flex-col">
       {/* Drag region for title bar */}
       <div className="h-10 drag-region" />
 
@@ -173,7 +173,7 @@ export default function Login() {
           {/* Logo */}
           <div className="flex items-center justify-center gap-3 mb-8">
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-500 to-brand-600 flex items-center justify-center">
-              <Bot className="w-7 h-7 text-white" />
+              <Bot className="w-7 h-7 text-white" aria-hidden="true" />
             </div>
             <div>
               <h1 className="text-2xl font-bold">StateSet</h1>
@@ -182,12 +182,12 @@ export default function Login() {
           </div>
 
           {/* Login Form */}
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+          <div className="bg-gray-900/90 border border-gray-800/90 rounded-xl p-6 shadow-2xl backdrop-blur-sm">
             <h2 className="text-lg font-semibold mb-1">Welcome back</h2>
             <p className="text-gray-400 text-sm mb-6">Sign in to connect to StateSet</p>
 
             {/* Login Method Tabs */}
-            <div className="flex gap-1 p-1 bg-gray-800 rounded-lg mb-6">
+            <div className="flex gap-1 p-1 bg-gray-800/80 rounded-lg mb-6">
               <button
                 type="button"
                 onClick={() => {
@@ -196,13 +196,15 @@ export default function Login() {
                   clearError();
                 }}
                 className={clsx(
-                  'flex-1 flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium transition-colors',
+                  'flex-1 flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40',
+                  'focus-visible:ring-offset-1',
                   loginMethod === 'email'
-                    ? 'bg-gray-700 text-white'
+                    ? 'bg-gray-700/90 text-white'
                     : 'text-gray-400 hover:text-white'
                 )}
+                aria-pressed={loginMethod === 'email'}
               >
-                <Mail className="w-4 h-4" />
+                <Mail className="w-4 h-4" aria-hidden="true" />
                 Email
               </button>
               <button
@@ -213,13 +215,15 @@ export default function Login() {
                   clearError();
                 }}
                 className={clsx(
-                  'flex-1 flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium transition-colors',
+                  'flex-1 flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40',
+                  'focus-visible:ring-offset-1',
                   loginMethod === 'apikey'
-                    ? 'bg-gray-700 text-white'
+                    ? 'bg-gray-700/90 text-white'
                     : 'text-gray-400 hover:text-white'
                 )}
+                aria-pressed={loginMethod === 'apikey'}
               >
-                <Key className="w-4 h-4" />
+                <Key className="w-4 h-4" aria-hidden="true" />
                 API Key
               </button>
             </div>
@@ -236,7 +240,10 @@ export default function Login() {
                       Email
                     </label>
                     <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+                      <Mail
+                        className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500"
+                        aria-hidden="true"
+                      />
                       <input
                         id="login-email"
                         type="email"
@@ -250,7 +257,7 @@ export default function Login() {
                         }}
                         placeholder="you@company.com"
                         autoComplete="email"
-                        className="w-full pl-10 pr-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500 transition-colors"
+                        className="w-full pl-10 pr-4 py-2.5 bg-gray-800/90 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
                         autoFocus
                       />
                     </div>
@@ -265,7 +272,10 @@ export default function Login() {
                       Password
                     </label>
                     <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+                      <Lock
+                        className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500"
+                        aria-hidden="true"
+                      />
                       <input
                         id="login-password"
                         type="password"
@@ -279,7 +289,7 @@ export default function Login() {
                         }}
                         placeholder="Your password"
                         autoComplete="current-password"
-                        className="w-full pl-10 pr-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500 transition-colors"
+                        className="w-full pl-10 pr-4 py-2.5 bg-gray-800/90 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
                       />
                     </div>
                   </div>
@@ -293,7 +303,10 @@ export default function Login() {
                     API Key
                   </label>
                   <div className="relative">
-                    <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+                    <Key
+                      className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500"
+                      aria-hidden="true"
+                    />
                     <input
                       id="login-api-key"
                       type="password"
@@ -307,7 +320,7 @@ export default function Login() {
                       }}
                       placeholder="sk-..."
                       autoComplete="off"
-                      className="w-full pl-10 pr-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500 transition-colors"
+                      className="w-full pl-10 pr-4 py-2.5 bg-gray-800/90 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
                       autoFocus
                     />
                   </div>
@@ -337,11 +350,15 @@ export default function Login() {
                         return (
                           <Icon
                             className={clsx('w-4 h-4 mt-0.5 flex-shrink-0', display?.textColor)}
+                            aria-hidden="true"
                           />
                         );
                       })()
                     ) : (
-                      <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0 text-red-400" />
+                      <AlertCircle
+                        className="w-4 h-4 mt-0.5 flex-shrink-0 text-red-400"
+                        aria-hidden="true"
+                      />
                     )}
                     <div className="flex-1 min-w-0">
                       <p
@@ -368,10 +385,11 @@ export default function Login() {
                       <button
                         type="button"
                         onClick={handleRetry}
-                        className="flex-shrink-0 p-1 hover:bg-white/10 rounded transition-colors"
+                        className="flex-shrink-0 p-1 hover:bg-white/10 rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
                         title="Dismiss"
+                        aria-label="Dismiss login error"
                       >
-                        <RefreshCw className="w-3.5 h-3.5 text-gray-400" />
+                        <RefreshCw className="w-3.5 h-3.5 text-gray-400" aria-hidden="true" />
                       </button>
                     )}
                   </div>
@@ -384,14 +402,17 @@ export default function Login() {
                   isLoading ||
                   (loginMethod === 'email' ? !email.trim() || !password : !apiKey.trim())
                 }
-                className="w-full flex items-center justify-center gap-2 py-2.5 bg-brand-600 hover:bg-brand-500 disabled:bg-gray-700 disabled:text-gray-400 rounded-lg font-medium transition-colors"
+                className="w-full flex items-center justify-center gap-2 py-2.5 bg-brand-600 hover:bg-brand-500 disabled:bg-gray-700 disabled:text-gray-400 rounded-lg font-medium border border-brand-600/40 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 disabled:focus-visible:ring-0 disabled:focus-visible:ring-offset-0"
               >
                 {isLoading ? (
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <div
+                    className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"
+                    aria-hidden="true"
+                  />
                 ) : (
                   <>
                     <span>Sign In</span>
-                    <ArrowRight className="w-4 h-4" />
+                    <ArrowRight className="w-4 h-4" aria-hidden="true" />
                   </>
                 )}
               </button>
@@ -403,7 +424,7 @@ export default function Login() {
             Don't have an account?{' '}
             <Link
               to="/register"
-              className="text-brand-400 hover:text-brand-300 underline underline-offset-2"
+              className="text-brand-400 hover:text-brand-300 underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:rounded-sm focus-visible:ring-offset-1"
             >
               Create one free
             </Link>

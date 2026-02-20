@@ -58,7 +58,7 @@ export function SaveAsTemplateDialog({
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="My Custom Agent"
-            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500"
+            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
             autoFocus
           />
         </div>
@@ -72,7 +72,7 @@ export function SaveAsTemplateDialog({
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="What does this template do?"
-            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500"
+            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
           />
         </div>
 
@@ -88,7 +88,13 @@ export function SaveAsTemplateDialog({
         <Button variant="secondary" onClick={onClose} disabled={isSaving}>
           Cancel
         </Button>
-        <Button icon={Save} onClick={handleSave} disabled={!name.trim()} loading={isSaving}>
+        <Button
+          icon={Save}
+          onClick={handleSave}
+          disabled={!name.trim()}
+          loading={isSaving}
+          aria-label="Save template"
+        >
           Save Template
         </Button>
       </div>

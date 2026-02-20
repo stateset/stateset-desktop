@@ -40,19 +40,25 @@ export function ChatInput({ onSend, isLoading, placeholder }: ChatInputProps) {
             onKeyDown={handleKeyDown}
             placeholder={placeholder || 'Type a message... (Shift+Enter for new line)'}
             rows={1}
-            className="w-full px-4 py-3 bg-transparent resize-none focus:outline-none disabled:opacity-50 text-sm"
+            className="w-full px-4 py-3 bg-transparent resize-none focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 disabled:opacity-50 text-sm"
             disabled={isLoading}
+            aria-label="Chat message"
           />
         </div>
         <button
+          type="button"
           onClick={handleSend}
           disabled={!input.trim() || isLoading}
-          className="p-3 bg-brand-600 hover:bg-brand-500 disabled:bg-gray-700 disabled:text-gray-500 rounded-xl transition-colors"
+          aria-label="Send message"
+          className="p-3 bg-brand-600 hover:bg-brand-500 disabled:bg-gray-700 disabled:text-gray-500 rounded-xl transition-all border border-brand-600/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900 disabled:focus-visible:ring-0 disabled:focus-visible:ring-offset-0"
         >
           {isLoading ? (
-            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            <div
+              className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"
+              aria-hidden="true"
+            />
           ) : (
-            <Send className="w-5 h-5" />
+            <Send className="w-5 h-5" aria-hidden="true" />
           )}
         </button>
       </div>

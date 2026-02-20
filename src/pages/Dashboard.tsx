@@ -464,39 +464,44 @@ export default function Dashboard() {
       />
 
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold">Agent Dashboard</h1>
           <p className="text-gray-400 mt-1">Manage your autonomous AI agents</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center flex-wrap gap-2">
           <button
+            type="button"
             onClick={openCommandPalette}
-            className="flex items-center gap-2 px-3 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm text-gray-400 transition-colors"
+            className="flex items-center gap-2 px-3 py-2 bg-gray-800/90 hover:bg-gray-700 rounded-lg text-sm text-gray-400 border border-gray-800/80 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
             title="Command palette (Ctrl/Cmd+K)"
+            aria-label="Open command palette"
           >
-            <Command className="w-4 h-4" />
+            <Command className="w-4 h-4" aria-hidden="true" />
             <kbd className="text-xs">Ctrl/Cmd+K</kbd>
           </button>
           <button
+            type="button"
             onClick={() => refetch()}
-            className="p-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors"
+            className="p-2 bg-gray-800 hover:bg-gray-700 rounded-lg border border-gray-800/80 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
             title="Refresh (Ctrl/Cmd+R)"
             aria-label="Refresh sessions"
           >
-            <RefreshCw className="w-5 h-5" />
+            <RefreshCw className="w-5 h-5" aria-hidden="true" />
           </button>
           <button
+            type="button"
             onClick={handleCreateSession}
             disabled={!currentBrand || isCreating}
-            className="flex items-center gap-2 px-4 py-2 bg-brand-600 hover:bg-brand-500 disabled:bg-gray-700 disabled:text-gray-400 rounded-lg font-medium transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-brand-600 hover:bg-brand-500 disabled:bg-gray-700 disabled:text-gray-400 rounded-lg font-medium border border-brand-500/30 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 disabled:focus-visible:ring-0 disabled:focus-visible:ring-offset-0"
             title="New Agent (Ctrl/Cmd+N)"
+            aria-label="Create new agent"
           >
             {isCreating ? (
               <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
             ) : (
               <>
-                <Plus className="w-5 h-5" />
+                <Plus className="w-5 h-5" aria-hidden="true" />
                 <span>New Agent</span>
               </>
             )}
@@ -509,9 +514,12 @@ export default function Dashboard() {
       {sessions.length > 0 && <RecentActivityTimeline sessions={sessions} />}
 
       {/* Search and Filter */}
-      <div className="flex items-center gap-3 mb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
         <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+          <Search
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500"
+            aria-hidden="true"
+          />
           <input
             ref={searchInputRef}
             type="text"
@@ -519,30 +527,32 @@ export default function Dashboard() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             aria-label="Search agents"
-            className="w-full pl-10 pr-10 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm placeholder-gray-500 focus:outline-none focus:border-brand-500 transition-colors"
+            className="w-full pl-10 pr-10 py-2 bg-gray-800/80 border border-gray-700 rounded-lg text-sm placeholder-gray-500 focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
           />
           {searchQuery && (
             <button
+              type="button"
               onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 hover:bg-gray-700 rounded"
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 hover:bg-gray-700 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
               aria-label="Clear search"
             >
-              <X className="w-4 h-4 text-gray-500" />
+              <X className="w-4 h-4 text-gray-500" aria-hidden="true" />
             </button>
           )}
         </div>
 
-        <div className="flex items-center gap-2">
-          <Filter className="w-4 h-4 text-gray-500" />
+        <div className="flex items-center gap-2 flex-wrap">
+          <Filter className="w-4 h-4 text-gray-500" aria-hidden="true" />
           {(['all', 'running', 'stopped', 'failed'] as StatusFilter[]).map((filter) => (
             <button
+              type="button"
               key={filter}
               onClick={() => setStatusFilter(filter)}
               className={clsx(
-                'px-3 py-1.5 text-sm rounded-lg transition-colors',
+                'px-3 py-1.5 text-sm rounded-lg border border-gray-800/50 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1',
                 statusFilter === filter
                   ? 'bg-brand-600 text-white'
-                  : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                  : 'bg-gray-800/80 text-gray-400 hover:bg-gray-700'
               )}
             >
               {filter.charAt(0).toUpperCase() + filter.slice(1)}
@@ -553,13 +563,15 @@ export default function Dashboard() {
 
       {/* Tag Filter */}
       {allTags.length > 0 && (
-        <div className="flex items-center gap-2 mb-4">
+        <div className="flex flex-wrap items-center gap-2 mb-4">
           <span className="text-xs text-gray-500 uppercase tracking-wider">Tags:</span>
           <TagFilter allTags={allTags} selectedTags={selectedTags} onToggleTag={toggleTag} />
           {selectedTags.size > 0 && (
             <button
+              type="button"
               onClick={() => setSelectedTags(new Set())}
-              className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+              className="text-xs text-gray-500 hover:text-gray-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 rounded"
+              aria-label="Clear selected tags"
             >
               Clear
             </button>
@@ -568,79 +580,85 @@ export default function Dashboard() {
       )}
 
       {/* Quick Actions */}
-      <div className="flex items-center gap-3 mb-6">
+      <div className="flex flex-wrap items-center gap-3 mb-6">
         <button
+          type="button"
           onClick={handleStartAll}
           disabled={stoppedCount === 0 || isStartingAll}
-          className="flex items-center gap-2 px-4 py-2 bg-green-900/30 hover:bg-green-900/50 text-green-400 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-green-900/30 hover:bg-green-900/50 text-green-400 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg border border-green-800/40 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-400/50 focus-visible:ring-offset-1 disabled:focus-visible:ring-0 disabled:focus-visible:ring-offset-0"
         >
           {isStartingAll ? (
             <div className="w-4 h-4 border-2 border-green-400/30 border-t-green-400 rounded-full animate-spin" />
           ) : (
-            <PlayCircle className="w-4 h-4" />
+            <PlayCircle className="w-4 h-4" aria-hidden="true" />
           )}
           Start All ({stoppedCount})
         </button>
 
         <button
+          type="button"
           onClick={handleStopAll}
           disabled={runningCount === 0 || isStoppingAll}
-          className="flex items-center gap-2 px-4 py-2 bg-red-900/30 hover:bg-red-900/50 text-red-400 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-red-900/30 hover:bg-red-900/50 text-red-400 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg border border-red-800/40 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/50 focus-visible:ring-offset-1 disabled:focus-visible:ring-0 disabled:focus-visible:ring-offset-0"
         >
           {isStoppingAll ? (
             <div className="w-4 h-4 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin" />
           ) : (
-            <StopCircle className="w-4 h-4" />
+            <StopCircle className="w-4 h-4" aria-hidden="true" />
           )}
           Stop All ({runningCount})
         </button>
 
         <button
+          type="button"
           onClick={() => setShowDeleteConfirm(true)}
           disabled={stoppedCount === 0 || isDeletingStopped}
-          className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-red-400 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-gray-800/80 hover:bg-gray-700 text-gray-400 hover:text-red-400 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg border border-gray-800/50 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 disabled:focus-visible:ring-0 disabled:focus-visible:ring-offset-0"
         >
           {isDeletingStopped ? (
             <div className="w-4 h-4 border-2 border-gray-400/30 border-t-gray-400 rounded-full animate-spin" />
           ) : (
-            <Trash2 className="w-4 h-4" />
+            <Trash2 className="w-4 h-4" aria-hidden="true" />
           )}
           Delete Stopped ({stoppedCount})
         </button>
 
         <div className="flex items-center gap-2 ml-auto">
           <button
+            type="button"
             onClick={handleExportJSON}
             disabled={sessions.length === 0}
-            className="flex items-center gap-2 px-3 py-2 bg-gray-800 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
+            className="flex items-center gap-2 px-3 py-2 bg-gray-800/80 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg border border-gray-800/50 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 disabled:focus-visible:ring-0 disabled:focus-visible:ring-offset-0"
             title="Export as JSON"
           >
-            <FileJson className="w-4 h-4" />
+            <FileJson className="w-4 h-4" aria-hidden="true" />
             JSON
           </button>
           <button
+            type="button"
             onClick={handleExportCSV}
             disabled={sessions.length === 0}
-            className="flex items-center gap-2 px-3 py-2 bg-gray-800 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
+            className="flex items-center gap-2 px-3 py-2 bg-gray-800/80 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg border border-gray-800/50 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 disabled:focus-visible:ring-0 disabled:focus-visible:ring-offset-0"
             title="Export as CSV"
           >
-            <FileSpreadsheet className="w-4 h-4" />
+            <FileSpreadsheet className="w-4 h-4" aria-hidden="true" />
             CSV
           </button>
           <button
+            type="button"
             onClick={handleExportMetrics}
             disabled={sessions.length === 0}
-            className="flex items-center gap-2 px-3 py-2 bg-gray-800 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
+            className="flex items-center gap-2 px-3 py-2 bg-gray-800/80 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg border border-gray-800/50 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 disabled:focus-visible:ring-0 disabled:focus-visible:ring-offset-0"
             title="Export metrics summary"
           >
-            <BarChart3 className="w-4 h-4" />
+            <BarChart3 className="w-4 h-4" aria-hidden="true" />
             Metrics
           </button>
         </div>
       </div>
 
       {/* Sessions List */}
-      <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+      <div className="bg-gray-900 border border-gray-800/90 rounded-xl overflow-hidden">
         <div className="px-4 py-3 border-b border-gray-800 flex items-center justify-between">
           <h2 className="font-semibold">Agent Sessions</h2>
           <span className="text-sm text-gray-400">
@@ -706,7 +724,7 @@ export default function Dashboard() {
       </div>
 
       {/* Keyboard shortcuts hint */}
-      <div className="mt-4 text-xs text-gray-600 flex items-center gap-4">
+      <div className="mt-4 text-xs text-gray-600 flex flex-wrap items-center gap-4">
         <span>
           <kbd className="px-1.5 py-0.5 bg-gray-800 rounded">Ctrl/Cmd+K</kbd> Command palette
         </span>

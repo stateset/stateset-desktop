@@ -46,7 +46,7 @@ export function AppearanceSettings() {
             value={theme}
             onChange={(e) => setTheme(e.target.value as 'dark' | 'light')}
             aria-label="Theme"
-            className="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500"
+            className="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus-visible:outline-none focus-visible:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
           >
             <option value="dark">Dark</option>
             <option value="light">Light</option>
@@ -60,12 +60,12 @@ export function AppearanceSettings() {
           <label className="relative inline-flex items-center cursor-pointer">
             <input
               type="checkbox"
-              className="sr-only peer"
+              className="sr-only peer focus:outline-none focus-visible:ring-0"
               aria-label="Compact Mode"
               checked={compactMode}
               onChange={(e) => setCompactMode(e.target.checked)}
             />
-            <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-600"></div>
+            <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-brand-500/40 peer-focus-visible:ring-offset-1 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-600"></div>
           </label>
         </div>
         <div className="flex items-center justify-between">
@@ -76,12 +76,12 @@ export function AppearanceSettings() {
           <label className="relative inline-flex items-center cursor-pointer">
             <input
               type="checkbox"
-              className="sr-only peer"
+              className="sr-only peer focus:outline-none focus-visible:ring-0"
               aria-label="Reduce Motion"
               checked={reduceMotion}
               onChange={(e) => setReduceMotion(e.target.checked)}
             />
-            <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-600"></div>
+            <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-brand-500/40 peer-focus-visible:ring-offset-1 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-600"></div>
           </label>
         </div>
         <div className="flex items-center justify-between">
@@ -93,7 +93,7 @@ export function AppearanceSettings() {
             value={refreshInterval}
             onChange={(e) => setRefreshInterval(Number(e.target.value) as RefreshInterval)}
             aria-label="Refresh Interval"
-            className="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500"
+            className="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus-visible:outline-none focus-visible:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
           >
             {REFRESH_INTERVAL_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
@@ -111,7 +111,7 @@ export function AppearanceSettings() {
             value={pageSize}
             onChange={(e) => setPageSize(Number(e.target.value) as PageSize)}
             aria-label="Page Size"
-            className="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500"
+            className="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus-visible:outline-none focus-visible:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
           >
             {PAGE_SIZE_OPTIONS.map((size) => (
               <option key={size} value={size}>

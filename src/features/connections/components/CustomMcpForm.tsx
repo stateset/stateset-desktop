@@ -69,7 +69,7 @@ export function CustomMcpForm({ isStoring, onAdd, onCancel }: CustomMcpFormProps
             value={serverId}
             placeholder="my-mcp-server"
             onChange={(e) => setServerId(e.target.value)}
-            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500"
+            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
           />
         </label>
         <label className="space-y-1">
@@ -79,7 +79,7 @@ export function CustomMcpForm({ isStoring, onAdd, onCancel }: CustomMcpFormProps
             value={endpoint}
             placeholder="https://... or custom command"
             onChange={(e) => setEndpoint(e.target.value)}
-            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500"
+            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
           />
         </label>
         <label className="space-y-1 md:col-span-2">
@@ -89,7 +89,7 @@ export function CustomMcpForm({ isStoring, onAdd, onCancel }: CustomMcpFormProps
             value={authToken}
             placeholder="Optional API key or token"
             onChange={(e) => setAuthToken(e.target.value)}
-            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500"
+            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
           />
         </label>
       </div>
@@ -97,13 +97,19 @@ export function CustomMcpForm({ isStoring, onAdd, onCancel }: CustomMcpFormProps
         <button
           onClick={handleAdd}
           disabled={isStoring}
-          className="px-3 py-2 bg-brand-600 hover:bg-brand-500 rounded-lg text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          type="button"
+          className="px-3 py-2 bg-brand-600 hover:bg-brand-500 rounded-lg text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
         >
-          {isStoring ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Add server'}
+          {isStoring ? (
+            <Loader2 className="w-4 h-4 animate-spin mx-auto" aria-hidden="true" />
+          ) : (
+            'Add server'
+          )}
         </button>
         <button
           onClick={onCancel}
-          className="px-3 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm transition-colors"
+          type="button"
+          className="px-3 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
         >
           Cancel
         </button>

@@ -97,28 +97,28 @@ export default function Register() {
 
   if (step === 'success') {
     return (
-      <div className="min-h-screen bg-gray-950 flex flex-col">
+      <div className="min-h-screen bg-gradient-to-b from-gray-950 to-slate-950 flex flex-col">
         <div className="h-10 drag-region" />
         <div className="flex-1 flex items-center justify-center p-8">
           <div className="w-full max-w-md text-center">
             <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-green-600/20 flex items-center justify-center">
-              <Check className="w-10 h-10 text-green-400" />
+              <Check className="w-10 h-10 text-green-400" aria-hidden="true" />
             </div>
             <h2 className="text-2xl font-bold mb-2">Welcome to StateSet!</h2>
             <p className="text-gray-400 mb-4">
               Your account has been created and API keys have been configured automatically.
             </p>
-            <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 text-left space-y-2">
+            <div className="bg-gray-900/90 border border-gray-800/90 rounded-xl p-4 text-left space-y-2 backdrop-blur-sm">
               <div className="flex items-center gap-2 text-sm">
-                <Check className="w-4 h-4 text-green-400" />
+                <Check className="w-4 h-4 text-green-400" aria-hidden="true" />
                 <span className="text-gray-300">Engine API key configured</span>
               </div>
               <div className="flex items-center gap-2 text-sm">
-                <Check className="w-4 h-4 text-green-400" />
+                <Check className="w-4 h-4 text-green-400" aria-hidden="true" />
                 <span className="text-gray-300">Sandbox API key configured</span>
               </div>
               <div className="flex items-center gap-2 text-sm">
-                <Check className="w-4 h-4 text-green-400" />
+                <Check className="w-4 h-4 text-green-400" aria-hidden="true" />
                 <span className="text-gray-300">Default brand created</span>
               </div>
             </div>
@@ -130,7 +130,7 @@ export default function Register() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 flex flex-col">
+    <div className="min-h-screen bg-gradient-to-b from-gray-950 to-slate-950 flex flex-col">
       {/* Drag region for title bar */}
       <div className="h-10 drag-region" />
 
@@ -140,7 +140,7 @@ export default function Register() {
           {/* Logo */}
           <div className="flex items-center justify-center gap-3 mb-8">
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-500 to-brand-600 flex items-center justify-center">
-              <Bot className="w-7 h-7 text-white" />
+              <Bot className="w-7 h-7 text-white" aria-hidden="true" />
             </div>
             <div>
               <h1 className="text-2xl font-bold">StateSet</h1>
@@ -149,7 +149,7 @@ export default function Register() {
           </div>
 
           {/* Registration Form */}
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+          <div className="bg-gray-900/90 border border-gray-800/90 rounded-xl p-6 shadow-2xl backdrop-blur-sm">
             <h2 className="text-lg font-semibold mb-1">Create your account</h2>
             <p className="text-gray-400 text-sm mb-6">
               Get started with AI-powered agents in minutes
@@ -160,14 +160,17 @@ export default function Register() {
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">Full Name</label>
                 <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+                  <User
+                    className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500"
+                    aria-hidden="true"
+                  />
                   <input
                     type="text"
                     name="name"
                     value={formData.name}
                     onChange={handleChange}
                     placeholder="John Doe"
-                    className="w-full pl-10 pr-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500 transition-colors"
+                    className="w-full pl-10 pr-4 py-2.5 bg-gray-800/90 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
                     autoFocus
                   />
                 </div>
@@ -179,14 +182,17 @@ export default function Register() {
                   Email Address
                 </label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+                  <Mail
+                    className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500"
+                    aria-hidden="true"
+                  />
                   <input
                     type="email"
                     name="email"
                     value={formData.email}
                     onChange={handleChange}
                     placeholder="you@company.com"
-                    className="w-full pl-10 pr-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500 transition-colors"
+                    className="w-full pl-10 pr-4 py-2.5 bg-gray-800/90 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
                   />
                 </div>
               </div>
@@ -195,24 +201,31 @@ export default function Register() {
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">Password</label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+                  <Lock
+                    className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500"
+                    aria-hidden="true"
+                  />
                   <input
                     type={showPassword ? 'text' : 'password'}
                     name="password"
                     value={formData.password}
                     onChange={handleChange}
                     placeholder="Min. 8 characters"
-                    className="w-full pl-10 pr-12 py-2.5 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500 transition-colors"
+                    className="w-full pl-10 pr-12 py-2.5 bg-gray-800/90 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 rounded"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
                   >
-                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    {showPassword ? (
+                      <EyeOff className="w-5 h-5" aria-hidden="true" />
+                    ) : (
+                      <Eye className="w-5 h-5" aria-hidden="true" />
+                    )}
                   </button>
                 </div>
-
                 {/* Password requirements */}
                 {formData.password && (
                   <div className="mt-2 space-y-1">
@@ -229,7 +242,10 @@ export default function Register() {
                           req.check ? 'text-green-400' : 'text-gray-500'
                         )}
                       >
-                        <Check className={clsx('w-3 h-3', !req.check && 'opacity-30')} />
+                        <Check
+                          className={clsx('w-3 h-3', !req.check && 'opacity-30')}
+                          aria-hidden="true"
+                        />
                         {req.text}
                       </div>
                     ))}
@@ -243,26 +259,32 @@ export default function Register() {
                   Company <span className="text-gray-500">(optional)</span>
                 </label>
                 <div className="relative">
-                  <Building className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+                  <Building
+                    className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500"
+                    aria-hidden="true"
+                  />
                   <input
                     type="text"
                     name="company"
                     value={formData.company}
                     onChange={handleChange}
                     placeholder="Acme Inc."
-                    className="w-full pl-10 pr-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500 transition-colors"
+                    className="w-full pl-10 pr-4 py-2.5 bg-gray-800/90 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
                   />
                 </div>
               </div>
 
               {error && (
                 <div className="flex items-start gap-2 text-red-400 text-sm">
-                  <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                  <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" aria-hidden="true" />
                   <div>
                     <span>{error}</span>
                     {error.includes('not yet available') && (
                       <div className="mt-2">
-                        <Link to="/login" className="text-brand-400 hover:text-brand-300 underline">
+                        <Link
+                          to="/login"
+                          className="text-brand-400 hover:text-brand-300 underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 rounded-sm"
+                        >
                           Sign in with API key instead
                         </Link>
                       </div>
@@ -274,14 +296,17 @@ export default function Register() {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full flex items-center justify-center gap-2 py-2.5 bg-brand-600 hover:bg-brand-500 disabled:bg-gray-700 disabled:text-gray-400 rounded-lg font-medium transition-colors"
+                className="w-full flex items-center justify-center gap-2 py-2.5 bg-brand-600 hover:bg-brand-500 disabled:bg-gray-700 disabled:text-gray-400 rounded-lg font-medium border border-brand-600/40 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 disabled:focus-visible:ring-0 disabled:focus-visible:ring-offset-0"
               >
                 {isLoading ? (
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <div
+                    className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"
+                    aria-hidden="true"
+                  />
                 ) : (
                   <>
                     <span>Create Account</span>
-                    <ArrowRight className="w-4 h-4" />
+                    <ArrowRight className="w-4 h-4" aria-hidden="true" />
                   </>
                 )}
               </button>
@@ -297,7 +322,7 @@ export default function Register() {
                   'Default brand with MCP integrations',
                 ].map((benefit, i) => (
                   <div key={i} className="flex items-center gap-2 text-xs text-gray-400">
-                    <Check className="w-3 h-3 text-brand-400" />
+                    <Check className="w-3 h-3 text-brand-400" aria-hidden="true" />
                     {benefit}
                   </div>
                 ))}
@@ -308,7 +333,10 @@ export default function Register() {
           {/* Sign in link */}
           <p className="text-center text-gray-500 text-sm mt-6">
             Already have an account?{' '}
-            <Link to="/login" className="text-brand-400 hover:text-brand-300">
+            <Link
+              to="/login"
+              className="text-brand-400 hover:text-brand-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 rounded-sm"
+            >
               Sign in
             </Link>
           </p>

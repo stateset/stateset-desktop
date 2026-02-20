@@ -549,7 +549,11 @@ export default function AgentConsole() {
       <div className="flex flex-col items-center justify-center h-full">
         <AlertCircle className="w-12 h-12 text-red-400 mb-4" />
         <p className="text-lg">Session not found</p>
-        <button onClick={() => navigate('/')} className="mt-4 text-brand-400 hover:text-brand-300">
+        <button
+          type="button"
+          onClick={() => navigate('/')}
+          className="mt-4 text-brand-400 hover:text-brand-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 rounded"
+        >
           Back to Dashboard
         </button>
       </div>
@@ -598,13 +602,14 @@ export default function AgentConsole() {
                 className="border-b border-gray-800 overflow-hidden"
               >
                 <div className="p-3 flex items-center gap-3">
-                  <Search className="w-4 h-4 text-gray-500" />
+                  <Search className="w-4 h-4 text-gray-500" aria-hidden="true" />
                   <input
                     ref={searchInputRef}
                     type="text"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     placeholder="Search messages, tools, logs..."
+                    aria-label="Search messages, tools, logs"
                     className="flex-1 bg-transparent outline-none text-sm placeholder-gray-500"
                   />
                   {searchTerm && (
@@ -613,11 +618,12 @@ export default function AgentConsole() {
                     </span>
                   )}
                   <button
+                    type="button"
                     onClick={toggleSearch}
-                    className="p-1 hover:bg-gray-800 rounded"
+                    className="p-1 rounded hover:bg-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
                     aria-label="Close search"
                   >
-                    <X className="w-4 h-4 text-gray-500" />
+                    <X className="w-4 h-4 text-gray-500" aria-hidden="true" />
                   </button>
                 </div>
               </motion.div>
@@ -641,8 +647,9 @@ export default function AgentConsole() {
                 />
                 {hasCachedLogs && (
                   <button
+                    type="button"
                     onClick={handleReplayLogs}
-                    className="mt-2 text-sm text-brand-400 hover:text-brand-300"
+                    className="mt-2 text-sm text-brand-400 hover:text-brand-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 rounded"
                   >
                     Replay last logs
                   </button>
@@ -665,16 +672,18 @@ export default function AgentConsole() {
                     <div className="flex items-center gap-2">
                       {hasCachedLogs && !showLogs && (
                         <button
+                          type="button"
                           onClick={handleReplayLogs}
-                          className="px-3 py-1.5 text-xs bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors"
+                          className="px-3 py-1.5 text-xs bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
                         >
                           Replay logs
                         </button>
                       )}
                       <button
+                        type="button"
                         onClick={handleStartAndStream}
                         disabled={isStartStreamPending}
-                        className="px-3 py-1.5 text-xs bg-brand-600 hover:bg-brand-500 disabled:opacity-60 rounded-lg transition-colors"
+                        className="px-3 py-1.5 text-xs bg-brand-600 hover:bg-brand-500 disabled:opacity-60 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/50 focus-visible:ring-offset-1"
                       >
                         {startStreamLabel}
                       </button>
@@ -695,8 +704,9 @@ export default function AgentConsole() {
                 <div ref={messagesEndRef} />
                 {!autoScroll && (
                   <button
+                    type="button"
                     onClick={handleScrollToBottom}
-                    className="absolute bottom-4 right-4 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-xs rounded-full shadow-lg border border-gray-700"
+                    className="absolute bottom-4 right-4 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-xs rounded-full shadow-lg border border-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
                   >
                     Jump to latest
                   </button>

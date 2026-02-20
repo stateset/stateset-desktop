@@ -56,23 +56,29 @@ export default function Templates() {
           </p>
         </div>
         <button
+          type="button"
           onClick={() => setShowCreateDialog(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-brand-600 hover:bg-brand-500 rounded-lg font-medium transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-brand-600 hover:bg-brand-500 rounded-lg font-medium border border-brand-600/40 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+          aria-label="Create template"
         >
-          <Plus className="w-4 h-4" />
+          <Plus className="w-4 h-4" aria-hidden="true" />
           Create Template
         </button>
       </div>
 
       {/* Search */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+        <Search
+          className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500"
+          aria-hidden="true"
+        />
         <input
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Search templates..."
-          className="w-full pl-10 pr-4 py-2 bg-gray-900 border border-gray-800 rounded-lg focus:outline-none focus:border-brand-500 text-sm"
+          aria-label="Search templates"
+          className="w-full pl-10 pr-4 py-2 bg-gray-900/90 border border-gray-800 rounded-lg focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 text-sm"
         />
       </div>
 
@@ -80,14 +86,16 @@ export default function Templates() {
       <div className="flex gap-1 overflow-x-auto pb-1">
         {TEMPLATE_CATEGORIES.map((category) => (
           <button
+            type="button"
             key={category.id}
             onClick={() => setSelectedCategory(category.id)}
             className={clsx(
-              'px-3 py-1.5 text-sm rounded-lg whitespace-nowrap transition-colors',
+              'px-3 py-1.5 text-sm rounded-lg whitespace-nowrap transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1',
               selectedCategory === category.id
                 ? 'bg-brand-600/20 text-brand-400'
                 : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'
             )}
+            aria-pressed={selectedCategory === category.id}
           >
             {category.label}
           </button>

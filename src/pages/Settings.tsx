@@ -31,13 +31,13 @@ export default function Settings() {
   }, []);
 
   return (
-    <div className="p-6 max-w-2xl mx-auto">
+    <div className="p-6 pb-10 max-w-2xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold">Settings</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
         <p className="text-gray-400 mt-1">Manage your app preferences</p>
       </div>
 
-      <div className="space-y-6">
+      <div className="space-y-4 md:space-y-6">
         <AccountSettings secureStorageAvailable={secureStorageAvailable} />
         <SandboxSettings secureStorageAvailable={secureStorageAvailable} />
         <BackgroundSettings />

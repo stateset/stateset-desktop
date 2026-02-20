@@ -71,16 +71,17 @@ export function AgentToolbar({
     <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800 bg-gray-900/50">
       <div className="flex items-center gap-4">
         <button
+          type="button"
           onClick={onBack}
-          className="p-2 rounded-lg hover:bg-gray-800 transition-colors"
+          className="p-2 rounded-lg hover:bg-gray-800 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900"
           aria-label="Back to dashboard"
         >
-          <ArrowLeft className="w-5 h-5" />
+          <ArrowLeft className="w-5 h-5" aria-hidden="true" />
         </button>
         <div className="flex items-center gap-3">
           <div className="relative">
             <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-brand-500 to-brand-600 flex items-center justify-center">
-              <Bot className="w-5 h-5 text-white" />
+              <Bot className="w-5 h-5 text-white" aria-hidden="true" />
             </div>
             <div
               className={clsx(
@@ -109,91 +110,109 @@ export function AgentToolbar({
 
       <div className="flex items-center gap-2">
         <button
+          type="button"
           onClick={onToggleSearch}
+          aria-pressed={showSearch}
           className={clsx(
-            'p-2 rounded-lg transition-colors',
+            'p-2 rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900',
             showSearch ? 'bg-brand-600 text-white' : 'bg-gray-800 hover:bg-gray-700'
           )}
           title="Search in conversation (Ctrl/Cmd+F)"
           aria-label="Search in conversation"
         >
-          <Search className="w-4 h-4" />
+          <Search className="w-4 h-4" aria-hidden="true" />
         </button>
         <button
+          type="button"
           onClick={onExport}
-          className="p-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors"
+          className="p-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900"
           title="Export conversation (Ctrl/Cmd+E)"
           aria-label="Export conversation"
         >
-          <Download className="w-4 h-4" />
+          <Download className="w-4 h-4" aria-hidden="true" />
         </button>
         <button
+          type="button"
           onClick={onClone}
           disabled={isCloning || !session.config}
-          className="p-2 bg-gray-800 hover:bg-gray-700 disabled:opacity-50 rounded-lg transition-colors"
+          className="p-2 bg-gray-800 hover:bg-gray-700 disabled:opacity-50 rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900 disabled:focus-visible:ring-0 disabled:focus-visible:ring-offset-0"
           title="Clone agent"
           aria-label="Clone agent"
         >
-          {isCloning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Copy className="w-4 h-4" />}
+          {isCloning ? (
+            <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+          ) : (
+            <Copy className="w-4 h-4" aria-hidden="true" />
+          )}
         </button>
         <button
+          type="button"
           onClick={onSaveTemplate}
           disabled={!session.config}
-          className="p-2 bg-gray-800 hover:bg-gray-700 disabled:opacity-50 rounded-lg transition-colors"
+          className="p-2 bg-gray-800 hover:bg-gray-700 disabled:opacity-50 rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900 disabled:focus-visible:ring-0 disabled:focus-visible:ring-offset-0"
           title="Save as template"
           aria-label="Save as template"
         >
-          <Save className="w-4 h-4" />
+          <Save className="w-4 h-4" aria-hidden="true" />
         </button>
         <button
+          type="button"
           onClick={onToggleLogs}
+          aria-pressed={showLogs}
           className={clsx(
-            'p-2 rounded-lg transition-colors',
+            'p-2 rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900',
             showLogs ? 'bg-brand-600 text-white' : 'bg-gray-800 hover:bg-gray-700'
           )}
           title="Toggle logs panel (Ctrl/Cmd+Shift+L)"
           aria-label="Toggle logs panel"
         >
-          <FileText className="w-4 h-4" />
+          <FileText className="w-4 h-4" aria-hidden="true" />
         </button>
         <button
+          type="button"
           onClick={onOpenConfig}
-          className="flex items-center gap-2 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm font-medium transition-colors"
+          className="flex items-center gap-2 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900"
+          aria-label="Open settings"
         >
-          <Settings className="w-4 h-4" />
+          <Settings className="w-4 h-4" aria-hidden="true" />
           Settings
         </button>
         {showStartStreamCta && (
           <button
+            type="button"
             onClick={onStartAndStream}
             disabled={isStartStreamPending}
-            className="flex items-center gap-2 px-3 py-1.5 bg-green-600 hover:bg-green-500 disabled:opacity-60 rounded-lg text-sm font-medium transition-colors"
+            className="flex items-center gap-2 px-3 py-1.5 bg-green-600 hover:bg-green-500 disabled:opacity-60 rounded-lg text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900 disabled:focus-visible:ring-0 disabled:focus-visible:ring-offset-0"
           >
             {isStartStreamPending ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
             ) : (
-              <Play className="w-4 h-4" />
+              <Play className="w-4 h-4" aria-hidden="true" />
             )}
             {startStreamLabel}
           </button>
         )}
         {isRunning && (
           <button
+            type="button"
             onClick={onPause}
             disabled={isPausing}
-            className="flex items-center gap-2 px-3 py-1.5 bg-amber-600 hover:bg-amber-500 rounded-lg text-sm font-medium transition-colors"
+            className="flex items-center gap-2 px-3 py-1.5 bg-amber-600 hover:bg-amber-500 rounded-lg text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900"
+            aria-label="Pause agent"
           >
-            <Pause className="w-4 h-4" />
+            <Pause className="w-4 h-4" aria-hidden="true" />
             Pause
           </button>
         )}
         {(isRunning || isPaused) && (
           <button
+            type="button"
             onClick={onStop}
             disabled={isStopping}
-            className="flex items-center gap-2 px-3 py-1.5 bg-red-600 hover:bg-red-500 rounded-lg text-sm font-medium transition-colors"
+            className="flex items-center gap-2 px-3 py-1.5 bg-red-600 hover:bg-red-500 rounded-lg text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900"
+            aria-label="Stop agent"
           >
-            <Square className="w-4 h-4" />
+            <Square className="w-4 h-4" aria-hidden="true" />
             Stop
           </button>
         )}

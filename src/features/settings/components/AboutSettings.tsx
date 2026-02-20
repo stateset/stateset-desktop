@@ -23,28 +23,28 @@ export function AboutSettings({ appVersion, platform }: { appVersion: string; pl
             href="https://docs.stateset.dev"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-between p-3 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors"
+            className="flex items-center justify-between p-3 bg-gray-800 hover:bg-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 rounded-lg transition-colors"
           >
             <span>Documentation</span>
-            <ExternalLink className="w-4 h-4 text-gray-400" />
+            <ExternalLink className="w-4 h-4 text-gray-400" aria-hidden="true" />
           </a>
           <a
             href="https://github.com/stateset/stateset-desktop/issues"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-between p-3 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors"
+            className="flex items-center justify-between p-3 bg-gray-800 hover:bg-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 rounded-lg transition-colors"
           >
             <span>Report an Issue</span>
-            <ExternalLink className="w-4 h-4 text-gray-400" />
+            <ExternalLink className="w-4 h-4 text-gray-400" aria-hidden="true" />
           </a>
           <a
             href="https://stateset.io"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-between p-3 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors"
+            className="flex items-center justify-between p-3 bg-gray-800 hover:bg-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 rounded-lg transition-colors"
           >
             <span>StateSet Website</span>
-            <ExternalLink className="w-4 h-4 text-gray-400" />
+            <ExternalLink className="w-4 h-4 text-gray-400" aria-hidden="true" />
           </a>
         </div>
       </div>

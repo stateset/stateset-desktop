@@ -31,9 +31,9 @@ export function WebhookCard({
         <div className="flex items-start gap-3 flex-1 min-w-0">
           <div className="w-10 h-10 rounded-lg bg-gray-800 flex items-center justify-center flex-shrink-0">
             {webhook.direction === 'incoming' ? (
-              <Webhook className="w-5 h-5 text-brand-400" />
+              <Webhook className="w-5 h-5 text-brand-400" aria-hidden="true" />
             ) : (
-              <Globe className="w-5 h-5 text-brand-400" />
+              <Globe className="w-5 h-5 text-brand-400" aria-hidden="true" />
             )}
           </div>
           <div className="min-w-0">
@@ -68,37 +68,45 @@ export function WebhookCard({
 
         <div className="flex items-center gap-1 flex-shrink-0 ml-3">
           <button
+            type="button"
             onClick={onTest}
             disabled={isTesting || webhook.status !== 'active'}
-            className="p-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 disabled:opacity-50 transition-colors"
+            className="p-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 disabled:opacity-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
             title="Test webhook"
+            aria-label="Test webhook"
           >
-            <Send className="w-3.5 h-3.5" />
+            <Send className="w-3.5 h-3.5" aria-hidden="true" />
           </button>
           <button
+            type="button"
             onClick={onToggleStatus}
-            className="p-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 transition-colors"
+            className="p-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
             title={webhook.status === 'active' ? 'Pause' : 'Activate'}
+            aria-label={webhook.status === 'active' ? 'Pause webhook' : 'Activate webhook'}
           >
             {webhook.status === 'active' ? (
-              <Pause className="w-3.5 h-3.5" />
+              <Pause className="w-3.5 h-3.5" aria-hidden="true" />
             ) : (
-              <Play className="w-3.5 h-3.5" />
+              <Play className="w-3.5 h-3.5" aria-hidden="true" />
             )}
           </button>
           <button
+            type="button"
             onClick={onDelete}
-            className="p-1.5 rounded-lg bg-gray-800 hover:bg-red-900/50 hover:text-red-400 transition-colors"
+            className="p-1.5 rounded-lg bg-gray-800 hover:bg-red-900/50 hover:text-red-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40 focus-visible:ring-offset-1"
             title="Delete webhook"
+            aria-label="Delete webhook"
           >
-            <Trash2 className="w-3.5 h-3.5" />
+            <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
           </button>
           <button
+            type="button"
             onClick={onViewDetails}
-            className="p-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 transition-colors"
+            className="p-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
             title="View deliveries"
+            aria-label="View webhook deliveries"
           >
-            <ChevronRight className="w-3.5 h-3.5" />
+            <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
           </button>
         </div>
       </div>

@@ -64,24 +64,32 @@ export function DateRangePicker({ value, onChange }: DateRangePickerProps) {
   return (
     <div className="relative" ref={ref}>
       <button
+        type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg hover:bg-gray-700 transition-colors text-sm"
+        className="flex items-center gap-2 px-3 py-1.5 bg-gray-800/90 border border-gray-700/80 rounded-lg hover:bg-gray-700/90 transition-all text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+        aria-expanded={isOpen}
+        aria-label="Open date range picker"
       >
-        <Calendar className="w-4 h-4 text-gray-400" />
+        <Calendar className="w-4 h-4 text-gray-400" aria-hidden="true" />
         <span>{displayLabel}</span>
         <ChevronDown
           className={clsx('w-3.5 h-3.5 text-gray-500 transition-transform', isOpen && 'rotate-180')}
+          aria-hidden="true"
         />
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 top-full mt-1 w-48 bg-gray-900 border border-gray-800 rounded-xl shadow-xl z-50 py-1">
+        <div
+          className="absolute right-0 top-full mt-1 w-48 bg-gray-900/95 border border-gray-800/90 rounded-xl shadow-xl backdrop-blur-sm ring-1 ring-black/20 z-50 py-1"
+          role="listbox"
+        >
           {PRESETS.map((preset) => (
             <button
               key={preset.days}
+              type="button"
               onClick={() => selectPreset(preset.days)}
               className={clsx(
-                'w-full px-4 py-2 text-left text-sm hover:bg-gray-800 transition-colors',
+                'w-full px-4 py-2 text-left text-sm hover:bg-gray-800 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1',
                 activePreset?.days === preset.days && 'text-brand-400 bg-gray-800/50'
               )}
             >

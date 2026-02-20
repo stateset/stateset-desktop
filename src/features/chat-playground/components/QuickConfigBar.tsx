@@ -18,7 +18,7 @@ export function QuickConfigBar({
         <select
           value={model}
           onChange={(e) => onModelChange(e.target.value)}
-          className="px-2 py-1 bg-gray-800 border border-gray-700 rounded text-gray-300 focus:outline-none focus:border-brand-500"
+          className="px-2 py-1 bg-gray-800 border border-gray-700 rounded text-gray-300 focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
         >
           <option value="claude-sonnet-4-6">Sonnet 4.6</option>
           <option value="claude-opus-4-20250514">Opus 4</option>
@@ -35,7 +35,7 @@ export function QuickConfigBar({
           step={0.1}
           value={temperature}
           onChange={(e) => onTemperatureChange(parseFloat(e.target.value))}
-          className="w-20 accent-brand-500"
+          className="w-20 accent-brand-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 rounded"
         />
         <span className="text-gray-400 w-6 text-right">{temperature.toFixed(1)}</span>
       </label>

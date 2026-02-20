@@ -29,7 +29,7 @@ export function AccountSettings({ secureStorageAvailable }: { secureStorageAvail
     <section className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
       <div className="px-4 py-3 border-b border-gray-800">
         <h2 className="font-semibold flex items-center gap-2">
-          <Key className="w-5 h-5 text-gray-400" />
+          <Key className="w-5 h-5 text-gray-400" aria-hidden="true" />
           Account
         </h2>
       </div>
@@ -58,12 +58,17 @@ export function AccountSettings({ secureStorageAvailable }: { secureStorageAvail
               {apiKey ? maskApiKey(apiKey) : 'Not set'}
             </code>
             <button
+              type="button"
               onClick={copyApiKey}
-              className="p-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors"
+              className="p-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
               title="Copy API Key"
               aria-label="Copy API key"
             >
-              {copied ? <Check className="w-5 h-5 text-green-400" /> : <Copy className="w-5 h-5" />}
+              {copied ? (
+                <Check className="w-5 h-5 text-green-400" aria-hidden="true" />
+              ) : (
+                <Copy className="w-5 h-5" aria-hidden="true" />
+              )}
             </button>
           </div>
           {!secureStorageAvailable && (

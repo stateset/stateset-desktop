@@ -95,28 +95,28 @@ export function UpdateSettings({ appVersion }: { appVersion: string }) {
       case 'checking':
         return (
           <span className="flex items-center gap-2 text-gray-400">
-            <Loader2 className="w-4 h-4 animate-spin" />
+            <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
             Checking for updates...
           </span>
         );
       case 'available':
         return (
           <span className="flex items-center gap-2 text-blue-400">
-            <Download className="w-4 h-4" />
+            <Download className="w-4 h-4" aria-hidden="true" />
             Version {updateInfo?.version} available, downloading...
           </span>
         );
       case 'downloading':
         return (
           <span className="flex items-center gap-2 text-blue-400">
-            <Loader2 className="w-4 h-4 animate-spin" />
+            <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
             Downloading... {downloadProgress.toFixed(0)}%
           </span>
         );
       case 'ready':
         return (
           <span className="flex items-center gap-2 text-green-400">
-            <Check className="w-4 h-4" />
+            <Check className="w-4 h-4" aria-hidden="true" />
             Version {updateInfo?.version} ready to install
           </span>
         );
@@ -154,20 +154,23 @@ export function UpdateSettings({ appVersion }: { appVersion: string }) {
           <div className="flex items-center gap-2">
             {updateStatus === 'ready' ? (
               <button
+                type="button"
                 onClick={installUpdate}
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors font-medium flex items-center gap-2"
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 focus-visible:ring-offset-1 rounded-lg transition-colors font-medium flex items-center gap-2"
               >
-                <RefreshCw className="w-4 h-4" />
+                <RefreshCw className="w-4 h-4" aria-hidden="true" />
                 Restart to Update
               </button>
             ) : (
               <button
+                type="button"
                 onClick={checkForUpdates}
                 disabled={updateStatus === 'checking' || updateStatus === 'downloading'}
-                className="px-4 py-2 bg-gray-800 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors flex items-center gap-2"
+                className="px-4 py-2 bg-gray-800 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 rounded-lg transition-colors flex items-center gap-2"
               >
                 <RefreshCw
                   className={clsx('w-4 h-4', updateStatus === 'checking' && 'animate-spin')}
+                  aria-hidden="true"
                 />
                 Check for Updates
               </button>
@@ -175,7 +178,7 @@ export function UpdateSettings({ appVersion }: { appVersion: string }) {
           </div>
         </div>
 
-        <div className="pt-2 border-t border-gray-800">
+        <div className="pt-2 border-t border-gray-800" role="status" aria-live="polite">
           {getUpdateStatusDisplay()}
           {updateStatus === 'downloading' && (
             <div className="mt-2 w-full bg-gray-800 rounded-full h-2">

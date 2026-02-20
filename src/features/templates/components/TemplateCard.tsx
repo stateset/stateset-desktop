@@ -37,9 +37,10 @@ export function TemplateCard({ template, isSelected, onSelect, onDelete }: Templ
 
   return (
     <button
+      type="button"
       onClick={onSelect}
       className={clsx(
-        'flex items-start gap-3 p-4 rounded-xl border-2 text-left transition-all relative group',
+        'flex items-start gap-3 p-4 rounded-xl border-2 text-left transition-all relative group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1',
         isSelected
           ? 'border-brand-500 bg-brand-500/10'
           : 'border-gray-800 hover:border-gray-700 bg-gray-800/50'
@@ -51,7 +52,7 @@ export function TemplateCard({ template, isSelected, onSelect, onDelete }: Templ
           template.color
         )}
       >
-        <Icon className="w-5 h-5 text-white" />
+        <Icon className="w-5 h-5 text-white" aria-hidden="true" />
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
@@ -79,10 +80,12 @@ export function TemplateCard({ template, isSelected, onSelect, onDelete }: Templ
             e.stopPropagation();
             onDelete();
           }}
-          className="absolute top-2 right-2 p-1.5 rounded-lg bg-gray-800 hover:bg-red-900/50 text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
+          type="button"
+          className="absolute top-2 right-2 p-1.5 rounded-lg bg-gray-800 hover:bg-red-900/50 text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40 focus-visible:ring-offset-1"
+          aria-label={`Delete template ${template.name}`}
           title="Delete template"
         >
-          <Trash2 className="w-3.5 h-3.5" />
+          <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
         </button>
       )}
     </button>

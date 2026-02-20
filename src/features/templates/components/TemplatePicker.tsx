@@ -40,14 +40,16 @@ export function TemplatePicker({ selectedId, onSelect }: TemplatePickerProps) {
           if (hide) return null;
           return (
             <button
+              type="button"
               key={cat.id}
               onClick={() => setCategoryFilter(cat.id)}
               className={clsx(
-                'px-3 py-1 text-xs rounded-lg transition-colors whitespace-nowrap',
+                'px-3 py-1 text-xs rounded-lg transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1',
                 categoryFilter === cat.id
                   ? 'bg-brand-600 text-white'
                   : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
               )}
+              aria-pressed={categoryFilter === cat.id}
             >
               {cat.label}
               {cat.id === 'custom' && customCount > 0 && ` (${customCount})`}

@@ -37,8 +37,13 @@ export function WebhookForm({ isOpen, onClose, onSubmit, isLoading, initial }: W
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800">
           <h2 className="text-lg font-semibold">{initial ? 'Edit Webhook' : 'Create Webhook'}</h2>
-          <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-800 transition-colors">
-            <X className="w-5 h-5" />
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-2 rounded-lg hover:bg-gray-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+            aria-label="Close webhook form"
+          >
+            <X className="w-5 h-5" aria-hidden="true" />
           </button>
         </div>
 
@@ -51,7 +56,7 @@ export function WebhookForm({ isOpen, onClose, onSubmit, isLoading, initial }: W
               onChange={(e) => setName(e.target.value)}
               placeholder="My Webhook"
               required
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500"
+              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 focus-visible:border-brand-500"
             />
           </div>
 
@@ -63,7 +68,7 @@ export function WebhookForm({ isOpen, onClose, onSubmit, isLoading, initial }: W
               onChange={(e) => setUrl(e.target.value)}
               placeholder="https://example.com/webhook"
               required
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500"
+              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 focus-visible:border-brand-500"
             />
           </div>
 
@@ -102,14 +107,15 @@ export function WebhookForm({ isOpen, onClose, onSubmit, isLoading, initial }: W
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors"
+              className="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isLoading || !name.trim() || !url.trim() || events.length === 0}
-              className="px-4 py-2 bg-brand-600 hover:bg-brand-500 disabled:bg-gray-700 disabled:text-gray-400 rounded-lg font-medium transition-colors"
+              className="px-4 py-2 bg-brand-600 hover:bg-brand-500 disabled:bg-gray-700 disabled:text-gray-400 rounded-lg font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+              aria-label={initial ? 'Update webhook' : 'Create webhook'}
             >
               {isLoading ? 'Saving...' : initial ? 'Update' : 'Create'}
             </button>

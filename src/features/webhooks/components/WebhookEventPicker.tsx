@@ -51,8 +51,10 @@ export function WebhookEventPicker({ selected, onChange }: WebhookEventPickerPro
             <button
               type="button"
               onClick={() => toggleGroup(group)}
+              aria-label={`Toggle all events in ${group}`}
+              aria-pressed={allSelected}
               className={clsx(
-                'text-xs font-semibold uppercase tracking-wider mb-1.5 cursor-pointer',
+                'text-xs font-semibold uppercase tracking-wider mb-1.5 cursor-pointer rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1',
                 allSelected ? 'text-brand-400' : 'text-gray-500'
               )}
             >
@@ -64,8 +66,9 @@ export function WebhookEventPicker({ selected, onChange }: WebhookEventPickerPro
                   key={event.id}
                   type="button"
                   onClick={() => toggle(event.id)}
+                  aria-pressed={selected.includes(event.id)}
                   className={clsx(
-                    'px-2.5 py-1 text-xs rounded-lg border transition-colors',
+                    'px-2.5 py-1 text-xs rounded-lg border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1',
                     selected.includes(event.id)
                       ? 'bg-brand-600/20 border-brand-500 text-brand-300'
                       : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-600'

@@ -91,7 +91,7 @@ export function KeyboardShortcutsModal({ isOpen, onClose }: KeyboardShortcutsMod
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-6"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-6"
           onClick={(e) => {
             if (e.target === e.currentTarget) onClose();
           }}
@@ -100,25 +100,31 @@ export function KeyboardShortcutsModal({ isOpen, onClose }: KeyboardShortcutsMod
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.95, opacity: 0 }}
-            className="w-full max-w-2xl bg-gray-900 border border-gray-800 rounded-xl shadow-xl max-h-[80vh] overflow-hidden"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="keyboard-shortcuts-title"
+            className="w-full max-w-2xl bg-gray-900/95 border border-gray-800/90 rounded-xl shadow-2xl ring-1 ring-black/20 backdrop-blur-sm max-h-[80vh] overflow-hidden"
           >
             {/* Header */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-lg bg-gray-800 flex items-center justify-center">
-                  <Keyboard className="w-5 h-5 text-gray-400" />
+                  <Keyboard className="w-5 h-5 text-gray-400" aria-hidden="true" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-semibold">Keyboard Shortcuts</h2>
+                  <h2 id="keyboard-shortcuts-title" className="text-lg font-semibold">
+                    Keyboard Shortcuts
+                  </h2>
                   <p className="text-sm text-gray-400">Quick actions to boost your productivity</p>
                 </div>
               </div>
               <button
                 onClick={onClose}
-                className="p-2 rounded-lg hover:bg-gray-800 transition-colors"
+                type="button"
+                className="p-2 rounded-lg hover:bg-gray-800 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
                 aria-label="Close"
               >
-                <X className="w-5 h-5" />
+                <X className="w-5 h-5" aria-hidden="true" />
               </button>
             </div>
 

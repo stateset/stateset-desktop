@@ -22,10 +22,12 @@ export function WebhookDetailPanel({ webhook, onClose }: WebhookDetailPanelProps
             <p className="text-xs text-gray-500 truncate mt-0.5">{webhook.url}</p>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="p-2 rounded-lg hover:bg-gray-800 transition-colors flex-shrink-0"
+            className="p-2 rounded-lg hover:bg-gray-800 transition-colors flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+            aria-label="Close webhook details"
           >
-            <X className="w-5 h-5" />
+            <X className="w-5 h-5" aria-hidden="true" />
           </button>
         </div>
 
@@ -66,11 +68,16 @@ export function WebhookDetailPanel({ webhook, onClose }: WebhookDetailPanelProps
         <div className="flex items-center justify-between px-5 py-3 border-b border-gray-800">
           <h3 className="text-sm font-medium text-gray-300">Recent Deliveries</h3>
           <button
+            type="button"
             onClick={() => refetch()}
-            className="p-1.5 rounded-lg hover:bg-gray-800 transition-colors"
+            className="p-1.5 rounded-lg hover:bg-gray-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
             title="Refresh deliveries"
+            aria-label="Refresh deliveries"
           >
-            <RefreshCw className={clsx('w-4 h-4 text-gray-400', isLoading && 'animate-spin')} />
+            <RefreshCw
+              className={clsx('w-4 h-4 text-gray-400', isLoading && 'animate-spin')}
+              aria-hidden="true"
+            />
           </button>
         </div>
 
@@ -78,11 +85,14 @@ export function WebhookDetailPanel({ webhook, onClose }: WebhookDetailPanelProps
         <div className="flex-1 overflow-y-auto">
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
-              <div className="w-6 h-6 border-2 border-brand-500/30 border-t-brand-500 rounded-full animate-spin" />
+              <div
+                className="w-6 h-6 border-2 border-brand-500/30 border-t-brand-500 rounded-full animate-spin"
+                aria-hidden="true"
+              />
             </div>
           ) : !deliveries?.length ? (
             <div className="flex flex-col items-center justify-center py-12 text-gray-500">
-              <Clock className="w-8 h-8 mb-2" />
+              <Clock className="w-8 h-8 mb-2" aria-hidden="true" />
               <p className="text-sm">No deliveries yet</p>
             </div>
           ) : (
@@ -104,13 +114,20 @@ function DeliveryRow({ delivery }: { delivery: WebhookDelivery }) {
   return (
     <div className="px-5 py-3">
       <button
+        type="button"
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center gap-3 text-left"
+        className="w-full flex items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+        aria-expanded={expanded}
+        aria-label={
+          expanded
+            ? `Collapse delivery details for ${delivery.event}`
+            : `Expand delivery details for ${delivery.event}`
+        }
       >
         {delivery.success ? (
-          <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
+          <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" aria-hidden="true" />
         ) : (
-          <XCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
+          <XCircle className="w-4 h-4 text-red-400 flex-shrink-0" aria-hidden="true" />
         )}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">

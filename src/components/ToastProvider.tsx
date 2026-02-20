@@ -46,10 +46,10 @@ interface ToastContextValue {
 const ToastContext = createContext<ToastContextValue | null>(null);
 
 const VARIANT_STYLES: Record<ToastVariant, string> = {
-  info: 'border-blue-500/40 bg-blue-950/80',
-  success: 'border-green-500/40 bg-green-950/80',
-  error: 'border-red-500/40 bg-red-950/80',
-  warning: 'border-amber-500/40 bg-amber-950/80',
+  info: 'border-blue-500/45 bg-blue-950/85',
+  success: 'border-green-500/45 bg-green-950/85',
+  error: 'border-red-500/45 bg-red-950/85',
+  warning: 'border-amber-500/45 bg-amber-950/85',
 };
 
 const VARIANT_ICONS: Record<ToastVariant, typeof Info> = {
@@ -239,7 +239,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext.Provider value={{ showToast, dismissToast: removeToast, dismissAll }}>
       {children}
       <div
-        className="fixed right-4 top-4 z-50 flex w-full max-w-sm flex-col gap-2 pointer-events-none"
+        className="fixed right-0 top-4 z-50 flex w-full max-w-sm flex-col gap-2 pointer-events-none px-4 sm:right-4 sm:px-0"
         aria-live="assertive"
         role="region"
         aria-label="Notifications"
@@ -258,7 +258,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 onMouseEnter={() => pauseToast(toast.id)}
                 onMouseLeave={() => resumeToast(toast.id)}
                 className={clsx(
-                  'pointer-events-auto flex flex-col overflow-hidden rounded-xl border shadow-xl backdrop-blur-sm',
+                  'pointer-events-auto flex flex-col overflow-hidden rounded-xl border shadow-xl ring-1 ring-black/20 backdrop-blur-sm',
                   VARIANT_STYLES[toast.variant]
                 )}
               >
@@ -268,30 +268,35 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                       'h-5 w-5 flex-shrink-0 mt-0.5',
                       VARIANT_ICON_COLORS[toast.variant]
                     )}
+                    aria-hidden="true"
                   />
                   <div className="flex-1 text-sm min-w-0">
                     {toast.title && (
                       <div className="font-semibold text-white truncate">{toast.title}</div>
                     )}
-                    <div className="text-gray-300 break-words">{toast.message}</div>
+                    <div className="text-gray-200/95 break-words leading-relaxed">
+                      {toast.message}
+                    </div>
                     {toast.actionLabel && toast.onAction && (
                       <button
+                        type="button"
                         onClick={() => {
                           toast.onAction!();
                           removeToast(toast.id);
                         }}
-                        className="mt-1 text-xs font-medium underline hover:no-underline transition-colors"
+                        className="mt-1 text-xs font-medium underline hover:no-underline transition-colors text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900 rounded"
                       >
                         {toast.actionLabel}
                       </button>
                     )}
                   </div>
                   <button
+                    type="button"
                     onClick={() => removeToast(toast.id)}
-                    className="text-gray-400 hover:text-gray-200 transition-colors p-1 -m-1 rounded-lg hover:bg-white/10"
+                    className="text-gray-400 hover:text-gray-100 transition-colors p-1 -m-1 rounded-lg hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900"
                     aria-label="Dismiss notification"
                   >
-                    <X className="h-4 w-4" />
+                    <X className="h-4 w-4" aria-hidden="true" />
                   </button>
                 </div>
                 {/* Progress bar */}

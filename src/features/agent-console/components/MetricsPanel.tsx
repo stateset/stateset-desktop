@@ -97,12 +97,13 @@ export const MetricsPanel = memo(function MetricsPanel({
             Run Summary
           </h3>
           <button
+            type="button"
             onClick={onExportSummary}
-            className="p-1.5 text-gray-400 hover:text-gray-200 hover:bg-gray-800 rounded-lg transition-colors"
+            className="p-1.5 text-gray-400 hover:text-gray-200 hover:bg-gray-800 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900"
             title="Export run summary"
             aria-label="Export run summary"
           >
-            <BarChart3 className="w-4 h-4" />
+            <BarChart3 className="w-4 h-4" aria-hidden="true" />
           </button>
         </div>
         <div className="mt-3 space-y-2 text-sm">
@@ -172,7 +173,7 @@ function MetricCard({ icon: Icon, label, value, color }: MetricCardProps) {
             colorClasses[color]
           )}
         >
-          <Icon className="w-5 h-5" />
+          <Icon className="w-5 h-5" aria-hidden="true" />
         </div>
         <div>
           <p className="text-xl font-bold">
