@@ -14,21 +14,21 @@ describe('TagBadge', () => {
   it('should apply known color class for known tags', () => {
     const { container } = render(<TagBadge tag="production" />);
     const badge = container.firstChild as HTMLElement;
-    expect(badge.className).toContain('bg-green-900/30');
-    expect(badge.className).toContain('text-green-400');
+    expect(badge.className).toContain('from-emerald-500/20');
+    expect(badge.className).toContain('text-emerald-300');
   });
 
   it('should apply default color for unknown tags', () => {
     const { container } = render(<TagBadge tag="custom-tag" />);
     const badge = container.firstChild as HTMLElement;
-    expect(badge.className).toContain('bg-gray-800');
-    expect(badge.className).toContain('text-gray-300');
+    expect(badge.className).toContain('bg-slate-800/60');
+    expect(badge.className).toContain('text-slate-300');
   });
 
   it('should be case-insensitive for color lookup', () => {
     const { container } = render(<TagBadge tag="Production" />);
     const badge = container.firstChild as HTMLElement;
-    expect(badge.className).toContain('bg-green-900/30');
+    expect(badge.className).toContain('from-emerald-500/20');
   });
 
   it('should show remove button when onRemove is provided', () => {
@@ -59,7 +59,7 @@ describe('TagBadge', () => {
   it('should apply sm size by default', () => {
     const { container } = render(<TagBadge tag="test" />);
     const badge = container.firstChild as HTMLElement;
-    expect(badge.className).toContain('text-[11px]');
+    expect(badge.className).toContain('text-[9px]');
   });
 
   it('should apply md size when specified', () => {
@@ -102,9 +102,9 @@ describe('TagFilter', () => {
     const stagingBtn = screen.getByText('staging');
 
     // Selected tag gets its brand color
-    expect(prodBtn.className).toContain('text-green-400');
+    expect(prodBtn.className).toContain('text-emerald-300');
     // Unselected tag gets muted style
-    expect(stagingBtn.className).toContain('text-gray-500');
+    expect(stagingBtn.className).toContain('text-gray-400');
   });
 
   it('should call onToggleTag when a tag is clicked', () => {

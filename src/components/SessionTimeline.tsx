@@ -49,18 +49,18 @@ const eventConfig: Record<
   TimelineEventType,
   { icon: React.ElementType; color: string; bg: string }
 > = {
-  started: { icon: Play, color: 'text-green-400', bg: 'bg-green-900/30' },
-  paused: { icon: Pause, color: 'text-amber-400', bg: 'bg-amber-900/30' },
-  resumed: { icon: RefreshCw, color: 'text-blue-400', bg: 'bg-blue-900/30' },
-  stopped: { icon: Square, color: 'text-gray-400', bg: 'bg-gray-800' },
-  completed: { icon: CheckCircle, color: 'text-green-400', bg: 'bg-green-900/30' },
-  failed: { icon: AlertTriangle, color: 'text-red-400', bg: 'bg-red-900/30' },
-  message_sent: { icon: MessageSquare, color: 'text-brand-400', bg: 'bg-brand-900/30' },
-  message_received: { icon: MessageSquare, color: 'text-purple-400', bg: 'bg-purple-900/30' },
-  tool_call: { icon: Wrench, color: 'text-amber-400', bg: 'bg-amber-900/30' },
-  loop_completed: { icon: Zap, color: 'text-blue-400', bg: 'bg-blue-900/30' },
-  error: { icon: AlertTriangle, color: 'text-red-400', bg: 'bg-red-900/30' },
-  config_changed: { icon: RefreshCw, color: 'text-gray-400', bg: 'bg-gray-800' },
+  started: { icon: Play, color: 'text-emerald-400', bg: 'bg-emerald-500/15' },
+  paused: { icon: Pause, color: 'text-amber-400', bg: 'bg-amber-500/15' },
+  resumed: { icon: RefreshCw, color: 'text-blue-400', bg: 'bg-blue-500/15' },
+  stopped: { icon: Square, color: 'text-gray-400', bg: 'bg-slate-800/60' },
+  completed: { icon: CheckCircle, color: 'text-emerald-400', bg: 'bg-emerald-500/15' },
+  failed: { icon: AlertTriangle, color: 'text-rose-400', bg: 'bg-rose-500/15' },
+  message_sent: { icon: MessageSquare, color: 'text-brand-400', bg: 'bg-brand-500/15' },
+  message_received: { icon: MessageSquare, color: 'text-purple-400', bg: 'bg-purple-500/15' },
+  tool_call: { icon: Wrench, color: 'text-amber-400', bg: 'bg-amber-500/15' },
+  loop_completed: { icon: Zap, color: 'text-blue-400', bg: 'bg-blue-500/15' },
+  error: { icon: AlertTriangle, color: 'text-rose-400', bg: 'bg-rose-500/15' },
+  config_changed: { icon: RefreshCw, color: 'text-gray-400', bg: 'bg-slate-800/60' },
 };
 
 export const SessionTimeline = memo(function SessionTimeline({
@@ -85,7 +85,7 @@ export const SessionTimeline = memo(function SessionTimeline({
   return (
     <div className={clsx('relative', className)}>
       {/* Timeline line */}
-      <div className="absolute left-4 top-0 bottom-0 w-px bg-gray-800" />
+      <div className="absolute left-4 top-0 bottom-0 w-px bg-gradient-to-b from-brand-500/40 via-slate-700/50 to-transparent" />
 
       {/* Events */}
       <div className="space-y-4">
@@ -103,7 +103,7 @@ export const SessionTimeline = memo(function SessionTimeline({
 
       {/* Show more indicator */}
       {events.length > maxVisible && (
-        <div className="mt-4 pl-10 text-sm text-gray-500">
+        <div className="mt-4 pl-10 text-sm font-medium text-gray-500">
           +{events.length - maxVisible} more events
         </div>
       )}
@@ -131,29 +131,29 @@ const TimelineItem = memo(function TimelineItem({
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -10 }}
       transition={{ duration: 0.2 }}
-      className="relative pl-10"
+      className="relative pl-12"
     >
       {/* Icon */}
       <div
         className={clsx(
-          'absolute left-0 w-8 h-8 rounded-full flex items-center justify-center border-2 border-gray-900',
+          'absolute left-0 w-8 h-8 rounded-full flex items-center justify-center border-2 border-slate-900 shadow-sm',
           config.bg,
-          isFirst && 'ring-2 ring-offset-2 ring-offset-gray-900 ring-brand-500/50'
+          isFirst && 'ring-2 ring-offset-2 ring-offset-slate-900 ring-brand-500/50'
         )}
       >
         <Icon className={clsx('w-4 h-4', config.color)} />
       </div>
 
       {/* Content */}
-      <div className="bg-gray-800/30 rounded-lg p-3">
-        <div className="flex items-start justify-between gap-2">
+      <div className="bg-slate-800/40 border border-slate-700/50 rounded-xl p-3.5 shadow-sm backdrop-blur-sm hover:bg-slate-800/60 hover:border-slate-600/50 transition-all duration-200">
+        <div className="flex items-start justify-between gap-3">
           <div>
-            <h4 className="text-sm font-medium">{event.title}</h4>
+            <h4 className="text-sm font-bold text-gray-200">{event.title}</h4>
             {event.description && (
-              <p className="text-sm text-gray-400 mt-0.5">{event.description}</p>
+              <p className="text-sm font-medium text-gray-400 mt-0.5">{event.description}</p>
             )}
           </div>
-          <span className="text-xs text-gray-500 flex-shrink-0">
+          <span className="text-xs font-medium text-gray-500 flex-shrink-0">
             {showRelativeTime
               ? formatDistanceToNow(event.timestamp, { addSuffix: true })
               : format(event.timestamp, 'HH:mm:ss')}
@@ -162,13 +162,15 @@ const TimelineItem = memo(function TimelineItem({
 
         {/* Metadata */}
         {event.metadata && Object.keys(event.metadata).length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-2">
+          <div className="mt-3 flex flex-wrap gap-2">
             {Object.entries(event.metadata).map(([key, value]) => (
               <span
                 key={key}
-                className="inline-flex items-center px-2 py-0.5 text-xs bg-gray-800 text-gray-400 rounded"
+                className="inline-flex items-center px-2.5 py-1 text-[11px] font-medium bg-slate-900/60 text-gray-300 rounded-lg border border-slate-700/40 shadow-inner"
               >
-                <span className="text-gray-500 mr-1">{key}:</span>
+                <span className="text-gray-500 mr-1.5 font-bold uppercase tracking-wider">
+                  {key}:
+                </span>
                 {String(value)}
               </span>
             ))}
@@ -200,16 +202,21 @@ export const CompactTimeline = memo(function CompactTimeline({
   }
 
   return (
-    <div className={clsx('space-y-2', className)}>
+    <div className={clsx('space-y-1.5', className)}>
       {visibleEvents.map((event) => {
         const config = eventConfig[event.type] || eventConfig.started;
         const Icon = config.icon;
 
         return (
-          <div key={event.id} className="flex items-center gap-2 text-xs">
-            <Icon className={clsx('w-3 h-3 flex-shrink-0', config.color)} />
-            <span className="text-gray-400 truncate flex-1">{event.title}</span>
-            <span className="text-gray-600 flex-shrink-0">
+          <div
+            key={event.id}
+            className="flex items-center gap-2.5 text-xs p-1.5 rounded-lg hover:bg-slate-800/40 transition-colors"
+          >
+            <div className={clsx('p-1 rounded-md', config.bg)}>
+              <Icon className={clsx('w-3.5 h-3.5 flex-shrink-0', config.color)} />
+            </div>
+            <span className="text-gray-300 font-medium truncate flex-1">{event.title}</span>
+            <span className="text-gray-500 font-medium flex-shrink-0">
               {formatDistanceToNow(event.timestamp, { addSuffix: true })}
             </span>
           </div>

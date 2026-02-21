@@ -68,12 +68,12 @@ export function AgentToolbar({
   onStop,
 }: AgentToolbarProps) {
   return (
-    <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800 bg-gray-900/50">
-      <div className="flex items-center gap-4">
+    <div className="glass-header flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-700/45">
+      <div className="min-w-0 flex items-center gap-4">
         <button
           type="button"
           onClick={onBack}
-          className="p-2 rounded-lg hover:bg-gray-800 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900"
+          className="p-2 rounded-lg hover:bg-slate-800/70 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900"
           aria-label="Back to dashboard"
         >
           <ArrowLeft className="w-5 h-5" aria-hidden="true" />
@@ -85,7 +85,7 @@ export function AgentToolbar({
             </div>
             <div
               className={clsx(
-                'absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-gray-900',
+                'absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-slate-900',
                 isRunning && 'bg-green-500 animate-pulse',
                 isPaused && 'bg-amber-500',
                 !isRunning && !isPaused && 'bg-gray-500'
@@ -93,12 +93,12 @@ export function AgentToolbar({
             />
           </div>
           <div>
-            <h1 className="font-semibold">
+            <h1 className="font-semibold text-slate-100 truncate">
               {session.name?.trim()
                 ? session.name
                 : `${session.agent_type.charAt(0).toUpperCase() + session.agent_type.slice(1)} Agent`}
             </h1>
-            <p className="text-sm text-gray-400">
+            <p className="text-sm text-slate-400">
               {session.name?.trim()
                 ? `${session.agent_type.charAt(0).toUpperCase() + session.agent_type.slice(1)} \u2022 `
                 : ''}
@@ -108,14 +108,14 @@ export function AgentToolbar({
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap justify-end">
         <button
           type="button"
           onClick={onToggleSearch}
           aria-pressed={showSearch}
           className={clsx(
             'p-2 rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900',
-            showSearch ? 'bg-brand-600 text-white' : 'bg-gray-800 hover:bg-gray-700'
+            showSearch ? 'bg-brand-600 text-white' : 'bg-slate-800 hover:bg-slate-700'
           )}
           title="Search in conversation (Ctrl/Cmd+F)"
           aria-label="Search in conversation"
@@ -125,7 +125,7 @@ export function AgentToolbar({
         <button
           type="button"
           onClick={onExport}
-          className="p-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900"
+          className="p-2 bg-slate-800/80 hover:bg-slate-700/80 rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900"
           title="Export conversation (Ctrl/Cmd+E)"
           aria-label="Export conversation"
         >
@@ -135,7 +135,7 @@ export function AgentToolbar({
           type="button"
           onClick={onClone}
           disabled={isCloning || !session.config}
-          className="p-2 bg-gray-800 hover:bg-gray-700 disabled:opacity-50 rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900 disabled:focus-visible:ring-0 disabled:focus-visible:ring-offset-0"
+          className="p-2 bg-slate-800/80 hover:bg-slate-700/80 disabled:opacity-50 rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900 disabled:focus-visible:ring-0 disabled:focus-visible:ring-offset-0"
           title="Clone agent"
           aria-label="Clone agent"
         >
@@ -149,7 +149,7 @@ export function AgentToolbar({
           type="button"
           onClick={onSaveTemplate}
           disabled={!session.config}
-          className="p-2 bg-gray-800 hover:bg-gray-700 disabled:opacity-50 rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900 disabled:focus-visible:ring-0 disabled:focus-visible:ring-offset-0"
+          className="p-2 bg-slate-800/80 hover:bg-slate-700/80 disabled:opacity-50 rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900 disabled:focus-visible:ring-0 disabled:focus-visible:ring-offset-0"
           title="Save as template"
           aria-label="Save as template"
         >
@@ -171,25 +171,26 @@ export function AgentToolbar({
         <button
           type="button"
           onClick={onOpenConfig}
-          className="flex items-center gap-2 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900"
+          className="flex items-center gap-2 px-3 py-1.5 bg-slate-800/80 hover:bg-slate-700/80 rounded-lg text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900"
           aria-label="Open settings"
         >
           <Settings className="w-4 h-4" aria-hidden="true" />
-          Settings
+          <span className="hidden sm:inline">Settings</span>
         </button>
         {showStartStreamCta && (
           <button
             type="button"
             onClick={onStartAndStream}
             disabled={isStartStreamPending}
-            className="flex items-center gap-2 px-3 py-1.5 bg-green-600 hover:bg-green-500 disabled:opacity-60 rounded-lg text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900 disabled:focus-visible:ring-0 disabled:focus-visible:ring-offset-0"
+            className="flex items-center gap-2 px-3 py-1.5 bg-brand-600 hover:bg-brand-500 disabled:opacity-60 rounded-lg text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900 disabled:focus-visible:ring-0 disabled:focus-visible:ring-offset-0"
           >
             {isStartStreamPending ? (
               <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
             ) : (
               <Play className="w-4 h-4" aria-hidden="true" />
             )}
-            {startStreamLabel}
+            <span className="hidden sm:inline">{startStreamLabel}</span>
+            <span className="sm:hidden">Start</span>
           </button>
         )}
         {isRunning && (
@@ -201,7 +202,7 @@ export function AgentToolbar({
             aria-label="Pause agent"
           >
             <Pause className="w-4 h-4" aria-hidden="true" />
-            Pause
+            <span className="hidden sm:inline">Pause</span>
           </button>
         )}
         {(isRunning || isPaused) && (
@@ -213,7 +214,7 @@ export function AgentToolbar({
             aria-label="Stop agent"
           >
             <Square className="w-4 h-4" aria-hidden="true" />
-            Stop
+            <span className="hidden sm:inline">Stop</span>
           </button>
         )}
       </div>

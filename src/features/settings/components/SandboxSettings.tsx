@@ -90,14 +90,14 @@ export function SandboxSettings({ secureStorageAvailable }: { secureStorageAvail
   }, [sandboxApiKey]);
 
   return (
-    <section className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
-      <div className="px-4 py-3 border-b border-gray-800">
-        <h2 className="font-semibold flex items-center gap-2">
+    <section className="bg-slate-900/40 border border-slate-700/50 rounded-2xl overflow-hidden backdrop-blur-sm shadow-sm">
+      <div className="px-5 py-4 border-b border-slate-700/50 bg-slate-900/60">
+        <h2 className="font-bold text-gray-200 flex items-center gap-2.5">
           <Server className="w-5 h-5 text-gray-400" aria-hidden="true" />
           Sandbox API
         </h2>
       </div>
-      <div className="p-4 space-y-4">
+      <div className="p-5 space-y-5">
         <p className="text-sm text-gray-400">
           Configure your Sandbox API key to create and manage isolated Claude Code execution
           environments.
@@ -121,12 +121,17 @@ export function SandboxSettings({ secureStorageAvailable }: { secureStorageAvail
                 <button
                   type="button"
                   onClick={copySandboxApiKey}
-                  className="p-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 disabled:focus-visible:ring-0 disabled:focus-visible:ring-offset-0"
+                  className={clsx(
+                    'p-2 rounded-lg transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 disabled:focus-visible:ring-0 disabled:focus-visible:ring-offset-0',
+                    sandboxKeyCopied
+                      ? 'bg-green-900/30 text-green-400 shadow-sm shadow-green-500/10'
+                      : 'bg-gray-800 hover:bg-gray-700 hover:scale-105'
+                  )}
                   title="Copy Sandbox API Key"
                   aria-label="Copy sandbox API key"
                 >
                   {sandboxKeyCopied ? (
-                    <Check className="w-5 h-5 text-green-400" aria-hidden="true" />
+                    <Check className="w-5 h-5" aria-hidden="true" />
                   ) : (
                     <Copy className="w-5 h-5" aria-hidden="true" />
                   )}
@@ -134,7 +139,7 @@ export function SandboxSettings({ secureStorageAvailable }: { secureStorageAvail
                 <button
                   type="button"
                   onClick={removeSandboxApiKey}
-                  className="p-2 bg-red-900/50 hover:bg-red-900 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40 focus-visible:ring-offset-1 disabled:focus-visible:ring-0 disabled:focus-visible:ring-offset-0"
+                  className="p-2 bg-red-900/50 hover:bg-red-900 rounded-lg transition-all duration-200 hover:scale-105 hover:shadow-sm hover:shadow-rose-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40 focus-visible:ring-offset-1 disabled:focus-visible:ring-0 disabled:focus-visible:ring-offset-0"
                   title="Remove Sandbox API Key"
                   aria-label="Remove sandbox API key"
                 >
@@ -152,8 +157,11 @@ export function SandboxSettings({ secureStorageAvailable }: { secureStorageAvail
                     Testing...
                   </span>
                 ) : sandboxHealthStatus === 'healthy' ? (
-                  <span className="flex items-center gap-1 text-green-400">
-                    <Check className="w-4 h-4" aria-hidden="true" />
+                  <span className="flex items-center gap-1.5 text-green-400">
+                    <span className="relative flex h-2.5 w-2.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-40"></span>
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-400"></span>
+                    </span>
                     Connected
                   </span>
                 ) : sandboxHealthStatus === 'error' ? (
@@ -230,7 +238,7 @@ export function SandboxSettings({ secureStorageAvailable }: { secureStorageAvail
                 value={sandboxKeyInput}
                 onChange={(e) => setSandboxKeyInput(e.target.value)}
                 placeholder="sk_test_..."
-                className="flex-1 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 font-mono text-sm"
+                className="flex-1 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg hover:border-gray-600 focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 font-mono text-sm transition-all focus-glow"
               />
               <button
                 type="button"

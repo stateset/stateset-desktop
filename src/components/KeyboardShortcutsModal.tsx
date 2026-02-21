@@ -103,12 +103,12 @@ export function KeyboardShortcutsModal({ isOpen, onClose }: KeyboardShortcutsMod
             role="dialog"
             aria-modal="true"
             aria-labelledby="keyboard-shortcuts-title"
-            className="w-full max-w-2xl bg-gray-900/95 border border-gray-800/90 rounded-xl shadow-2xl ring-1 ring-black/20 backdrop-blur-sm max-h-[80vh] overflow-hidden"
+            className="w-full max-w-2xl bg-slate-900/95 border border-slate-700/60 rounded-2xl shadow-2xl backdrop-blur-xl max-h-[80vh] overflow-hidden"
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-700/50 bg-slate-900/60">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-gray-800 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-slate-700/80 to-slate-800/80 border border-slate-600/30 flex items-center justify-center shadow-sm">
                   <Keyboard className="w-5 h-5 text-gray-400" aria-hidden="true" />
                 </div>
                 <div>
@@ -121,10 +121,13 @@ export function KeyboardShortcutsModal({ isOpen, onClose }: KeyboardShortcutsMod
               <button
                 onClick={onClose}
                 type="button"
-                className="p-2 rounded-lg hover:bg-gray-800 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+                className="group/close p-2 rounded-lg hover:bg-gray-800 active:scale-90 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
                 aria-label="Close"
               >
-                <X className="w-5 h-5" aria-hidden="true" />
+                <X
+                  className="w-5 h-5 group-hover/close:rotate-90 transition-transform duration-200"
+                  aria-hidden="true"
+                />
               </button>
             </div>
 
@@ -140,13 +143,13 @@ export function KeyboardShortcutsModal({ isOpen, onClose }: KeyboardShortcutsMod
                       {group.shortcuts.map((shortcut, i) => (
                         <div
                           key={i}
-                          className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-gray-800/50"
+                          className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-slate-800/50 transition-colors duration-150"
                         >
                           <span className="text-gray-300">{shortcut.description}</span>
                           <div className="flex items-center gap-1">
                             {shortcut.keys.map((key, j) => (
                               <span key={j} className="flex items-center">
-                                <kbd className="px-2 py-1 bg-gray-800 border border-gray-700 rounded text-xs font-mono text-gray-300">
+                                <kbd className="px-2 py-1 bg-gradient-to-b from-gray-700/80 to-gray-800/80 border border-gray-600/50 rounded-md text-xs font-mono text-gray-300 shadow-sm">
                                   {key}
                                 </kbd>
                                 {j < shortcut.keys.length - 1 && (
@@ -164,9 +167,12 @@ export function KeyboardShortcutsModal({ isOpen, onClose }: KeyboardShortcutsMod
             </div>
 
             {/* Footer */}
-            <div className="px-5 py-3 border-t border-gray-800 bg-gray-900/50">
+            <div className="px-5 py-3 border-t border-slate-700/50 bg-slate-900/60">
               <p className="text-xs text-gray-500 text-center">
-                Press <kbd className="px-1.5 py-0.5 bg-gray-800 rounded text-gray-400">?</kbd>{' '}
+                Press{' '}
+                <kbd className="px-1.5 py-0.5 bg-gradient-to-b from-gray-700/80 to-gray-800/80 border border-gray-600/50 rounded-md text-gray-400 shadow-sm">
+                  ?
+                </kbd>{' '}
                 anytime to show this help
               </p>
             </div>

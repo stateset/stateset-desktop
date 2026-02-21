@@ -1,6 +1,6 @@
 /** @vitest-environment happy-dom */
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { renderWithProviders, mockElectronAPI, screen, fireEvent } from '../test-utils';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { renderWithProviders, mockElectronAPI, screen, fireEvent, act } from '../test-utils';
 import { useAuthStore } from '../stores/auth';
 import Templates from './Templates';
 import type { AgentTemplate } from '../types';
@@ -116,10 +116,15 @@ const MOCK_TEMPLATES: AgentTemplate[] = [
 
 describe('Templates', () => {
   beforeEach(() => {
+    vi.useFakeTimers();
     vi.clearAllMocks();
     mockElectronAPI();
     useAuthStore.setState(AUTH_STATE);
     mockGetAllTemplates.mockReturnValue(MOCK_TEMPLATES);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('renders template cards from store', () => {
@@ -148,6 +153,7 @@ describe('Templates', () => {
 
     const searchInput = screen.getByPlaceholderText('Search templates...');
     fireEvent.change(searchInput, { target: { value: 'Customer' } });
+    act(() => vi.advanceTimersByTime(300));
 
     expect(screen.getByText('Customer Support')).toBeTruthy();
     expect(screen.queryByText('Interactive Assistant')).toBeNull();
@@ -170,6 +176,7 @@ describe('Templates', () => {
 
     const searchInput = screen.getByPlaceholderText('Search templates...');
     fireEvent.change(searchInput, { target: { value: 'zzz-nonexistent' } });
+    act(() => vi.advanceTimersByTime(300));
 
     expect(screen.getByText('No templates match "zzz-nonexistent"')).toBeTruthy();
   });

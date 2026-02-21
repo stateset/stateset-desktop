@@ -1,6 +1,6 @@
 /** @vitest-environment happy-dom */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { screen, fireEvent, act } from '@testing-library/react';
 import { renderWithProviders, mockElectronAPI } from '../test-utils';
 import { useAuthStore } from '../stores/auth';
 import type { Webhook } from '../types';
@@ -51,6 +51,7 @@ const makeWebhook = (overrides: Partial<Webhook> = {}): Webhook => ({
 
 describe('Webhooks page', () => {
   beforeEach(() => {
+    vi.useFakeTimers();
     vi.clearAllMocks();
     mockElectronAPI();
     useAuthStore.setState({
@@ -78,6 +79,10 @@ describe('Webhooks page', () => {
         created_at: '2024-01-01T00:00:00Z',
       },
     });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('renders empty state when no webhooks exist', async () => {
@@ -128,6 +133,7 @@ describe('Webhooks page', () => {
 
     const searchInput = screen.getByPlaceholderText('Search webhooks...');
     fireEvent.change(searchInput, { target: { value: 'Return' } });
+    act(() => vi.advanceTimersByTime(300));
 
     expect(screen.queryByTestId('webhook-card-wh-1')).not.toBeInTheDocument();
     expect(screen.getByTestId('webhook-card-wh-2')).toBeInTheDocument();
@@ -142,6 +148,7 @@ describe('Webhooks page', () => {
 
     const searchInput = screen.getByPlaceholderText('Search webhooks...');
     fireEvent.change(searchInput, { target: { value: 'nonexistent' } });
+    act(() => vi.advanceTimersByTime(300));
 
     expect(screen.queryByTestId('webhook-card-wh-1')).not.toBeInTheDocument();
   });

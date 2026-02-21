@@ -12,13 +12,13 @@ export function QuickConfigBar({
   onTemperatureChange,
 }: QuickConfigBarProps) {
   return (
-    <div className="px-4 py-2 border-b border-gray-800 flex items-center gap-4 text-xs">
+    <div className="px-4 py-2.5 border-b border-slate-700/45 bg-slate-900/20 flex items-center gap-4 text-xs">
       <label className="flex items-center gap-2">
-        <span className="text-gray-500">Model:</span>
+        <span className="text-gray-500 uppercase tracking-wider">Model:</span>
         <select
           value={model}
           onChange={(e) => onModelChange(e.target.value)}
-          className="px-2 py-1 bg-gray-800 border border-gray-700 rounded text-gray-300 focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+          className="px-2 py-1.5 bg-slate-800/80 border border-slate-700/60 rounded-lg text-gray-200 text-sm focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
         >
           <option value="claude-sonnet-4-6">Sonnet 4.6</option>
           <option value="claude-opus-4-20250514">Opus 4</option>
@@ -27,7 +27,7 @@ export function QuickConfigBar({
       </label>
 
       <label className="flex items-center gap-2">
-        <span className="text-gray-500">Temp:</span>
+        <span className="text-gray-500 uppercase tracking-wider">Temp:</span>
         <input
           type="range"
           min={0}
@@ -35,9 +35,9 @@ export function QuickConfigBar({
           step={0.1}
           value={temperature}
           onChange={(e) => onTemperatureChange(parseFloat(e.target.value))}
-          className="w-20 accent-brand-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 rounded"
+          className="w-24 accent-brand-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 rounded"
         />
-        <span className="text-gray-400 w-6 text-right">{temperature.toFixed(1)}</span>
+        <span className="text-gray-300 w-8 text-right font-mono">{temperature.toFixed(1)}</span>
       </label>
     </div>
   );

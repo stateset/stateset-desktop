@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { Send } from 'lucide-react';
 
 interface MessageInputProps {
@@ -19,44 +20,70 @@ export function MessageInput({
   onInputChange,
   onSend,
 }: MessageInputProps) {
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const hasText = input.trim().length > 0;
+  const canSubmit = canSend && hasText;
+  const composerHint = canSend
+    ? hasText
+      ? 'Tip: Enter to send, Shift + Enter for newline.'
+      : 'Type a message to send to the agent.'
+    : 'Start the agent to send messages.';
+  const composerPlaceholder =
+    isRunning || isPaused
+      ? 'Send a message to the agent...'
+      : isManualMode
+        ? 'Send a message to start the agent...'
+        : 'Start the agent to send messages';
+
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    textarea.style.height = '0px';
+    const nextHeight = Math.min(textarea.scrollHeight, 170);
+    textarea.style.height = `${nextHeight}px`;
+  }, [input]);
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      onSend();
+      if (canSubmit) {
+        onSend();
+      }
     }
   };
 
   return (
-    <div className="p-4 border-t border-gray-800">
+    <div className="px-4 py-3 border-t border-slate-700/45 bg-slate-900/20">
       <div className="flex items-end gap-3">
-        <div className="flex-1 bg-gray-800 rounded-xl border border-gray-700 focus-within:border-brand-500 transition-colors">
+        <div className="flex-1 min-w-0 bg-slate-900/50 rounded-2xl border border-slate-700/50 focus-within:border-brand-500 focus-within:shadow-lg focus-within:shadow-brand-500/10 transition-all">
           <textarea
+            ref={textareaRef}
             value={input}
             onChange={(e) => onInputChange(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={
-              isRunning || isPaused
-                ? 'Send a message to the agent...'
-                : isManualMode
-                  ? 'Send a message to start the agent...'
-                  : 'Start the agent to send messages'
-            }
+            placeholder={composerPlaceholder}
             disabled={!canSend}
+            id="agent-message-input"
             rows={1}
             aria-label="Message to agent"
-            className="w-full px-4 py-3 bg-transparent resize-none focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900 disabled:opacity-50"
+            aria-describedby="agent-message-hint"
+            maxLength={8000}
+            className="w-full px-4 py-3 bg-transparent resize-none focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900 disabled:opacity-50 text-sm min-h-[3rem] max-h-44 leading-6 overflow-y-auto"
           />
         </div>
         <button
           type="button"
           onClick={onSend}
-          disabled={!input.trim() || !canSend}
-          className="p-3 bg-brand-600 hover:bg-brand-500 disabled:bg-gray-700 disabled:text-gray-500 rounded-xl transition-all border border-brand-600/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900 disabled:focus-visible:ring-0 disabled:focus-visible:ring-offset-0"
-          aria-label="Send message"
+          disabled={!canSubmit}
+          className="p-3 bg-brand-600 hover:bg-brand-500 disabled:bg-slate-700 disabled:text-gray-500 rounded-xl border border-brand-600/50 transition-all shadow-sm shadow-brand-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900 disabled:focus-visible:ring-0 disabled:focus-visible:ring-offset-0"
+          aria-label={canSubmit ? 'Send message' : 'Cannot send message'}
         >
           <Send className="w-5 h-5" aria-hidden="true" />
         </button>
       </div>
+      <p id="agent-message-hint" className="mt-2 text-[11px] text-slate-500">
+        {composerHint}
+      </p>
     </div>
   );
 }

@@ -13,19 +13,21 @@ describe('Button', () => {
   it('renders primary variant by default', () => {
     render(<Button>Primary</Button>);
     const btn = screen.getByRole('button');
-    expect(btn.className).toContain('bg-brand-600');
+    expect(btn.className).toContain('from-brand-500');
+    expect(btn.className).toContain('to-brand-600');
   });
 
   it('renders secondary variant', () => {
     render(<Button variant="secondary">Secondary</Button>);
     const btn = screen.getByRole('button');
-    expect(btn.className).toContain('bg-gray-800');
+    expect(btn.className).toContain('bg-slate-800/80');
   });
 
   it('renders danger variant', () => {
     render(<Button variant="danger">Delete</Button>);
     const btn = screen.getByRole('button');
-    expect(btn.className).toContain('bg-red-600');
+    expect(btn.className).toContain('from-rose-500');
+    expect(btn.className).toContain('to-rose-600');
   });
 
   it('renders ghost variant', () => {

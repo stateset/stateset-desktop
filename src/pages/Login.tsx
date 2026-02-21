@@ -172,7 +172,7 @@ export default function Login() {
         <div className="w-full max-w-md">
           {/* Logo */}
           <div className="flex items-center justify-center gap-3 mb-8">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-500 to-brand-600 flex items-center justify-center">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-500 to-brand-600 flex items-center justify-center shadow-lg shadow-brand-500/25 border border-brand-400/20">
               <Bot className="w-7 h-7 text-white" aria-hidden="true" />
             </div>
             <div>
@@ -182,12 +182,12 @@ export default function Login() {
           </div>
 
           {/* Login Form */}
-          <div className="bg-gray-900/90 border border-gray-800/90 rounded-xl p-6 shadow-2xl backdrop-blur-sm">
+          <div className="bg-slate-900/90 border border-slate-700/50 rounded-2xl p-6 shadow-2xl backdrop-blur-xl">
             <h2 className="text-lg font-semibold mb-1">Welcome back</h2>
             <p className="text-gray-400 text-sm mb-6">Sign in to connect to StateSet</p>
 
             {/* Login Method Tabs */}
-            <div className="flex gap-1 p-1 bg-gray-800/80 rounded-lg mb-6">
+            <div className="flex gap-1 p-1 bg-gray-800/60 rounded-lg mb-6 border border-gray-700/30">
               <button
                 type="button"
                 onClick={() => {
@@ -199,8 +199,8 @@ export default function Login() {
                   'flex-1 flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40',
                   'focus-visible:ring-offset-1',
                   loginMethod === 'email'
-                    ? 'bg-gray-700/90 text-white'
-                    : 'text-gray-400 hover:text-white'
+                    ? 'bg-gray-700/90 text-white shadow-sm'
+                    : 'text-gray-400 hover:text-white hover:bg-gray-800/40'
                 )}
                 aria-pressed={loginMethod === 'email'}
               >
@@ -218,8 +218,8 @@ export default function Login() {
                   'flex-1 flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40',
                   'focus-visible:ring-offset-1',
                   loginMethod === 'apikey'
-                    ? 'bg-gray-700/90 text-white'
-                    : 'text-gray-400 hover:text-white'
+                    ? 'bg-gray-700/90 text-white shadow-sm'
+                    : 'text-gray-400 hover:text-white hover:bg-gray-800/40'
                 )}
                 aria-pressed={loginMethod === 'apikey'}
               >
@@ -257,7 +257,7 @@ export default function Login() {
                         }}
                         placeholder="you@company.com"
                         autoComplete="email"
-                        className="w-full pl-10 pr-4 py-2.5 bg-gray-800/90 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+                        className="w-full pl-10 pr-4 py-2.5 bg-gray-800/90 border border-gray-700 rounded-lg hover:border-gray-600 focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 transition-all focus-glow"
                         autoFocus
                       />
                     </div>
@@ -289,7 +289,7 @@ export default function Login() {
                         }}
                         placeholder="Your password"
                         autoComplete="current-password"
-                        className="w-full pl-10 pr-4 py-2.5 bg-gray-800/90 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+                        className="w-full pl-10 pr-4 py-2.5 bg-gray-800/90 border border-gray-700 rounded-lg hover:border-gray-600 focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 transition-all focus-glow"
                       />
                     </div>
                   </div>
@@ -320,7 +320,7 @@ export default function Login() {
                       }}
                       placeholder="sk-..."
                       autoComplete="off"
-                      className="w-full pl-10 pr-4 py-2.5 bg-gray-800/90 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+                      className="w-full pl-10 pr-4 py-2.5 bg-gray-800/90 border border-gray-700 rounded-lg hover:border-gray-600 focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 transition-all focus-glow"
                       autoFocus
                     />
                   </div>
@@ -335,6 +335,7 @@ export default function Login() {
 
               {displayError && (
                 <div
+                  role="alert"
                   className={clsx(
                     'mb-4 p-3 rounded-lg border',
                     authError
@@ -402,7 +403,7 @@ export default function Login() {
                   isLoading ||
                   (loginMethod === 'email' ? !email.trim() || !password : !apiKey.trim())
                 }
-                className="w-full flex items-center justify-center gap-2 py-2.5 bg-brand-600 hover:bg-brand-500 disabled:bg-gray-700 disabled:text-gray-400 rounded-lg font-medium border border-brand-600/40 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 disabled:focus-visible:ring-0 disabled:focus-visible:ring-offset-0"
+                className="w-full flex items-center justify-center gap-2 py-2.5 bg-brand-600 hover:bg-brand-500 disabled:bg-gray-700 disabled:text-gray-400 rounded-lg font-medium border border-brand-600/40 transition-all duration-200 shadow-md shadow-brand-500/20 hover:shadow-lg hover:shadow-brand-500/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 disabled:focus-visible:ring-0 disabled:focus-visible:ring-offset-0 disabled:shadow-none"
               >
                 {isLoading ? (
                   <div

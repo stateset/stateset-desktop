@@ -15,9 +15,10 @@ interface UseAgentSessionOptions {
 }
 
 export function useAgentSession({ sessionId, onError, onSuccess }: UseAgentSessionOptions) {
-  const { tenant, currentBrand } = useAuthStore();
+  const tenant = useAuthStore((s) => s.tenant);
+  const currentBrand = useAuthStore((s) => s.currentBrand);
   const queryClient = useQueryClient();
-  const { refreshInterval } = usePreferencesStore();
+  const refreshInterval = usePreferencesStore((s) => s.refreshInterval);
   const lastQueryErrorRef = useRef<string | null>(null);
 
   // Safe accessors — guards against null tenant/brand in mutation callbacks

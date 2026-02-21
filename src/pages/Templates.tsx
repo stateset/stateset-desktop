@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Search } from 'lucide-react';
+import { useDebounce } from '../hooks/useDebounce';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useTemplatesStore } from '../stores/templates';
 import { TEMPLATE_CATEGORIES } from '../lib/agentTemplates';
@@ -17,6 +18,7 @@ export default function Templates() {
 
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearch = useDebounce(searchQuery, 300);
   const [selectedTemplate, setSelectedTemplate] = useState<AgentTemplate | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
 
@@ -33,32 +35,30 @@ export default function Templates() {
       } else if (selectedCategory !== 'all') {
         if (t.category !== selectedCategory) return false;
       }
-      if (searchQuery) {
-        const q = searchQuery.toLowerCase();
+      if (debouncedSearch) {
+        const q = debouncedSearch.toLowerCase();
         return t.name.toLowerCase().includes(q) || t.description.toLowerCase().includes(q);
       }
       return true;
     });
-  }, [allTemplates, selectedCategory, searchQuery]);
+  }, [allTemplates, selectedCategory, debouncedSearch]);
 
   const handleUseTemplate = () => {
     navigate('/?create=1');
   };
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
+    <div className="page-shell max-w-5xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Templates</h1>
-          <p className="text-sm text-gray-400 mt-1">
-            Browse and manage agent templates for quick deployment
-          </p>
+          <h1 className="page-title">Templates</h1>
+          <p className="page-subtitle">Browse and manage agent templates for quick deployment</p>
         </div>
         <button
           type="button"
           onClick={() => setShowCreateDialog(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-brand-600 hover:bg-brand-500 rounded-lg font-medium border border-brand-600/40 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+          className="flex items-center gap-2 px-4 py-2 bg-brand-600 hover:bg-brand-500 rounded-lg font-medium border border-brand-600/40 transition-all shadow-md shadow-brand-500/20 hover:shadow-lg hover:shadow-brand-500/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
           aria-label="Create template"
         >
           <Plus className="w-4 h-4" aria-hidden="true" />
@@ -78,7 +78,7 @@ export default function Templates() {
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Search templates..."
           aria-label="Search templates"
-          className="w-full pl-10 pr-4 py-2 bg-gray-900/90 border border-gray-800 rounded-lg focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 text-sm"
+          className="w-full pl-10 pr-4 py-2 bg-gray-900/90 border border-gray-800 rounded-lg hover:border-gray-600 focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 transition-all focus-glow text-sm"
         />
       </div>
 
@@ -92,8 +92,8 @@ export default function Templates() {
             className={clsx(
               'px-3 py-1.5 text-sm rounded-lg whitespace-nowrap transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1',
               selectedCategory === category.id
-                ? 'bg-brand-600/20 text-brand-400'
-                : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'
+                ? 'bg-brand-600/20 text-brand-400 shadow-sm border border-brand-500/20'
+                : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/60 border border-transparent'
             )}
             aria-pressed={selectedCategory === category.id}
           >

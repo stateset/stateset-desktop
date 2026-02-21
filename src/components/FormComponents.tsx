@@ -64,13 +64,15 @@ export const ToggleSetting = memo(function ToggleSetting({
     <label
       htmlFor={id}
       className={clsx(
-        'flex items-center justify-between gap-4 p-4 bg-gray-800/50 rounded-lg transition-colors',
-        disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-gray-800',
+        'flex items-center justify-between gap-4 p-4 bg-slate-800/40 border border-slate-700/50 rounded-xl transition-all',
+        disabled
+          ? 'opacity-50 cursor-not-allowed'
+          : 'cursor-pointer hover:bg-slate-800/60 hover:border-slate-600/50 shadow-sm hover:shadow-md',
         className
       )}
     >
       <div className="flex-1">
-        <p className="font-medium">{label}</p>
+        <p className="font-medium text-gray-200">{label}</p>
         {description && <p className="text-sm text-gray-400 mt-0.5">{description}</p>}
       </div>
       <div className="relative">
@@ -84,13 +86,13 @@ export const ToggleSetting = memo(function ToggleSetting({
         />
         <div
           className={clsx(
-            'w-11 h-6 rounded-full transition-colors',
-            checked ? 'bg-brand-600' : 'bg-gray-600'
+            'w-11 h-6 rounded-full transition-colors shadow-inner',
+            checked ? 'bg-brand-500' : 'bg-slate-600'
           )}
         >
           <div
             className={clsx(
-              'absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform',
+              'absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-200 ease-out',
               checked && 'translate-x-5'
             )}
           />
@@ -129,23 +131,28 @@ export const SelectSetting = memo(function SelectSetting({
   disabled = false,
   className,
 }: SelectSettingProps) {
+  const id = `select-${label.toLowerCase().replace(/\s+/g, '-')}`;
+
   return (
     <div
       className={clsx(
-        'flex items-center justify-between gap-4 p-4 bg-gray-800/50 rounded-lg',
+        'flex items-center justify-between gap-4 p-4 bg-slate-800/40 border border-slate-700/50 rounded-xl shadow-sm transition-all hover:bg-slate-800/50 hover:border-slate-600/50',
         disabled && 'opacity-50',
         className
       )}
     >
       <div className="flex-1">
-        <p className="font-medium">{label}</p>
+        <label htmlFor={id} className="font-medium text-gray-200 cursor-pointer">
+          {label}
+        </label>
         {description && <p className="text-sm text-gray-400 mt-0.5">{description}</p>}
       </div>
       <select
+        id={id}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
-        className="px-3 py-1.5 bg-gray-700 border border-gray-600 rounded-lg text-sm focus:outline-none focus:border-brand-500"
+        className="px-3 py-2 bg-slate-900/60 border border-slate-700/60 rounded-lg text-sm font-medium text-gray-200 focus-visible:outline-none focus-visible:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/20 transition-all shadow-inner"
       >
         {options.map((opt) => (
           <option key={opt.value} value={opt.value}>
@@ -195,20 +202,25 @@ export const NumberSetting = memo(function NumberSetting({
   disabled = false,
   className,
 }: NumberSettingProps) {
+  const id = `number-${label.toLowerCase().replace(/\s+/g, '-')}`;
+
   return (
     <div
       className={clsx(
-        'flex items-center justify-between gap-4 p-4 bg-gray-800/50 rounded-lg',
+        'flex items-center justify-between gap-4 p-4 bg-slate-800/40 border border-slate-700/50 rounded-xl shadow-sm transition-all hover:bg-slate-800/50 hover:border-slate-600/50',
         disabled && 'opacity-50',
         className
       )}
     >
       <div className="flex-1">
-        <p className="font-medium">{label}</p>
+        <label htmlFor={id} className="font-medium text-gray-200 cursor-pointer">
+          {label}
+        </label>
         {description && <p className="text-sm text-gray-400 mt-0.5">{description}</p>}
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3">
         <input
+          id={id}
           type="number"
           value={value}
           onChange={(e) => onChange(Number(e.target.value))}
@@ -216,9 +228,9 @@ export const NumberSetting = memo(function NumberSetting({
           max={max}
           step={step}
           disabled={disabled}
-          className="w-24 px-3 py-1.5 bg-gray-700 border border-gray-600 rounded-lg text-sm text-right focus:outline-none focus:border-brand-500"
+          className="w-24 px-3 py-2 bg-slate-900/60 border border-slate-700/60 rounded-lg text-sm font-medium text-right text-gray-200 focus-visible:outline-none focus-visible:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/20 transition-all shadow-inner"
         />
-        {unit && <span className="text-sm text-gray-400">{unit}</span>}
+        {unit && <span className="text-sm font-medium text-gray-400">{unit}</span>}
       </div>
     </div>
   );
@@ -241,18 +253,20 @@ export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(function T
   ref
 ) {
   return (
-    <div className={clsx('space-y-1', className)}>
-      {label && <label className="block text-sm text-gray-400">{label}</label>}
+    <div className={clsx('space-y-1.5', className)}>
+      {label && <label className="block text-sm font-medium text-gray-300 ml-1">{label}</label>}
       <input
         ref={ref}
         onChange={onChange ? (e) => onChange(e.target.value) : undefined}
         className={clsx(
-          'w-full px-3 py-2 bg-gray-800 border rounded-lg focus:outline-none transition-colors',
-          error ? 'border-red-500 focus:border-red-400' : 'border-gray-700 focus:border-brand-500'
+          'w-full px-3.5 py-2.5 bg-slate-900/60 border rounded-xl focus:outline-none transition-all shadow-inner',
+          error
+            ? 'border-rose-500/50 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 focus-glow-error'
+            : 'border-slate-700/60 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 hover:border-slate-600/60 focus-glow'
         )}
         {...props}
       />
-      {error && <p className="text-sm text-red-400">{error}</p>}
+      {error && <p className="text-sm font-medium text-rose-400 ml-1 mt-1">{error}</p>}
     </div>
   );
 });
@@ -277,18 +291,20 @@ export const TextArea = forwardRef<HTMLTextAreaElement, TextAreaProps>(function 
   ref
 ) {
   return (
-    <div className={clsx('space-y-1', className)}>
-      {label && <label className="block text-sm text-gray-400">{label}</label>}
+    <div className={clsx('space-y-1.5', className)}>
+      {label && <label className="block text-sm font-medium text-gray-300 ml-1">{label}</label>}
       <textarea
         ref={ref}
         onChange={onChange ? (e) => onChange(e.target.value) : undefined}
         className={clsx(
-          'w-full px-3 py-2 bg-gray-800 border rounded-lg focus:outline-none transition-colors resize-none',
-          error ? 'border-red-500 focus:border-red-400' : 'border-gray-700 focus:border-brand-500'
+          'w-full px-3.5 py-2.5 bg-slate-900/60 border rounded-xl focus:outline-none transition-all shadow-inner resize-none',
+          error
+            ? 'border-rose-500/50 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 focus-glow-error'
+            : 'border-slate-700/60 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 hover:border-slate-600/60 focus-glow'
         )}
         {...props}
       />
-      {error && <p className="text-sm text-red-400">{error}</p>}
+      {error && <p className="text-sm font-medium text-rose-400 ml-1 mt-1">{error}</p>}
     </div>
   );
 });

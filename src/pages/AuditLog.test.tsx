@@ -1,6 +1,6 @@
 /** @vitest-environment happy-dom */
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { renderWithProviders, mockElectronAPI, screen, fireEvent, waitFor } from '../test-utils';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { renderWithProviders, mockElectronAPI, screen, fireEvent, act } from '../test-utils';
 import { useAuthStore } from '../stores/auth';
 import { useAuditLogStore } from '../stores/auditLog';
 import AuditLog from './AuditLog';
@@ -64,6 +64,7 @@ const MOCK_ENTRIES = [
 
 describe('AuditLog', () => {
   beforeEach(() => {
+    vi.useFakeTimers();
     vi.clearAllMocks();
     mockElectronAPI();
     useAuthStore.setState(AUTH_STATE);
@@ -71,6 +72,10 @@ describe('AuditLog', () => {
       entries: MOCK_ENTRIES,
       isLoaded: true,
     });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('renders entries from store', () => {
@@ -105,6 +110,7 @@ describe('AuditLog', () => {
 
     const searchInput = screen.getByPlaceholderText('Search audit log...');
     fireEvent.change(searchInput, { target: { value: 'Support Bot' } });
+    act(() => vi.advanceTimersByTime(300));
 
     expect(screen.getByText('Created agent "Support Bot"')).toBeTruthy();
     expect(screen.getByText('Started agent "Support Bot"')).toBeTruthy();
@@ -125,6 +131,7 @@ describe('AuditLog', () => {
 
     const searchInput = screen.getByPlaceholderText('Search audit log...');
     fireEvent.change(searchInput, { target: { value: 'zzz-nonexistent' } });
+    act(() => vi.advanceTimersByTime(300));
 
     expect(screen.getByText('No entries match your filters')).toBeTruthy();
   });
@@ -143,16 +150,13 @@ describe('AuditLog', () => {
     expect(screen.queryByText('Clear All')).toBeNull();
   });
 
-  it('shows confirmation dialog when Clear All is clicked', async () => {
+  it('shows confirmation dialog when Clear All is clicked', () => {
     renderWithProviders(<AuditLog />);
 
     const clearButton = screen.getByText('Clear All');
     fireEvent.click(clearButton);
 
-    await waitFor(() => {
-      expect(screen.getByText('Clear Audit Log')).toBeTruthy();
-    });
-
+    expect(screen.getByText('Clear Audit Log')).toBeTruthy();
     expect(screen.getByText(/This will permanently delete all/)).toBeTruthy();
     expect(screen.getByText('Cancel')).toBeTruthy();
   });

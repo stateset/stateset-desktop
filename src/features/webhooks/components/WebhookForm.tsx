@@ -29,46 +29,58 @@ export function WebhookForm({ isOpen, onClose, onSubmit, isLoading, initial }: W
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-6">
       <div
         role="dialog"
         aria-modal="true"
-        className="w-full max-w-lg bg-gray-900 border border-gray-800 rounded-xl shadow-xl max-h-[90vh] overflow-hidden flex flex-col"
+        className="w-full max-w-lg bg-slate-900/95 border border-slate-700/60 rounded-2xl shadow-2xl max-h-[90vh] overflow-hidden flex flex-col backdrop-blur-xl animate-scale-in"
       >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-700/50 bg-slate-900/60">
           <h2 className="text-lg font-semibold">{initial ? 'Edit Webhook' : 'Create Webhook'}</h2>
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-lg hover:bg-gray-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+            className="group/close p-2 rounded-lg hover:bg-gray-800 active:scale-90 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
             aria-label="Close webhook form"
           >
-            <X className="w-5 h-5" aria-hidden="true" />
+            <X
+              className="w-5 h-5 group-hover/close:rotate-90 transition-transform duration-200"
+              aria-hidden="true"
+            />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-5 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1.5">Name</label>
+            <label
+              htmlFor="webhook-name"
+              className="block text-sm font-medium text-gray-300 mb-1.5"
+            >
+              Name
+            </label>
             <input
+              id="webhook-name"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="My Webhook"
               required
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 focus-visible:border-brand-500"
+              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg hover:border-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 focus-visible:border-brand-500 transition-all focus-glow"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1.5">URL</label>
+            <label htmlFor="webhook-url" className="block text-sm font-medium text-gray-300 mb-1.5">
+              URL
+            </label>
             <input
+              id="webhook-url"
               type="url"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               placeholder="https://example.com/webhook"
               required
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 focus-visible:border-brand-500"
+              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg hover:border-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 focus-visible:border-brand-500 transition-all focus-glow"
             />
           </div>
 
@@ -103,18 +115,18 @@ export function WebhookForm({ isOpen, onClose, onSubmit, isLoading, initial }: W
             <WebhookEventPicker selected={events} onChange={setEvents} />
           </div>
 
-          <div className="flex items-center justify-end gap-2 pt-4 border-t border-gray-800">
+          <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-700/50">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+              className="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition-all duration-150 hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isLoading || !name.trim() || !url.trim() || events.length === 0}
-              className="px-4 py-2 bg-brand-600 hover:bg-brand-500 disabled:bg-gray-700 disabled:text-gray-400 rounded-lg font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+              className="px-4 py-2 bg-brand-600 hover:bg-brand-500 disabled:bg-gray-700 disabled:text-gray-400 rounded-lg font-medium transition-all duration-150 hover:shadow-md hover:shadow-brand-500/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
               aria-label={initial ? 'Update webhook' : 'Create webhook'}
             >
               {isLoading ? 'Saving...' : initial ? 'Update' : 'Create'}

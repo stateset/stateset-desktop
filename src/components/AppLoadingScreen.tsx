@@ -51,7 +51,7 @@ export function AppLoadingScreen({
         <motion.div
           animate={error ? {} : { scale: [1, 1.05, 1] }}
           transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
-          className="w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-600 flex items-center justify-center mb-6 shadow-lg shadow-brand-500/20"
+          className="w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-600 flex items-center justify-center mb-6 shadow-xl shadow-brand-500/30 border border-brand-400/20"
         >
           <Bot className="w-9 h-9 text-white" aria-hidden="true" />
         </motion.div>
@@ -70,7 +70,7 @@ export function AppLoadingScreen({
               className="flex flex-col items-center max-w-xs text-center"
             >
               {/* Error icon */}
-              <div className="w-12 h-12 rounded-full bg-red-900/30 flex items-center justify-center mb-4">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-red-900/40 to-red-900/20 border border-red-500/20 shadow-lg shadow-red-500/10 flex items-center justify-center mb-4">
                 {ErrorIcon && <ErrorIcon className="w-6 h-6 text-red-400" aria-hidden="true" />}
               </div>
 
@@ -83,7 +83,7 @@ export function AppLoadingScreen({
                 <button
                   onClick={onRetry}
                   type="button"
-                  className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg transition-all border border-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+                  className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 hover:scale-[1.02] text-gray-300 rounded-lg transition-all duration-200 border border-gray-700/80 shadow-sm hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
                 >
                   <RefreshCw className="w-4 h-4" aria-hidden="true" />
                   Try again
@@ -101,7 +101,7 @@ export function AppLoadingScreen({
               {/* Loading spinner */}
               <div className="relative mb-4">
                 <div className="w-8 h-8 rounded-full border-2 border-gray-800" />
-                <div className="absolute inset-0 w-8 h-8 rounded-full border-2 border-brand-500 border-t-transparent animate-spin" />
+                <div className="absolute inset-0 w-8 h-8 rounded-full border-2 border-brand-500 border-t-transparent animate-spin shadow-sm shadow-brand-500/20" />
               </div>
 
               {/* Status message */}

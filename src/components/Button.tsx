@@ -12,18 +12,19 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 
 const variantStyles: Record<string, string> = {
   primary:
-    'bg-brand-600 border border-brand-600/50 text-white hover:bg-brand-500 hover:border-brand-500/60',
+    'bg-gradient-to-b from-brand-500 to-brand-600 border border-brand-500/50 text-white shadow-md shadow-brand-500/25 hover:from-brand-400 hover:to-brand-500 hover:border-brand-400/60 hover:shadow-lg hover:shadow-brand-500/30',
   secondary:
-    'bg-gray-800/90 border border-gray-800 text-gray-200 hover:bg-gray-700/80 hover:border-gray-700/80',
-  danger: 'bg-red-600 border border-red-600/50 text-white hover:bg-red-500 hover:border-red-500/60',
+    'bg-slate-800/80 backdrop-blur-sm border border-slate-700/80 text-gray-200 shadow-sm hover:bg-slate-700/80 hover:border-slate-600/80',
+  danger:
+    'bg-gradient-to-b from-rose-500 to-rose-600 border border-rose-500/50 text-white shadow-md shadow-rose-500/25 hover:from-rose-400 hover:to-rose-500 hover:border-rose-400/60 hover:shadow-lg hover:shadow-rose-500/30',
   ghost:
-    'bg-transparent border border-transparent text-gray-300 hover:bg-gray-800/80 hover:border-gray-700',
+    'bg-transparent border border-transparent text-gray-400 hover:text-gray-200 hover:bg-slate-800/60 hover:border-slate-700/50',
 };
 
 const sizeStyles: Record<string, string> = {
-  sm: 'px-2 py-1 text-xs gap-1',
-  md: 'px-4 py-2 text-sm gap-2',
-  lg: 'px-5 py-2.5 text-base gap-2',
+  sm: 'px-2.5 py-1.5 text-xs gap-1.5 rounded-lg',
+  md: 'px-4 py-2 text-sm gap-2 rounded-xl',
+  lg: 'px-6 py-3 text-base gap-2.5 rounded-xl',
 };
 
 const iconSizeMap: Record<string, string> = {
@@ -62,8 +63,11 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       <button
         ref={ref}
         disabled={disabled || loading}
+        aria-busy={loading}
         className={clsx(
-          'inline-flex items-center justify-center font-medium rounded-lg transition-all',
+          'inline-flex items-center justify-center font-medium rounded-lg relative overflow-hidden',
+          'transition-all duration-200',
+          'active:translate-y-px active:scale-[0.99]',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1',
           'disabled:opacity-50 disabled:cursor-not-allowed',
           variantStyles[variant],

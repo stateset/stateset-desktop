@@ -35,11 +35,38 @@ interface LogsViewerProps {
   onExport?: () => void;
 }
 
-const LOG_LEVEL_CONFIG: Record<LogLevel, { icon: React.ElementType; color: string; bg: string }> = {
-  debug: { icon: Bug, color: 'text-gray-400', bg: 'bg-gray-800' },
-  info: { icon: Info, color: 'text-blue-400', bg: 'bg-blue-900/30' },
-  warn: { icon: AlertTriangle, color: 'text-amber-400', bg: 'bg-amber-900/30' },
-  error: { icon: AlertCircle, color: 'text-red-400', bg: 'bg-red-900/30' },
+const LOG_LEVEL_CONFIG: Record<
+  LogLevel,
+  { icon: React.ElementType; color: string; bg: string; activeBorder: string; leftBorder: string }
+> = {
+  debug: {
+    icon: Bug,
+    color: 'text-gray-400',
+    bg: 'bg-slate-800/60',
+    activeBorder: 'border-gray-400/30',
+    leftBorder: 'border-l-gray-500/40',
+  },
+  info: {
+    icon: Info,
+    color: 'text-brand-400',
+    bg: 'bg-brand-500/15',
+    activeBorder: 'border-brand-400/30',
+    leftBorder: 'border-l-brand-400/40',
+  },
+  warn: {
+    icon: AlertTriangle,
+    color: 'text-amber-400',
+    bg: 'bg-amber-500/15',
+    activeBorder: 'border-amber-400/30',
+    leftBorder: 'border-l-amber-400/60',
+  },
+  error: {
+    icon: AlertCircle,
+    color: 'text-rose-400',
+    bg: 'bg-rose-500/15',
+    activeBorder: 'border-rose-400/30',
+    leftBorder: 'border-l-rose-400/60',
+  },
 };
 
 const LOG_LEVELS: LogLevel[] = ['debug', 'info', 'warn', 'error'];
@@ -202,12 +229,12 @@ export const LogsViewer = memo(function LogsViewer({
   };
 
   return (
-    <div className="relative bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+    <div className="relative bg-slate-900/60 border border-slate-700/60 rounded-2xl overflow-hidden backdrop-blur-md shadow-sm">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
-        <h3 className="font-semibold">{title}</h3>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-500">
+      <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-700/60 bg-slate-900/40">
+        <h3 className="font-bold text-gray-200">{title}</h3>
+        <div className="flex items-center gap-2.5">
+          <span className="text-xs font-medium text-gray-500">
             {filteredLogs.length} / {logs.length} logs
           </span>
           <button
@@ -215,8 +242,10 @@ export const LogsViewer = memo(function LogsViewer({
             onClick={() => setShowFilters(!showFilters)}
             aria-label={showFilters ? 'Hide log filters' : 'Show log filters'}
             className={clsx(
-              'p-1.5 rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900',
-              showFilters ? 'bg-brand-600 text-white' : 'text-gray-400 hover:bg-gray-800'
+              'p-2 rounded-xl transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40',
+              showFilters
+                ? 'bg-brand-500/20 text-brand-400 shadow-inner'
+                : 'text-gray-400 hover:bg-slate-800/80 hover:text-gray-200 shadow-sm'
             )}
             title="Filter logs"
           >
@@ -228,19 +257,21 @@ export const LogsViewer = memo(function LogsViewer({
               onClick={handleExport}
               aria-label={showExportMenu ? 'Hide export options' : 'Show export options'}
               className={clsx(
-                'p-1.5 rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900',
-                showExportMenu ? 'bg-brand-600 text-white' : 'text-gray-400 hover:bg-gray-800'
+                'p-2 rounded-xl transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40',
+                showExportMenu
+                  ? 'bg-brand-500/20 text-brand-400 shadow-inner'
+                  : 'text-gray-400 hover:bg-slate-800/80 hover:text-gray-200 shadow-sm'
               )}
               title="Export logs"
             >
               <Download className="w-4 h-4" aria-hidden="true" />
             </button>
             {showExportMenu && (
-              <div className="absolute right-0 top-full mt-1 w-40 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-10 py-1">
+              <div className="absolute right-0 top-full mt-2 w-44 bg-slate-900/90 border border-slate-700/60 rounded-xl shadow-2xl z-10 py-1.5 backdrop-blur-xl">
                 <button
                   type="button"
                   onClick={handleExportTxt}
-                  className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-300 hover:bg-gray-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900"
+                  className="flex items-center gap-3 w-full px-4 py-2 text-sm font-medium text-gray-300 hover:bg-slate-800/80 hover:text-gray-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
                 >
                   <FileText className="w-4 h-4" aria-hidden="true" />
                   Plain Text
@@ -248,7 +279,7 @@ export const LogsViewer = memo(function LogsViewer({
                 <button
                   type="button"
                   onClick={handleExportJson}
-                  className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-300 hover:bg-gray-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900"
+                  className="flex items-center gap-3 w-full px-4 py-2 text-sm font-medium text-gray-300 hover:bg-slate-800/80 hover:text-gray-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
                 >
                   <FileJson className="w-4 h-4" aria-hidden="true" />
                   JSON
@@ -256,7 +287,7 @@ export const LogsViewer = memo(function LogsViewer({
                 <button
                   type="button"
                   onClick={handleExportCsv}
-                  className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-300 hover:bg-gray-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900"
+                  className="flex items-center gap-3 w-full px-4 py-2 text-sm font-medium text-gray-300 hover:bg-slate-800/80 hover:text-gray-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
                 >
                   <FileSpreadsheet className="w-4 h-4" aria-hidden="true" />
                   CSV
@@ -269,7 +300,7 @@ export const LogsViewer = memo(function LogsViewer({
               type="button"
               onClick={onClear}
               aria-label="Clear logs"
-              className="p-1.5 text-gray-400 hover:bg-gray-800 rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900"
+              className="p-2 text-gray-400 hover:bg-slate-800/80 hover:text-gray-200 rounded-xl transition-all shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
               title="Clear logs"
             >
               <X className="w-4 h-4" aria-hidden="true" />
@@ -285,13 +316,13 @@ export const LogsViewer = memo(function LogsViewer({
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="border-b border-gray-800 overflow-hidden"
+            className="border-b border-slate-700/60 bg-slate-900/20 overflow-hidden"
           >
-            <div className="p-3 space-y-3">
+            <div className="p-4 space-y-4">
               {/* Search */}
               <div className="relative">
                 <Search
-                  className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500"
+                  className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500"
                   aria-hidden="true"
                 />
                 <input
@@ -300,7 +331,7 @@ export const LogsViewer = memo(function LogsViewer({
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   aria-label="Search logs"
-                  className="w-full pl-10 pr-10 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm placeholder-gray-500 focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900"
+                  className="w-full pl-10 pr-10 py-2.5 bg-slate-900/60 border border-slate-700/60 rounded-xl text-sm font-medium placeholder-gray-500 focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 shadow-inner transition-all focus-glow"
                 />
                 {searchTerm && (
                   <button
@@ -325,10 +356,10 @@ export const LogsViewer = memo(function LogsViewer({
                       type="button"
                       onClick={() => toggleLevel(level)}
                       className={clsx(
-                        'px-2 py-1 text-xs rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900',
+                        'px-2.5 py-1 text-[11px] font-bold tracking-wider rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40',
                         selectedLevels.has(level)
-                          ? `${config.bg} ${config.color}`
-                          : 'bg-gray-800 text-gray-500'
+                          ? `${config.bg} ${config.color} border ${config.activeBorder} shadow-sm`
+                          : 'bg-slate-800/40 text-gray-500 border border-transparent hover:bg-slate-800/60 hover:text-gray-300'
                       )}
                     >
                       {level.toUpperCase()}
@@ -342,14 +373,18 @@ export const LogsViewer = memo(function LogsViewer({
       </AnimatePresence>
 
       {/* Log entries */}
-      <div ref={containerRef} className="overflow-y-auto font-mono text-xs" style={{ maxHeight }}>
+      <div
+        ref={containerRef}
+        className="overflow-y-auto font-mono text-[11px] font-medium"
+        style={{ maxHeight }}
+      >
         {filteredLogs.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-gray-500">
-            <Info className="w-8 h-8 mb-2" aria-hidden="true" />
-            <p>No logs to display</p>
+          <div className="flex flex-col items-center justify-center py-16 text-gray-500">
+            <Info className="w-10 h-10 mb-3 opacity-50" aria-hidden="true" />
+            <p className="font-sans text-sm">No logs to display</p>
           </div>
         ) : (
-          <div className="divide-y divide-gray-800/50">
+          <div className="divide-y divide-slate-700/40">
             {filteredLogs.map((log) => {
               const config = LOG_LEVEL_CONFIG[log.level];
               const Icon = config.icon;
@@ -360,8 +395,9 @@ export const LogsViewer = memo(function LogsViewer({
                 <div
                   key={log.id}
                   className={clsx(
-                    'px-3 py-2 hover:bg-gray-800/30 transition-colors',
-                    hasDetails && 'cursor-pointer'
+                    'px-4 py-2.5 transition-colors duration-150 border-l-2',
+                    config.leftBorder,
+                    hasDetails ? 'cursor-pointer hover:bg-slate-800/40' : 'hover:bg-slate-800/20'
                   )}
                   onClick={() => hasDetails && toggleExpanded(log.id)}
                 >
@@ -392,9 +428,9 @@ export const LogsViewer = memo(function LogsViewer({
                       initial={{ height: 0, opacity: 0 }}
                       animate={{ height: 'auto', opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
-                      className="mt-2 ml-5 p-2 bg-gray-800 rounded text-gray-400 overflow-x-auto"
+                      className="mt-2.5 ml-6 p-3 bg-slate-900/60 border border-slate-700/40 rounded-xl text-gray-400 overflow-x-auto shadow-inner"
                     >
-                      <pre>{JSON.stringify(log.details, null, 2)}</pre>
+                      <pre className="text-[10px]">{JSON.stringify(log.details, null, 2)}</pre>
                     </motion.div>
                   )}
                 </div>
@@ -414,7 +450,7 @@ export const LogsViewer = memo(function LogsViewer({
             bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
           }}
           aria-label="Jump to latest log entry"
-          className="absolute bottom-4 right-4 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-xs rounded-full shadow-lg border border-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900"
+          className="absolute bottom-5 right-5 px-4 py-2 bg-slate-800/80 hover:bg-slate-700/80 text-gray-200 text-xs font-bold tracking-wide rounded-full shadow-lg border border-slate-600/50 backdrop-blur-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 transition-all"
         >
           Jump to latest
         </button>

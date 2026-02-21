@@ -1,6 +1,7 @@
 import { memo, useEffect, useState, type ComponentPropsWithoutRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import clsx from 'clsx';
 import { Copy, Check } from 'lucide-react';
 
 interface MarkdownProps {
@@ -173,7 +174,7 @@ function CodeBlock({
   if (inline) {
     return (
       <code
-        className="px-1.5 py-0.5 bg-gray-800 rounded text-sm font-mono text-brand-300"
+        className="px-1.5 py-0.5 bg-gray-800/80 border border-gray-700/50 rounded text-sm font-mono text-brand-300"
         {...props}
       >
         {children}
@@ -183,17 +184,22 @@ function CodeBlock({
 
   return (
     <div className="relative group my-3">
-      <div className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+      <div className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-all duration-200 z-10">
         <button
           onClick={handleCopy}
-          className="p-1.5 bg-gray-700 hover:bg-gray-600 rounded text-gray-400 hover:text-white transition-colors"
+          className={clsx(
+            'p-1.5 rounded transition-all duration-200',
+            copied
+              ? 'bg-green-900/40 text-green-400 shadow-sm shadow-green-500/10'
+              : 'bg-gray-700 hover:bg-gray-600 text-gray-400 hover:text-white hover:scale-105'
+          )}
           title="Copy code"
         >
-          {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
+          {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
         </button>
       </div>
       {language && (
-        <div className="absolute left-3 top-0 -translate-y-1/2 px-2 py-0.5 bg-gray-700 rounded text-xs text-gray-400 z-10">
+        <div className="absolute left-3 top-0 -translate-y-1/2 px-2 py-0.5 bg-gray-700/90 border border-gray-600/50 rounded text-xs text-gray-400 z-10 font-mono">
           {language}
         </div>
       )}
@@ -248,19 +254,17 @@ export const Markdown = memo(function Markdown({ content, className = '' }: Mark
             </a>
           ),
           blockquote: ({ children }: { children?: React.ReactNode }) => (
-            <blockquote className="border-l-4 border-gray-600 pl-4 italic text-gray-400">
+            <blockquote className="border-l-4 border-brand-500/40 pl-4 italic text-gray-400 bg-slate-800/20 py-2 pr-3 rounded-r-lg">
               {children}
             </blockquote>
           ),
           table: ({ children }: { children?: React.ReactNode }) => (
-            <div className="overflow-x-auto my-3">
-              <table className="min-w-full divide-y divide-gray-700 border border-gray-700 rounded-lg overflow-hidden">
-                {children}
-              </table>
+            <div className="overflow-x-auto my-3 rounded-xl border border-slate-700/50 shadow-sm">
+              <table className="min-w-full divide-y divide-slate-700/50">{children}</table>
             </div>
           ),
           thead: ({ children }: { children?: React.ReactNode }) => (
-            <thead className="bg-gray-800">{children}</thead>
+            <thead className="bg-slate-800/60">{children}</thead>
           ),
           th: ({ children }: { children?: React.ReactNode }) => (
             <th className="px-3 py-2 text-left text-xs font-semibold text-gray-300 uppercase tracking-wider">
@@ -268,7 +272,9 @@ export const Markdown = memo(function Markdown({ content, className = '' }: Mark
             </th>
           ),
           td: ({ children }: { children?: React.ReactNode }) => (
-            <td className="px-3 py-2 text-sm text-gray-300 border-t border-gray-700">{children}</td>
+            <td className="px-3 py-2 text-sm text-gray-300 border-t border-slate-700/50">
+              {children}
+            </td>
           ),
           ul: ({ children }: { children?: React.ReactNode }) => (
             <ul className="list-disc list-inside space-y-1 my-2">{children}</ul>
@@ -288,7 +294,7 @@ export const Markdown = memo(function Markdown({ content, className = '' }: Mark
           h3: ({ children }: { children?: React.ReactNode }) => (
             <h3 className="text-base font-bold mt-3 mb-1">{children}</h3>
           ),
-          hr: () => <hr className="border-gray-700 my-4" />,
+          hr: () => <hr className="border-slate-700/50 my-4" />,
           p: ({ children }: { children?: React.ReactNode }) => (
             <p className="my-2 leading-relaxed">{children}</p>
           ),

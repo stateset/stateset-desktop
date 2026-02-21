@@ -103,66 +103,78 @@ export function ChatPlayground() {
   if (!isLoaded) return null;
 
   return (
-    <div className="flex h-full">
-      <ConversationList
-        conversations={conversations}
-        activeId={activeConvoId || undefined}
-        onSelect={handleSelectConversation}
-        onDelete={deleteConversation}
-        onNewChat={handleNewChat}
-      />
-
-      <div className="flex-1 flex flex-col">
-        {/* Config bar */}
-        <QuickConfigBar
-          model={model}
-          temperature={temperature}
-          onModelChange={setModel}
-          onTemperatureChange={setTemperature}
-        />
-
-        {/* Save button in header */}
-        <div className="px-4 py-2 border-b border-gray-800 flex items-center justify-between">
-          <h2 className="text-sm font-medium text-gray-300">
-            {activeConvoId
-              ? conversations.find((c) => c.id === activeConvoId)?.title || 'Chat'
-              : messages.length > 0
-                ? 'Unsaved Chat'
-                : 'New Chat'}
-          </h2>
-          {messages.length > 0 && (
-            <button
-              onClick={handleSaveConversation}
-              type="button"
-              className="flex items-center gap-1.5 px-2.5 py-1 text-xs bg-gray-800 hover:bg-gray-700 rounded-lg transition-all border border-gray-800/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900"
-              aria-label="Save conversation"
-            >
-              <Save className="w-3.5 h-3.5" aria-hidden="true" />
-              Save
-            </button>
-          )}
+    <div className="page-shell h-full">
+      <div className="content-card h-full p-4 flex flex-col gap-4">
+        <div className="space-y-1">
+          <p className="text-xs uppercase tracking-wider text-gray-500">Agent Tools</p>
+          <h1 className="page-title">Chat Playground</h1>
+          <p className="page-subtitle">
+            Run quick experiments with AI conversations, then save and revisit chats anytime.
+          </p>
         </div>
 
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {messages.length === 0 ? (
-            <EmptyState
-              icon={Bot}
-              title="Chat Playground"
-              description="Send a message to start chatting with an AI agent. Messages are sent to a new agent session."
+        <div className="flex-1 flex overflow-hidden rounded-xl border border-slate-700/45 bg-slate-900/20">
+          <ConversationList
+            conversations={conversations}
+            activeId={activeConvoId || undefined}
+            onSelect={handleSelectConversation}
+            onDelete={deleteConversation}
+            onNewChat={handleNewChat}
+          />
+
+          <div className="flex-1 flex flex-col min-w-0">
+            {/* Config bar */}
+            <QuickConfigBar
+              model={model}
+              temperature={temperature}
+              onModelChange={setModel}
+              onTemperatureChange={setTemperature}
             />
-          ) : (
-            <>
-              {messages.map((msg) => (
-                <ChatMessageBubble key={msg.id} message={msg} />
-              ))}
-              <div ref={messagesEndRef} />
-            </>
-          )}
-        </div>
 
-        {/* Input */}
-        <ChatInput onSend={handleSend} isLoading={isLoading} />
+            {/* Save button in header */}
+            <div className="px-4 py-2.5 border-b border-slate-700/45 flex items-center justify-between bg-slate-900/20">
+              <h2 className="text-sm font-medium text-gray-300">
+                {activeConvoId
+                  ? conversations.find((c) => c.id === activeConvoId)?.title || 'Chat'
+                  : messages.length > 0
+                    ? 'Unsaved Chat'
+                    : 'New Chat'}
+              </h2>
+              {messages.length > 0 && (
+                <button
+                  onClick={handleSaveConversation}
+                  type="button"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-xl bg-slate-800/70 hover:bg-slate-700/80 border border-slate-700/60 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+                  aria-label="Save conversation"
+                >
+                  <Save className="w-3.5 h-3.5" aria-hidden="true" />
+                  Save
+                </button>
+              )}
+            </div>
+
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 relative">
+              {messages.length === 0 ? (
+                <EmptyState
+                  icon={Bot}
+                  title="Chat Playground"
+                  description="Send a message to start chatting with an AI agent. Messages are sent to a new agent session."
+                />
+              ) : (
+                <>
+                  {messages.map((msg) => (
+                    <ChatMessageBubble key={msg.id} message={msg} />
+                  ))}
+                  <div ref={messagesEndRef} />
+                </>
+              )}
+            </div>
+
+            {/* Input */}
+            <ChatInput onSend={handleSend} isLoading={isLoading} />
+          </div>
+        </div>
       </div>
     </div>
   );

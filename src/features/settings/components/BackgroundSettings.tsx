@@ -6,14 +6,14 @@ export function BackgroundSettings() {
     usePreferencesStore();
 
   return (
-    <section className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
-      <div className="px-4 py-3 border-b border-gray-800">
-        <h2 className="font-semibold flex items-center gap-2">
+    <section className="bg-slate-900/40 border border-slate-700/50 rounded-2xl overflow-hidden backdrop-blur-sm shadow-sm">
+      <div className="px-5 py-4 border-b border-slate-700/50 bg-slate-900/60">
+        <h2 className="font-bold text-gray-200 flex items-center gap-2.5">
           <Monitor className="w-5 h-5 text-gray-400" />
           Background Mode
         </h2>
       </div>
-      <div className="p-4 space-y-4">
+      <div className="p-5 space-y-5">
         <div className="flex items-center justify-between">
           <div>
             <p className="font-medium">Minimize to System Tray</p>
@@ -27,7 +27,7 @@ export function BackgroundSettings() {
               checked={minimizeToTray}
               onChange={(e) => setMinimizeToTray(e.target.checked)}
             />
-            <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-brand-500/40 peer-focus-visible:ring-offset-1 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-600"></div>
+            <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-brand-500/40 peer-focus-visible:ring-offset-1 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-600 peer-checked:shadow-md peer-checked:shadow-brand-500/30 transition-shadow duration-200"></div>
           </label>
         </div>
         <div className="flex items-center justify-between">
@@ -45,7 +45,7 @@ export function BackgroundSettings() {
               checked={autoStartAgentsOnLaunch}
               onChange={(e) => setAutoStartAgentsOnLaunch(e.target.checked)}
             />
-            <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-brand-500/40 peer-focus-visible:ring-offset-1 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-600"></div>
+            <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-brand-500/40 peer-focus-visible:ring-offset-1 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-600 peer-checked:shadow-md peer-checked:shadow-brand-500/30 transition-shadow duration-200"></div>
           </label>
         </div>
         <p className="text-xs text-gray-500">

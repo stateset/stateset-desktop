@@ -29,14 +29,14 @@ export function AppearanceSettings() {
   } = usePreferencesStore();
 
   return (
-    <section className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
-      <div className="px-4 py-3 border-b border-gray-800">
-        <h2 className="font-semibold flex items-center gap-2">
+    <section className="bg-slate-900/40 border border-slate-700/50 rounded-2xl overflow-hidden backdrop-blur-sm shadow-sm">
+      <div className="px-5 py-4 border-b border-slate-700/50 bg-slate-900/60">
+        <h2 className="font-bold text-gray-200 flex items-center gap-2.5">
           <Palette className="w-5 h-5 text-gray-400" />
           Preferences
         </h2>
       </div>
-      <div className="p-4 space-y-4">
+      <div className="p-5 space-y-5">
         <div className="flex items-center justify-between">
           <div>
             <p className="font-medium">Theme</p>
@@ -46,7 +46,7 @@ export function AppearanceSettings() {
             value={theme}
             onChange={(e) => setTheme(e.target.value as 'dark' | 'light')}
             aria-label="Theme"
-            className="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus-visible:outline-none focus-visible:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+            className="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg hover:border-gray-600 focus-visible:outline-none focus-visible:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 transition-all focus-glow"
           >
             <option value="dark">Dark</option>
             <option value="light">Light</option>
@@ -65,7 +65,7 @@ export function AppearanceSettings() {
               checked={compactMode}
               onChange={(e) => setCompactMode(e.target.checked)}
             />
-            <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-brand-500/40 peer-focus-visible:ring-offset-1 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-600"></div>
+            <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-brand-500/40 peer-focus-visible:ring-offset-1 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-600 peer-checked:shadow-md peer-checked:shadow-brand-500/30 transition-shadow duration-200"></div>
           </label>
         </div>
         <div className="flex items-center justify-between">
@@ -81,7 +81,7 @@ export function AppearanceSettings() {
               checked={reduceMotion}
               onChange={(e) => setReduceMotion(e.target.checked)}
             />
-            <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-brand-500/40 peer-focus-visible:ring-offset-1 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-600"></div>
+            <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-brand-500/40 peer-focus-visible:ring-offset-1 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-600 peer-checked:shadow-md peer-checked:shadow-brand-500/30 transition-shadow duration-200"></div>
           </label>
         </div>
         <div className="flex items-center justify-between">
@@ -93,7 +93,7 @@ export function AppearanceSettings() {
             value={refreshInterval}
             onChange={(e) => setRefreshInterval(Number(e.target.value) as RefreshInterval)}
             aria-label="Refresh Interval"
-            className="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus-visible:outline-none focus-visible:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+            className="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg hover:border-gray-600 focus-visible:outline-none focus-visible:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 transition-all focus-glow"
           >
             {REFRESH_INTERVAL_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
@@ -111,7 +111,7 @@ export function AppearanceSettings() {
             value={pageSize}
             onChange={(e) => setPageSize(Number(e.target.value) as PageSize)}
             aria-label="Page Size"
-            className="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus-visible:outline-none focus-visible:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+            className="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg hover:border-gray-600 focus-visible:outline-none focus-visible:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 transition-all focus-glow"
           >
             {PAGE_SIZE_OPTIONS.map((size) => (
               <option key={size} value={size}>

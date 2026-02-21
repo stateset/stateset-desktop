@@ -49,17 +49,17 @@ export function CreateAgentDialog({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-6">
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="create-agent-title"
-        className="w-full max-w-3xl bg-gray-900 border border-gray-800 rounded-xl shadow-xl max-h-[90vh] overflow-hidden flex flex-col"
+        className="w-full max-w-3xl bg-slate-900/95 border border-slate-700/60 rounded-2xl shadow-2xl max-h-[90vh] overflow-hidden flex flex-col backdrop-blur-xl animate-scale-in"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-700/50 bg-slate-900/60">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-brand-600 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-brand-500 to-brand-600 flex items-center justify-center shadow-lg shadow-brand-500/20">
               <Bot className="w-5 h-5 text-white" aria-hidden="true" />
             </div>
             <div>
@@ -72,10 +72,13 @@ export function CreateAgentDialog({
           <button
             onClick={onClose}
             type="button"
-            className="p-2 rounded-lg hover:bg-gray-800 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+            className="group/close p-2 rounded-lg hover:bg-gray-800 active:scale-90 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
             aria-label="Close dialog"
           >
-            <X className="w-5 h-5" aria-hidden="true" />
+            <X
+              className="w-5 h-5 group-hover/close:rotate-90 transition-transform duration-200"
+              aria-hidden="true"
+            />
           </button>
         </div>
 
@@ -110,14 +113,14 @@ export function CreateAgentDialog({
 
           {/* Advanced Settings */}
           {showAdvanced && (
-            <div className="space-y-4 p-4 bg-gray-800/50 rounded-xl border border-gray-700">
+            <div className="space-y-4 p-4 bg-slate-800/40 rounded-xl border border-slate-700/50 backdrop-blur-sm">
               <div className="grid grid-cols-2 gap-4">
                 <label className="space-y-1">
                   <span className="text-sm text-gray-400">Model</span>
                   <select
                     value={finalConfig.model || 'claude-sonnet-4-6'}
                     onChange={(e) => updateCustomConfig({ model: e.target.value })}
-                    className="w-full px-3 py-2 bg-gray-800/90 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+                    className="w-full px-3 py-2 bg-gray-800/90 border border-gray-700 rounded-lg hover:border-gray-600 focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 transition-all focus-glow"
                   >
                     <option value="claude-sonnet-4-6">Claude Sonnet 4.6 (Recommended)</option>
                     <option value="claude-opus-4-20250514">Claude Opus 4</option>
@@ -138,7 +141,7 @@ export function CreateAgentDialog({
                         temperature: Math.min(2, Math.max(0, parseFloat(e.target.value) || 0)),
                       })
                     }
-                    className="w-full px-3 py-2 bg-gray-800/90 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+                    className="w-full px-3 py-2 bg-gray-800/90 border border-gray-700 rounded-lg hover:border-gray-600 focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 transition-all focus-glow"
                   />
                 </label>
 
@@ -153,7 +156,7 @@ export function CreateAgentDialog({
                         max_iterations: Math.max(1, parseInt(e.target.value) || 1),
                       })
                     }
-                    className="w-full px-3 py-2 bg-gray-800/90 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+                    className="w-full px-3 py-2 bg-gray-800/90 border border-gray-700 rounded-lg hover:border-gray-600 focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 transition-all focus-glow"
                   />
                 </label>
 
@@ -168,7 +171,7 @@ export function CreateAgentDialog({
                         loop_interval_ms: Math.max(100, parseInt(e.target.value) || 100),
                       })
                     }
-                    className="w-full px-3 py-2 bg-gray-800/90 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+                    className="w-full px-3 py-2 bg-gray-800/90 border border-gray-700 rounded-lg hover:border-gray-600 focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 transition-all focus-glow"
                   />
                 </label>
               </div>
@@ -214,7 +217,7 @@ export function CreateAgentDialog({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between px-5 py-4 border-t border-gray-800 bg-gray-900/50">
+        <div className="flex items-center justify-between px-5 py-4 border-t border-slate-700/50 bg-slate-900/60">
           <div className="text-sm text-gray-400">
             <span>
               Template: <strong>{selectedTemplate.name}</strong>
@@ -233,7 +236,7 @@ export function CreateAgentDialog({
               onClick={handleCreate}
               disabled={isCreating}
               type="button"
-              className="flex items-center gap-2 px-4 py-2 bg-brand-600/95 hover:bg-brand-500 disabled:bg-gray-700 disabled:text-gray-400 rounded-lg font-medium border border-brand-600/50 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 disabled:focus-visible:ring-0 disabled:focus-visible:ring-offset-0"
+              className="flex items-center gap-2 px-4 py-2 bg-brand-600/95 hover:bg-brand-500 disabled:bg-gray-700 disabled:text-gray-400 rounded-lg font-medium border border-brand-600/50 transition-all duration-200 shadow-md shadow-brand-500/20 hover:shadow-lg hover:shadow-brand-500/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 disabled:focus-visible:ring-0 disabled:focus-visible:ring-offset-0 disabled:shadow-none"
             >
               {isCreating ? (
                 <>

@@ -21,7 +21,7 @@ import {
   BookTemplate,
   ClipboardList,
 } from 'lucide-react';
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import clsx from 'clsx';
 import { motion } from 'framer-motion';
 import { ApiHealthIndicator } from './ApiHealthIndicator';
@@ -207,16 +207,32 @@ export default function Layout({ children }: LayoutProps) {
     return () => document.removeEventListener('keydown', handleGlobalKeyboard);
   }, [handleGlobalKeyboard]);
 
-  const navItems = [
-    { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
-    { to: '/playground', icon: MessageSquare, label: 'Playground' },
-    { to: '/templates', icon: BookTemplate, label: 'Templates' },
-    { to: '/analytics', icon: BarChart3, label: 'Analytics' },
-    { to: '/connections', icon: Plug, label: 'Connections' },
-    { to: '/webhooks', icon: Webhook, label: 'Webhooks' },
-    { to: '/audit-log', icon: ClipboardList, label: 'Audit Log' },
-    { to: '/settings', icon: Settings, label: 'Settings' },
-  ];
+  const navItems = useMemo(
+    () => [
+      { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
+      { to: '/playground', icon: MessageSquare, label: 'Playground' },
+      { to: '/templates', icon: BookTemplate, label: 'Templates' },
+      { to: '/analytics', icon: BarChart3, label: 'Analytics' },
+      { to: '/connections', icon: Plug, label: 'Connections' },
+      { to: '/webhooks', icon: Webhook, label: 'Webhooks' },
+      { to: '/audit-log', icon: ClipboardList, label: 'Audit Log' },
+      { to: '/settings', icon: Settings, label: 'Settings' },
+    ],
+    []
+  );
+
+  const pageTitle = useMemo(() => {
+    const exactMatch = navItems.find((item) => item.to === location.pathname);
+    if (exactMatch) {
+      return exactMatch.label;
+    }
+
+    if (location.pathname.startsWith('/agent/')) {
+      return 'Agent Console';
+    }
+
+    return 'StateSet';
+  }, [location.pathname, navItems]);
 
   useEffect(() => {
     if (!showBrandDropdown) return;
@@ -242,7 +258,7 @@ export default function Layout({ children }: LayoutProps) {
   }, [showBrandDropdown]);
 
   return (
-    <div className="flex h-screen bg-gradient-to-br from-gray-950 via-slate-950 to-gray-900">
+    <div className="app-shell flex h-screen overflow-hidden">
       {/* Skip to main content link — visible on focus for keyboard users */}
       <a
         href="#main-content"
@@ -260,19 +276,21 @@ export default function Layout({ children }: LayoutProps) {
       />
 
       {/* Sidebar */}
-      <aside className="w-64 border-r border-gray-800/90 bg-gray-900/85 backdrop-blur-md flex flex-col">
+      <aside className="layout-sidebar w-64 flex flex-col z-20 backdrop-blur-xl">
         {/* Logo & Drag Region */}
-        <div className="h-14 flex items-center px-4 border-b border-gray-800/90 bg-gray-900/95 drag-region">
-          <div className="flex items-center gap-2 no-drag">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-500 to-brand-600 flex items-center justify-center">
+        <div className="h-14 flex items-center px-5 border-b border-gray-800/60 drag-region">
+          <div className="flex items-center gap-2.5 no-drag">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-brand-500 to-brand-600 flex items-center justify-center shadow-lg shadow-brand-500/20">
               <Bot className="w-5 h-5 text-white" aria-hidden="true" />
             </div>
-            <span className="font-semibold text-lg tracking-tight">StateSet</span>
+            <span className="font-bold text-lg tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
+              StateSet
+            </span>
           </div>
         </div>
 
         {/* Brand Selector */}
-        <div className="p-3 border-b border-gray-800">
+        <div className="p-4 border-b border-gray-800/60">
           <div className="relative" ref={brandDropdownRef}>
             <button
               type="button"
@@ -280,15 +298,19 @@ export default function Layout({ children }: LayoutProps) {
               aria-label={`Select brand. Current: ${currentBrand?.name || 'None selected'}`}
               aria-expanded={showBrandDropdown}
               aria-haspopup="listbox"
-              className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-gray-900/95 hover:bg-gray-800 border border-gray-800 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+              className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-slate-800/40 hover:bg-slate-800/60 border border-gray-700/50 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
             >
-              <div className="flex flex-col items-start">
-                <span className="text-xs text-gray-500">{tenant?.name}</span>
-                <span className="text-sm font-medium">{currentBrand?.name || 'Select Brand'}</span>
+              <div className="flex flex-col items-start gap-0.5">
+                <span className="text-[10px] uppercase tracking-wider font-bold text-gray-500 leading-none">
+                  {tenant?.name}
+                </span>
+                <span className="text-sm font-semibold text-gray-200">
+                  {currentBrand?.name || 'Select Brand'}
+                </span>
               </div>
               <ChevronDown
                 className={clsx(
-                  'w-4 h-4 text-gray-500 transition-transform',
+                  'w-4 h-4 text-gray-500 transition-transform duration-200',
                   showBrandDropdown && 'rotate-180'
                 )}
                 aria-hidden="true"
@@ -296,10 +318,12 @@ export default function Layout({ children }: LayoutProps) {
             </button>
 
             {showBrandDropdown && (
-              <div
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: -4 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
                 role="listbox"
                 aria-label="Available brands"
-                className="absolute top-full left-0 right-0 mt-1 py-1 bg-gray-900/95 border border-gray-800 rounded-lg shadow-xl backdrop-blur-sm z-50"
+                className="absolute top-full left-0 right-0 mt-2 py-1.5 bg-slate-900/95 border border-gray-800 rounded-xl shadow-2xl backdrop-blur-md z-50 overflow-hidden"
               >
                 {brands.map((brand) => (
                   <button
@@ -308,8 +332,10 @@ export default function Layout({ children }: LayoutProps) {
                     role="option"
                     aria-selected={currentBrand?.id === brand.id}
                     className={clsx(
-                      'w-full px-3 py-2 text-left text-sm hover:bg-gray-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1',
-                      currentBrand?.id === brand.id && 'bg-gray-800 text-brand-400'
+                      'w-full px-4 py-2.5 text-left text-sm transition-all duration-150 focus-visible:outline-none',
+                      currentBrand?.id === brand.id
+                        ? 'bg-brand-500/10 text-brand-400 font-medium border-l-[3px] border-l-brand-400 pl-3.5'
+                        : 'text-gray-400 hover:bg-slate-800 hover:text-gray-200 border-l-[3px] border-l-transparent'
                     )}
                     onClick={() => {
                       setCurrentBrand(brand);
@@ -324,45 +350,50 @@ export default function Layout({ children }: LayoutProps) {
                     {brand.name}
                   </button>
                 ))}
-              </div>
+              </motion.div>
             )}
           </div>
         </div>
 
         {/* Navigation */}
-        <nav aria-label="Main navigation" className="flex-1 p-3 space-y-1.5">
+        <nav aria-label="Main navigation" className="flex-1 p-4 space-y-1">
           {navItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
               className={({ isActive }) =>
                 clsx(
-                  'group flex items-center gap-3 px-3 py-2 rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1',
+                  'group flex items-center gap-3 px-3.5 py-2.5 rounded-xl layout-nav-item transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40',
                   isActive
-                    ? 'bg-brand-600/20 text-brand-300 border border-brand-600/40'
-                    : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/70'
+                    ? 'bg-brand-500/15 text-brand-300 border border-brand-500/20 shadow-sm shadow-brand-500/5 border-l-[3px] border-l-brand-400'
+                    : 'text-gray-400 hover:text-gray-200 hover:bg-slate-800/50 border-l-[3px] border-l-transparent'
                 )
               }
             >
-              <item.icon className="w-5 h-5" aria-hidden="true" />
-              <span>{item.label}</span>
+              <item.icon
+                className="w-5 h-5 transition-transform duration-200 group-hover:scale-110 group-active:scale-95"
+                aria-hidden="true"
+              />
+              <span className="font-medium">{item.label}</span>
             </NavLink>
           ))}
         </nav>
 
         {/* User Section */}
-        <div className="p-3 border-t border-gray-800 space-y-2">
+        <div className="p-4 border-t border-gray-800/60 space-y-3">
           <button
             type="button"
             onClick={handleLogout}
             aria-label="Logout from StateSet"
-            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-900/20 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40 focus-visible:ring-offset-1"
+            className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-gray-400 hover:text-rose-400 hover:bg-rose-500/10 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/40"
           >
             <LogOut className="w-5 h-5" aria-hidden="true" />
-            <span>Logout</span>
+            <span className="font-medium">Logout</span>
           </button>
           {appVersion && (
-            <div className="px-3 py-1 text-xs text-gray-600 text-center">v{appVersion}</div>
+            <div className="px-3 py-1 text-[10px] uppercase tracking-widest font-bold text-gray-600 text-center">
+              v{appVersion}
+            </div>
           )}
         </div>
       </aside>
@@ -370,42 +401,53 @@ export default function Layout({ children }: LayoutProps) {
       {/* Main Content */}
       <motion.main
         key={location.pathname}
-        initial={{ opacity: 0.85, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.15, ease: 'easeOut' }}
-        className="flex-1 flex flex-col overflow-hidden"
+        initial={{ opacity: 0, x: 4 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+        className="layout-main-content flex-1 flex flex-col overflow-hidden relative"
       >
         {/* Top bar for window controls (macOS style) */}
-        <div className="h-11 drag-region flex items-center justify-end px-4 border-b border-gray-800/70 gap-2 bg-gray-950/85 backdrop-blur-md sticky top-0 z-10">
-          <ApiHealthIndicator />
-          <NotificationsBell />
-          <ThemeToggle className="no-drag" />
-          <button
-            type="button"
-            onClick={openCommandPalette}
-            className="no-drag flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs text-gray-500 hover:text-gray-300 hover:bg-gray-800 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
-            title="Command palette (Ctrl/Cmd+K)"
-            aria-label="Open command palette"
-          >
-            <Command className="w-3.5 h-3.5" aria-hidden="true" />
-            <span className="hidden sm:inline">Commands</span>
-            <kbd className="hidden sm:inline px-1 py-0.5 text-[10px] bg-gray-800 border border-gray-700 rounded">
-              Ctrl/Cmd+K
-            </kbd>
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowShortcutsModal(true)}
-            className="no-drag flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs text-gray-500 hover:text-gray-300 hover:bg-gray-800 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
-            title="Keyboard shortcuts (?)"
-            aria-label="Show keyboard shortcuts"
-          >
-            <Keyboard className="w-3.5 h-3.5" aria-hidden="true" />
-            <span className="hidden sm:inline">Shortcuts</span>
-            <kbd className="hidden sm:inline px-1 py-0.5 text-[10px] bg-gray-800 border border-gray-700 rounded">
-              ?
-            </kbd>
-          </button>
+        <div className="layout-topbar h-14 drag-region flex items-center justify-end px-6 gap-3 sticky top-0 z-10">
+          <div className="flex-1 min-w-0 no-drag">
+            <p className="text-[11px] uppercase tracking-[0.2em] text-gray-400/80 font-medium">
+              {tenant?.name ? `${tenant.name} workspace` : 'StateSet'}
+            </p>
+            <p className="text-sm md:text-base font-semibold text-gray-100 truncate">{pageTitle}</p>
+          </div>
+          <div className="flex items-center gap-2 no-drag">
+            <ApiHealthIndicator />
+            <div className="h-4 w-[1px] bg-gray-800/60 mx-1" />
+            <NotificationsBell />
+            <ThemeToggle className="hover:bg-slate-800/60 rounded-lg p-1 transition-colors" />
+            <div className="h-4 w-[1px] bg-gray-800/60 mx-1" />
+
+            <button
+              type="button"
+              onClick={openCommandPalette}
+              className="group flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium text-gray-400 hover:text-gray-200 hover:bg-slate-800/60 border border-transparent hover:border-gray-700/50 hover:shadow-lg hover:shadow-brand-500/5 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
+              title="Command palette (Ctrl/Cmd+K)"
+              aria-label="Open command palette"
+            >
+              <Command
+                className="w-3.5 h-3.5 transition-transform duration-200 group-hover:rotate-12"
+                aria-hidden="true"
+              />
+              <span className="hidden lg:inline">Commands</span>
+              <kbd className="hidden lg:flex items-center justify-center px-1.5 py-0.5 text-[10px] font-bold bg-slate-800 text-gray-500 border border-gray-700 rounded-md">
+                ⌘K
+              </kbd>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowShortcutsModal(true)}
+              className="flex items-center justify-center w-9 h-9 rounded-xl text-gray-400 hover:text-gray-200 hover:bg-slate-800/60 border border-transparent hover:border-gray-700/50 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
+              title="Keyboard shortcuts (?)"
+              aria-label="Show keyboard shortcuts"
+            >
+              <Keyboard className="w-4 h-4" aria-hidden="true" />
+            </button>
+          </div>
         </div>
 
         {/* Page Content */}

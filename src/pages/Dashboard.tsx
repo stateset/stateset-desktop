@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../stores/auth';
@@ -10,6 +10,7 @@ import { useToast } from '../components/ToastProvider';
 import { useErrorHandler } from '../hooks/useErrorHandler';
 import { useOptimisticSessionMutation } from '../hooks/useOptimisticSessionMutation';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { useDebounce } from '../hooks/useDebounce';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { useSessionsCache, useOnlineStatus } from '../hooks/useOfflineCache';
 import { uiLogger } from '../lib/logger';
@@ -45,14 +46,29 @@ import {
   Trash2,
 } from 'lucide-react';
 import clsx from 'clsx';
+import { motion, useReducedMotion } from 'framer-motion';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { TagFilter } from '../components/TagBadge';
 
 type StatusFilter = 'all' | 'running' | 'stopped' | 'failed';
 
+const listContainerVariants = {
+  hidden: {},
+  visible: {
+    transition: { staggerChildren: 0.04 },
+  },
+};
+
+const listItemVariants = {
+  hidden: { opacity: 0, y: 8 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.25, ease: [0.4, 0, 0.2, 1] } },
+};
+
 export default function Dashboard() {
   usePageTitle('Dashboard');
-  const { tenant, currentBrand } = useAuthStore();
+  const reduceMotion = useReducedMotion();
+  const tenant = useAuthStore((s) => s.tenant);
+  const currentBrand = useAuthStore((s) => s.currentBrand);
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
@@ -64,12 +80,14 @@ export default function Dashboard() {
   const [isDeletingStopped, setIsDeletingStopped] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearch = useDebounce(searchQuery, 300);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const { pageSize, refreshInterval } = usePreferencesStore();
+  const pageSize = usePreferencesStore((s) => s.pageSize);
+  const refreshInterval = usePreferencesStore((s) => s.refreshInterval);
   const { handleMutationError, handleQueryError, clearLastError } = useErrorHandler();
 
   // Online status for offline-first behavior
@@ -145,7 +163,7 @@ export default function Dashboard() {
     return Array.from(tagSet).sort();
   }, [sessions]);
 
-  const toggleTag = (tag: string) => {
+  const toggleTag = useCallback((tag: string) => {
     setSelectedTags((prev) => {
       const next = new Set(prev);
       if (next.has(tag)) {
@@ -155,7 +173,7 @@ export default function Dashboard() {
       }
       return next;
     });
-  };
+  }, []);
 
   // Filter sessions
   const filteredSessions = useMemo(() => {
@@ -185,8 +203,8 @@ export default function Dashboard() {
       }
 
       // Search filter
-      if (searchQuery) {
-        const query = searchQuery.toLowerCase();
+      if (debouncedSearch) {
+        const query = debouncedSearch.toLowerCase();
         return (
           session.agent_type.toLowerCase().includes(query) ||
           session.id.toLowerCase().includes(query) ||
@@ -197,7 +215,7 @@ export default function Dashboard() {
 
       return true;
     });
-  }, [sessions, searchQuery, statusFilter, selectedTags]);
+  }, [sessions, debouncedSearch, statusFilter, selectedTags]);
 
   // Pagination
   const { totalPages, getPageItems, itemsPerPage } = usePagination(filteredSessions, pageSize);
@@ -206,7 +224,7 @@ export default function Dashboard() {
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, statusFilter, pageSize]);
+  }, [debouncedSearch, statusFilter, pageSize]);
 
   // Clamp current page when the total page count shrinks.
   useEffect(() => {
@@ -408,28 +426,47 @@ export default function Dashboard() {
     });
   };
 
-  const handleCopySession = async (session: AgentSession) => {
-    const success = await copyToClipboard({
-      id: session.id,
-      agent_type: session.agent_type,
-      status: session.status,
-      metrics: session.metrics,
-    });
-    showToast({
-      variant: success ? 'success' : 'error',
-      title: success ? 'Copied to Clipboard' : 'Copy Failed',
-      message: success ? 'Session data copied' : 'Failed to copy to clipboard',
-    });
-  };
+  const handleCopySession = useCallback(
+    async (session: AgentSession) => {
+      const success = await copyToClipboard({
+        id: session.id,
+        agent_type: session.agent_type,
+        status: session.status,
+        metrics: session.metrics,
+      });
+      showToast({
+        variant: success ? 'success' : 'error',
+        title: success ? 'Copied to Clipboard' : 'Copy Failed',
+        message: success ? 'Session data copied' : 'Failed to copy to clipboard',
+      });
+    },
+    [showToast]
+  );
 
-  const handleExportRunSummary = (session: AgentSession) => {
-    exportRunSummary(session);
-    showToast({
-      variant: 'success',
-      title: 'Summary Exported',
-      message: 'Run summary has been downloaded',
-    });
-  };
+  const handleExportRunSummary = useCallback(
+    (session: AgentSession) => {
+      exportRunSummary(session);
+      showToast({
+        variant: 'success',
+        title: 'Summary Exported',
+        message: 'Run summary has been downloaded',
+      });
+    },
+    [showToast]
+  );
+
+  // Stable callbacks for DashboardSessionRow (avoids defeating memo)
+  const handleRowStart = useCallback((id: string) => startSession.mutate(id), [startSession]);
+  const handleRowStop = useCallback((id: string) => stopSession.mutate(id), [stopSession]);
+  const handleRowClick = useCallback((id: string) => navigate(`/agent/${id}`), [navigate]);
+  const handleRowCopy = useCallback(
+    (session: AgentSession) => handleCopySession(session),
+    [handleCopySession]
+  );
+  const handleRowExportSummary = useCallback(
+    (session: AgentSession) => handleExportRunSummary(session),
+    [handleExportRunSummary]
+  );
 
   // Stats
   const runningCount = sessions.filter(
@@ -442,7 +479,7 @@ export default function Dashboard() {
   const hasActiveFilters = searchQuery || statusFilter !== 'all';
 
   return (
-    <div className="p-6">
+    <div className="page-shell">
       {/* Create Agent Dialog */}
       <CreateAgentDialog
         isOpen={showCreateDialog}
@@ -464,36 +501,36 @@ export default function Dashboard() {
       />
 
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-8 mt-2">
         <div>
-          <h1 className="text-2xl font-bold">Agent Dashboard</h1>
-          <p className="text-gray-400 mt-1">Manage your autonomous AI agents</p>
+          <h1 className="page-title">Agent Dashboard</h1>
+          <p className="page-subtitle">Manage your autonomous AI agents</p>
         </div>
-        <div className="flex items-center flex-wrap gap-2">
+        <div className="flex items-center flex-wrap gap-3">
           <button
             type="button"
             onClick={openCommandPalette}
-            className="flex items-center gap-2 px-3 py-2 bg-gray-800/90 hover:bg-gray-700 rounded-lg text-sm text-gray-400 border border-gray-800/80 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+            className="flex items-center gap-2 px-3 py-2 bg-slate-800/40 hover:bg-slate-800/60 rounded-xl text-sm font-medium text-gray-400 border border-slate-700/50 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 shadow-sm"
             title="Command palette (Ctrl/Cmd+K)"
             aria-label="Open command palette"
           >
             <Command className="w-4 h-4" aria-hidden="true" />
-            <kbd className="text-xs">Ctrl/Cmd+K</kbd>
+            <kbd className="text-[10px] font-bold tracking-widest uppercase">⌘K</kbd>
           </button>
           <button
             type="button"
             onClick={() => refetch()}
-            className="p-2 bg-gray-800 hover:bg-gray-700 rounded-lg border border-gray-800/80 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+            className="p-2.5 bg-slate-800/40 hover:bg-slate-800/60 rounded-xl border border-slate-700/50 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 shadow-sm"
             title="Refresh (Ctrl/Cmd+R)"
             aria-label="Refresh sessions"
           >
-            <RefreshCw className="w-5 h-5" aria-hidden="true" />
+            <RefreshCw className="w-5 h-5 text-gray-400" aria-hidden="true" />
           </button>
           <button
             type="button"
             onClick={handleCreateSession}
             disabled={!currentBrand || isCreating}
-            className="flex items-center gap-2 px-4 py-2 bg-brand-600 hover:bg-brand-500 disabled:bg-gray-700 disabled:text-gray-400 rounded-lg font-medium border border-brand-500/30 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 disabled:focus-visible:ring-0 disabled:focus-visible:ring-offset-0"
+            className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-b from-brand-500 to-brand-600 hover:from-brand-400 hover:to-brand-500 disabled:from-slate-700 disabled:to-slate-800 disabled:text-gray-400 rounded-xl font-bold border border-brand-500/30 transition-all shadow-sm shadow-brand-500/20 hover:shadow-brand-500/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
             title="New Agent (Ctrl/Cmd+N)"
             aria-label="Create new agent"
           >
@@ -509,15 +546,15 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <DashboardStats sessions={sessions} />
+      <DashboardStats sessions={sessions} isLoading={isLoading} />
 
       {sessions.length > 0 && <RecentActivityTimeline sessions={sessions} />}
 
       {/* Search and Filter */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-5">
         <div className="relative flex-1 max-w-md">
           <Search
-            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500"
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500"
             aria-hidden="true"
           />
           <input
@@ -527,32 +564,34 @@ export default function Dashboard() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             aria-label="Search agents"
-            className="w-full pl-10 pr-10 py-2 bg-gray-800/80 border border-gray-700 rounded-lg text-sm placeholder-gray-500 focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+            className="w-full pl-10 pr-10 py-2.5 bg-slate-900/60 border border-slate-700/60 rounded-xl text-sm font-medium placeholder-gray-500 focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 shadow-inner transition-all text-gray-200"
           />
           {searchQuery && (
             <button
               type="button"
               onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 hover:bg-gray-700 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-700/50 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 transition-colors"
               aria-label="Clear search"
             >
-              <X className="w-4 h-4 text-gray-500" aria-hidden="true" />
+              <X className="w-4 h-4 text-gray-500 hover:text-gray-300" aria-hidden="true" />
             </button>
           )}
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
-          <Filter className="w-4 h-4 text-gray-500" aria-hidden="true" />
+        <div className="flex items-center gap-2 flex-wrap bg-slate-900/40 p-1 rounded-xl border border-slate-700/50 shadow-inner">
+          <div className="pl-2 pr-1">
+            <Filter className="w-4 h-4 text-gray-500" aria-hidden="true" />
+          </div>
           {(['all', 'running', 'stopped', 'failed'] as StatusFilter[]).map((filter) => (
             <button
               type="button"
               key={filter}
               onClick={() => setStatusFilter(filter)}
               className={clsx(
-                'px-3 py-1.5 text-sm rounded-lg border border-gray-800/50 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1',
+                'px-3.5 py-1.5 text-xs font-bold tracking-wide rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40',
                 statusFilter === filter
-                  ? 'bg-brand-600 text-white'
-                  : 'bg-gray-800/80 text-gray-400 hover:bg-gray-700'
+                  ? 'bg-slate-700/80 text-white shadow-sm'
+                  : 'text-gray-500 hover:text-gray-300 hover:bg-slate-800/60'
               )}
             >
               {filter.charAt(0).toUpperCase() + filter.slice(1)}
@@ -563,14 +602,16 @@ export default function Dashboard() {
 
       {/* Tag Filter */}
       {allTags.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 mb-4">
-          <span className="text-xs text-gray-500 uppercase tracking-wider">Tags:</span>
+        <div className="flex flex-wrap items-center gap-3 mb-5">
+          <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest bg-slate-800/40 px-2 py-1 rounded-md">
+            Tags:
+          </span>
           <TagFilter allTags={allTags} selectedTags={selectedTags} onToggleTag={toggleTag} />
           {selectedTags.size > 0 && (
             <button
               type="button"
               onClick={() => setSelectedTags(new Set())}
-              className="text-xs text-gray-500 hover:text-gray-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 rounded"
+              className="text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-gray-200 bg-slate-800/40 hover:bg-slate-800/60 px-2.5 py-1 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 rounded-lg shadow-sm"
               aria-label="Clear selected tags"
             >
               Clear
@@ -580,55 +621,61 @@ export default function Dashboard() {
       )}
 
       {/* Quick Actions */}
-      <div className="flex flex-wrap items-center gap-3 mb-6">
+      <div className="flex flex-wrap items-center gap-4 mb-8">
         <button
           type="button"
           onClick={handleStartAll}
           disabled={stoppedCount === 0 || isStartingAll}
-          className="flex items-center gap-2 px-4 py-2 bg-green-900/30 hover:bg-green-900/50 text-green-400 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg border border-green-800/40 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-400/50 focus-visible:ring-offset-1 disabled:focus-visible:ring-0 disabled:focus-visible:ring-offset-0"
+          className="flex items-center gap-2.5 px-4 py-2.5 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl border border-emerald-500/30 shadow-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/50"
         >
           {isStartingAll ? (
-            <div className="w-4 h-4 border-2 border-green-400/30 border-t-green-400 rounded-full animate-spin" />
+            <div className="w-5 h-5 border-2 border-emerald-400/30 border-t-emerald-400 rounded-full animate-spin" />
           ) : (
-            <PlayCircle className="w-4 h-4" aria-hidden="true" />
+            <PlayCircle className="w-5 h-5" aria-hidden="true" />
           )}
-          Start All ({stoppedCount})
+          <span className="font-bold">Start All</span>
+          <span className="text-emerald-500/80 bg-emerald-500/10 px-1.5 py-0.5 rounded-md text-[10px] ml-1">
+            {stoppedCount}
+          </span>
         </button>
 
         <button
           type="button"
           onClick={handleStopAll}
           disabled={runningCount === 0 || isStoppingAll}
-          className="flex items-center gap-2 px-4 py-2 bg-red-900/30 hover:bg-red-900/50 text-red-400 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg border border-red-800/40 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/50 focus-visible:ring-offset-1 disabled:focus-visible:ring-0 disabled:focus-visible:ring-offset-0"
+          className="flex items-center gap-2.5 px-4 py-2.5 bg-rose-500/15 hover:bg-rose-500/25 text-rose-400 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl border border-rose-500/30 shadow-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/50"
         >
           {isStoppingAll ? (
-            <div className="w-4 h-4 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin" />
+            <div className="w-5 h-5 border-2 border-rose-400/30 border-t-rose-400 rounded-full animate-spin" />
           ) : (
-            <StopCircle className="w-4 h-4" aria-hidden="true" />
+            <StopCircle className="w-5 h-5" aria-hidden="true" />
           )}
-          Stop All ({runningCount})
+          <span className="font-bold">Stop All</span>
+          <span className="text-rose-500/80 bg-rose-500/10 px-1.5 py-0.5 rounded-md text-[10px] ml-1">
+            {runningCount}
+          </span>
         </button>
 
         <button
           type="button"
           onClick={() => setShowDeleteConfirm(true)}
           disabled={stoppedCount === 0 || isDeletingStopped}
-          className="flex items-center gap-2 px-4 py-2 bg-gray-800/80 hover:bg-gray-700 text-gray-400 hover:text-red-400 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg border border-gray-800/50 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 disabled:focus-visible:ring-0 disabled:focus-visible:ring-offset-0"
+          className="flex items-center gap-2.5 px-4 py-2.5 bg-slate-800/40 hover:bg-slate-800/60 text-gray-400 hover:text-rose-400 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl border border-slate-700/50 shadow-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/40"
         >
           {isDeletingStopped ? (
-            <div className="w-4 h-4 border-2 border-gray-400/30 border-t-gray-400 rounded-full animate-spin" />
+            <div className="w-5 h-5 border-2 border-gray-400/30 border-t-gray-400 rounded-full animate-spin" />
           ) : (
-            <Trash2 className="w-4 h-4" aria-hidden="true" />
+            <Trash2 className="w-5 h-5" aria-hidden="true" />
           )}
-          Delete Stopped ({stoppedCount})
+          <span className="font-bold">Delete Stopped</span>
         </button>
 
-        <div className="flex items-center gap-2 ml-auto">
+        <div className="flex items-center gap-3 ml-auto">
           <button
             type="button"
             onClick={handleExportJSON}
             disabled={sessions.length === 0}
-            className="flex items-center gap-2 px-3 py-2 bg-gray-800/80 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg border border-gray-800/50 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 disabled:focus-visible:ring-0 disabled:focus-visible:ring-offset-0"
+            className="flex items-center gap-2 px-3.5 py-2.5 bg-slate-800/40 hover:bg-slate-800/60 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl border border-slate-700/50 shadow-sm transition-all text-gray-300 font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
             title="Export as JSON"
           >
             <FileJson className="w-4 h-4" aria-hidden="true" />
@@ -638,7 +685,7 @@ export default function Dashboard() {
             type="button"
             onClick={handleExportCSV}
             disabled={sessions.length === 0}
-            className="flex items-center gap-2 px-3 py-2 bg-gray-800/80 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg border border-gray-800/50 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 disabled:focus-visible:ring-0 disabled:focus-visible:ring-offset-0"
+            className="flex items-center gap-2 px-3.5 py-2.5 bg-slate-800/40 hover:bg-slate-800/60 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl border border-slate-700/50 shadow-sm transition-all text-gray-300 font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
             title="Export as CSV"
           >
             <FileSpreadsheet className="w-4 h-4" aria-hidden="true" />
@@ -648,7 +695,7 @@ export default function Dashboard() {
             type="button"
             onClick={handleExportMetrics}
             disabled={sessions.length === 0}
-            className="flex items-center gap-2 px-3 py-2 bg-gray-800/80 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg border border-gray-800/50 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 disabled:focus-visible:ring-0 disabled:focus-visible:ring-offset-0"
+            className="flex items-center gap-2 px-3.5 py-2.5 bg-slate-800/40 hover:bg-slate-800/60 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl border border-slate-700/50 shadow-sm transition-all text-gray-300 font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
             title="Export metrics summary"
           >
             <BarChart3 className="w-4 h-4" aria-hidden="true" />
@@ -658,10 +705,10 @@ export default function Dashboard() {
       </div>
 
       {/* Sessions List */}
-      <div className="bg-gray-900 border border-gray-800/90 rounded-xl overflow-hidden">
-        <div className="px-4 py-3 border-b border-gray-800 flex items-center justify-between">
-          <h2 className="font-semibold">Agent Sessions</h2>
-          <span className="text-sm text-gray-400">
+      <div className="bg-slate-900/40 border border-slate-700/50 rounded-2xl overflow-hidden shadow-xl backdrop-blur-md">
+        <div className="px-5 py-4 border-b border-slate-700/50 bg-slate-900/60 flex items-center justify-between">
+          <h2 className="font-bold text-lg text-gray-200">Agent Sessions</h2>
+          <span className="text-sm font-medium text-gray-400">
             {hasActiveFilters
               ? `${filteredSessions.length} of ${sessions.length}`
               : `${sessions.length} total`}
@@ -699,19 +746,26 @@ export default function Dashboard() {
           />
         ) : (
           <>
-            <div className="divide-y divide-gray-800">
+            <motion.div
+              className="divide-y divide-gray-800"
+              variants={listContainerVariants}
+              initial={reduceMotion ? 'visible' : 'hidden'}
+              animate="visible"
+              key={currentPage}
+            >
               {paginatedSessions.map((session) => (
-                <DashboardSessionRow
-                  key={session.id}
-                  session={session}
-                  onStart={() => startSession.mutate(session.id)}
-                  onStop={() => stopSession.mutate(session.id)}
-                  onClick={() => navigate(`/agent/${session.id}`)}
-                  onCopy={() => handleCopySession(session)}
-                  onExportSummary={() => handleExportRunSummary(session)}
-                />
+                <motion.div key={session.id} variants={listItemVariants}>
+                  <DashboardSessionRow
+                    session={session}
+                    onStart={handleRowStart}
+                    onStop={handleRowStop}
+                    onClick={handleRowClick}
+                    onCopy={handleRowCopy}
+                    onExportSummary={handleRowExportSummary}
+                  />
+                </motion.div>
               ))}
-            </div>
+            </motion.div>
             <Pagination
               currentPage={currentPage}
               totalPages={totalPages}

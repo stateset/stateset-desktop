@@ -34,7 +34,11 @@ function PageLoader() {
 }
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading, initialize, error, clearError } = useAuthStore();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const isLoading = useAuthStore((s) => s.isLoading);
+  const initialize = useAuthStore((s) => s.initialize);
+  const error = useAuthStore((s) => s.error);
+  const clearError = useAuthStore((s) => s.clearError);
 
   const handleRetry = () => {
     clearError();
@@ -61,7 +65,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 function AuthenticatedApp() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [hasCheckedOnboarding, setHasCheckedOnboarding] = useState(false);
-  const { autoStartAgentsOnLaunch } = usePreferencesStore();
+  const autoStartAgentsOnLaunch = usePreferencesStore((s) => s.autoStartAgentsOnLaunch);
   const initializeAuditLog = useAuditLogStore((s) => s.initialize);
 
   useEffect(() => {
@@ -196,8 +200,9 @@ function AuthenticatedApp() {
 }
 
 export default function App() {
-  const { initialize: initializeAuth } = useAuthStore();
-  const { initialize: initializePreferences, reduceMotion } = usePreferencesStore();
+  const initializeAuth = useAuthStore((s) => s.initialize);
+  const initializePreferences = usePreferencesStore((s) => s.initialize);
+  const reduceMotion = usePreferencesStore((s) => s.reduceMotion);
 
   useEffect(() => {
     initializeAuth();

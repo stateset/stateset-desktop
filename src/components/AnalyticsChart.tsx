@@ -88,7 +88,17 @@ export const LineChart = memo(function LineChart({
         )}
 
         {/* Area fill */}
-        {showArea && areaPath && <path d={areaPath} fill={color} fillOpacity="0.1" />}
+        {showArea && areaPath && (
+          <>
+            <defs>
+              <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={color} stopOpacity="0.2" />
+                <stop offset="100%" stopColor={color} stopOpacity="0.02" />
+              </linearGradient>
+            </defs>
+            <path d={areaPath} fill="url(#areaGradient)" />
+          </>
+        )}
 
         {/* Line */}
         {path && (
@@ -363,8 +373,14 @@ export const DonutChart = memo(function DonutChart({
       {showLegend && (
         <div className="space-y-2">
           {segments.map((segment, i) => (
-            <div key={i} className="flex items-center gap-2 text-sm">
-              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: segment.color }} />
+            <div
+              key={i}
+              className="flex items-center gap-2 text-sm hover:bg-slate-800/40 rounded-lg px-2 py-1 -mx-2 transition-colors duration-150"
+            >
+              <div
+                className="w-3 h-3 rounded-full shadow-sm"
+                style={{ backgroundColor: segment.color }}
+              />
               <span className="text-gray-400">{segment.label}</span>
               <span className="text-gray-200 font-medium">
                 {(segment.percentage * 100).toFixed(0)}%
@@ -397,15 +413,23 @@ export const StatCard = memo(function StatCard({
   className,
 }: StatCardProps) {
   const colorClasses = {
-    blue: 'bg-blue-900/30 text-blue-400',
-    green: 'bg-green-900/30 text-green-400',
-    amber: 'bg-amber-900/30 text-amber-400',
-    purple: 'bg-purple-900/30 text-purple-400',
-    red: 'bg-red-900/30 text-red-400',
+    blue: 'bg-gradient-to-br from-blue-900/40 to-blue-900/15 text-blue-400 border border-blue-500/15 shadow-inner shadow-blue-500/5',
+    green:
+      'bg-gradient-to-br from-green-900/40 to-green-900/15 text-green-400 border border-green-500/15 shadow-inner shadow-green-500/5',
+    amber:
+      'bg-gradient-to-br from-amber-900/40 to-amber-900/15 text-amber-400 border border-amber-500/15 shadow-inner shadow-amber-500/5',
+    purple:
+      'bg-gradient-to-br from-purple-900/40 to-purple-900/15 text-purple-400 border border-purple-500/15 shadow-inner shadow-purple-500/5',
+    red: 'bg-gradient-to-br from-red-900/40 to-red-900/15 text-red-400 border border-red-500/15 shadow-inner shadow-red-500/5',
   };
 
   return (
-    <div className={clsx('bg-gray-900 border border-gray-800 rounded-xl p-4', className)}>
+    <div
+      className={clsx(
+        'bg-slate-900/40 border border-slate-700/50 rounded-xl p-4 backdrop-blur-sm shadow-sm hover:-translate-y-0.5 hover:shadow-lg hover:border-slate-600/50 transition-all duration-200',
+        className
+      )}
+    >
       <div className="flex items-start justify-between">
         <div>
           <p className="text-sm text-gray-400">{label}</p>
@@ -431,7 +455,7 @@ export const StatCard = memo(function StatCard({
               colorClasses[color]
             )}
           >
-            <Icon className="w-5 h-5" />
+            <Icon className="w-5 h-5" aria-hidden="true" />
           </div>
         )}
       </div>

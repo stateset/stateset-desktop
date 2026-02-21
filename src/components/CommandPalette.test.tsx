@@ -20,6 +20,7 @@ vi.mock('framer-motion', () => ({
     },
   },
   AnimatePresence: ({ children }: React.PropsWithChildren) => <>{children}</>,
+  useReducedMotion: () => false,
 }));
 
 describe('CommandPalette', () => {
@@ -61,7 +62,7 @@ describe('CommandPalette', () => {
     render(<CommandPalette {...defaultProps} />);
     const input = screen.getByPlaceholderText('Search commands...');
     fireEvent.change(input, { target: { value: 'xyznonexistent' } });
-    expect(screen.getByText('No commands found')).toBeInTheDocument();
+    expect(screen.getByText(/No commands found/)).toBeInTheDocument();
   });
 
   it('Escape key calls onClose', () => {

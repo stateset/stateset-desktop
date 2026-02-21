@@ -166,11 +166,11 @@ export default class ErrorBoundary extends React.Component<ErrorBoundaryProps, E
       const category = getErrorCategory(error);
 
       return (
-        <div className="min-h-screen bg-gray-950 text-gray-100 flex items-center justify-center p-8">
+        <div className="min-h-screen bg-gradient-to-b from-gray-950 to-slate-950 text-gray-100 flex items-center justify-center p-8">
           <div className="max-w-lg w-full space-y-6">
             {/* Error Icon */}
             <div className="flex justify-center">
-              <div className="w-16 h-16 rounded-full bg-red-900/30 flex items-center justify-center">
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-red-900/40 to-red-900/20 border border-red-500/20 shadow-lg shadow-red-500/10 flex items-center justify-center animate-scale-in">
                 <svg
                   className="w-8 h-8 text-red-400"
                   fill="none"
@@ -198,23 +198,23 @@ export default class ErrorBoundary extends React.Component<ErrorBoundaryProps, E
             <div className="flex gap-3 justify-center">
               <button
                 onClick={this.handleReset}
-                className="inline-flex items-center justify-center rounded-lg bg-gray-800 px-4 py-2 text-sm font-medium hover:bg-gray-700 transition-colors"
+                className="inline-flex items-center justify-center rounded-lg bg-gray-800 border border-gray-700/50 px-4 py-2 text-sm font-medium hover:bg-gray-700 hover:scale-[1.02] transition-all duration-200 shadow-sm hover:shadow-md"
               >
                 Try again
               </button>
               <button
                 onClick={this.handleReload}
-                className="inline-flex items-center justify-center rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium hover:bg-brand-500 transition-colors"
+                className="inline-flex items-center justify-center rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium hover:bg-brand-500 hover:scale-[1.02] transition-all duration-200 shadow-md shadow-brand-500/20 hover:shadow-lg hover:shadow-brand-500/25"
               >
                 Reload app
               </button>
             </div>
 
             {/* Error Details Section */}
-            <div className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden">
+            <div className="bg-slate-900/60 border border-slate-700/50 rounded-xl overflow-hidden backdrop-blur-sm">
               <button
                 onClick={this.handleToggleDetails}
-                className="w-full px-4 py-3 flex items-center justify-between text-sm text-gray-400 hover:bg-gray-800/50 transition-colors"
+                className="w-full px-4 py-3 flex items-center justify-between text-sm text-gray-400 hover:bg-slate-800/50 transition-all duration-150"
               >
                 <span>Error Details</span>
                 <svg
@@ -274,7 +274,7 @@ export default class ErrorBoundary extends React.Component<ErrorBoundaryProps, E
                   {/* Copy Button */}
                   <button
                     onClick={this.handleCopyError}
-                    className="w-full mt-2 px-3 py-2 text-xs bg-gray-800 hover:bg-gray-700 rounded transition-colors flex items-center justify-center gap-2"
+                    className="w-full mt-2 px-3 py-2 text-xs bg-gray-800 hover:bg-gray-700 rounded-lg transition-all duration-150 hover:scale-[1.01] flex items-center justify-center gap-2"
                   >
                     {copied ? (
                       <>

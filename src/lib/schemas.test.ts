@@ -25,7 +25,7 @@ const validConfig = {
   pause_on_error: true,
   custom_instructions: 'Be helpful',
   mcp_servers: ['server-1'],
-  model: 'claude-sonnet-4-5-20250929',
+  model: 'claude-sonnet-4-6',
   temperature: 0.7,
 };
 
@@ -85,7 +85,7 @@ describe('AgentSessionStatusSchema', () => {
 describe('AgentSessionConfigSchema', () => {
   it('parses valid config', () => {
     const result = AgentSessionConfigSchema.parse(validConfig);
-    expect(result.model).toBe('claude-sonnet-4-5-20250929');
+    expect(result.model).toBe('claude-sonnet-4-6');
   });
 
   it('accepts config without optional fields', () => {
@@ -100,7 +100,7 @@ describe('AgentSessionConfigSchema', () => {
   it('applies defaults for missing fields', () => {
     const { model: _model, ...noModel } = validConfig;
     const result = AgentSessionConfigSchema.parse(noModel);
-    expect(result.model).toBe('claude-sonnet-4-5-20250929'); // default value
+    expect(result.model).toBe('claude-sonnet-4-6'); // default value
   });
 
   it('rejects config with wrong type', () => {

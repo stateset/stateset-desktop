@@ -24,7 +24,8 @@ import { useState } from 'react';
 
 export default function Analytics() {
   usePageTitle('Analytics');
-  const { tenant, currentBrand } = useAuthStore();
+  const tenant = useAuthStore((s) => s.tenant);
+  const currentBrand = useAuthStore((s) => s.currentBrand);
   const [dateRange, setDateRange] = useState({
     start: subDays(new Date(), 6),
     end: new Date(),
@@ -150,7 +151,7 @@ export default function Analytics() {
 
   if (isLoading) {
     return (
-      <div className="p-6 space-y-6">
+      <div className="page-shell space-y-6">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[1, 2, 3, 4].map((i) => (
             <SkeletonCard key={i} />
@@ -166,12 +167,12 @@ export default function Analytics() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="page-shell space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Analytics</h1>
-          <p className="text-gray-400 mt-1">Monitor your agent performance and usage metrics</p>
+          <h1 className="page-title">Analytics</h1>
+          <p className="page-subtitle">Monitor your agent performance and usage metrics</p>
         </div>
         <div className="w-full sm:w-auto">
           <DateRangePicker value={dateRange} onChange={setDateRange} />
@@ -224,38 +225,38 @@ export default function Analytics() {
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Token Usage Over Time */}
-        <div className="bg-gray-900/95 border border-gray-800/90 rounded-xl p-6">
+        <div className="bg-slate-900/40 border border-slate-700/50 rounded-2xl p-6 backdrop-blur-sm shadow-sm">
           <h3 className="text-lg font-semibold mb-4">Token Usage Over Time</h3>
           <LineChart data={analytics.tokensByDay} height={200} color="#0ea5e9" showArea />
         </div>
 
         {/* Tool Calls Distribution */}
-        <div className="bg-gray-900/95 border border-gray-800/90 rounded-xl p-6">
+        <div className="bg-slate-900/40 border border-slate-700/50 rounded-2xl p-6 backdrop-blur-sm shadow-sm">
           <h3 className="text-lg font-semibold mb-4">Tool Calls by Agent Type</h3>
           <BarChart data={analytics.toolCallsByAgentType} height={200} color="#a855f7" />
         </div>
 
         {/* Agent Status Distribution */}
-        <div className="bg-gray-900/95 border border-gray-800/90 rounded-xl p-6">
+        <div className="bg-slate-900/40 border border-slate-700/50 rounded-2xl p-6 backdrop-blur-sm shadow-sm">
           <h3 className="text-lg font-semibold mb-4">Agent Status Distribution</h3>
           <DonutChart data={analytics.statusDistribution} size={180} thickness={30} showLegend />
         </div>
 
         {/* Performance by Agent Type */}
-        <div className="bg-gray-900/95 border border-gray-800/90 rounded-xl p-6">
+        <div className="bg-slate-900/40 border border-slate-700/50 rounded-2xl p-6 backdrop-blur-sm shadow-sm">
           <h3 className="text-lg font-semibold mb-4">Tokens by Agent Type</h3>
           <BarChart data={analytics.performanceByAgent} height={200} color="#22c55e" />
         </div>
       </div>
 
       {/* Summary Table */}
-      <div className="bg-gray-900/95 border border-gray-800/90 rounded-xl overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-800">
+      <div className="bg-slate-900/40 border border-slate-700/50 rounded-2xl overflow-hidden backdrop-blur-sm shadow-sm">
+        <div className="px-6 py-4 border-b border-slate-700/50 bg-slate-900/60">
           <h3 className="text-lg font-semibold">Agent Performance Summary</h3>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-gray-800/50">
+            <thead className="bg-slate-800/40">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
                   Agent Type
@@ -274,7 +275,7 @@ export default function Analytics() {
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-800">
+            <tbody className="divide-y divide-slate-800/50">
               {[...new Set(sessions.map((s) => s.agent_type))].map((type) => {
                 const typeSessions = sessions.filter((s) => s.agent_type === type);
                 const totalTokens = typeSessions.reduce((acc, s) => acc + s.metrics.tokens_used, 0);
@@ -285,7 +286,7 @@ export default function Analytics() {
                 );
 
                 return (
-                  <tr key={type} className="hover:bg-gray-800/30 transition-colors">
+                  <tr key={type} className="hover:bg-slate-800/30 transition-colors duration-150">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="font-medium">
                         {type.charAt(0).toUpperCase() + type.slice(1)}

@@ -46,10 +46,10 @@ interface ToastContextValue {
 const ToastContext = createContext<ToastContextValue | null>(null);
 
 const VARIANT_STYLES: Record<ToastVariant, string> = {
-  info: 'border-blue-500/45 bg-blue-950/85',
-  success: 'border-green-500/45 bg-green-950/85',
-  error: 'border-red-500/45 bg-red-950/85',
-  warning: 'border-amber-500/45 bg-amber-950/85',
+  info: 'border-blue-500/40 bg-blue-950/80 border-l-2 border-l-blue-400',
+  success: 'border-emerald-500/40 bg-emerald-950/80 border-l-2 border-l-emerald-400',
+  error: 'border-rose-500/40 bg-rose-950/80 border-l-2 border-l-rose-400',
+  warning: 'border-amber-500/40 bg-amber-950/80 border-l-2 border-l-amber-400',
 };
 
 const VARIANT_ICONS: Record<ToastVariant, typeof Info> = {
@@ -60,17 +60,17 @@ const VARIANT_ICONS: Record<ToastVariant, typeof Info> = {
 };
 
 const VARIANT_ICON_COLORS: Record<ToastVariant, string> = {
-  info: 'text-blue-400',
-  success: 'text-green-400',
-  error: 'text-red-400',
-  warning: 'text-amber-400',
+  info: 'text-blue-400 bg-blue-500/15 p-1 rounded-lg',
+  success: 'text-emerald-400 bg-emerald-500/15 p-1 rounded-lg',
+  error: 'text-rose-400 bg-rose-500/15 p-1 rounded-lg',
+  warning: 'text-amber-400 bg-amber-500/15 p-1 rounded-lg',
 };
 
 const PROGRESS_COLORS: Record<ToastVariant, string> = {
-  info: 'bg-blue-500',
-  success: 'bg-green-500',
-  error: 'bg-red-500',
-  warning: 'bg-amber-500',
+  info: 'bg-blue-500/80',
+  success: 'bg-emerald-500/80',
+  error: 'bg-rose-500/80',
+  warning: 'bg-amber-500/80',
 };
 
 function createToastId(): string {
@@ -258,7 +258,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 onMouseEnter={() => pauseToast(toast.id)}
                 onMouseLeave={() => resumeToast(toast.id)}
                 className={clsx(
-                  'pointer-events-auto flex flex-col overflow-hidden rounded-xl border shadow-xl ring-1 ring-black/20 backdrop-blur-sm',
+                  'pointer-events-auto flex flex-col overflow-hidden rounded-2xl border shadow-2xl backdrop-blur-xl',
                   VARIANT_STYLES[toast.variant]
                 )}
               >
@@ -293,7 +293,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                   <button
                     type="button"
                     onClick={() => removeToast(toast.id)}
-                    className="text-gray-400 hover:text-gray-100 transition-colors p-1 -m-1 rounded-lg hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900"
+                    className="text-gray-400 hover:text-gray-100 hover:rotate-90 transition-all duration-200 p-1 -m-1 rounded-lg hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900"
                     aria-label="Dismiss notification"
                   >
                     <X className="h-4 w-4" aria-hidden="true" />

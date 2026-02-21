@@ -60,8 +60,11 @@ export function useBackgroundAgents(
 ): BackgroundAgentsState {
   const { autoRestart = false, syncToTray = true, showNotifications = true } = options;
 
-  const { tenant, currentBrand } = useAuthStore();
-  const { desktopNotifications, soundAlerts, refreshInterval } = usePreferencesStore();
+  const tenant = useAuthStore((s) => s.tenant);
+  const currentBrand = useAuthStore((s) => s.currentBrand);
+  const desktopNotifications = usePreferencesStore((s) => s.desktopNotifications);
+  const soundAlerts = usePreferencesStore((s) => s.soundAlerts);
+  const refreshInterval = usePreferencesStore((s) => s.refreshInterval);
   const queryClient = useQueryClient();
   const previousRunningRef = useRef<Set<string>>(new Set());
   const hasAutoRestarted = useRef(false);

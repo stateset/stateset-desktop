@@ -61,10 +61,10 @@ export const Pagination = memo(function Pagination({
   };
 
   return (
-    <div className="flex items-center justify-between py-3 px-4 border-t border-gray-800">
+    <div className="flex items-center justify-between py-4 px-5 border-t border-slate-700/60">
       {/* Item count */}
       {showItemCount && totalItems !== undefined && (
-        <div className="text-sm text-gray-500">
+        <div className="text-sm font-medium text-gray-400">
           Showing {startItem}-{endItem} of {totalItems}
         </div>
       )}
@@ -76,15 +76,15 @@ export const Pagination = memo(function Pagination({
           onClick={() => onPageChange(1)}
           disabled={currentPage === 1}
           className={clsx(
-            'p-2 rounded-lg transition-colors',
+            'p-2 rounded-xl transition-all border border-transparent shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40',
             currentPage === 1
               ? 'text-gray-600 cursor-not-allowed'
-              : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+              : 'text-gray-400 hover:bg-slate-800/60 hover:border-slate-700/50 hover:text-gray-200'
           )}
           aria-label="Go to first page"
           title="First page"
         >
-          <ChevronsLeft className="w-4 h-4" />
+          <ChevronsLeft className="w-5 h-5" />
         </button>
 
         {/* Previous page */}
@@ -92,22 +92,26 @@ export const Pagination = memo(function Pagination({
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage === 1}
           className={clsx(
-            'p-2 rounded-lg transition-colors',
+            'p-2 rounded-xl transition-all border border-transparent shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40',
             currentPage === 1
               ? 'text-gray-600 cursor-not-allowed'
-              : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+              : 'text-gray-400 hover:bg-slate-800/60 hover:border-slate-700/50 hover:text-gray-200'
           )}
           aria-label="Go to previous page"
           title="Previous page"
         >
-          <ChevronLeft className="w-4 h-4" />
+          <ChevronLeft className="w-5 h-5" />
         </button>
 
         {/* Page numbers */}
-        <div className="flex items-center gap-1 mx-1">
+        <div className="flex items-center gap-1.5 mx-2">
           {getPageNumbers().map((page, index) =>
             page === 'ellipsis' ? (
-              <span key={`ellipsis-${index}`} className="px-2 text-gray-500" aria-hidden="true">
+              <span
+                key={`ellipsis-${index}`}
+                className="px-2 font-medium text-gray-500"
+                aria-hidden="true"
+              >
                 ...
               </span>
             ) : (
@@ -115,10 +119,10 @@ export const Pagination = memo(function Pagination({
                 key={page}
                 onClick={() => onPageChange(page)}
                 className={clsx(
-                  'min-w-[32px] h-8 px-2 rounded-lg text-sm font-medium transition-colors',
+                  'min-w-[36px] h-9 px-2 rounded-xl text-sm font-bold transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40',
                   currentPage === page
-                    ? 'bg-brand-600 text-white'
-                    : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                    ? 'bg-brand-500/20 text-brand-300 border border-brand-500/30 shadow-md shadow-brand-500/20 scale-105'
+                    : 'text-gray-400 border border-transparent hover:border-slate-700/50 hover:bg-slate-800/60 hover:text-gray-200 shadow-sm hover:scale-[1.02]'
                 )}
                 aria-label={`Go to page ${page}`}
                 aria-current={currentPage === page ? 'page' : undefined}
@@ -134,15 +138,15 @@ export const Pagination = memo(function Pagination({
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage === totalPages}
           className={clsx(
-            'p-2 rounded-lg transition-colors',
+            'p-2 rounded-xl transition-all border border-transparent shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40',
             currentPage === totalPages
               ? 'text-gray-600 cursor-not-allowed'
-              : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+              : 'text-gray-400 hover:bg-slate-800/60 hover:border-slate-700/50 hover:text-gray-200'
           )}
           aria-label="Go to next page"
           title="Next page"
         >
-          <ChevronRight className="w-4 h-4" />
+          <ChevronRight className="w-5 h-5" />
         </button>
 
         {/* Last page */}
@@ -150,15 +154,15 @@ export const Pagination = memo(function Pagination({
           onClick={() => onPageChange(totalPages)}
           disabled={currentPage === totalPages}
           className={clsx(
-            'p-2 rounded-lg transition-colors',
+            'p-2 rounded-xl transition-all border border-transparent shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40',
             currentPage === totalPages
               ? 'text-gray-600 cursor-not-allowed'
-              : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+              : 'text-gray-400 hover:bg-slate-800/60 hover:border-slate-700/50 hover:text-gray-200'
           )}
           aria-label="Go to last page"
           title="Last page"
         >
-          <ChevronsRight className="w-4 h-4" />
+          <ChevronsRight className="w-5 h-5" />
         </button>
       </nav>
     </div>

@@ -7,3 +7,4 @@ export { useContextMenu } from './useContextMenu';
 export { usePagination } from './usePagination';
 export { useErrorHandler } from './useErrorHandler';
 export { useOptimisticSessionMutation } from './useOptimisticSessionMutation';
+export { useCountUp } from './useCountUp';

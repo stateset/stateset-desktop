@@ -18,7 +18,7 @@ import {
   ClipboardList,
 } from 'lucide-react';
 import clsx from 'clsx';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 
 interface CommandItem {
   id: string;
@@ -50,6 +50,8 @@ export function CommandPalette({
   const inputRef = useRef<HTMLInputElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
   const navigate = useNavigate();
+  const reduceMotion = useReducedMotion();
+  const dur = reduceMotion ? 0 : 0.2;
 
   const statusRank = (status: string): number => {
     switch (status) {
@@ -328,26 +330,27 @@ export function CommandPalette({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh] bg-black/60 backdrop-blur-sm"
+          transition={{ duration: dur }}
+          className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh] bg-slate-950/60 backdrop-blur-md"
           onClick={onClose}
         >
           <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: -20 }}
+            initial={{ opacity: 0, scale: 0.96, y: -16 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: -20 }}
-            transition={{ duration: 0.15 }}
+            exit={{ opacity: 0, scale: 0.96, y: -16 }}
+            transition={{ duration: dur, ease: [0.16, 1, 0.3, 1] }}
             role="dialog"
             aria-modal="true"
             aria-labelledby="command-palette-title"
-            className="w-[min(92vw,34rem)] bg-gray-900 border border-gray-800 rounded-xl shadow-2xl overflow-hidden"
+            className="w-[min(92vw,36rem)] bg-slate-900/80 backdrop-blur-xl border border-slate-700/60 rounded-2xl shadow-2xl overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             <h2 id="command-palette-title" className="sr-only">
               Command Palette
             </h2>
             {/* Search input */}
-            <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-800">
-              <Search className="w-5 h-5 text-gray-500" aria-hidden="true" />
+            <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-700/60 bg-slate-900/50">
+              <Search className="w-5 h-5 text-gray-400" aria-hidden="true" />
               <input
                 id="command-palette-search"
                 ref={inputRef}
@@ -361,18 +364,18 @@ export function CommandPalette({
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search commands..."
-                className="flex-1 bg-transparent text-white placeholder-gray-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+                className="flex-1 bg-transparent text-gray-100 placeholder-gray-500 focus:outline-none text-lg font-medium"
               />
-              <kbd className="hidden sm:flex items-center gap-1 px-2 py-1 text-xs text-gray-500 bg-gray-800 rounded">
+              <kbd className="hidden sm:flex items-center gap-1 px-2 py-1 text-xs font-bold text-gray-500 bg-slate-800/80 border border-slate-700 rounded-md">
                 <Command className="w-3 h-3" aria-hidden="true" />K
               </kbd>
               <button
                 type="button"
                 onClick={onClose}
                 aria-label="Close command palette"
-                className="rounded p-1 text-gray-500 hover:text-gray-300 hover:bg-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+                className="rounded-lg p-1.5 text-gray-500 hover:text-gray-300 hover:bg-slate-800/80 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
               >
-                <X className="w-4 h-4" aria-hidden="true" />
+                <X className="w-5 h-5" aria-hidden="true" />
               </button>
             </div>
 
@@ -385,10 +388,12 @@ export function CommandPalette({
               id="command-palette-results"
               role="listbox"
               aria-activedescendant={selectedId ? `command-option-${selectedId}` : undefined}
-              className="max-h-80 overflow-y-auto p-2"
+              className="max-h-[60vh] overflow-y-auto p-2 scroll-smooth"
             >
               {filteredCommands.length === 0 ? (
-                <div className="px-4 py-8 text-center text-gray-500">No commands found</div>
+                <div className="px-4 py-12 text-center text-gray-500">
+                  <p className="text-sm">No commands found for "{query}"</p>
+                </div>
               ) : (
                 <>
                   {groupedCommands.navigation.length > 0 && (
@@ -425,16 +430,25 @@ export function CommandPalette({
             </div>
 
             {/* Footer */}
-            <div className="flex items-center justify-between px-4 py-2 border-t border-gray-800 text-xs text-gray-500">
+            <div className="flex items-center justify-between px-4 py-2.5 border-t border-slate-700/60 bg-slate-900/50 text-[11px] font-medium text-gray-500">
               <div className="flex items-center gap-4">
-                <span className="flex items-center gap-1">
-                  <kbd className="px-1.5 py-0.5 bg-gray-800 rounded">↑↓</kbd> Navigate
+                <span className="flex items-center gap-1.5">
+                  <kbd className="px-1.5 py-0.5 bg-slate-800/80 border border-slate-700 rounded-md">
+                    ↑↓
+                  </kbd>{' '}
+                  Navigate
                 </span>
-                <span className="flex items-center gap-1">
-                  <kbd className="px-1.5 py-0.5 bg-gray-800 rounded">↵</kbd> Select
+                <span className="flex items-center gap-1.5">
+                  <kbd className="px-1.5 py-0.5 bg-slate-800/80 border border-slate-700 rounded-md">
+                    ↵
+                  </kbd>{' '}
+                  Select
                 </span>
-                <span className="flex items-center gap-1">
-                  <kbd className="px-1.5 py-0.5 bg-gray-800 rounded">Esc</kbd> Close
+                <span className="flex items-center gap-1.5">
+                  <kbd className="px-1.5 py-0.5 bg-slate-800/80 border border-slate-700 rounded-md">
+                    Esc
+                  </kbd>{' '}
+                  Close
                 </span>
               </div>
             </div>
@@ -462,51 +476,76 @@ function CommandGroup({
   onHoverIndex,
 }: CommandGroupProps) {
   return (
-    <div role="presentation" className="mb-2">
-      <div className="px-3 py-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+    <div role="presentation" className="mb-2.5">
+      <div className="px-4 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-widest bg-slate-900/50 sticky top-0 backdrop-blur-md z-10">
         {title}
       </div>
-      {commands.map((cmd, i) => {
-        const Icon = cmd.icon;
-        const isSelected = selectedIndex === startIndex + i;
-        return (
-          <button
-            type="button"
-            key={cmd.id}
-            id={`command-option-${cmd.id}`}
-            onClick={cmd.action}
-            role="option"
-            aria-selected={isSelected}
-            aria-label={cmd.label}
-            onMouseEnter={() => onHoverIndex(startIndex + i)}
-            onFocus={() => onHoverIndex(startIndex + i)}
-            className={clsx(
-              'w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1',
-              isSelected ? 'bg-brand-600 text-white' : 'hover:bg-gray-800 text-gray-300'
-            )}
-          >
-            <Icon className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
-            <div className="flex-1 text-left">
-              <div className="font-medium">{cmd.label}</div>
-              {cmd.description && (
-                <div className={clsx('text-xs', isSelected ? 'text-brand-200' : 'text-gray-500')}>
-                  {cmd.description}
-                </div>
+      <div className="px-2 space-y-0.5 mt-1">
+        {commands.map((cmd, i) => {
+          const Icon = cmd.icon;
+          const isSelected = selectedIndex === startIndex + i;
+          return (
+            <button
+              type="button"
+              key={cmd.id}
+              id={`command-option-${cmd.id}`}
+              onClick={cmd.action}
+              role="option"
+              aria-selected={isSelected}
+              aria-label={cmd.label}
+              onMouseEnter={() => onHoverIndex(startIndex + i)}
+              onFocus={() => onHoverIndex(startIndex + i)}
+              className={clsx(
+                'w-full flex items-center gap-3.5 px-3 py-2.5 rounded-xl transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40',
+                isSelected
+                  ? 'bg-brand-500/15 text-brand-300 border border-brand-500/20 border-l-2 border-l-brand-400 shadow-sm shadow-brand-500/5'
+                  : 'hover:bg-slate-800/60 text-gray-300 border border-transparent hover:border-slate-700/50'
               )}
-            </div>
-            {cmd.shortcut && (
-              <kbd
+            >
+              <div
                 className={clsx(
-                  'px-2 py-0.5 text-xs rounded',
-                  isSelected ? 'bg-brand-700 text-brand-200' : 'bg-gray-800 text-gray-500'
+                  'p-1.5 rounded-lg transition-colors',
+                  isSelected ? 'bg-brand-500/20 text-brand-400' : 'bg-slate-800/80 text-gray-400'
                 )}
               >
-                {cmd.shortcut}
-              </kbd>
-            )}
-          </button>
-        );
-      })}
+                <Icon className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
+              </div>
+              <div className="flex-1 text-left">
+                <div
+                  className={clsx(
+                    'font-medium text-sm',
+                    isSelected ? 'text-white' : 'text-gray-200'
+                  )}
+                >
+                  {cmd.label}
+                </div>
+                {cmd.description && (
+                  <div
+                    className={clsx(
+                      'text-xs mt-0.5',
+                      isSelected ? 'text-brand-200/80' : 'text-gray-500'
+                    )}
+                  >
+                    {cmd.description}
+                  </div>
+                )}
+              </div>
+              {cmd.shortcut && (
+                <kbd
+                  className={clsx(
+                    'px-2 py-1 text-[10px] font-bold rounded-md border',
+                    isSelected
+                      ? 'bg-brand-500/20 text-brand-300 border-brand-500/30'
+                      : 'bg-slate-800/80 text-gray-500 border-slate-700'
+                  )}
+                >
+                  {cmd.shortcut}
+                </kbd>
+              )}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

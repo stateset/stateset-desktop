@@ -1,5 +1,5 @@
 import { memo, useState, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { Bell, X, AlertTriangle, Info, CheckCircle, XCircle, Trash2 } from 'lucide-react';
 import clsx from 'clsx';
 import { formatDistanceToNow } from 'date-fns';
@@ -28,27 +28,27 @@ interface NotificationsCenterProps {
 const typeConfig = {
   success: {
     icon: CheckCircle,
-    color: 'text-green-400',
-    bg: 'bg-green-900/20',
-    border: 'border-green-800/50',
+    color: 'text-emerald-400',
+    bg: 'bg-emerald-500/15',
+    border: 'border-emerald-500/30',
   },
   error: {
     icon: XCircle,
-    color: 'text-red-400',
-    bg: 'bg-red-900/20',
-    border: 'border-red-800/50',
+    color: 'text-rose-400',
+    bg: 'bg-rose-500/15',
+    border: 'border-rose-500/30',
   },
   warning: {
     icon: AlertTriangle,
     color: 'text-amber-400',
-    bg: 'bg-amber-900/20',
-    border: 'border-amber-800/50',
+    bg: 'bg-amber-500/15',
+    border: 'border-amber-500/30',
   },
   info: {
     icon: Info,
-    color: 'text-blue-400',
-    bg: 'bg-blue-900/20',
-    border: 'border-blue-800/50',
+    color: 'text-brand-400',
+    bg: 'bg-brand-500/15',
+    border: 'border-brand-500/30',
   },
 };
 
@@ -61,6 +61,8 @@ export const NotificationsCenter = memo(function NotificationsCenter({
 }: NotificationsCenterProps) {
   const [isOpen, setIsOpen] = useState(false);
   const unreadCount = notifications.filter((n) => !n.read).length;
+  const reduceMotion = useReducedMotion();
+  const dur = reduceMotion ? 0 : 0.2;
 
   // Close on escape
   useEffect(() => {
@@ -91,14 +93,22 @@ export const NotificationsCenter = memo(function NotificationsCenter({
 
   return (
     <div className="relative" data-notifications-center>
+      {/* Screen reader announcement for unread count */}
+      <span className="sr-only" aria-live="polite" aria-atomic="true">
+        {unreadCount > 0
+          ? `${unreadCount} unread notification${unreadCount === 1 ? '' : 's'}`
+          : 'No unread notifications'}
+      </span>
       {/* Trigger Button */}
       <button
         type="button"
         id="notifications-trigger"
         onClick={() => setIsOpen(!isOpen)}
         className={clsx(
-          'relative p-2 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900',
-          isOpen ? 'bg-gray-800' : 'hover:bg-gray-800'
+          'relative p-2 rounded-xl transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40',
+          isOpen
+            ? 'bg-slate-800/80 text-gray-200 shadow-inner'
+            : 'hover:bg-slate-800/60 text-gray-400 hover:text-gray-200'
         )}
         aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
         aria-expanded={isOpen}
@@ -120,11 +130,11 @@ export const NotificationsCenter = memo(function NotificationsCenter({
             id="notifications-center-panel"
             role="region"
             aria-label="Notifications"
-            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+            initial={{ opacity: 0, y: 12, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 10, scale: 0.95 }}
-            transition={{ duration: 0.15 }}
-            className="absolute right-0 top-full mt-2 w-[90vw] max-w-96 max-h-[70vh] bg-gray-900/95 border border-gray-800/90 rounded-xl shadow-xl backdrop-blur-md ring-1 ring-black/20 overflow-hidden z-50"
+            exit={{ opacity: 0, y: 12, scale: 0.96 }}
+            transition={{ duration: dur, ease: [0.16, 1, 0.3, 1] }}
+            className="absolute right-0 top-full mt-3 w-[90vw] max-w-[26rem] max-h-[75vh] bg-slate-900/80 border border-slate-700/60 rounded-2xl shadow-2xl backdrop-blur-xl flex flex-col overflow-hidden z-50"
           >
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
@@ -215,8 +225,10 @@ const NotificationItem = memo(function NotificationItem({
   return (
     <div
       className={clsx(
-        'relative p-4 transition-colors group',
-        !notification.read && 'bg-gray-800/30'
+        'relative p-4 transition-all duration-200 group',
+        !notification.read
+          ? 'bg-slate-800/40 hover:bg-slate-800/60 border-l-2 border-l-brand-500'
+          : 'hover:bg-slate-800/30 border-l-2 border-l-transparent'
       )}
     >
       <div className="flex items-start gap-3">
@@ -234,7 +246,7 @@ const NotificationItem = memo(function NotificationItem({
               {notification.title}
             </p>
             {!notification.read && (
-              <span className="flex-shrink-0 w-2 h-2 bg-brand-500 rounded-full" />
+              <span className="flex-shrink-0 w-2 h-2 bg-brand-500 rounded-full animate-pulse" />
             )}
           </div>
           <p className="text-sm text-gray-400 mt-0.5 line-clamp-2">{notification.message}</p>
@@ -257,7 +269,7 @@ const NotificationItem = memo(function NotificationItem({
         <button
           type="button"
           onClick={() => onDismiss(notification.id)}
-          className="flex-shrink-0 p-1 text-gray-500 hover:text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900 focus-visible:opacity-100"
+          className="flex-shrink-0 p-1 text-gray-500 hover:text-gray-300 opacity-0 translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900 focus-visible:opacity-100"
           aria-label="Dismiss notification"
         >
           <X className="w-4 h-4" aria-hidden="true" />

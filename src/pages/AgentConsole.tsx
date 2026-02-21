@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../stores/auth';
+import { useDebounce } from '../hooks/useDebounce';
 import { agentApi } from '../lib/api';
 import { getErrorMessage } from '../lib/errors';
 import { exportRunSummary } from '../lib/export';
@@ -35,7 +36,8 @@ import { usePageTitle } from '../hooks/usePageTitle';
 export default function AgentConsole() {
   usePageTitle('Agent Console');
   const { sessionId } = useParams<{ sessionId: string }>();
-  const { tenant, currentBrand } = useAuthStore();
+  const tenant = useAuthStore((s) => s.tenant);
+  const currentBrand = useAuthStore((s) => s.currentBrand);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { showToast } = useToast();
@@ -54,6 +56,7 @@ export default function AgentConsole() {
   const [configDraft, setConfigDraft] = useState<AgentSessionConfig | null>(null);
   const [showSearch, setShowSearch] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearch = useDebounce(searchTerm, 300);
   const [isCloning, setIsCloning] = useState(false);
   const [showLogs, setShowLogs] = useState(false);
   const [showSaveTemplate, setShowSaveTemplate] = useState(false);
@@ -186,8 +189,8 @@ export default function AgentConsole() {
   const showStartStreamCta = showIdleState || isPaused || showStreamDisconnected;
 
   const filteredMessages = useMemo(() => {
-    if (!searchTerm) return messages;
-    const query = searchTerm.toLowerCase();
+    if (!debouncedSearch) return messages;
+    const query = debouncedSearch.toLowerCase();
     const safeStringify = (value: unknown): string => {
       try {
         return JSON.stringify(value)?.toLowerCase() ?? '';
@@ -222,7 +225,7 @@ export default function AgentConsole() {
           return false;
       }
     });
-  }, [messages, searchTerm]);
+  }, [messages, debouncedSearch]);
 
   const showEmptyState = showIdleState && filteredMessages.length === 0;
 
@@ -538,21 +541,41 @@ export default function AgentConsole() {
 
   if (sessionLoading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <Loader2 className="w-8 h-8 animate-spin text-brand-500" />
+      <div className="flex flex-col items-center justify-center h-full gap-4">
+        <motion.div
+          initial={{ scale: 0.95 }}
+          animate={{ scale: 1 }}
+          className="w-12 h-12 rounded-2xl border border-brand-500/25 bg-gradient-to-br from-brand-500/20 to-transparent flex items-center justify-center shadow-sm"
+        >
+          <Loader2 className="w-6 h-6 animate-spin text-brand-400" />
+        </motion.div>
+        <p className="text-sm text-slate-400">Loading agent session…</p>
+        <div className="h-1 w-36 rounded-full bg-slate-800/70 overflow-hidden">
+          <motion.div
+            initial={{ x: '-100%' }}
+            animate={{ x: '200%' }}
+            transition={{ repeat: Number.POSITIVE_INFINITY, duration: 1.1, ease: 'linear' }}
+            className="h-full w-1/3 bg-brand-400"
+          />
+        </div>
       </div>
     );
   }
 
   if (!session) {
     return (
-      <div className="flex flex-col items-center justify-center h-full">
-        <AlertCircle className="w-12 h-12 text-red-400 mb-4" />
-        <p className="text-lg">Session not found</p>
+      <div className="flex flex-col items-center justify-center h-full px-4">
+        <div className="max-w-md w-full rounded-2xl border border-red-500/30 bg-red-900/10 px-6 py-8 text-center backdrop-blur">
+          <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-3" />
+          <p className="text-xl font-semibold text-slate-100 mb-2">Session not found</p>
+          <p className="text-sm text-slate-400">
+            The session could not be loaded or may no longer exist.
+          </p>
+        </div>
         <button
           type="button"
           onClick={() => navigate('/')}
-          className="mt-4 text-brand-400 hover:text-brand-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 rounded"
+          className="mt-6 rounded-lg bg-brand-600/90 hover:bg-brand-500 px-4 py-2 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
         >
           Back to Dashboard
         </button>
@@ -561,7 +584,7 @@ export default function AgentConsole() {
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full bg-slate-950/30">
       <AgentToolbar
         session={session}
         isConnected={isConnected}
@@ -599,10 +622,10 @@ export default function AgentConsole() {
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: 'auto', opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
-                className="border-b border-gray-800 overflow-hidden"
+                className="border-b border-slate-800/80 bg-slate-900/20 overflow-hidden"
               >
                 <div className="p-3 flex items-center gap-3">
-                  <Search className="w-4 h-4 text-gray-500" aria-hidden="true" />
+                  <Search className="w-4 h-4 text-brand-400" aria-hidden="true" />
                   <input
                     ref={searchInputRef}
                     type="text"
@@ -610,17 +633,17 @@ export default function AgentConsole() {
                     onChange={(e) => setSearchTerm(e.target.value)}
                     placeholder="Search messages, tools, logs..."
                     aria-label="Search messages, tools, logs"
-                    className="flex-1 bg-transparent outline-none text-sm placeholder-gray-500"
+                    className="flex-1 bg-transparent outline-none text-sm placeholder-slate-500 focus-glow rounded"
                   />
                   {searchTerm && (
-                    <span className="text-xs text-gray-500">
+                    <span className="text-xs text-slate-500">
                       {filteredMessages.length} result{filteredMessages.length !== 1 ? 's' : ''}
                     </span>
                   )}
                   <button
                     type="button"
                     onClick={toggleSearch}
-                    className="p-1 rounded hover:bg-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+                    className="p-1 rounded hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
                     aria-label="Close search"
                   >
                     <X className="w-4 h-4 text-gray-500" aria-hidden="true" />
@@ -638,7 +661,11 @@ export default function AgentConsole() {
             aria-label="Agent messages"
           >
             {showEmptyState ? (
-              <div className="flex flex-col items-center justify-center h-full text-center">
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex flex-col items-center justify-center h-full text-center"
+              >
                 <EmptyState
                   icon={PlayCircle}
                   title="Session idle"
@@ -649,32 +676,32 @@ export default function AgentConsole() {
                   <button
                     type="button"
                     onClick={handleReplayLogs}
-                    className="mt-2 text-sm text-brand-400 hover:text-brand-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 rounded"
+                    className="mt-3 text-sm text-brand-200 bg-brand-600/15 border border-brand-500/30 px-3 py-1.5 rounded-full hover:bg-brand-600/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
                   >
                     Replay last logs
                   </button>
                 )}
-              </div>
+              </motion.div>
             ) : (
               <>
                 {showStreamBanner && (
-                  <div className="p-3 bg-gray-900/70 border border-gray-800 rounded-xl flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="p-3 bg-gradient-to-r from-slate-900/70 via-slate-900/40 to-slate-900/70 border border-slate-700/50 rounded-xl flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between backdrop-blur-sm shadow-sm">
                     <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-gray-800 flex items-center justify-center">
+                      <div className="w-8 h-8 rounded-lg bg-slate-800/60 border border-slate-700/50 flex items-center justify-center">
                         {showStreamDisconnected ? (
                           <AlertCircle className="w-4 h-4 text-amber-400" />
                         ) : (
                           <PlayCircle className="w-4 h-4 text-brand-400" />
                         )}
                       </div>
-                      <p className="text-sm text-gray-300">{streamCtaMessage}</p>
+                      <p className="text-sm text-slate-200">{streamCtaMessage}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       {hasCachedLogs && !showLogs && (
                         <button
                           type="button"
                           onClick={handleReplayLogs}
-                          className="px-3 py-1.5 text-xs bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+                          className="px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
                         >
                           Replay logs
                         </button>
@@ -706,7 +733,7 @@ export default function AgentConsole() {
                   <button
                     type="button"
                     onClick={handleScrollToBottom}
-                    className="absolute bottom-4 right-4 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-xs rounded-full shadow-lg border border-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+                    className="absolute bottom-4 right-4 px-3 py-1.5 bg-slate-800/90 hover:bg-slate-700/90 text-xs rounded-full shadow-lg border border-slate-600/50 backdrop-blur-sm hover:scale-105 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
                   >
                     Jump to latest
                   </button>

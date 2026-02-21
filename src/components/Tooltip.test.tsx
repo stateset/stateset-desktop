@@ -82,7 +82,7 @@ describe('Tooltip', () => {
       </Tooltip>
     );
 
-    fireEvent.mouseEnter(screen.getByText('Search').parentElement!);
+    fireEvent.mouseEnter(screen.getByRole('button', { name: 'Search' }).parentElement!);
     act(() => {
       vi.advanceTimersByTime(400);
     });

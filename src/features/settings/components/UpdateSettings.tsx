@@ -138,14 +138,14 @@ export function UpdateSettings({ appVersion }: { appVersion: string }) {
   };
 
   return (
-    <section className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
-      <div className="px-4 py-3 border-b border-gray-800">
-        <h2 className="font-semibold flex items-center gap-2">
+    <section className="bg-slate-900/40 border border-slate-700/50 rounded-2xl overflow-hidden backdrop-blur-sm shadow-sm">
+      <div className="px-5 py-4 border-b border-slate-700/50 bg-slate-900/60">
+        <h2 className="font-bold text-gray-200 flex items-center gap-2.5">
           <Download className="w-5 h-5 text-gray-400" />
           Updates
         </h2>
       </div>
-      <div className="p-4 space-y-4">
+      <div className="p-5 space-y-5">
         <div className="flex items-center justify-between">
           <div>
             <p className="font-medium">Current Version</p>
@@ -156,7 +156,8 @@ export function UpdateSettings({ appVersion }: { appVersion: string }) {
               <button
                 type="button"
                 onClick={installUpdate}
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 focus-visible:ring-offset-1 rounded-lg transition-colors font-medium flex items-center gap-2"
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 focus-visible:ring-offset-1 rounded-lg transition-all duration-200 font-medium flex items-center gap-2 shadow-md shadow-green-500/25 hover:shadow-lg hover:shadow-green-500/30 animate-glow-pulse"
+                style={{ color: 'rgb(74 222 128)' }}
               >
                 <RefreshCw className="w-4 h-4" aria-hidden="true" />
                 Restart to Update
@@ -181,11 +182,13 @@ export function UpdateSettings({ appVersion }: { appVersion: string }) {
         <div className="pt-2 border-t border-gray-800" role="status" aria-live="polite">
           {getUpdateStatusDisplay()}
           {updateStatus === 'downloading' && (
-            <div className="mt-2 w-full bg-gray-800 rounded-full h-2">
+            <div className="mt-2 w-full bg-gray-800 rounded-full h-2 overflow-hidden">
               <div
-                className="bg-brand-600 h-2 rounded-full transition-all duration-300"
+                className="bg-gradient-to-r from-brand-600 to-brand-400 h-2 rounded-full transition-all duration-300 relative"
                 style={{ width: `${downloadProgress}%` }}
-              />
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-[shimmer_2s_infinite]" />
+              </div>
             </div>
           )}
           {updateError && <p className="text-sm text-red-400 mt-1">{updateError}</p>}

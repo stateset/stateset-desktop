@@ -30,9 +30,9 @@ export function ChatInput({ onSend, isLoading, placeholder }: ChatInputProps) {
   };
 
   return (
-    <div className="p-4 border-t border-gray-800">
+    <div className="border-t border-slate-700/45 px-4 py-3">
       <div className="flex items-end gap-3">
-        <div className="flex-1 bg-gray-800 rounded-xl border border-gray-700 focus-within:border-brand-500 transition-colors">
+        <div className="flex-1 bg-slate-900/50 rounded-2xl border border-slate-700/50 focus-within:border-brand-500 focus-within:shadow-lg focus-within:shadow-brand-500/10 transition-all">
           <textarea
             ref={textareaRef}
             value={input}
@@ -50,7 +50,7 @@ export function ChatInput({ onSend, isLoading, placeholder }: ChatInputProps) {
           onClick={handleSend}
           disabled={!input.trim() || isLoading}
           aria-label="Send message"
-          className="p-3 bg-brand-600 hover:bg-brand-500 disabled:bg-gray-700 disabled:text-gray-500 rounded-xl transition-all border border-brand-600/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900 disabled:focus-visible:ring-0 disabled:focus-visible:ring-offset-0"
+          className="p-3 rounded-xl bg-brand-600 hover:bg-brand-500 disabled:bg-slate-700 disabled:text-gray-500 border border-brand-600/50 transition-all shadow-sm shadow-brand-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900 disabled:focus-visible:ring-0 disabled:focus-visible:ring-offset-0"
         >
           {isLoading ? (
             <div

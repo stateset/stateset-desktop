@@ -80,7 +80,7 @@ export function DateRangePicker({ value, onChange }: DateRangePickerProps) {
 
       {isOpen && (
         <div
-          className="absolute right-0 top-full mt-1 w-48 bg-gray-900/95 border border-gray-800/90 rounded-xl shadow-xl backdrop-blur-sm ring-1 ring-black/20 z-50 py-1"
+          className="absolute right-0 top-full mt-1 w-48 bg-slate-900/95 border border-slate-700/60 rounded-xl shadow-2xl backdrop-blur-xl z-50 py-1.5 animate-scale-in"
           role="listbox"
         >
           {PRESETS.map((preset) => (
@@ -89,8 +89,10 @@ export function DateRangePicker({ value, onChange }: DateRangePickerProps) {
               type="button"
               onClick={() => selectPreset(preset.days)}
               className={clsx(
-                'w-full px-4 py-2 text-left text-sm hover:bg-gray-800 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1',
-                activePreset?.days === preset.days && 'text-brand-400 bg-gray-800/50'
+                'w-full px-4 py-2 text-left text-sm mx-0 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1',
+                activePreset?.days === preset.days
+                  ? 'text-brand-400 bg-slate-800/60 border-l-2 border-l-brand-400'
+                  : 'hover:bg-slate-800/40 border-l-2 border-l-transparent'
               )}
             >
               {preset.label}

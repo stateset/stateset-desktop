@@ -40,21 +40,23 @@ export function Tooltip({ content, shortcut, position = 'top', children }: Toolt
     >
       {/* Clone child to add aria-describedby */}
       <children.type {...children.props} aria-describedby={visible ? tooltipId : undefined} />
-      {visible && (
-        <div
-          id={tooltipId}
-          role="tooltip"
-          className={clsx(
-            'absolute z-50 px-2 py-1 text-xs font-medium text-gray-200 bg-gray-800 border border-gray-700 rounded-md shadow-lg whitespace-nowrap pointer-events-none',
-            positionStyles[position]
-          )}
-        >
-          {content}
-          {shortcut && (
-            <kbd className="ml-1.5 px-1 py-0.5 text-[10px] bg-gray-700 rounded">{shortcut}</kbd>
-          )}
-        </div>
-      )}
+      <div
+        id={tooltipId}
+        role="tooltip"
+        aria-hidden={!visible}
+        className={clsx(
+          'absolute z-50 px-2.5 py-1.5 text-[11px] font-bold tracking-wide text-gray-200 bg-slate-900/90 border border-slate-700/60 rounded-lg shadow-xl backdrop-blur-md whitespace-nowrap pointer-events-none transition-[opacity,transform] duration-150 ease-out',
+          positionStyles[position],
+          visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-1'
+        )}
+      >
+        {content}
+        {shortcut && (
+          <kbd className="ml-2 px-1.5 py-0.5 text-[9px] font-bold bg-slate-800 text-gray-400 border border-slate-700 rounded-md">
+            {shortcut}
+          </kbd>
+        )}
+      </div>
     </div>
   );
 }

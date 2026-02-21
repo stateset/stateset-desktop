@@ -10,11 +10,10 @@ import { useOptimisticSessionMutation } from './useOptimisticSessionMutation';
 const mockTenant = { id: 'tenant-1', name: 'Test Tenant' };
 const mockBrand = { id: 'brand-1', name: 'Test Brand' };
 
+const mockAuthState = { tenant: mockTenant, currentBrand: mockBrand };
 vi.mock('../stores/auth', () => ({
-  useAuthStore: () => ({
-    tenant: mockTenant,
-    currentBrand: mockBrand,
-  }),
+  useAuthStore: (selector?: (s: typeof mockAuthState) => unknown) =>
+    selector ? selector(mockAuthState) : mockAuthState,
 }));
 
 vi.mock('../lib/queryKeys', () => ({

@@ -60,10 +60,10 @@ describe('Dropdown', () => {
 
     fireEvent.keyDown(container, { key: 'ArrowDown' });
     const options = screen.getAllByRole('option');
-    expect(options[0].className).toContain('bg-gray-800');
+    expect(options[0].className).toContain('bg-slate-800/80');
 
     fireEvent.keyDown(container, { key: 'ArrowDown' });
-    expect(options[1].className).toContain('bg-gray-800');
+    expect(options[1].className).toContain('bg-slate-800/80');
   });
 
   it('selects item with Enter key', () => {
@@ -102,6 +102,6 @@ describe('Dropdown', () => {
     fireEvent.keyDown(container, { key: 'ArrowDown' }); // A
     fireEvent.keyDown(container, { key: 'ArrowDown' }); // skips B, goes to C
     const options = screen.getAllByRole('option');
-    expect(options[2].className).toContain('bg-gray-800');
+    expect(options[2].className).toContain('bg-slate-800/80');
   });
 });

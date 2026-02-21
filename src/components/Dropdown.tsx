@@ -143,7 +143,8 @@ export function Dropdown({ trigger, items, onSelect, align = 'left', label }: Dr
           aria-label={label}
           className={clsx(
             'absolute z-50 mt-1 top-full min-w-[180px] max-h-64 overflow-auto',
-            'bg-gray-900 border border-gray-700 rounded-lg shadow-xl py-1',
+            'bg-slate-900/80 backdrop-blur-xl border border-slate-700/60 rounded-xl shadow-2xl py-1.5',
+            'animate-scale-in',
             align === 'right' ? 'right-0' : 'left-0'
           )}
         >
@@ -154,11 +155,11 @@ export function Dropdown({ trigger, items, onSelect, align = 'left', label }: Dr
               aria-selected={index === activeIndex}
               aria-disabled={item.disabled || undefined}
               className={clsx(
-                'flex items-center gap-2 px-3 py-2 text-sm cursor-pointer transition-colors',
-                index === activeIndex && 'bg-gray-800',
-                item.disabled
-                  ? 'text-gray-600 cursor-not-allowed'
-                  : 'text-gray-200 hover:bg-gray-800'
+                'flex items-center gap-3 mx-1.5 px-3 py-2 text-sm rounded-lg cursor-pointer transition-all duration-150',
+                index === activeIndex
+                  ? 'bg-slate-800/80 ring-1 ring-brand-500/30'
+                  : 'hover:bg-slate-800/60',
+                item.disabled ? 'text-gray-600 cursor-not-allowed' : 'text-gray-200'
               )}
               onClick={() => {
                 if (!item.disabled) {

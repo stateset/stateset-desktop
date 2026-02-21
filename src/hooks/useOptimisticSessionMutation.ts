@@ -27,7 +27,8 @@ export function useOptimisticSessionMutation({
   onError,
   onSuccess,
 }: UseOptimisticSessionMutationOptions) {
-  const { tenant, currentBrand } = useAuthStore();
+  const tenant = useAuthStore((s) => s.tenant);
+  const currentBrand = useAuthStore((s) => s.currentBrand);
   const queryClient = useQueryClient();
   const listKey = queryKeys.sessions.list(tenant?.id, currentBrand?.id);
 

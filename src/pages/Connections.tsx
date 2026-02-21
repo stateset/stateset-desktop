@@ -156,16 +156,16 @@ export default function Connections() {
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="page-shell max-w-4xl mx-auto">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold">Platform Connections</h1>
-        <p className="text-gray-400 mt-1">Connect your platforms to enable AI agent access</p>
+        <h1 className="page-title">Platform Connections</h1>
+        <p className="page-subtitle">Connect your platforms to enable AI agent access</p>
       </div>
 
       {/* Info banner */}
       {isLocalMode ? (
-        <div className="mb-6 p-4 bg-amber-900/20 border border-amber-800 rounded-xl backdrop-blur-sm">
+        <div className="mb-6 p-4 bg-amber-900/20 border border-amber-800/60 rounded-xl backdrop-blur-sm shadow-sm">
           <div className="flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
             <div>
@@ -178,7 +178,7 @@ export default function Connections() {
           </div>
         </div>
       ) : (
-        <div className="mb-6 p-4 bg-blue-900/20 border border-blue-800 rounded-xl backdrop-blur-sm">
+        <div className="mb-6 p-4 bg-blue-900/20 border border-blue-800/60 rounded-xl backdrop-blur-sm shadow-sm">
           <div className="flex items-start gap-3">
             <Plug className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
             <div>
@@ -200,7 +200,7 @@ export default function Connections() {
           type="button"
           onClick={() => setShowCustomServerForm((prev) => !prev)}
           aria-label="Add custom MCP server"
-          className="inline-flex items-center gap-2 px-3 py-2 bg-brand-600 hover:bg-brand-500 rounded-lg text-sm border border-brand-600/40 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+          className="inline-flex items-center gap-2 px-3 py-2 bg-brand-600 hover:bg-brand-500 rounded-lg text-sm border border-brand-600/40 transition-all shadow-md shadow-brand-500/20 hover:shadow-lg hover:shadow-brand-500/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
         >
           <Plus className="w-4 h-4" aria-hidden="true" />
           Add custom MCP server
@@ -221,7 +221,7 @@ export default function Connections() {
           <Loader2 className="w-8 h-8 animate-spin text-brand-500" />
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-4 animate-fade-in">
           {displayedPlatforms.map((platform) => (
             <PlatformCard
               key={platform.id}

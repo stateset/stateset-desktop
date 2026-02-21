@@ -9,6 +9,8 @@ interface ChatMessageBubbleProps {
 export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
   const isUser = message.role === 'user';
   const isSystem = message.role === 'system';
+  const timestamp = new Date(message.timestamp).toLocaleTimeString();
+  const senderLabel = isUser ? 'You' : isSystem ? 'System' : 'Assistant';
 
   return (
     <div className={clsx('flex gap-3 animate-fade-in', isUser ? 'flex-row-reverse' : 'flex-row')}>
@@ -33,19 +35,19 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
 
       <div
         className={clsx(
-          'max-w-[70%] rounded-xl px-4 py-3',
+          'max-w-[76%] rounded-2xl px-4 py-3 border',
           isUser
             ? 'message-user'
             : isSystem
-              ? 'bg-red-900/20 border border-red-800/50'
+              ? 'bg-red-900/20 border-red-800/50'
               : 'message-assistant'
         )}
       >
-        <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+        <p className="text-sm whitespace-pre-wrap leading-relaxed">{message.content}</p>
         <div className="flex items-center gap-2 mt-1.5">
-          <span className="text-[10px] text-gray-500">
-            {new Date(message.timestamp).toLocaleTimeString()}
-          </span>
+          <span className="text-[10px] text-gray-500 font-medium">{senderLabel}</span>
+          <span className="text-[10px] text-gray-500">•</span>
+          <span className="text-[10px] text-gray-600">{timestamp}</span>
           {message.durationMs !== undefined && (
             <span className="text-[10px] text-gray-600">{message.durationMs}ms</span>
           )}
