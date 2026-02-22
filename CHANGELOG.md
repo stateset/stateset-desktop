@@ -4,6 +4,17 @@ All notable changes to StateSet Desktop will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.1.3] - 2026-02-22
+
+### Added
+
+- Bumped package metadata and lockfile versions to `1.1.3`.
+- Added release notes for the `v1.1.3` public release.
+
+### Notes
+
+- This patch release contains versioning and release-notes updates only.
+
 ## [1.0.0] - 2026-02-18
 
 ### Added
