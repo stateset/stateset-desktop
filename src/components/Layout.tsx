@@ -21,7 +21,7 @@ import {
   BookTemplate,
   ClipboardList,
 } from 'lucide-react';
-import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, useCallback, useMemo } from 'react';
 import clsx from 'clsx';
 import { motion } from 'framer-motion';
 import { ApiHealthIndicator } from './ApiHealthIndicator';
@@ -70,6 +70,12 @@ export default function Layout({ children }: LayoutProps) {
   const closeCommandPalette = useUiStore((state) => state.closeCommandPalette);
   const setCommandPaletteAgents = useUiStore((state) => state.setCommandPaletteAgents);
   const brandDropdownRef = useRef<HTMLDivElement>(null);
+  const mainContentRef = useRef<HTMLDivElement>(null);
+
+  // Scroll main content to top on page navigation
+  useLayoutEffect(() => {
+    mainContentRef.current?.scrollTo({ top: 0 });
+  }, [location.pathname]);
 
   // Load app version on mount
   useEffect(() => {
@@ -451,7 +457,7 @@ export default function Layout({ children }: LayoutProps) {
         </div>
 
         {/* Page Content */}
-        <div id="main-content" className="flex-1 overflow-auto">
+        <div id="main-content" ref={mainContentRef} className="flex-1 overflow-auto">
           {children}
         </div>
       </motion.main>

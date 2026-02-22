@@ -16,10 +16,33 @@ import {
   isBuiltInPlatform,
 } from '../features/connections/utils';
 import type { Platform } from '../features/connections/platforms';
-import { Plug, AlertCircle, Loader2, Plus } from 'lucide-react';
+import { Plug, AlertCircle, Plus } from 'lucide-react';
+import { motion, useReducedMotion } from 'framer-motion';
+import { Spinner } from '../components/Spinner';
+
+const pageContainerVariants = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.05 } },
+};
+
+const pageSectionVariants = {
+  hidden: { opacity: 0, y: 10 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.25, ease: [0.4, 0, 0.2, 1] } },
+};
+
+const listContainerVariants = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.04 } },
+};
+
+const listItemVariants = {
+  hidden: { opacity: 0, y: 8 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.25, ease: [0.4, 0, 0.2, 1] } },
+};
 
 export default function Connections() {
   usePageTitle('Connections');
+  const reduceMotion = useReducedMotion();
   const { currentBrand } = useAuthStore();
   const { showToast } = useToast();
   const { confirm, ConfirmDialogComponent } = useConfirmDialog();
@@ -157,11 +180,16 @@ export default function Connections() {
 
   return (
     <div className="page-shell max-w-4xl mx-auto">
+      <motion.div
+        variants={reduceMotion ? undefined : pageContainerVariants}
+        initial={reduceMotion ? undefined : 'hidden'}
+        animate={reduceMotion ? undefined : 'visible'}
+      >
       {/* Header */}
-      <div className="mb-6">
+      <motion.div variants={reduceMotion ? undefined : pageSectionVariants} className="mb-6">
         <h1 className="page-title">Platform Connections</h1>
         <p className="page-subtitle">Connect your platforms to enable AI agent access</p>
-      </div>
+      </motion.div>
 
       {/* Info banner */}
       {isLocalMode ? (
@@ -216,13 +244,20 @@ export default function Connections() {
       )}
 
       {/* Platforms grid */}
+      <motion.div variants={reduceMotion ? undefined : pageSectionVariants}>
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin text-brand-500" />
+          <Spinner size="lg" color="border-t-brand-500" />
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-4 animate-fade-in">
+        <motion.div
+          className="grid grid-cols-2 gap-4"
+          variants={reduceMotion ? undefined : listContainerVariants}
+          initial={reduceMotion ? undefined : 'hidden'}
+          animate={reduceMotion ? undefined : 'visible'}
+        >
           {displayedPlatforms.map((platform) => (
+            <motion.div key={platform.id} variants={reduceMotion ? undefined : listItemVariants}>
             <PlatformCard
               key={platform.id}
               platform={platform}
@@ -265,10 +300,13 @@ export default function Connections() {
               onTest={() => handleTest(platform.id)}
               onDisconnect={() => handleDisconnect(platform.id)}
             />
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       )}
+      </motion.div>
 
+      </motion.div>
       {ConfirmDialogComponent}
     </div>
   );

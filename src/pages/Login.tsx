@@ -15,6 +15,8 @@ import {
 import { loginWithEmail } from '../lib/registration';
 import clsx from 'clsx';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { Spinner } from '../components/Spinner';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 
 type LoginMethod = 'email' | 'apikey';
 
@@ -62,6 +64,7 @@ function getErrorDisplay(error: AuthError | null) {
 
 export default function Login() {
   usePageTitle('Login');
+  const reduceMotion = useReducedMotion();
   const [loginMethod, setLoginMethod] = useState<LoginMethod>('email');
   const [apiKey, setApiKey] = useState('');
   const [email, setEmail] = useState('');
@@ -163,13 +166,23 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-950 to-slate-950 flex flex-col">
+    <div className="min-h-screen bg-gradient-to-b from-gray-950 to-slate-950 flex flex-col relative overflow-hidden">
+      {/* Subtle background glow */}
+      <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[480px] h-[480px] rounded-full bg-brand-500/[0.04] blur-3xl" />
+      </div>
+
       {/* Drag region for title bar */}
       <div className="h-10 drag-region" />
 
       {/* Content */}
-      <div className="flex-1 flex items-center justify-center p-8">
-        <div className="w-full max-w-md">
+      <div className="flex-1 flex items-center justify-center p-8 relative">
+        <motion.div
+          className="w-full max-w-md"
+          initial={reduceMotion ? undefined : { opacity: 0, y: 12 }}
+          animate={reduceMotion ? undefined : { opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, ease: [0.4, 0, 0.2, 1] }}
+        >
           {/* Logo */}
           <div className="flex items-center justify-center gap-3 mb-8">
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-500 to-brand-600 flex items-center justify-center shadow-lg shadow-brand-500/25 border border-brand-400/20">
@@ -333,16 +346,26 @@ export default function Login() {
                 </div>
               )}
 
+              <AnimatePresence>
               {displayError && (
-                <div
+                <motion.div
                   role="alert"
+                  initial={reduceMotion ? undefined : { opacity: 0, height: 0, marginBottom: 0 }}
+                  animate={reduceMotion ? undefined : { opacity: 1, height: 'auto', marginBottom: 16 }}
+                  exit={reduceMotion ? undefined : { opacity: 0, height: 0, marginBottom: 0 }}
+                  transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
                   className={clsx(
-                    'mb-4 p-3 rounded-lg border',
-                    authError
-                      ? `${getErrorDisplay(authError)?.bgColor} ${getErrorDisplay(authError)?.borderColor}`
-                      : 'bg-red-900/30 border-red-800'
+                    'mb-4 overflow-hidden',
                   )}
                 >
+                  <div
+                    className={clsx(
+                      'p-3 rounded-lg border',
+                      authError
+                        ? `${getErrorDisplay(authError)?.bgColor} ${getErrorDisplay(authError)?.borderColor}`
+                        : 'bg-red-900/30 border-red-800'
+                    )}
+                  >
                   <div className="flex items-start gap-2">
                     {authError ? (
                       (() => {
@@ -394,8 +417,10 @@ export default function Login() {
                       </button>
                     )}
                   </div>
-                </div>
+                  </div>
+                </motion.div>
               )}
+              </AnimatePresence>
 
               <button
                 type="submit"
@@ -406,10 +431,7 @@ export default function Login() {
                 className="w-full flex items-center justify-center gap-2 py-2.5 bg-brand-600 hover:bg-brand-500 disabled:bg-gray-700 disabled:text-gray-400 rounded-lg font-medium border border-brand-600/40 transition-all duration-200 shadow-md shadow-brand-500/20 hover:shadow-lg hover:shadow-brand-500/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 disabled:focus-visible:ring-0 disabled:focus-visible:ring-offset-0 disabled:shadow-none"
               >
                 {isLoading ? (
-                  <div
-                    className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"
-                    aria-hidden="true"
-                  />
+                  <Spinner size="md" />
                 ) : (
                   <>
                     <span>Sign In</span>
@@ -430,7 +452,7 @@ export default function Login() {
               Create one free
             </Link>
           </p>
-        </div>
+        </motion.div>
       </div>
     </div>
   );

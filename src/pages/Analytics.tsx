@@ -21,9 +21,21 @@ import type { AgentSession } from '../types';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { DateRangePicker } from '../components/DateRangePicker';
 import { useState } from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
+
+const pageContainerVariants = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.05 } },
+};
+
+const pageSectionVariants = {
+  hidden: { opacity: 0, y: 10 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.25, ease: [0.4, 0, 0.2, 1] } },
+};
 
 export default function Analytics() {
   usePageTitle('Analytics');
+  const reduceMotion = useReducedMotion();
   const tenant = useAuthStore((s) => s.tenant);
   const currentBrand = useAuthStore((s) => s.currentBrand);
   const [dateRange, setDateRange] = useState({
@@ -168,8 +180,13 @@ export default function Analytics() {
 
   return (
     <div className="page-shell space-y-6">
+      <motion.div
+        variants={reduceMotion ? undefined : pageContainerVariants}
+        initial={reduceMotion ? undefined : 'hidden'}
+        animate={reduceMotion ? undefined : 'visible'}
+      >
       {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <motion.div variants={reduceMotion ? undefined : pageSectionVariants} className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="page-title">Analytics</h1>
           <p className="page-subtitle">Monitor your agent performance and usage metrics</p>
@@ -177,10 +194,10 @@ export default function Analytics() {
         <div className="w-full sm:w-auto">
           <DateRangePicker value={dateRange} onChange={setDateRange} />
         </div>
-      </div>
+      </motion.div>
 
       {/* Key Metrics */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <motion.div variants={reduceMotion ? undefined : pageSectionVariants} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard label="Total Agents" value={analytics.totalAgents} icon={Bot} color="blue" />
         <StatCard
           label="Running Now"
@@ -197,10 +214,10 @@ export default function Analytics() {
           icon={Wrench}
           color="purple"
         />
-      </div>
+      </motion.div>
 
       {/* Secondary Metrics */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <motion.div variants={reduceMotion ? undefined : pageSectionVariants} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard label="Total Loops" value={analytics.totalLoops} icon={TrendingUp} color="blue" />
         <StatCard
           label="Total Errors"
@@ -220,10 +237,10 @@ export default function Analytics() {
           icon={MessageSquare}
           color="purple"
         />
-      </div>
+      </motion.div>
 
       {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <motion.div variants={reduceMotion ? undefined : pageSectionVariants} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Token Usage Over Time */}
         <div className="bg-slate-900/40 border border-slate-700/50 rounded-2xl p-6 backdrop-blur-sm shadow-sm">
           <h3 className="text-lg font-semibold mb-4">Token Usage Over Time</h3>
@@ -247,10 +264,10 @@ export default function Analytics() {
           <h3 className="text-lg font-semibold mb-4">Tokens by Agent Type</h3>
           <BarChart data={analytics.performanceByAgent} height={200} color="#22c55e" />
         </div>
-      </div>
+      </motion.div>
 
       {/* Summary Table */}
-      <div className="bg-slate-900/40 border border-slate-700/50 rounded-2xl overflow-hidden backdrop-blur-sm shadow-sm">
+      <motion.div variants={reduceMotion ? undefined : pageSectionVariants} className="bg-slate-900/40 border border-slate-700/50 rounded-2xl overflow-hidden backdrop-blur-sm shadow-sm">
         <div className="px-6 py-4 border-b border-slate-700/50 bg-slate-900/60">
           <h3 className="text-lg font-semibold">Agent Performance Summary</h3>
         </div>
@@ -308,7 +325,8 @@ export default function Analytics() {
             </tbody>
           </table>
         </div>
-      </div>
+      </motion.div>
+      </motion.div>
     </div>
   );
 }

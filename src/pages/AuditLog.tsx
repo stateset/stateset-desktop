@@ -9,6 +9,17 @@ import { useAuditLogStore } from '../stores/auditLog';
 import { usePreferencesStore } from '../stores/preferences';
 import { Pagination } from '../components/Pagination';
 import { AUDIT_ACTION_COLORS, AUDIT_ACTION_LABELS, type AuditAction } from '../lib/auditLog';
+import { motion, useReducedMotion } from 'framer-motion';
+
+const pageContainerVariants = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.05 } },
+};
+
+const pageSectionVariants = {
+  hidden: { opacity: 0, y: 10 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.25, ease: [0.4, 0, 0.2, 1] } },
+};
 
 const ACTION_FILTER_OPTIONS: { value: string; label: string }[] = [
   { value: 'all', label: 'All Actions' },
@@ -29,6 +40,7 @@ const ACTION_FILTER_OPTIONS: { value: string; label: string }[] = [
 
 export default function AuditLog() {
   usePageTitle('Audit Log');
+  const reduceMotion = useReducedMotion();
   const { entries, initialize, clear } = useAuditLogStore();
 
   const pageSize = usePreferencesStore((s) => s.pageSize);
@@ -77,8 +89,14 @@ export default function AuditLog() {
 
   return (
     <div className="page-shell max-w-5xl mx-auto space-y-6">
+      <motion.div
+        variants={reduceMotion ? undefined : pageContainerVariants}
+        initial={reduceMotion ? undefined : 'hidden'}
+        animate={reduceMotion ? undefined : 'visible'}
+        className="space-y-6"
+      >
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <motion.div variants={reduceMotion ? undefined : pageSectionVariants} className="flex items-center justify-between">
         <div>
           <h1 className="page-title">Audit Log</h1>
           <p className="page-subtitle">Track all actions performed in the application</p>
@@ -94,10 +112,10 @@ export default function AuditLog() {
             Clear All
           </button>
         )}
-      </div>
+      </motion.div>
 
       {/* Filters */}
-      <div className="flex gap-3">
+      <motion.div variants={reduceMotion ? undefined : pageSectionVariants} className="flex gap-3">
         <div className="relative flex-1">
           <Search
             className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500"
@@ -124,9 +142,10 @@ export default function AuditLog() {
             </option>
           ))}
         </select>
-      </div>
+      </motion.div>
 
       {/* Table */}
+      <motion.div variants={reduceMotion ? undefined : pageSectionVariants}>
       {filtered.length > 0 ? (
         <div className="bg-slate-900/40 border border-slate-700/50 rounded-2xl overflow-hidden backdrop-blur-sm shadow-sm">
           <table className="w-full text-sm">
@@ -175,6 +194,8 @@ export default function AuditLog() {
           </p>
         </div>
       )}
+      </motion.div>
+      </motion.div>
 
       {/* Clear Confirm Dialog */}
       {showClearConfirm && (

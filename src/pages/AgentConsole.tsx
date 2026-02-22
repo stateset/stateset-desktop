@@ -684,8 +684,15 @@ export default function AgentConsole() {
               </motion.div>
             ) : (
               <>
+                <AnimatePresence>
                 {showStreamBanner && (
-                  <div className="p-3 bg-gradient-to-r from-slate-900/70 via-slate-900/40 to-slate-900/70 border border-slate-700/50 rounded-xl flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between backdrop-blur-sm shadow-sm">
+                  <motion.div
+                    initial={{ opacity: 0, y: -8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+                    className="p-3 bg-gradient-to-r from-slate-900/70 via-slate-900/40 to-slate-900/70 border border-slate-700/50 rounded-xl flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between backdrop-blur-sm shadow-sm"
+                  >
                     <div className="flex items-start gap-3">
                       <div className="w-8 h-8 rounded-lg bg-slate-800/60 border border-slate-700/50 flex items-center justify-center">
                         {showStreamDisconnected ? (
@@ -715,8 +722,9 @@ export default function AgentConsole() {
                         {startStreamLabel}
                       </button>
                     </div>
-                  </div>
+                  </motion.div>
                 )}
+                </AnimatePresence>
                 <AnimatePresence initial={false}>
                   {filteredMessages.map((event) => (
                     <MessageItem
@@ -729,15 +737,21 @@ export default function AgentConsole() {
                 </AnimatePresence>
                 {isTyping && <TypingIndicator />}
                 <div ref={messagesEndRef} />
+                <AnimatePresence>
                 {!autoScroll && (
-                  <button
+                  <motion.button
                     type="button"
                     onClick={handleScrollToBottom}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 8 }}
+                    transition={{ duration: 0.15 }}
                     className="absolute bottom-4 right-4 px-3 py-1.5 bg-slate-800/90 hover:bg-slate-700/90 text-xs rounded-full shadow-lg border border-slate-600/50 backdrop-blur-sm hover:scale-105 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
                   >
                     Jump to latest
-                  </button>
+                  </motion.button>
                 )}
+                </AnimatePresence>
               </>
             )}
           </div>

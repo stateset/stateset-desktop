@@ -13,9 +13,32 @@ import {
   useTestWebhook,
 } from '../features/webhooks';
 import type { Webhook } from '../types';
+import { motion, useReducedMotion } from 'framer-motion';
+import { Spinner } from '../components/Spinner';
+
+const pageContainerVariants = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.05 } },
+};
+
+const pageSectionVariants = {
+  hidden: { opacity: 0, y: 10 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.25, ease: [0.4, 0, 0.2, 1] } },
+};
+
+const listContainerVariants = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.04 } },
+};
+
+const listItemVariants = {
+  hidden: { opacity: 0, y: 8 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.25, ease: [0.4, 0, 0.2, 1] } },
+};
 
 export default function Webhooks() {
   usePageTitle('Webhooks');
+  const reduceMotion = useReducedMotion();
 
   const { data: webhooks, isLoading } = useWebhooksList();
   const createWebhook = useCreateWebhook();
@@ -67,8 +90,14 @@ export default function Webhooks() {
 
   return (
     <div className="page-shell max-w-5xl mx-auto space-y-6">
+      <motion.div
+        variants={reduceMotion ? undefined : pageContainerVariants}
+        initial={reduceMotion ? undefined : 'hidden'}
+        animate={reduceMotion ? undefined : 'visible'}
+        className="space-y-6"
+      >
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <motion.div variants={reduceMotion ? undefined : pageSectionVariants} className="flex items-center justify-between">
         <div>
           <h1 className="page-title">Webhooks</h1>
           <p className="page-subtitle">
@@ -84,7 +113,7 @@ export default function Webhooks() {
           <Plus className="w-4 h-4" aria-hidden="true" />
           Create Webhook
         </button>
-      </div>
+      </motion.div>
 
       {/* Search */}
       {webhooks && webhooks.length > 0 && (
@@ -107,10 +136,7 @@ export default function Webhooks() {
       {/* Loading State */}
       {isLoading && (
         <div className="flex items-center justify-center py-20">
-          <div
-            className="w-8 h-8 border-2 border-brand-500/30 border-t-brand-500 rounded-full animate-spin"
-            aria-hidden="true"
-          />
+          <Spinner size="lg" color="border-t-brand-500" />
         </div>
       )}
 
@@ -138,19 +164,25 @@ export default function Webhooks() {
 
       {/* Webhook List */}
       {filteredWebhooks && filteredWebhooks.length > 0 && (
-        <div className="grid gap-3">
+        <motion.div
+          className="grid gap-3"
+          variants={reduceMotion ? undefined : listContainerVariants}
+          initial={reduceMotion ? undefined : 'hidden'}
+          animate={reduceMotion ? undefined : 'visible'}
+        >
           {filteredWebhooks.map((webhook) => (
-            <WebhookCard
-              key={webhook.id}
-              webhook={webhook}
-              onTest={() => handleTest(webhook)}
-              onToggleStatus={() => handleToggleStatus(webhook)}
-              onDelete={() => handleDelete(webhook)}
-              onViewDetails={() => setSelectedWebhook(webhook)}
-              isTesting={testingId === webhook.id}
-            />
+            <motion.div key={webhook.id} variants={reduceMotion ? undefined : listItemVariants}>
+              <WebhookCard
+                webhook={webhook}
+                onTest={() => handleTest(webhook)}
+                onToggleStatus={() => handleToggleStatus(webhook)}
+                onDelete={() => handleDelete(webhook)}
+                onViewDetails={() => setSelectedWebhook(webhook)}
+                isTesting={testingId === webhook.id}
+              />
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       )}
 
       {/* No search results */}
@@ -159,6 +191,8 @@ export default function Webhooks() {
           <p className="text-sm">No webhooks match &ldquo;{searchQuery}&rdquo;</p>
         </div>
       )}
+
+      </motion.div>
 
       {/* Create Form Modal */}
       <WebhookForm

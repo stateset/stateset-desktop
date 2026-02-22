@@ -104,7 +104,7 @@ export const DashboardSessionRow = memo(function DashboardSessionRow({
 
   return (
     <ContextMenu items={contextMenuItems}>
-      <div className="relative group hover:bg-slate-800/40 transition-colors">
+      <div className="relative group hover:bg-slate-800/40 hover:-translate-y-[1px] hover:shadow-md transition-all duration-200">
         <button
           type="button"
           className="w-full flex items-center gap-5 px-5 py-4 pr-40 text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-inset"

@@ -46,9 +46,10 @@ import {
   Trash2,
 } from 'lucide-react';
 import clsx from 'clsx';
-import { motion, useReducedMotion } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { TagFilter } from '../components/TagBadge';
+import { Spinner } from '../components/Spinner';
 
 type StatusFilter = 'all' | 'running' | 'stopped' | 'failed';
 
@@ -61,6 +62,16 @@ const listContainerVariants = {
 
 const listItemVariants = {
   hidden: { opacity: 0, y: 8 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.25, ease: [0.4, 0, 0.2, 1] } },
+};
+
+const pageContainerVariants = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.05 } },
+};
+
+const pageSectionVariants = {
+  hidden: { opacity: 0, y: 10 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.25, ease: [0.4, 0, 0.2, 1] } },
 };
 
@@ -500,8 +511,14 @@ export default function Dashboard() {
         isLoading={isDeletingStopped}
       />
 
+      <motion.div
+        variants={reduceMotion ? undefined : pageContainerVariants}
+        initial={reduceMotion ? undefined : 'hidden'}
+        animate={reduceMotion ? undefined : 'visible'}
+      >
+
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-8 mt-2">
+      <motion.div variants={reduceMotion ? undefined : pageSectionVariants} className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-8 mt-2">
         <div>
           <h1 className="page-title">Agent Dashboard</h1>
           <p className="page-subtitle">Manage your autonomous AI agents</p>
@@ -535,7 +552,7 @@ export default function Dashboard() {
             aria-label="Create new agent"
           >
             {isCreating ? (
-              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              <Spinner size="md" />
             ) : (
               <>
                 <Plus className="w-5 h-5" aria-hidden="true" />
@@ -544,12 +561,19 @@ export default function Dashboard() {
             )}
           </button>
         </div>
-      </div>
+      </motion.div>
 
-      <DashboardStats sessions={sessions} isLoading={isLoading} />
+      <motion.div variants={reduceMotion ? undefined : pageSectionVariants}>
+        <DashboardStats sessions={sessions} isLoading={isLoading} />
+      </motion.div>
 
-      {sessions.length > 0 && <RecentActivityTimeline sessions={sessions} />}
+      {sessions.length > 0 && (
+        <motion.div variants={reduceMotion ? undefined : pageSectionVariants}>
+          <RecentActivityTimeline sessions={sessions} />
+        </motion.div>
+      )}
 
+      <motion.div variants={reduceMotion ? undefined : pageSectionVariants}>
       {/* Search and Filter */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-5">
         <div className="relative flex-1 max-w-md">
@@ -566,16 +590,23 @@ export default function Dashboard() {
             aria-label="Search agents"
             className="w-full pl-10 pr-10 py-2.5 bg-slate-900/60 border border-slate-700/60 rounded-xl text-sm font-medium placeholder-gray-500 focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 shadow-inner transition-all text-gray-200"
           />
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-700/50 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 transition-colors"
-              aria-label="Clear search"
-            >
-              <X className="w-4 h-4 text-gray-500 hover:text-gray-300" aria-hidden="true" />
-            </button>
-          )}
+          <AnimatePresence>
+            {searchQuery && (
+              <motion.button
+                key="clear-search"
+                type="button"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                transition={{ duration: 0.15 }}
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-700/50 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 transition-colors"
+                aria-label="Clear search"
+              >
+                <X className="w-4 h-4 text-gray-500 hover:text-gray-300" aria-hidden="true" />
+              </motion.button>
+            )}
+          </AnimatePresence>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap bg-slate-900/40 p-1 rounded-xl border border-slate-700/50 shadow-inner">
@@ -629,7 +660,7 @@ export default function Dashboard() {
           className="flex items-center gap-2.5 px-4 py-2.5 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl border border-emerald-500/30 shadow-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/50"
         >
           {isStartingAll ? (
-            <div className="w-5 h-5 border-2 border-emerald-400/30 border-t-emerald-400 rounded-full animate-spin" />
+            <Spinner size="md" color="border-t-emerald-400" />
           ) : (
             <PlayCircle className="w-5 h-5" aria-hidden="true" />
           )}
@@ -646,7 +677,7 @@ export default function Dashboard() {
           className="flex items-center gap-2.5 px-4 py-2.5 bg-rose-500/15 hover:bg-rose-500/25 text-rose-400 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl border border-rose-500/30 shadow-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/50"
         >
           {isStoppingAll ? (
-            <div className="w-5 h-5 border-2 border-rose-400/30 border-t-rose-400 rounded-full animate-spin" />
+            <Spinner size="md" color="border-t-rose-400" />
           ) : (
             <StopCircle className="w-5 h-5" aria-hidden="true" />
           )}
@@ -663,7 +694,7 @@ export default function Dashboard() {
           className="flex items-center gap-2.5 px-4 py-2.5 bg-slate-800/40 hover:bg-slate-800/60 text-gray-400 hover:text-rose-400 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl border border-slate-700/50 shadow-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/40"
         >
           {isDeletingStopped ? (
-            <div className="w-5 h-5 border-2 border-gray-400/30 border-t-gray-400 rounded-full animate-spin" />
+            <Spinner size="md" color="border-t-gray-400" />
           ) : (
             <Trash2 className="w-5 h-5" aria-hidden="true" />
           )}
@@ -703,8 +734,10 @@ export default function Dashboard() {
           </button>
         </div>
       </div>
+      </motion.div>
 
       {/* Sessions List */}
+      <motion.div variants={reduceMotion ? undefined : pageSectionVariants}>
       <div className="bg-slate-900/40 border border-slate-700/50 rounded-2xl overflow-hidden shadow-xl backdrop-blur-md">
         <div className="px-5 py-4 border-b border-slate-700/50 bg-slate-900/60 flex items-center justify-between">
           <h2 className="font-bold text-lg text-gray-200">Agent Sessions</h2>
@@ -776,22 +809,31 @@ export default function Dashboard() {
           </>
         )}
       </div>
+      </motion.div>
 
       {/* Keyboard shortcuts hint */}
-      <div className="mt-4 text-xs text-gray-600 flex flex-wrap items-center gap-4">
-        <span>
-          <kbd className="px-1.5 py-0.5 bg-gray-800 rounded">Ctrl/Cmd+K</kbd> Command palette
+      <motion.div variants={reduceMotion ? undefined : pageSectionVariants}>
+      <div className="mt-6 glass-panel rounded-xl px-4 py-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-gray-500 font-medium">
+        <span className="flex items-center gap-1.5">
+          <kbd className="px-1.5 py-0.5 bg-slate-800/80 text-gray-400 border border-slate-700/50 rounded-md text-[10px] font-bold">⌘K</kbd>
+          <span>Command palette</span>
         </span>
-        <span>
-          <kbd className="px-1.5 py-0.5 bg-gray-800 rounded">/</kbd> Search
+        <span className="flex items-center gap-1.5">
+          <kbd className="px-1.5 py-0.5 bg-slate-800/80 text-gray-400 border border-slate-700/50 rounded-md text-[10px] font-bold">/</kbd>
+          <span>Search</span>
         </span>
-        <span>
-          <kbd className="px-1.5 py-0.5 bg-gray-800 rounded">Ctrl/Cmd+N</kbd> New agent
+        <span className="flex items-center gap-1.5">
+          <kbd className="px-1.5 py-0.5 bg-slate-800/80 text-gray-400 border border-slate-700/50 rounded-md text-[10px] font-bold">⌘N</kbd>
+          <span>New agent</span>
         </span>
-        <span>
-          <kbd className="px-1.5 py-0.5 bg-gray-800 rounded">Ctrl/Cmd+R</kbd> Refresh
+        <span className="flex items-center gap-1.5">
+          <kbd className="px-1.5 py-0.5 bg-slate-800/80 text-gray-400 border border-slate-700/50 rounded-md text-[10px] font-bold">⌘R</kbd>
+          <span>Refresh</span>
         </span>
       </div>
+      </motion.div>
+
+      </motion.div>
     </div>
   );
 }

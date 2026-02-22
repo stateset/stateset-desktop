@@ -2,6 +2,7 @@ import { memo } from 'react';
 import { Sun, Moon } from 'lucide-react';
 import { usePreferencesStore } from '../stores/preferences';
 import clsx from 'clsx';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 
 interface ThemeToggleProps {
   className?: string;
@@ -13,6 +14,7 @@ export const ThemeToggle = memo(function ThemeToggle({
   showLabel = false,
 }: ThemeToggleProps) {
   const { theme, setTheme } = usePreferencesStore();
+  const reduceMotion = useReducedMotion();
 
   const toggleTheme = () => {
     setTheme(theme === 'dark' ? 'light' : 'dark');
@@ -31,11 +33,31 @@ export const ThemeToggle = memo(function ThemeToggle({
       aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
       title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
     >
-      {theme === 'dark' ? (
-        <Sun className="w-5 h-5" aria-hidden="true" />
-      ) : (
-        <Moon className="w-5 h-5" aria-hidden="true" />
-      )}
+      <AnimatePresence mode="wait" initial={false}>
+        {theme === 'dark' ? (
+          <motion.span
+            key="sun"
+            initial={reduceMotion ? undefined : { opacity: 0, rotate: -90, scale: 0.8 }}
+            animate={reduceMotion ? undefined : { opacity: 1, rotate: 0, scale: 1 }}
+            exit={reduceMotion ? undefined : { opacity: 0, rotate: 90, scale: 0.8 }}
+            transition={{ duration: 0.15 }}
+            className="block"
+          >
+            <Sun className="w-5 h-5" aria-hidden="true" />
+          </motion.span>
+        ) : (
+          <motion.span
+            key="moon"
+            initial={reduceMotion ? undefined : { opacity: 0, rotate: 90, scale: 0.8 }}
+            animate={reduceMotion ? undefined : { opacity: 1, rotate: 0, scale: 1 }}
+            exit={reduceMotion ? undefined : { opacity: 0, rotate: -90, scale: 0.8 }}
+            transition={{ duration: 0.15 }}
+            className="block"
+          >
+            <Moon className="w-5 h-5" aria-hidden="true" />
+          </motion.span>
+        )}
+      </AnimatePresence>
       {showLabel && <span className="text-sm">{theme === 'dark' ? 'Light' : 'Dark'} Mode</span>}
     </button>
   );

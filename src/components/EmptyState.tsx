@@ -25,7 +25,7 @@ export function EmptyState({ icon: Icon, title, description, action, className }
       )}
     >
       <div className="absolute inset-x-10 top-2 h-24 bg-brand-500/10 blur-3xl rounded-full pointer-events-none" />
-      <div className="relative w-16 h-16 rounded-[2rem] bg-slate-800/50 border border-slate-700/50 flex items-center justify-center mb-5 shadow-inner backdrop-blur-sm">
+      <div className="relative w-16 h-16 rounded-[2rem] bg-slate-800/50 border border-slate-700/50 flex items-center justify-center mb-5 shadow-inner backdrop-blur-sm animate-float">
         <Icon className="w-7 h-7 text-slate-300" aria-hidden="true" />
         <span className="absolute inset-0 rounded-[2rem] border border-brand-400/20" />
       </div>
