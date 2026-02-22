@@ -68,6 +68,12 @@ export function useBackgroundAgents(
   const queryClient = useQueryClient();
   const previousRunningRef = useRef<Set<string>>(new Set());
   const hasAutoRestarted = useRef(false);
+  const hasInitializedRunningState = useRef(false);
+
+  useEffect(() => {
+    previousRunningRef.current = new Set();
+    hasInitializedRunningState.current = false;
+  }, [tenant?.id, currentBrand?.id]);
 
   const soundsEnabled = showNotifications && soundAlerts;
 
@@ -131,7 +137,7 @@ export function useBackgroundAgents(
     currentRunning.forEach((id) => {
       if (!previousRunningRef.current.has(id)) {
         const session = sessions.find((s) => s.id === id);
-        if (session && hasAutoRestarted.current) {
+        if (session && hasInitializedRunningState.current) {
           if (desktopNotifications) {
             electronAPI.notifications.show({
               title: 'Agent Started',
@@ -160,6 +166,7 @@ export function useBackgroundAgents(
     });
 
     previousRunningRef.current = currentRunning;
+    hasInitializedRunningState.current = true;
   }, [sessions, showNotifications, desktopNotifications, playNotificationSound]);
 
   // Auto-restart previously running agents

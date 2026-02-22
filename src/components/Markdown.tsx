@@ -9,6 +9,61 @@ interface MarkdownProps {
   className?: string;
 }
 
+const SAFE_URL_SCHEMES = new Set(['http:', 'https:', 'mailto:']);
+
+function normalizeMarkdownHref(rawHref: string): string | null {
+  const trimmed = rawHref.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  try {
+    return decodeURIComponent(trimmed);
+  } catch {
+    return trimmed;
+  }
+}
+
+function isSafeMarkdownHref(rawHref: string): boolean {
+  const href = normalizeMarkdownHref(rawHref);
+  if (!href) {
+    return false;
+  }
+
+  const normalized = href.trim().toLowerCase();
+  if (normalized.startsWith('/') || normalized.startsWith('#')) {
+    return true;
+  }
+
+  if (
+    normalized.startsWith('http:') ||
+    normalized.startsWith('https:') ||
+    normalized.startsWith('mailto:')
+  ) {
+    return true;
+  }
+
+  const protocolIndex = normalized.indexOf(':');
+  if (protocolIndex !== -1) {
+    const protocol = normalized.slice(0, protocolIndex + 1);
+    return SAFE_URL_SCHEMES.has(protocol);
+  }
+
+  return true;
+}
+
+function sanitizeMarkdownHref(rawHref: string | undefined): string | undefined {
+  if (!rawHref) {
+    return undefined;
+  }
+
+  if (!isSafeMarkdownHref(rawHref)) {
+    return undefined;
+  }
+
+  return rawHref;
+}
+
 const SUPPORTED_LANGUAGES = new Set([
   'javascript',
   'typescript',
@@ -243,16 +298,23 @@ export const Markdown = memo(function Markdown({ content, className = '' }: Mark
         remarkPlugins={[remarkGfm]}
         components={{
           code: CodeBlock,
-          a: ({ children, href }: { children?: React.ReactNode; href?: string }) => (
-            <a
-              href={href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-brand-400 hover:text-brand-300 underline"
-            >
-              {children}
-            </a>
-          ),
+          a: ({ children, href }: { children?: React.ReactNode; href?: string }) => {
+            const safeHref = sanitizeMarkdownHref(href);
+            return safeHref ? (
+              <a
+                href={safeHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-brand-400 hover:text-brand-300 underline"
+              >
+                {children}
+              </a>
+            ) : (
+              <span className="text-brand-400 underline decoration-dotted decoration-dashed">
+                {children}
+              </span>
+            );
+          },
           blockquote: ({ children }: { children?: React.ReactNode }) => (
             <blockquote className="border-l-4 border-brand-500/40 pl-4 italic text-gray-400 bg-slate-800/20 py-2 pr-3 rounded-r-lg">
               {children}

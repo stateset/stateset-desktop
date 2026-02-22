@@ -7,6 +7,8 @@ export type RefreshInterval = 5000 | 10000 | 30000 | 60000;
 export type PageSize = 10 | 25 | 50 | 100;
 
 const ACCENT_COLORS: Set<string> = new Set(['blue', 'purple', 'green', 'amber', 'rose', 'cyan']);
+const ALLOWED_REFRESH_INTERVALS = new Set<number>([5000, 10000, 30000, 60000]);
+const ALLOWED_PAGE_SIZES = new Set<number>([10, 25, 50, 100]);
 
 interface PreferencesState {
   initialized: boolean;
@@ -55,6 +57,12 @@ const DEFAULTS = {
   refreshInterval: 5000 as RefreshInterval,
   pageSize: 10 as PageSize,
 };
+
+const isRefreshInterval = (value: unknown): value is RefreshInterval =>
+  typeof value === 'number' && ALLOWED_REFRESH_INTERVALS.has(value);
+
+const isPageSize = (value: unknown): value is PageSize =>
+  typeof value === 'number' && ALLOWED_PAGE_SIZES.has(value);
 
 const applyTheme = (theme: ThemePreference) => {
   if (typeof document === 'undefined') return;
@@ -130,6 +138,11 @@ export const usePreferencesStore = create<PreferencesState>((set, get) => ({
           ? (accentColorValue as AccentColor)
           : DEFAULTS.accentColor;
 
+      const safeRefreshInterval = isRefreshInterval(refreshInterval)
+        ? refreshInterval
+        : DEFAULTS.refreshInterval;
+      const safePageSize = isPageSize(pageSize) ? pageSize : DEFAULTS.pageSize;
+
       set({
         initialized: true,
         theme,
@@ -151,11 +164,8 @@ export const usePreferencesStore = create<PreferencesState>((set, get) => ({
             ? desktopNotifications
             : DEFAULTS.desktopNotifications,
         soundAlerts: typeof soundAlerts === 'boolean' ? soundAlerts : DEFAULTS.soundAlerts,
-        refreshInterval:
-          typeof refreshInterval === 'number'
-            ? (refreshInterval as RefreshInterval)
-            : DEFAULTS.refreshInterval,
-        pageSize: typeof pageSize === 'number' ? (pageSize as PageSize) : DEFAULTS.pageSize,
+        refreshInterval: safeRefreshInterval,
+        pageSize: safePageSize,
       });
 
       applyTheme(theme);
@@ -254,6 +264,7 @@ export const usePreferencesStore = create<PreferencesState>((set, get) => ({
   },
 
   setRefreshInterval: async (interval) => {
+    if (!isRefreshInterval(interval)) return;
     set({ refreshInterval: interval });
     if (window.electronAPI) {
       await window.electronAPI.store.set('refreshInterval', interval);
@@ -261,6 +272,7 @@ export const usePreferencesStore = create<PreferencesState>((set, get) => ({
   },
 
   setPageSize: async (size) => {
+    if (!isPageSize(size)) return;
     set({ pageSize: size });
     if (window.electronAPI) {
       await window.electronAPI.store.set('pageSize', size);

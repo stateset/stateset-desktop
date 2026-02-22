@@ -3,6 +3,7 @@ import {
   OAuthConfig,
   OAuthError,
   createOAuthServer,
+  findAvailableOAuthPort,
   openOAuthWindow,
   getSuccessHtml,
   getErrorHtml,
@@ -79,41 +80,59 @@ export class ShopifyOAuth {
   }
 
   async startAuth(shop: string): Promise<ShopifyCredentials> {
+    if (!this.clientId || !this.clientSecret) {
+      throw new OAuthError(
+        'Shopify OAuth credentials are not configured.',
+        'NOT_CONFIGURED',
+        PROVIDER
+      );
+    }
+
+    const state = crypto.randomBytes(16).toString('hex');
+
+    // Normalize shop domain
+    const shopDomain = normalizeShopDomain(shop);
+    if (!SHOP_DOMAIN_PATTERN.test(shopDomain)) {
+      throw new OAuthError(
+        'Shop domain must be a valid myshopify.com domain (e.g., your-store.myshopify.com).',
+        'INVALID_DOMAIN',
+        PROVIDER
+      );
+    }
+
+    const callbackPort = await findAvailableOAuthPort(this.redirectPort, 6);
+    if (!callbackPort) {
+      throw new OAuthError(
+        'No available local callback ports are available. Please close other local applications using those ports.',
+        'PORT_IN_USE',
+        PROVIDER
+      );
+    }
+
+    // Build authorization URL
+    const callbackUri = `http://localhost:${callbackPort}${CALLBACK_PATH}`;
+    const authUrl = new URL(`https://${shopDomain}/admin/oauth/authorize`);
+    authUrl.searchParams.set('client_id', this.clientId);
+    authUrl.searchParams.set('scope', this.scopes.join(','));
+    authUrl.searchParams.set('redirect_uri', callbackUri);
+    authUrl.searchParams.set('state', state);
+
+    const oauthConfig: OAuthConfig = {
+      provider: PROVIDER,
+      clientId: this.clientId,
+      clientSecret: this.clientSecret,
+      redirectPort: callbackPort,
+      timeoutMs: CALLBACK_TIMEOUT_MS,
+      callbackPath: CALLBACK_PATH,
+      windowOptions: {
+        width: 600,
+        height: 700,
+        autoHideMenuBar: true,
+        title: `Sign in to ${PROVIDER}`,
+      },
+    };
+
     return new Promise((resolve, reject) => {
-      if (!this.clientId || !this.clientSecret) {
-        reject(
-          new OAuthError(
-            'Shopify OAuth credentials are not configured.',
-            'NOT_CONFIGURED',
-            PROVIDER
-          )
-        );
-        return;
-      }
-
-      const state = crypto.randomBytes(16).toString('hex');
-
-      // Normalize shop domain
-      const shopDomain = normalizeShopDomain(shop);
-      if (!SHOP_DOMAIN_PATTERN.test(shopDomain)) {
-        reject(
-          new OAuthError(
-            'Shop domain must be a valid myshopify.com domain (e.g., your-store.myshopify.com).',
-            'INVALID_DOMAIN',
-            PROVIDER
-          )
-        );
-        return;
-      }
-
-      // Build authorization URL
-      const callbackUri = `http://localhost:${this.redirectPort}${CALLBACK_PATH}`;
-      const authUrl = new URL(`https://${shopDomain}/admin/oauth/authorize`);
-      authUrl.searchParams.set('client_id', this.clientId);
-      authUrl.searchParams.set('scope', this.scopes.join(','));
-      authUrl.searchParams.set('redirect_uri', callbackUri);
-      authUrl.searchParams.set('state', state);
-
       let authWindow: ReturnType<typeof openOAuthWindow> | null = null;
       let serverCleanup: (() => void) | null = null;
       let timeoutId: NodeJS.Timeout | null = null;
@@ -155,21 +174,6 @@ export class ShopifyOAuth {
         authWindow?.close();
         serverCleanup?.();
         resolve(credentials);
-      };
-
-      const oauthConfig: OAuthConfig = {
-        provider: PROVIDER,
-        clientId: this.clientId,
-        clientSecret: this.clientSecret,
-        redirectPort: this.redirectPort,
-        timeoutMs: CALLBACK_TIMEOUT_MS,
-        callbackPath: CALLBACK_PATH,
-        windowOptions: {
-          width: 600,
-          height: 700,
-          autoHideMenuBar: true,
-          title: `Sign in to ${PROVIDER}`,
-        },
       };
 
       void (async () => {

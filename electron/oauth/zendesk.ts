@@ -3,6 +3,7 @@ import {
   OAuthConfig,
   OAuthError,
   createOAuthServer,
+  findAvailableOAuthPort,
   openOAuthWindow,
   getSuccessHtml,
   getErrorHtml,
@@ -38,45 +39,63 @@ export class ZendeskOAuth {
   }
 
   async startAuth(subdomain: string): Promise<ZendeskCredentials> {
-    return new Promise((resolve, reject) => {
-      if (!this.clientId || !this.clientSecret) {
-        reject(
-          new OAuthError(
-            'Zendesk OAuth credentials are not configured.',
-            'NOT_CONFIGURED',
-            PROVIDER
-          )
-        );
-        return;
-      }
-
-      const state = crypto.randomBytes(16).toString('hex');
-
-      // Normalize subdomain
-      const zendeskSubdomain = subdomain.replace('.zendesk.com', '').replace(/^https?:\/\//, '');
-      if (!isValidSubdomain(zendeskSubdomain)) {
-        reject(
-          new OAuthError(
-            'Zendesk subdomain must be a valid subdomain (e.g., your-company).',
-            'INVALID_DOMAIN',
-            PROVIDER
-          )
-        );
-        return;
-      }
-
-      const callbackUri = `http://localhost:${this.redirectPort}${CALLBACK_PATH}`;
-      // Build authorization URL
-      const authUrl = new URL(`https://${zendeskSubdomain}.zendesk.com/oauth/authorizations/new`);
-      authUrl.searchParams.set('client_id', this.clientId);
-      authUrl.searchParams.set('redirect_uri', callbackUri);
-      authUrl.searchParams.set('response_type', 'code');
-      authUrl.searchParams.set('state', state);
-      authUrl.searchParams.set(
-        'scope',
-        'read write tickets:read tickets:write users:read users:write'
+    if (!this.clientId || !this.clientSecret) {
+      throw new OAuthError(
+        'Zendesk OAuth credentials are not configured.',
+        'NOT_CONFIGURED',
+        PROVIDER
       );
+    }
 
+    const state = crypto.randomBytes(16).toString('hex');
+
+    // Normalize subdomain
+    const zendeskSubdomain = subdomain.replace('.zendesk.com', '').replace(/^https?:\/\//, '');
+    if (!isValidSubdomain(zendeskSubdomain)) {
+      throw new OAuthError(
+        'Zendesk subdomain must be a valid subdomain (e.g., your-company).',
+        'INVALID_DOMAIN',
+        PROVIDER
+      );
+    }
+
+    const callbackPort = await findAvailableOAuthPort(this.redirectPort, 6);
+    if (!callbackPort) {
+      throw new OAuthError(
+        'No available local callback ports are available. Please close other local applications using those ports.',
+        'PORT_IN_USE',
+        PROVIDER
+      );
+    }
+
+    const callbackUri = `http://localhost:${callbackPort}${CALLBACK_PATH}`;
+    // Build authorization URL
+    const authUrl = new URL(`https://${zendeskSubdomain}.zendesk.com/oauth/authorizations/new`);
+    authUrl.searchParams.set('client_id', this.clientId);
+    authUrl.searchParams.set('redirect_uri', callbackUri);
+    authUrl.searchParams.set('response_type', 'code');
+    authUrl.searchParams.set('state', state);
+    authUrl.searchParams.set(
+      'scope',
+      'read write tickets:read tickets:write users:read users:write'
+    );
+
+    const oauthConfig: OAuthConfig = {
+      provider: PROVIDER,
+      clientId: this.clientId,
+      clientSecret: this.clientSecret,
+      redirectPort: callbackPort,
+      timeoutMs: CALLBACK_TIMEOUT_MS,
+      callbackPath: CALLBACK_PATH,
+      windowOptions: {
+        width: 600,
+        height: 700,
+        autoHideMenuBar: true,
+        title: `Sign in to ${PROVIDER}`,
+      },
+    };
+
+    return new Promise((resolve, reject) => {
       let authWindow: ReturnType<typeof openOAuthWindow> | null = null;
       let serverCleanup: (() => void) | null = null;
       let timeoutId: NodeJS.Timeout | null = null;
@@ -116,21 +135,6 @@ export class ZendeskOAuth {
         authWindow?.close();
         serverCleanup?.();
         resolve(credentials);
-      };
-
-      const oauthConfig: OAuthConfig = {
-        provider: PROVIDER,
-        clientId: this.clientId,
-        clientSecret: this.clientSecret,
-        redirectPort: this.redirectPort,
-        timeoutMs: CALLBACK_TIMEOUT_MS,
-        callbackPath: CALLBACK_PATH,
-        windowOptions: {
-          width: 600,
-          height: 700,
-          autoHideMenuBar: true,
-          title: `Sign in to ${PROVIDER}`,
-        },
       };
 
       void (async () => {

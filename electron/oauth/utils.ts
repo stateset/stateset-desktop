@@ -1,5 +1,6 @@
 import { BrowserWindow } from 'electron';
 import * as http from 'http';
+import * as net from 'net';
 import { isAllowedLocalCallbackTarget } from '../url-security';
 
 /**
@@ -40,6 +41,57 @@ export interface OAuthConfig {
   timeoutMs: number;
   windowOptions?: Partial<Electron.BrowserWindowConstructorOptions>;
   callbackPath?: string;
+}
+
+type PortCandidate = number;
+
+function isSafePortNumber(value: number): value is PortCandidate {
+  return Number.isSafeInteger(value) && value > 0 && value <= 65535;
+}
+
+async function isPortAvailable(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (!isSafePortNumber(port)) {
+      resolve(false);
+      return;
+    }
+
+    const server = net.createServer();
+    server.unref();
+
+    server.on('error', () => {
+      resolve(false);
+    });
+
+    server.listen(port, 'localhost', () => {
+      server.close(() => {
+        resolve(true);
+      });
+    });
+  });
+}
+
+export async function findAvailableOAuthPort(
+  basePort: number,
+  candidateCount = 5
+): Promise<number | null> {
+  if (!isSafePortNumber(basePort)) {
+    return null;
+  }
+
+  const maxCandidates = Math.max(1, Math.floor(candidateCount));
+  for (let offset = 0; offset < maxCandidates; offset++) {
+    const candidate = basePort + offset;
+    if (!isSafePortNumber(candidate)) {
+      return null;
+    }
+
+    if (await isPortAvailable(candidate)) {
+      return candidate;
+    }
+  }
+
+  return null;
 }
 
 /**

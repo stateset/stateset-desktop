@@ -6,6 +6,15 @@ import { API_CONFIG } from '../config/api.config';
 
 const MAX_EVENTS = API_CONFIG.stream.maxEvents;
 const MAX_MESSAGES = API_CONFIG.stream.maxMessages;
+const STREAM_QUERY_AUTH_ENABLED = (() => {
+  const raw = import.meta.env.VITE_ALLOW_STREAM_QUERY_AUTH;
+  if (typeof raw !== 'string') {
+    return false;
+  }
+  const normalized = raw.trim().toLowerCase();
+  return normalized === 'true' || normalized === '1' || normalized === 'yes' || normalized === 'on';
+})();
+
 const STREAM_EVENT_TYPES = new Set([
   'status',
   'status_changed',
@@ -175,6 +184,62 @@ export function buildStreamAuthCandidates(
 
   return candidates;
 }
+
+const mapQueryAuthCandidateToHeaderCandidates = (
+  candidate: StreamAuthCandidate
+): StreamAuthCandidate[] => {
+  const query = candidate.query;
+  if (!Object.keys(query).length) {
+    return [candidate];
+  }
+
+  if (query.token && typeof query.token === 'string' && query.token.trim()) {
+    return [
+      {
+        ...candidate,
+        headers: { Authorization: `Bearer ${query.token}` },
+        query: {},
+        description: `${candidate.description} (Bearer header)`,
+      },
+      {
+        ...candidate,
+        headers: { Authorization: `ApiKey ${query.token}` },
+        query: {},
+        description: `${candidate.description} (ApiKey header)`,
+      },
+    ];
+  }
+
+  if (query.stream_token && typeof query.stream_token === 'string' && query.stream_token.trim()) {
+    return [
+      {
+        ...candidate,
+        headers: { Authorization: `Bearer ${query.stream_token}` },
+        query: {},
+        description: `${candidate.description} (Bearer header)`,
+      },
+      {
+        ...candidate,
+        headers: { Authorization: `ApiKey ${query.stream_token}` },
+        query: {},
+        description: `${candidate.description} (ApiKey header)`,
+      },
+    ];
+  }
+
+  if (query.api_key && typeof query.api_key === 'string' && query.api_key.trim()) {
+    return [
+      {
+        ...candidate,
+        headers: { 'X-API-Key': query.api_key },
+        query: {},
+        description: `${candidate.description} (X-API-Key header)`,
+      },
+    ];
+  }
+
+  return [candidate];
+};
 
 function parseEventType(rawEventName: string, rawData: string): AgentEvent | null {
   try {
@@ -673,11 +738,14 @@ export function useAgentStream({
       streamAbortRef.current = streamController;
 
       const shouldTryApiKeyFallback = allowApiKeyFallback || token === null;
-      const streamAuthCandidates = buildStreamAuthCandidates(
+      const rawStreamAuthCandidates = buildStreamAuthCandidates(
         token,
         apiKey,
         shouldTryApiKeyFallback
       );
+      const streamAuthCandidates = STREAM_QUERY_AUTH_ENABLED
+        ? rawStreamAuthCandidates
+        : rawStreamAuthCandidates.flatMap(mapQueryAuthCandidateToHeaderCandidates);
       let response: Response | null = null;
       let lastResponseStatus: number | null = null;
       let hadUnauthorizedResponse = false;
