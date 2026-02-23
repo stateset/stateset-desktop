@@ -71,7 +71,7 @@ describe('DashboardStats', () => {
       }),
     ];
     render(<DashboardStats sessions={sessions} />);
-    expect(screen.getByText('4,000')).toBeInTheDocument();
+    expect(screen.getByText('4.0K')).toBeInTheDocument();
     expect(screen.getByText('Tokens Used')).toBeInTheDocument();
   });
 
@@ -103,10 +103,10 @@ describe('DashboardStats', () => {
     expect(screen.getByText('Tool Calls')).toBeInTheDocument();
   });
 
-  it('shows stopped count in summary', () => {
+  it('shows total count in running card subtitle', () => {
     const sessions = [makeSession({ status: 'stopped' }), makeSession({ status: 'failed' })];
     render(<DashboardStats sessions={sessions} />);
-    expect(screen.getByText('2 stopped')).toBeInTheDocument();
+    expect(screen.getByText('2 total')).toBeInTheDocument();
   });
 
   it('shows total session count', () => {

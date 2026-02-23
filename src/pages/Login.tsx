@@ -138,7 +138,10 @@ export default function Login() {
         });
 
         if (result.credentials) {
-          await login(result.credentials.engine_api_key);
+          await login(result.credentials.engine_api_key, {
+            tenant: result.tenant,
+            brands: result.brands,
+          });
           // Set only a valid sandbox key to avoid using invalid placeholder values.
           const sandboxApiKey = normalizeSandboxApiKey(result.credentials.sandbox_api_key);
           if (sandboxApiKey) {
@@ -347,79 +350,81 @@ export default function Login() {
               )}
 
               <AnimatePresence>
-              {displayError && (
-                <motion.div
-                  role="alert"
-                  initial={reduceMotion ? undefined : { opacity: 0, height: 0, marginBottom: 0 }}
-                  animate={reduceMotion ? undefined : { opacity: 1, height: 'auto', marginBottom: 16 }}
-                  exit={reduceMotion ? undefined : { opacity: 0, height: 0, marginBottom: 0 }}
-                  transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
-                  className={clsx(
-                    'mb-4 overflow-hidden',
-                  )}
-                >
-                  <div
-                    className={clsx(
-                      'p-3 rounded-lg border',
-                      authError
-                        ? `${getErrorDisplay(authError)?.bgColor} ${getErrorDisplay(authError)?.borderColor}`
-                        : 'bg-red-900/30 border-red-800'
-                    )}
+                {displayError && (
+                  <motion.div
+                    role="alert"
+                    initial={reduceMotion ? undefined : { opacity: 0, height: 0, marginBottom: 0 }}
+                    animate={
+                      reduceMotion ? undefined : { opacity: 1, height: 'auto', marginBottom: 16 }
+                    }
+                    exit={reduceMotion ? undefined : { opacity: 0, height: 0, marginBottom: 0 }}
+                    transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+                    className={clsx('mb-4 overflow-hidden')}
                   >
-                  <div className="flex items-start gap-2">
-                    {authError ? (
-                      (() => {
-                        const display = getErrorDisplay(authError);
-                        const Icon = display?.icon || AlertCircle;
-                        return (
-                          <Icon
-                            className={clsx('w-4 h-4 mt-0.5 flex-shrink-0', display?.textColor)}
+                    <div
+                      className={clsx(
+                        'p-3 rounded-lg border',
+                        authError
+                          ? `${getErrorDisplay(authError)?.bgColor} ${getErrorDisplay(authError)?.borderColor}`
+                          : 'bg-red-900/30 border-red-800'
+                      )}
+                    >
+                      <div className="flex items-start gap-2">
+                        {authError ? (
+                          (() => {
+                            const display = getErrorDisplay(authError);
+                            const Icon = display?.icon || AlertCircle;
+                            return (
+                              <Icon
+                                className={clsx('w-4 h-4 mt-0.5 flex-shrink-0', display?.textColor)}
+                                aria-hidden="true"
+                              />
+                            );
+                          })()
+                        ) : (
+                          <AlertCircle
+                            className="w-4 h-4 mt-0.5 flex-shrink-0 text-red-400"
                             aria-hidden="true"
                           />
-                        );
-                      })()
-                    ) : (
-                      <AlertCircle
-                        className="w-4 h-4 mt-0.5 flex-shrink-0 text-red-400"
-                        aria-hidden="true"
-                      />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p
-                        className={clsx(
-                          'text-sm',
-                          authError ? getErrorDisplay(authError)?.textColor : 'text-red-400'
                         )}
-                      >
-                        {displayError}
-                      </p>
-                      {errorDetails && (
-                        <p
-                          className={clsx(
-                            'text-xs mt-1',
-                            authError ? getErrorDisplay(authError)?.detailsColor : 'text-red-300/70'
+                        <div className="flex-1 min-w-0">
+                          <p
+                            className={clsx(
+                              'text-sm',
+                              authError ? getErrorDisplay(authError)?.textColor : 'text-red-400'
+                            )}
+                          >
+                            {displayError}
+                          </p>
+                          {errorDetails && (
+                            <p
+                              className={clsx(
+                                'text-xs mt-1',
+                                authError
+                                  ? getErrorDisplay(authError)?.detailsColor
+                                  : 'text-red-300/70'
+                              )}
+                            >
+                              {errorDetails}
+                            </p>
                           )}
-                        >
-                          {errorDetails}
-                        </p>
-                      )}
+                        </div>
+                        {(authError?.code === 'NETWORK_ERROR' ||
+                          authError?.code === 'SERVER_ERROR') && (
+                          <button
+                            type="button"
+                            onClick={handleRetry}
+                            className="flex-shrink-0 p-1 hover:bg-white/10 rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+                            title="Dismiss"
+                            aria-label="Dismiss login error"
+                          >
+                            <RefreshCw className="w-3.5 h-3.5 text-gray-400" aria-hidden="true" />
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    {(authError?.code === 'NETWORK_ERROR' ||
-                      authError?.code === 'SERVER_ERROR') && (
-                      <button
-                        type="button"
-                        onClick={handleRetry}
-                        className="flex-shrink-0 p-1 hover:bg-white/10 rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
-                        title="Dismiss"
-                        aria-label="Dismiss login error"
-                      >
-                        <RefreshCw className="w-3.5 h-3.5 text-gray-400" aria-hidden="true" />
-                      </button>
-                    )}
-                  </div>
-                  </div>
-                </motion.div>
-              )}
+                  </motion.div>
+                )}
               </AnimatePresence>
 
               <button

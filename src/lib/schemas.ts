@@ -91,6 +91,11 @@ export const SessionsListResponseSchema = z.object({
   sessions: z.array(AgentSessionSchema),
 });
 
+export const AgentsListResponseSchema = z.object({
+  ok: z.boolean().optional(),
+  agents: z.array(AgentSessionSchema),
+});
+
 export const SessionResponseSchema = z.object({
   ok: z.boolean().optional(),
   session: AgentSessionSchema,

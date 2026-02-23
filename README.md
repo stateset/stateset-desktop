@@ -74,7 +74,25 @@ VITE_API_URL=https://engine.stateset.cloud.stateset.app
 ### Running in Development
 
 ```bash
-npm run dev
+npm start
+```
+
+You can also run the app with a direct command:
+
+```bash
+./start
+```
+
+For a globally available command, install the tiny CLI helper:
+
+```bash
+./scripts/install-cli.sh
+```
+
+Then run from anywhere:
+
+```bash
+stateset-desktop
 ```
 
 This will:

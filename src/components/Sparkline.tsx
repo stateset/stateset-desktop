@@ -4,7 +4,7 @@ import clsx from 'clsx';
 interface SparklineProps {
   /** Data points to display */
   data: number[];
-  /** Width of the chart */
+  /** Width of the chart (used as viewBox width when responsive) */
   width?: number;
   /** Height of the chart */
   height?: number;
@@ -14,10 +14,14 @@ interface SparklineProps {
   showFill?: boolean;
   /** Show dots at data points */
   showDots?: boolean;
+  /** Highlight the last data point */
+  showEndDot?: boolean;
   /** Minimum value (for consistent scaling) */
   min?: number;
   /** Maximum value (for consistent scaling) */
   max?: number;
+  /** Stretch to fill container width via viewBox */
+  responsive?: boolean;
   /** Additional className */
   className?: string;
 }
@@ -33,8 +37,10 @@ export const Sparkline = memo(function Sparkline({
   color = '#8B5CF6',
   showFill = true,
   showDots = false,
+  showEndDot = false,
   min: minProp,
   max: maxProp,
+  responsive = false,
   className,
 }: SparklineProps) {
   const { path, fillPath, points } = useMemo(() => {
@@ -80,9 +86,11 @@ export const Sparkline = memo(function Sparkline({
   if (data.length < 2) {
     return (
       <svg
-        width={width}
+        width={responsive ? '100%' : width}
         height={height}
-        className={clsx('inline-block', className)}
+        viewBox={responsive ? `0 0 ${width} ${height}` : undefined}
+        preserveAspectRatio={responsive ? 'none' : undefined}
+        className={clsx(responsive ? 'block' : 'inline-block', className)}
         aria-label="No data available"
       >
         <line
@@ -100,12 +108,15 @@ export const Sparkline = memo(function Sparkline({
   }
 
   const gradientId = `sparkline-gradient-${color.replace('#', '')}`;
+  const lastPoint = points[points.length - 1];
 
   return (
     <svg
-      width={width}
+      width={responsive ? '100%' : width}
       height={height}
-      className={clsx('inline-block', className)}
+      viewBox={responsive ? `0 0 ${width} ${height}` : undefined}
+      preserveAspectRatio={responsive ? 'none' : undefined}
+      className={clsx(responsive ? 'block' : 'inline-block', className)}
       aria-label={`Sparkline chart with ${data.length} data points`}
     >
       {showFill && (
@@ -131,6 +142,12 @@ export const Sparkline = memo(function Sparkline({
         points.map((point, index) => (
           <circle key={index} cx={point.x} cy={point.y} r={2} fill={color} />
         ))}
+      {showEndDot && lastPoint && (
+        <>
+          <circle cx={lastPoint.x} cy={lastPoint.y} r={3} fill={color} opacity={0.3} />
+          <circle cx={lastPoint.x} cy={lastPoint.y} r={1.5} fill={color} />
+        </>
+      )}
     </svg>
   );
 });
@@ -138,7 +155,7 @@ export const Sparkline = memo(function Sparkline({
 interface SparklineBarProps {
   /** Data points to display */
   data: number[];
-  /** Width of the chart */
+  /** Width of the chart (used as viewBox width when responsive) */
   width?: number;
   /** Height of the chart */
   height?: number;
@@ -146,6 +163,8 @@ interface SparklineBarProps {
   color?: string;
   /** Gap between bars */
   gap?: number;
+  /** Stretch to fill container width via viewBox */
+  responsive?: boolean;
   /** Additional className */
   className?: string;
 }
@@ -160,6 +179,7 @@ export const SparklineBar = memo(function SparklineBar({
   height = 32,
   color = '#8B5CF6',
   gap = 2,
+  responsive = false,
   className,
 }: SparklineBarProps) {
   const bars = useMemo(() => {
@@ -183,9 +203,11 @@ export const SparklineBar = memo(function SparklineBar({
   if (data.length === 0) {
     return (
       <svg
-        width={width}
+        width={responsive ? '100%' : width}
         height={height}
-        className={clsx('inline-block', className)}
+        viewBox={responsive ? `0 0 ${width} ${height}` : undefined}
+        preserveAspectRatio={responsive ? 'none' : undefined}
+        className={clsx(responsive ? 'block' : 'inline-block', className)}
         aria-label="No data available"
       />
     );
@@ -193,9 +215,11 @@ export const SparklineBar = memo(function SparklineBar({
 
   return (
     <svg
-      width={width}
+      width={responsive ? '100%' : width}
       height={height}
-      className={clsx('inline-block', className)}
+      viewBox={responsive ? `0 0 ${width} ${height}` : undefined}
+      preserveAspectRatio={responsive ? 'none' : undefined}
+      className={clsx(responsive ? 'block' : 'inline-block', className)}
       aria-label={`Bar chart with ${data.length} data points`}
     >
       {bars.map((bar, index) => (

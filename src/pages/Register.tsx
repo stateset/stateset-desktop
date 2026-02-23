@@ -71,7 +71,10 @@ export default function Register() {
       // Auto-set API key pair
       if (result.credentials) {
         // Set Engine API key via login
-        await login(result.credentials.engine_api_key);
+        await login(result.credentials.engine_api_key, {
+          tenant: result.tenant,
+          brands: result.brands,
+        });
 
         // Set sandbox API key only when a real sandbox key is available
         const sandboxApiKey = normalizeSandboxApiKey(result.credentials.sandbox_api_key);

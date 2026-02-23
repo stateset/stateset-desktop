@@ -15,6 +15,21 @@ const INVALID_SANDBOX_API_KEY_VALUES = new Set([
 
 const normalize = (value: string): string => value.trim();
 
+function selectCurrentBrand(brands: Brand[], preferredBrand: Brand | null): Brand | null {
+  if (!brands.length) {
+    return null;
+  }
+
+  const enabledBrands = brands.filter((brand) => brand.enabled);
+  const candidates = enabledBrands.length > 0 ? enabledBrands : brands;
+
+  if (!preferredBrand?.id) {
+    return candidates[0] || null;
+  }
+
+  return candidates.find((brand) => brand.id === preferredBrand.id) ?? candidates[0] ?? null;
+}
+
 export function normalizeSandboxApiKey(raw?: string | null): string | null {
   if (!raw || typeof raw !== 'string') {
     return null;
@@ -49,6 +64,11 @@ export interface AuthError {
   message: string;
   details?: string;
 }
+
+type LoginFallback = {
+  tenant?: Tenant | null;
+  brands?: Brand[];
+};
 
 /**
  * Parse API error response to AuthError
@@ -113,7 +133,7 @@ interface AuthState {
 
   // Actions
   initialize: () => Promise<void>;
-  login: (apiKey: string) => Promise<void>;
+  login: (apiKey: string, fallback?: LoginFallback) => Promise<void>;
   logout: () => Promise<void>;
   setCurrentBrand: (brand: Brand) => void;
   setBrands: (brands: Brand[]) => void;
@@ -184,7 +204,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           sandboxApiKey: effectiveSandboxKey || null,
           tenant: e2eAuth.tenant,
           brands: e2eAuth.brands,
-          currentBrand: e2eAuth.brands?.[0] || null,
+          currentBrand: selectCurrentBrand(e2eAuth.brands, null),
           isLoading: false,
         });
         return;
@@ -206,13 +226,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
           if (response.ok) {
             const data = await response.json();
+            const responseBrands = Array.isArray(data.brands) ? data.brands : [];
             set({
               isAuthenticated: true,
               apiKey: storedKey,
               sandboxApiKey: effectiveSandboxKey,
               tenant: data.tenant,
-              brands: data.brands || [],
-              currentBrand: data.brands?.[0] || null,
+              brands: responseBrands,
+              currentBrand: selectCurrentBrand(responseBrands, get().currentBrand),
               isLoading: false,
             });
             return;
@@ -268,7 +289,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  login: async (apiKey: string) => {
+  login: async (apiKey: string, fallback?: LoginFallback) => {
     set({ isLoading: true, error: null });
 
     try {
@@ -295,7 +316,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           apiKey,
           tenant: e2eAuth.tenant,
           brands: e2eAuth.brands,
-          currentBrand: e2eAuth.brands?.[0] || null,
+          currentBrand: selectCurrentBrand(e2eAuth.brands, null),
           isLoading: false,
         });
         return;
@@ -322,6 +343,33 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
 
       if (!response.ok) {
+        if (response.status >= 500 && fallback) {
+          const fallbackBrands = Array.isArray(fallback.brands) ? fallback.brands : [];
+          try {
+            if (window.electronAPI) {
+              await window.electronAPI.auth.setApiKey(apiKey);
+            }
+          } catch (storageError) {
+            console.error('Failed to store API key:', storageError);
+          }
+
+          set({
+            isAuthenticated: true,
+            apiKey,
+            sandboxApiKey: get().sandboxApiKey,
+            tenant: fallback.tenant ?? null,
+            brands: fallbackBrands,
+            currentBrand: selectCurrentBrand(fallbackBrands, null),
+            isLoading: false,
+          });
+
+          useAuditLogStore
+            .getState()
+            .log('user.login', `Logged in as ${fallback.tenant?.name || 'unknown'}`);
+
+          return;
+        }
+
         const error = parseAuthError(response, 'Login failed');
         set({ isLoading: false, error });
         throw new Error(error.message);
@@ -339,12 +387,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         }
       }
 
+      const loginBrands = Array.isArray(data.brands) ? data.brands : [];
       set({
         isAuthenticated: true,
         apiKey,
         tenant: data.tenant,
-        brands: data.brands || [],
-        currentBrand: data.brands?.[0] || null,
+        brands: loginBrands,
+        currentBrand: selectCurrentBrand(loginBrands, get().currentBrand),
         isLoading: false,
       });
 
@@ -388,10 +437,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   setBrands: (brands: Brand[]) => {
-    set({ brands });
-    if (!get().currentBrand && brands.length > 0) {
-      set({ currentBrand: brands[0] });
-    }
+    set({
+      brands,
+      currentBrand: selectCurrentBrand(brands, get().currentBrand),
+    });
   },
 
   setSandboxApiKey: async (apiKey: string) => {

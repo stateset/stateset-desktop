@@ -14,6 +14,7 @@ import { apiLogger } from './logger';
 import { recordApiCall } from './metrics';
 import {
   SessionsListResponseSchema,
+  AgentsListResponseSchema,
   SessionResponseSchema,
   BrandsListResponseSchema,
   BrandResponseSchema,
@@ -210,6 +211,159 @@ function shouldCountCircuitBreakerFailure(status?: number): boolean {
     return true;
   }
   return status >= 500 || status === 429;
+}
+
+function getErrorStatus(error: unknown): number | undefined {
+  if (!(error && typeof error === 'object')) {
+    return undefined;
+  }
+
+  if ('status' in error) {
+    const status = (error as { status?: unknown }).status;
+    return typeof status === 'number' ? status : undefined;
+  }
+
+  return undefined;
+}
+
+function getBrandSelectionState(): {
+  brands: Brand[];
+  currentBrand: Brand | null;
+} {
+  const authState = useAuthStore.getState() as {
+    brands?: unknown;
+    currentBrand?: Brand | null;
+  };
+
+  const brandsValue = authState.brands;
+  const brands = Array.isArray(brandsValue) ? (brandsValue as Brand[]) : [];
+  const currentBrand = authState.currentBrand ?? null;
+
+  return { brands, currentBrand };
+}
+
+function getResolvedBrandId(
+  brandId: string | undefined,
+  allowFallback: boolean = false
+): string | undefined {
+  const { brands, currentBrand } = getBrandSelectionState();
+
+  if (!brands.length) {
+    return brandId;
+  }
+
+  const enabledBrands = brands.filter((brand) => brand.enabled);
+  if (enabledBrands.length === 0) {
+    return undefined;
+  }
+
+  if (brandId) {
+    const explicitBrand = enabledBrands.find((brand) => brand.id === brandId);
+    if (explicitBrand) {
+      return explicitBrand.id;
+    }
+
+    if (!allowFallback) {
+      return undefined;
+    }
+  }
+
+  if (!allowFallback) {
+    return undefined;
+  }
+
+  if (currentBrand?.id) {
+    const currentBrandMatch = enabledBrands.find((brand) => brand.id === currentBrand.id);
+    if (currentBrandMatch) {
+      return currentBrandMatch.id;
+    }
+  }
+
+  return enabledBrands[0]?.id;
+}
+
+function getRequiredBrandId(brandId: string | undefined): string {
+  const resolvedBrandId = getResolvedBrandId(brandId, false);
+  if (!resolvedBrandId) {
+    throw new Error('No brand selected.');
+  }
+  return resolvedBrandId;
+}
+
+function parseSessionsResponsePayload(raw: unknown): AgentSession[] {
+  const sessionsResult = SessionsListResponseSchema.safeParse(raw);
+  if (sessionsResult.success) {
+    return sessionsResult.data.sessions;
+  }
+
+  const agentsResult = AgentsListResponseSchema.safeParse(raw);
+  if (agentsResult.success) {
+    return agentsResult.data.agents;
+  }
+
+  throw sessionsResult.error;
+}
+
+function shouldFallbackToBrandScopedAgentsPath(error: unknown): boolean {
+  const status = getErrorStatus(error);
+
+  if (status === undefined) {
+    return true;
+  }
+
+  if (status === 401 || status === 403) {
+    return false;
+  }
+
+  return true;
+}
+
+function getTenantAgentSessionPaths(tenantId: string, brandId?: string): string[] {
+  if (!brandId) {
+    return [buildPath('tenants', tenantId, 'agents')];
+  }
+
+  return [
+    buildPath('tenants', tenantId, 'brands', brandId, 'agents'),
+    buildPath('brands', brandId, 'agents'),
+    buildPath('tenants', tenantId, 'agents'),
+  ];
+}
+
+function getBrandResourcePaths(tenantId: string, brandId: string, resource: string): string[] {
+  return [
+    buildPath('tenants', tenantId, 'brands', brandId, resource),
+    buildPath('brands', brandId, resource),
+    `${buildPath('tenants', tenantId, resource)}?brand_id=${encodeQueryValue(brandId)}`,
+    buildPath('tenants', tenantId, resource),
+  ];
+}
+
+async function fetchWithFallbackPaths<T>(
+  paths: string[],
+  parser: (raw: unknown) => T,
+  shouldAttemptFallback: (error: unknown) => boolean = shouldFallbackToBrandScopedAgentsPath
+): Promise<T> {
+  let lastError: unknown;
+
+  for (const [index, path] of paths.entries()) {
+    try {
+      const raw = await apiRequest<unknown>(path);
+      return parser(raw);
+    } catch (error) {
+      lastError = error;
+
+      if (index + 1 >= paths.length) {
+        break;
+      }
+
+      if (!shouldAttemptFallback(error)) {
+        break;
+      }
+    }
+  }
+
+  throw lastError as Error;
 }
 
 interface ApiResult<T> {
@@ -472,10 +626,9 @@ export { getMetricsSummary } from './metrics';
 export const agentApi = {
   // List sessions for current tenant/brand
   listSessions: async (tenantId: string, brandId?: string): Promise<AgentSession[]> => {
-    const params = brandId ? `?brand_id=${encodeQueryValue(brandId)}` : '';
-    const raw = await apiRequest<unknown>(`${buildPath('tenants', tenantId, 'agents')}${params}`);
-    const response = validateResponse(SessionsListResponseSchema, raw);
-    return response.sessions;
+    const fallbackBrandId = getResolvedBrandId(brandId, true);
+    const sessionPaths = getTenantAgentSessionPaths(tenantId, fallbackBrandId);
+    return fetchWithFallbackPaths(sessionPaths, parseSessionsResponsePayload);
   },
 
   // Get a single session
@@ -484,8 +637,9 @@ export const agentApi = {
     brandId: string,
     sessionId: string
   ): Promise<AgentSession> => {
+    const resolvedBrandId = getRequiredBrandId(brandId);
     const raw = await apiRequest<unknown>(
-      buildPath('tenants', tenantId, 'brands', brandId, 'agents', sessionId)
+      buildPath('tenants', tenantId, 'brands', resolvedBrandId, 'agents', sessionId)
     );
     const response = validateResponse(SessionResponseSchema, raw);
     return response.session;
@@ -498,6 +652,7 @@ export const agentApi = {
     agentType: string,
     config?: Partial<AgentSessionConfig>
   ): Promise<AgentSession> => {
+    const resolvedBrandId = getRequiredBrandId(brandId);
     const storedSandboxApiKey = useAuthStore.getState().sandboxApiKey;
     const enrichedConfig =
       storedSandboxApiKey || config
@@ -508,7 +663,7 @@ export const agentApi = {
         : undefined;
 
     const raw = await apiRequest<unknown>(
-      buildPath('tenants', tenantId, 'brands', brandId, 'agents'),
+      buildPath('tenants', tenantId, 'brands', resolvedBrandId, 'agents'),
       {
         method: 'POST',
         body: JSON.stringify({ agent_type: agentType, config: enrichedConfig }),
@@ -524,8 +679,9 @@ export const agentApi = {
     brandId: string,
     sessionId: string
   ): Promise<AgentSession> => {
+    const resolvedBrandId = getRequiredBrandId(brandId);
     const raw = await apiRequest<unknown>(
-      buildPath('tenants', tenantId, 'brands', brandId, 'agents', sessionId, 'start'),
+      buildPath('tenants', tenantId, 'brands', resolvedBrandId, 'agents', sessionId, 'start'),
       { method: 'POST' }
     );
     const response = validateResponse(SessionResponseSchema, raw);
@@ -534,8 +690,9 @@ export const agentApi = {
 
   // Pause a session
   pauseSession: async (tenantId: string, brandId: string, sessionId: string): Promise<void> => {
+    const resolvedBrandId = getRequiredBrandId(brandId);
     await apiRequest(
-      buildPath('tenants', tenantId, 'brands', brandId, 'agents', sessionId, 'pause'),
+      buildPath('tenants', tenantId, 'brands', resolvedBrandId, 'agents', sessionId, 'pause'),
       {
         method: 'POST',
       }
@@ -544,8 +701,9 @@ export const agentApi = {
 
   // Resume a session
   resumeSession: async (tenantId: string, brandId: string, sessionId: string): Promise<void> => {
+    const resolvedBrandId = getRequiredBrandId(brandId);
     await apiRequest(
-      buildPath('tenants', tenantId, 'brands', brandId, 'agents', sessionId, 'resume'),
+      buildPath('tenants', tenantId, 'brands', resolvedBrandId, 'agents', sessionId, 'resume'),
       {
         method: 'POST',
       }
@@ -554,8 +712,9 @@ export const agentApi = {
 
   // Stop a session
   stopSession: async (tenantId: string, brandId: string, sessionId: string): Promise<void> => {
+    const resolvedBrandId = getRequiredBrandId(brandId);
     await apiRequest(
-      buildPath('tenants', tenantId, 'brands', brandId, 'agents', sessionId, 'stop'),
+      buildPath('tenants', tenantId, 'brands', resolvedBrandId, 'agents', sessionId, 'stop'),
       {
         method: 'POST',
       }
@@ -564,9 +723,13 @@ export const agentApi = {
 
   // Delete a session
   deleteSession: async (tenantId: string, brandId: string, sessionId: string): Promise<void> => {
-    await apiRequest(buildPath('tenants', tenantId, 'brands', brandId, 'agents', sessionId), {
-      method: 'DELETE',
-    });
+    const resolvedBrandId = getRequiredBrandId(brandId);
+    await apiRequest(
+      buildPath('tenants', tenantId, 'brands', resolvedBrandId, 'agents', sessionId),
+      {
+        method: 'DELETE',
+      }
+    );
   },
 
   // Send a message to the agent
@@ -576,8 +739,9 @@ export const agentApi = {
     sessionId: string,
     message: string
   ): Promise<void> => {
+    const resolvedBrandId = getRequiredBrandId(brandId);
     await apiRequest(
-      buildPath('tenants', tenantId, 'brands', brandId, 'agents', sessionId, 'message'),
+      buildPath('tenants', tenantId, 'brands', resolvedBrandId, 'agents', sessionId, 'message'),
       {
         method: 'POST',
         body: JSON.stringify({ message }),
@@ -592,8 +756,9 @@ export const agentApi = {
     sessionId: string,
     config: AgentSessionConfig
   ): Promise<void> => {
+    const resolvedBrandId = getRequiredBrandId(brandId);
     await apiRequest(
-      buildPath('tenants', tenantId, 'brands', brandId, 'agents', sessionId, 'config'),
+      buildPath('tenants', tenantId, 'brands', resolvedBrandId, 'agents', sessionId, 'config'),
       {
         method: 'PUT',
         body: JSON.stringify({ config }),
@@ -603,7 +768,16 @@ export const agentApi = {
 
   // Get SSE stream URL (auth is provided via query params by the desktop client).
   getStreamUrl: (tenantId: string, brandId: string, sessionId: string): string => {
-    return `${API_URL}${buildPath('tenants', tenantId, 'brands', brandId, 'agents', sessionId, 'stream')}`;
+    const resolvedBrandId = getRequiredBrandId(brandId);
+    return `${API_URL}${buildPath(
+      'tenants',
+      tenantId,
+      'brands',
+      resolvedBrandId,
+      'agents',
+      sessionId,
+      'stream'
+    )}`;
   },
 
   // Request a short-lived stream token (preferred over API key in URL)
@@ -612,9 +786,19 @@ export const agentApi = {
     brandId: string,
     sessionId: string
   ): Promise<string | null> => {
+    const resolvedBrandId = getRequiredBrandId(brandId);
     try {
       const raw = await apiRequest<unknown>(
-        buildPath('tenants', tenantId, 'brands', brandId, 'agents', sessionId, 'stream', 'token'),
+        buildPath(
+          'tenants',
+          tenantId,
+          'brands',
+          resolvedBrandId,
+          'agents',
+          sessionId,
+          'stream',
+          'token'
+        ),
         { method: 'POST' }
       );
       const response = validateResponse(StreamTokenResponseSchema, raw);
@@ -638,7 +822,10 @@ export const brandsApi = {
   },
 
   get: async (tenantId: string, brandId: string): Promise<Brand> => {
-    const raw = await apiRequest<unknown>(buildPath('tenants', tenantId, 'brands', brandId));
+    const resolvedBrandId = getRequiredBrandId(brandId);
+    const raw = await apiRequest<unknown>(
+      buildPath('tenants', tenantId, 'brands', resolvedBrandId)
+    );
     const response = validateResponse(BrandResponseSchema, raw);
     return response.brand;
   },
@@ -660,10 +847,11 @@ export const brandsApi = {
 export const secretsApi = {
   // List connected platforms
   listConnections: async (tenantId: string, brandId: string): Promise<PlatformConnection[]> => {
-    const raw = await apiRequest<unknown>(
-      buildPath('tenants', tenantId, 'brands', brandId, 'secrets')
+    const resolvedBrandId = getRequiredBrandId(brandId);
+    const resourcePaths = getBrandResourcePaths(tenantId, resolvedBrandId, 'secrets');
+    const response = await fetchWithFallbackPaths(resourcePaths, (raw) =>
+      validateResponse(SecretsListResponseSchema, raw)
     );
-    const response = validateResponse(SecretsListResponseSchema, raw);
 
     // Convert to PlatformConnection format
     return response.platforms.map((platform) => ({
@@ -680,7 +868,8 @@ export const secretsApi = {
     platform: string,
     credentials: Record<string, string>
   ): Promise<void> => {
-    await apiRequest(buildPath('tenants', tenantId, 'brands', brandId, 'secrets'), {
+    const resolvedBrandId = getRequiredBrandId(brandId);
+    await apiRequest(buildPath('tenants', tenantId, 'brands', resolvedBrandId, 'secrets'), {
       method: 'POST',
       body: JSON.stringify({ platform, credentials }),
     });
@@ -692,8 +881,9 @@ export const secretsApi = {
     brandId: string,
     platform: string
   ): Promise<{ success: boolean; message: string }> => {
+    const resolvedBrandId = getRequiredBrandId(brandId);
     const raw = await apiRequest<unknown>(
-      buildPath('tenants', tenantId, 'brands', brandId, 'secrets', platform, 'test'),
+      buildPath('tenants', tenantId, 'brands', resolvedBrandId, 'secrets', platform, 'test'),
       { method: 'POST' }
     );
     const response = validateResponse(SecretsTestResponseSchema, raw);
@@ -702,9 +892,13 @@ export const secretsApi = {
 
   // Delete credentials
   deleteCredentials: async (tenantId: string, brandId: string, platform: string): Promise<void> => {
-    await apiRequest(buildPath('tenants', tenantId, 'brands', brandId, 'secrets', platform), {
-      method: 'DELETE',
-    });
+    const resolvedBrandId = getRequiredBrandId(brandId);
+    await apiRequest(
+      buildPath('tenants', tenantId, 'brands', resolvedBrandId, 'secrets', platform),
+      {
+        method: 'DELETE',
+      }
+    );
   },
 };
 
@@ -714,16 +908,18 @@ export const secretsApi = {
 
 export const webhooksApi = {
   list: async (tenantId: string, brandId: string): Promise<Webhook[]> => {
+    const resolvedBrandId = getRequiredBrandId(brandId);
     const raw = await apiRequest<unknown>(
-      buildPath('tenants', tenantId, 'brands', brandId, 'webhooks')
+      buildPath('tenants', tenantId, 'brands', resolvedBrandId, 'webhooks')
     );
     const response = validateResponse(WebhooksListResponseSchema, raw);
     return response.webhooks;
   },
 
   get: async (tenantId: string, brandId: string, webhookId: string): Promise<Webhook> => {
+    const resolvedBrandId = getRequiredBrandId(brandId);
     const raw = await apiRequest<unknown>(
-      buildPath('tenants', tenantId, 'brands', brandId, 'webhooks', webhookId)
+      buildPath('tenants', tenantId, 'brands', resolvedBrandId, 'webhooks', webhookId)
     );
     const response = validateResponse(WebhookResponseSchema, raw);
     return response.webhook;
@@ -740,8 +936,9 @@ export const webhooksApi = {
       headers?: Record<string, string>;
     }
   ): Promise<Webhook> => {
+    const resolvedBrandId = getRequiredBrandId(brandId);
     const raw = await apiRequest<unknown>(
-      buildPath('tenants', tenantId, 'brands', brandId, 'webhooks'),
+      buildPath('tenants', tenantId, 'brands', resolvedBrandId, 'webhooks'),
       { method: 'POST', body: JSON.stringify(data) }
     );
     const response = validateResponse(WebhookResponseSchema, raw);
@@ -760,8 +957,9 @@ export const webhooksApi = {
       headers: Record<string, string>;
     }>
   ): Promise<Webhook> => {
+    const resolvedBrandId = getRequiredBrandId(brandId);
     const raw = await apiRequest<unknown>(
-      buildPath('tenants', tenantId, 'brands', brandId, 'webhooks', webhookId),
+      buildPath('tenants', tenantId, 'brands', resolvedBrandId, 'webhooks', webhookId),
       { method: 'PUT', body: JSON.stringify(data) }
     );
     const response = validateResponse(WebhookResponseSchema, raw);
@@ -769,9 +967,13 @@ export const webhooksApi = {
   },
 
   delete: async (tenantId: string, brandId: string, webhookId: string): Promise<void> => {
-    await apiRequest(buildPath('tenants', tenantId, 'brands', brandId, 'webhooks', webhookId), {
-      method: 'DELETE',
-    });
+    const resolvedBrandId = getRequiredBrandId(brandId);
+    await apiRequest(
+      buildPath('tenants', tenantId, 'brands', resolvedBrandId, 'webhooks', webhookId),
+      {
+        method: 'DELETE',
+      }
+    );
   },
 
   test: async (
@@ -779,8 +981,9 @@ export const webhooksApi = {
     brandId: string,
     webhookId: string
   ): Promise<{ success: boolean; status_code: number | null; duration_ms: number }> => {
+    const resolvedBrandId = getRequiredBrandId(brandId);
     return apiRequest(
-      buildPath('tenants', tenantId, 'brands', brandId, 'webhooks', webhookId, 'test'),
+      buildPath('tenants', tenantId, 'brands', resolvedBrandId, 'webhooks', webhookId, 'test'),
       {
         method: 'POST',
       }
@@ -792,8 +995,9 @@ export const webhooksApi = {
     brandId: string,
     webhookId: string
   ): Promise<WebhookDelivery[]> => {
+    const resolvedBrandId = getRequiredBrandId(brandId);
     const raw = await apiRequest<unknown>(
-      buildPath('tenants', tenantId, 'brands', brandId, 'webhooks', webhookId, 'deliveries')
+      buildPath('tenants', tenantId, 'brands', resolvedBrandId, 'webhooks', webhookId, 'deliveries')
     );
     const response = validateResponse(WebhookDeliveriesResponseSchema, raw);
     return response.deliveries;

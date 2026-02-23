@@ -11,14 +11,14 @@ interface ActivityItem {
   timestamp: Date;
 }
 
-const TYPE_CONFIG: Record<ActivityItem['type'], { color: string; label: string }> = {
-  created: { color: 'bg-blue-500', label: 'Created' },
-  started: { color: 'bg-green-500', label: 'Started' },
-  stopped: { color: 'bg-gray-500', label: 'Stopped' },
-  failed: { color: 'bg-red-500', label: 'Failed' },
+const TYPE_CONFIG: Record<ActivityItem['type'], { color: string; bg: string; label: string }> = {
+  created: { color: 'text-blue-400', bg: 'bg-blue-500', label: 'Created' },
+  started: { color: 'text-emerald-400', bg: 'bg-emerald-500', label: 'Started' },
+  stopped: { color: 'text-slate-400', bg: 'bg-slate-500', label: 'Stopped' },
+  failed: { color: 'text-rose-400', bg: 'bg-rose-500', label: 'Failed' },
 };
 
-const INITIAL_VISIBLE = 5;
+const INITIAL_VISIBLE = 6;
 
 interface RecentActivityTimelineProps {
   sessions: AgentSession[];
@@ -67,51 +67,79 @@ export const RecentActivityTimeline = memo(function RecentActivityTimeline({
   const hasMore = activities.length > INITIAL_VISIBLE;
 
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-      <h3 className="text-sm font-semibold text-gray-300 mb-3">Recent Activity</h3>
-      <div className="space-y-0">
-        {visible.map((item, i) => {
-          const config = TYPE_CONFIG[item.type];
-          return (
-            <div
-              key={`${item.sessionName}-${item.type}-${i}`}
-              className="flex items-start gap-3 py-1.5"
-            >
-              <div className="flex flex-col items-center mt-1.5">
-                <div className={clsx('w-2 h-2 rounded-full', config.color)} />
-                {i < visible.length - 1 && <div className="w-px h-4 bg-gray-800 mt-1" />}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium truncate">{item.sessionName}</span>
-                  <span className="text-[10px] text-gray-500 uppercase">{config.label}</span>
-                </div>
-                <span className="text-xs text-gray-500">
-                  {formatDistanceToNow(item.timestamp, { addSuffix: true })}
-                </span>
-              </div>
-            </div>
-          );
-        })}
+    <div className="bg-slate-900/40 border border-slate-700/50 rounded-2xl overflow-hidden backdrop-blur-md">
+      <div className="px-4 py-3 border-b border-slate-700/50 bg-slate-900/60">
+        <h3 className="text-sm font-bold text-gray-300">Recent Activity</h3>
       </div>
-      {hasMore && (
-        <button
-          type="button"
-          onClick={() => setShowAll(!showAll)}
-          className="flex items-center gap-1 mt-2 text-xs text-gray-500 hover:text-gray-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
-          aria-label={
-            showAll
-              ? 'Show fewer activity items'
-              : `Show ${activities.length - INITIAL_VISIBLE} more activity items`
-          }
-        >
-          <ChevronDown
-            className={clsx('w-3.5 h-3.5 transition-transform', showAll && 'rotate-180')}
-            aria-hidden="true"
-          />
-          {showAll ? 'Show less' : `Show ${activities.length - INITIAL_VISIBLE} more`}
-        </button>
-      )}
+      <div className="px-4 py-3">
+        <div className="relative">
+          {/* Timeline connector line */}
+          <div className="absolute left-[7px] top-2 bottom-2 w-px bg-gradient-to-b from-slate-700 via-slate-700/50 to-transparent" />
+
+          <div className="space-y-0.5">
+            {visible.map((item, i) => {
+              const cfg = TYPE_CONFIG[item.type];
+              return (
+                <div
+                  key={`${item.sessionName}-${item.type}-${i}`}
+                  className="relative flex items-start gap-3 py-1.5 group"
+                >
+                  {/* Timeline dot */}
+                  <div className="relative z-10 mt-1 flex-shrink-0">
+                    <div
+                      className={clsx(
+                        'w-[15px] h-[15px] rounded-full flex items-center justify-center',
+                        'bg-slate-900 border border-slate-700/80'
+                      )}
+                    >
+                      <div className={clsx('w-[7px] h-[7px] rounded-full', cfg.bg)} />
+                    </div>
+                  </div>
+
+                  {/* Content */}
+                  <div className="flex-1 min-w-0 -mt-0.5">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[13px] font-medium text-gray-300 truncate">
+                        {item.sessionName}
+                      </span>
+                      <span
+                        className={clsx(
+                          'text-[10px] font-bold uppercase tracking-wider',
+                          cfg.color
+                        )}
+                      >
+                        {cfg.label}
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-gray-600">
+                      {formatDistanceToNow(item.timestamp, { addSuffix: true })}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {hasMore && (
+          <button
+            type="button"
+            onClick={() => setShowAll(!showAll)}
+            className="flex items-center gap-1.5 mt-3 text-[11px] font-semibold text-gray-500 hover:text-gray-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+            aria-label={
+              showAll
+                ? 'Show fewer activity items'
+                : `Show ${activities.length - INITIAL_VISIBLE} more activity items`
+            }
+          >
+            <ChevronDown
+              className={clsx('w-3.5 h-3.5 transition-transform', showAll && 'rotate-180')}
+              aria-hidden="true"
+            />
+            {showAll ? 'Show less' : `${activities.length - INITIAL_VISIBLE} more`}
+          </button>
+        )}
+      </div>
     </div>
   );
 });

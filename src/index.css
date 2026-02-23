@@ -550,6 +550,36 @@ button:active {
   @apply bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.4)];
 }
 
+/* Dashboard stat card accent animation */
+@keyframes accent-shimmer {
+  0% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.6;
+  }
+}
+
+.stat-card-active-accent {
+  animation: accent-shimmer 2s ease-in-out infinite;
+}
+
+/* Sidebar sticky on large screens */
+@media (min-width: 1024px) {
+  .sidebar-sticky {
+    position: sticky;
+    top: 1.5rem;
+    max-height: calc(100vh - 3rem);
+    overflow-y: auto;
+  }
+  .sidebar-sticky::-webkit-scrollbar {
+    width: 0;
+  }
+}
+
 /* Light theme overrides */
 :root[data-theme='light'] {
   color-scheme: light;

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi, type Mock } from 'vitest';
 import { API_CONFIG } from '../config/api.config';
-import { agentApi } from './api';
+import { agentApi, secretsApi } from './api';
 
 const mockCircuitBreaker = vi.hoisted(() => ({
   isCallPermitted: vi.fn(() => true),
@@ -320,7 +320,7 @@ describe('Agent API', () => {
   });
 
   describe('listSessions', () => {
-    it('should encode tenant and brand segments in request URL', async () => {
+    it('should prefer brand-scoped endpoint for tenant+brand sessions', async () => {
       const tenantId = 'tenant with/space';
       const brandId = 'brand?value';
 
@@ -335,10 +335,108 @@ describe('Agent API', () => {
 
       const requestedUrl = String(fetchMock.mock.calls[0]?.[0]);
       expect(requestedUrl).toBe(
-        `${API_CONFIG.baseUrl}/api/v1/tenants/${encodeURIComponent(tenantId)}/agents?brand_id=${encodeURIComponent(
+        `${API_CONFIG.baseUrl}/api/v1/tenants/${encodeURIComponent(tenantId)}/brands/${encodeURIComponent(
           brandId
-        )}`
+        )}/agents`
       );
+    });
+
+    it('should fallback across tenant-scoped, brand-scoped, and unscoped sessions endpoints', async () => {
+      const tenantId = 'tenant-123';
+      const brandId = 'brand-456';
+
+      fetchMock
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 500,
+          headers: { get: () => 'application/json' },
+          text: async () => JSON.stringify({ error: 'Internal server error' }),
+        })
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 500,
+          headers: { get: () => 'application/json' },
+          text: async () => JSON.stringify({ error: 'Internal server error' }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          headers: { get: () => 'application/json' },
+          text: async () =>
+            JSON.stringify({
+              sessions: [],
+            }),
+        });
+
+      await agentApi.listSessions(tenantId, brandId);
+
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+      const firstUrl = String(fetchMock.mock.calls[0]?.[0]);
+      const secondUrl = String(fetchMock.mock.calls[1]?.[0]);
+      const thirdUrl = String(fetchMock.mock.calls[2]?.[0]);
+
+      expect(firstUrl).toBe(
+        `${API_CONFIG.baseUrl}/api/v1/tenants/${encodeURIComponent(tenantId)}/brands/${encodeURIComponent(
+          brandId
+        )}/agents`
+      );
+      expect(secondUrl).toBe(
+        `${API_CONFIG.baseUrl}/api/v1/brands/${encodeURIComponent(brandId)}/agents`
+      );
+      expect(thirdUrl).toBe(
+        `${API_CONFIG.baseUrl}/api/v1/tenants/${encodeURIComponent(tenantId)}/agents`
+      );
+    });
+
+    it('should parse legacy agents payload key', async () => {
+      const tenantId = 'tenant-123';
+      const brandId = 'brand-456';
+
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        headers: { get: () => 'application/json' },
+        text: async () =>
+          JSON.stringify({
+            agents: [
+              {
+                id: 'agent-1',
+                tenant_id: tenantId,
+                brand_id: brandId,
+                agent_type: 'support',
+                status: 'running',
+                created_at: '2024-01-01T00:00:00Z',
+                updated_at: '2024-01-01T00:00:00Z',
+                config: {
+                  loop_interval_ms: 1000,
+                  max_iterations: 100,
+                  iteration_timeout_secs: 30,
+                  pause_on_error: false,
+                  mcp_servers: [],
+                  model: 'gpt-4',
+                  temperature: 0.2,
+                },
+                metrics: {
+                  loop_count: 1,
+                  tokens_used: 0,
+                  tool_calls: 0,
+                  errors: 0,
+                  messages_sent: 0,
+                  uptime_seconds: 10,
+                },
+              },
+            ],
+          }),
+      });
+
+      const sessions = await agentApi.listSessions(tenantId, brandId);
+
+      expect(sessions).toHaveLength(1);
+      expect(sessions[0]).toMatchObject({
+        id: 'agent-1',
+        tenant_id: tenantId,
+        brand_id: brandId,
+      });
     });
   });
 
@@ -392,6 +490,71 @@ describe('Agent API', () => {
         )}/brands/${encodeURIComponent(brandId)}/agents/${encodeURIComponent(sessionId)}`
       );
     });
+  });
+});
+
+describe('Secrets API', () => {
+  it('should fallback across tenant-scoped, brand-scoped, query-scoped, and unscoped secrets endpoints', async () => {
+    const tenantId = 'tenant-123';
+    const brandId = 'brand-456';
+
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        headers: { get: () => 'application/json' },
+        text: async () => JSON.stringify({ error: 'Internal server error' }),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        headers: { get: () => 'application/json' },
+        text: async () => JSON.stringify({ error: 'Internal server error' }),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        headers: { get: () => 'application/json' },
+        text: async () => JSON.stringify({ error: 'Internal server error' }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        headers: { get: () => 'application/json' },
+        text: async () =>
+          JSON.stringify({
+            platforms: ['shopify', 'custom'],
+          }),
+      });
+
+    const connections = await secretsApi.listConnections(tenantId, brandId);
+
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    const firstUrl = String(fetchMock.mock.calls[0]?.[0]);
+    const secondUrl = String(fetchMock.mock.calls[1]?.[0]);
+    const thirdUrl = String(fetchMock.mock.calls[2]?.[0]);
+    const fourthUrl = String(fetchMock.mock.calls[3]?.[0]);
+
+    expect(firstUrl).toBe(
+      `${API_CONFIG.baseUrl}/api/v1/tenants/${encodeURIComponent(tenantId)}/brands/${encodeURIComponent(
+        brandId
+      )}/secrets`
+    );
+    expect(secondUrl).toBe(
+      `${API_CONFIG.baseUrl}/api/v1/brands/${encodeURIComponent(brandId)}/secrets`
+    );
+    expect(thirdUrl).toBe(
+      `${API_CONFIG.baseUrl}/api/v1/tenants/${encodeURIComponent(tenantId)}/secrets?brand_id=${encodeURIComponent(
+        brandId
+      )}`
+    );
+    expect(fourthUrl).toBe(
+      `${API_CONFIG.baseUrl}/api/v1/tenants/${encodeURIComponent(tenantId)}/secrets`
+    );
+
+    expect(connections).toHaveLength(2);
+    expect(connections[0]).toMatchObject({ platform: 'shopify', connected: true });
+    expect(connections[1]).toMatchObject({ platform: 'custom', connected: true });
   });
 });
 

@@ -34,7 +34,6 @@ import {
   Bot,
   Plus,
   Search,
-  Filter,
   X,
   Command,
   RefreshCw,
@@ -44,6 +43,9 @@ import {
   FileSpreadsheet,
   BarChart3,
   Trash2,
+  Download,
+  ChevronDown,
+  WifiOff,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
@@ -52,6 +54,24 @@ import { TagFilter } from '../components/TagBadge';
 import { Spinner } from '../components/Spinner';
 
 type StatusFilter = 'all' | 'running' | 'stopped' | 'failed';
+
+function getGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour >= 5 && hour < 12) return 'Good morning';
+  if (hour >= 12 && hour < 17) return 'Good afternoon';
+  if (hour >= 17 && hour < 21) return 'Good evening';
+  return 'Good evening';
+}
+
+function formatUptime(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+  const hours = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  if (seconds < 86400) return `${hours}h ${mins}m`;
+  const days = Math.floor(seconds / 86400);
+  return `${days}d ${Math.floor((seconds % 86400) / 3600)}h`;
+}
 
 const listContainerVariants = {
   hidden: {},
@@ -96,7 +116,9 @@ export default function Dashboard() {
   const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [showExportMenu, setShowExportMenu] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
   const pageSize = usePreferencesStore((s) => s.pageSize);
   const refreshInterval = usePreferencesStore((s) => s.refreshInterval);
   const { handleMutationError, handleQueryError, clearLastError } = useErrorHandler();
@@ -132,7 +154,7 @@ export default function Dashboard() {
       return data;
     },
     enabled: !!tenant?.id,
-    refetchInterval: isOnline ? refreshInterval : false, // Don't refetch when offline
+    refetchInterval: isOnline ? refreshInterval : false,
   });
 
   useEffect(() => {
@@ -142,6 +164,18 @@ export default function Dashboard() {
       clearLastError();
     }
   }, [sessionsError, handleQueryError, clearLastError]);
+
+  // Close export menu on click outside
+  useEffect(() => {
+    if (!showExportMenu) return;
+    function handleClick(e: MouseEvent) {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
+        setShowExportMenu(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [showExportMenu]);
 
   // Keyboard shortcuts
   useKeyboardShortcuts([
@@ -156,6 +190,7 @@ export default function Dashboard() {
       action: () => {
         setSearchQuery('');
         setStatusFilter('all');
+        setShowExportMenu(false);
         searchInputRef.current?.blur();
       },
     },
@@ -189,7 +224,6 @@ export default function Dashboard() {
   // Filter sessions
   const filteredSessions = useMemo(() => {
     return sessions.filter((session) => {
-      // Status filter
       if (statusFilter !== 'all') {
         if (
           statusFilter === 'running' &&
@@ -206,14 +240,12 @@ export default function Dashboard() {
         }
       }
 
-      // Tag filter
       if (selectedTags.size > 0) {
         const sessionTags = session.tags || [];
         const hasMatchingTag = sessionTags.some((tag) => selectedTags.has(tag));
         if (!hasMatchingTag) return false;
       }
 
-      // Search filter
       if (debouncedSearch) {
         const query = debouncedSearch.toLowerCase();
         return (
@@ -237,7 +269,7 @@ export default function Dashboard() {
     setCurrentPage(1);
   }, [debouncedSearch, statusFilter, pageSize]);
 
-  // Clamp current page when the total page count shrinks.
+  // Clamp current page when the total page count shrinks
   useEffect(() => {
     if (totalPages > 0 && currentPage > totalPages) {
       setCurrentPage(totalPages);
@@ -412,6 +444,7 @@ export default function Dashboard() {
 
   const handleExportJSON = () => {
     exportSessions(sessions, { format: 'json' });
+    setShowExportMenu(false);
     showToast({
       variant: 'success',
       title: 'Exported as JSON',
@@ -421,6 +454,7 @@ export default function Dashboard() {
 
   const handleExportCSV = () => {
     exportSessions(sessions, { format: 'csv' });
+    setShowExportMenu(false);
     showToast({
       variant: 'success',
       title: 'Exported as CSV',
@@ -430,6 +464,7 @@ export default function Dashboard() {
 
   const handleExportMetrics = () => {
     exportMetricsSummary(sessions);
+    setShowExportMenu(false);
     showToast({
       variant: 'success',
       title: 'Metrics Exported',
@@ -486,20 +521,36 @@ export default function Dashboard() {
   const stoppedCount = sessions.filter(
     (s) => s.status === 'stopped' || s.status === 'failed'
   ).length;
+  const failedCount = sessions.filter((s) => s.status === 'failed').length;
 
-  const hasActiveFilters = searchQuery || statusFilter !== 'all';
+  // Fleet insights for sidebar
+  const totalUptime = sessions.reduce((acc, s) => acc + s.metrics.uptime_seconds, 0);
+  const totalCost = sessions.reduce((acc, s) => acc + (s.metrics.estimated_cost_cents || 0), 0);
+  const avgTokensPerAgent =
+    sessions.length > 0
+      ? Math.round(sessions.reduce((acc, s) => acc + s.metrics.tokens_used, 0) / sessions.length)
+      : 0;
+  const totalErrors = sessions.reduce((acc, s) => acc + s.metrics.errors, 0);
+
+  // Greeting
+  const greeting = useMemo(() => getGreeting(), []);
+
+  // Stat card click handler: toggle filter
+  const handleStatClick = useCallback((filter: string) => {
+    setStatusFilter((prev) => (prev === filter ? 'all' : (filter as StatusFilter)));
+  }, []);
+
+  const hasActiveFilters = searchQuery || statusFilter !== 'all' || selectedTags.size > 0;
 
   return (
     <div className="page-shell">
-      {/* Create Agent Dialog */}
+      {/* Dialogs */}
       <CreateAgentDialog
         isOpen={showCreateDialog}
         onClose={() => setShowCreateDialog(false)}
         onCreateAgent={handleCreateAgent}
         isCreating={isCreating}
       />
-
-      {/* Delete Confirmation Dialog */}
       <ConfirmDialog
         isOpen={showDeleteConfirm}
         onClose={() => setShowDeleteConfirm(false)}
@@ -516,323 +567,498 @@ export default function Dashboard() {
         initial={reduceMotion ? undefined : 'hidden'}
         animate={reduceMotion ? undefined : 'visible'}
       >
-
-      {/* Header */}
-      <motion.div variants={reduceMotion ? undefined : pageSectionVariants} className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-8 mt-2">
-        <div>
-          <h1 className="page-title">Agent Dashboard</h1>
-          <p className="page-subtitle">Manage your autonomous AI agents</p>
-        </div>
-        <div className="flex items-center flex-wrap gap-3">
-          <button
-            type="button"
-            onClick={openCommandPalette}
-            className="flex items-center gap-2 px-3 py-2 bg-slate-800/40 hover:bg-slate-800/60 rounded-xl text-sm font-medium text-gray-400 border border-slate-700/50 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 shadow-sm"
-            title="Command palette (Ctrl/Cmd+K)"
-            aria-label="Open command palette"
-          >
-            <Command className="w-4 h-4" aria-hidden="true" />
-            <kbd className="text-[10px] font-bold tracking-widest uppercase">⌘K</kbd>
-          </button>
-          <button
-            type="button"
-            onClick={() => refetch()}
-            className="p-2.5 bg-slate-800/40 hover:bg-slate-800/60 rounded-xl border border-slate-700/50 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 shadow-sm"
-            title="Refresh (Ctrl/Cmd+R)"
-            aria-label="Refresh sessions"
-          >
-            <RefreshCw className="w-5 h-5 text-gray-400" aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            onClick={handleCreateSession}
-            disabled={!currentBrand || isCreating}
-            className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-b from-brand-500 to-brand-600 hover:from-brand-400 hover:to-brand-500 disabled:from-slate-700 disabled:to-slate-800 disabled:text-gray-400 rounded-xl font-bold border border-brand-500/30 transition-all shadow-sm shadow-brand-500/20 hover:shadow-brand-500/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
-            title="New Agent (Ctrl/Cmd+N)"
-            aria-label="Create new agent"
-          >
-            {isCreating ? (
-              <Spinner size="md" />
-            ) : (
-              <>
-                <Plus className="w-5 h-5" aria-hidden="true" />
-                <span>New Agent</span>
-              </>
-            )}
-          </button>
-        </div>
-      </motion.div>
-
-      <motion.div variants={reduceMotion ? undefined : pageSectionVariants}>
-        <DashboardStats sessions={sessions} isLoading={isLoading} />
-      </motion.div>
-
-      {sessions.length > 0 && (
-        <motion.div variants={reduceMotion ? undefined : pageSectionVariants}>
-          <RecentActivityTimeline sessions={sessions} />
-        </motion.div>
-      )}
-
-      <motion.div variants={reduceMotion ? undefined : pageSectionVariants}>
-      {/* Search and Filter */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-5">
-        <div className="relative flex-1 max-w-md">
-          <Search
-            className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500"
-            aria-hidden="true"
-          />
-          <input
-            ref={searchInputRef}
-            type="text"
-            placeholder="Search agents... (press / to focus)"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            aria-label="Search agents"
-            className="w-full pl-10 pr-10 py-2.5 bg-slate-900/60 border border-slate-700/60 rounded-xl text-sm font-medium placeholder-gray-500 focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 shadow-inner transition-all text-gray-200"
-          />
-          <AnimatePresence>
-            {searchQuery && (
-              <motion.button
-                key="clear-search"
-                type="button"
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.8 }}
-                transition={{ duration: 0.15 }}
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-700/50 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 transition-colors"
-                aria-label="Clear search"
-              >
-                <X className="w-4 h-4 text-gray-500 hover:text-gray-300" aria-hidden="true" />
-              </motion.button>
-            )}
-          </AnimatePresence>
-        </div>
-
-        <div className="flex items-center gap-2 flex-wrap bg-slate-900/40 p-1 rounded-xl border border-slate-700/50 shadow-inner">
-          <div className="pl-2 pr-1">
-            <Filter className="w-4 h-4 text-gray-500" aria-hidden="true" />
-          </div>
-          {(['all', 'running', 'stopped', 'failed'] as StatusFilter[]).map((filter) => (
-            <button
-              type="button"
-              key={filter}
-              onClick={() => setStatusFilter(filter)}
-              className={clsx(
-                'px-3.5 py-1.5 text-xs font-bold tracking-wide rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40',
-                statusFilter === filter
-                  ? 'bg-slate-700/80 text-white shadow-sm'
-                  : 'text-gray-500 hover:text-gray-300 hover:bg-slate-800/60'
+        {/* Header */}
+        <motion.div
+          variants={reduceMotion ? undefined : pageSectionVariants}
+          className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6 mt-2"
+        >
+          <div>
+            <h1 className="page-title">{greeting}</h1>
+            <p className="page-subtitle flex items-center gap-2">
+              {sessions.length > 0 && !isLoading ? (
+                <span>
+                  {runningCount > 0
+                    ? `${runningCount} agent${runningCount !== 1 ? 's' : ''} running`
+                    : 'No agents running'}
+                  {sessions.length > runningCount && ` · ${sessions.length - runningCount} idle`}
+                </span>
+              ) : (
+                <span>Manage your autonomous AI agents</span>
               )}
-            >
-              {filter.charAt(0).toUpperCase() + filter.slice(1)}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Tag Filter */}
-      {allTags.length > 0 && (
-        <div className="flex flex-wrap items-center gap-3 mb-5">
-          <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest bg-slate-800/40 px-2 py-1 rounded-md">
-            Tags:
-          </span>
-          <TagFilter allTags={allTags} selectedTags={selectedTags} onToggleTag={toggleTag} />
-          {selectedTags.size > 0 && (
+              {!isOnline && (
+                <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-400">
+                  <WifiOff className="w-3 h-3" aria-hidden="true" />
+                  Offline
+                </span>
+              )}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => setSelectedTags(new Set())}
-              className="text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-gray-200 bg-slate-800/40 hover:bg-slate-800/60 px-2.5 py-1 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 rounded-lg shadow-sm"
-              aria-label="Clear selected tags"
+              onClick={openCommandPalette}
+              className="flex items-center gap-1.5 px-3 py-2 bg-slate-800/40 hover:bg-slate-800/60 rounded-xl text-sm font-medium text-gray-400 border border-slate-700/50 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 shadow-sm"
+              title="Command palette (Ctrl/Cmd+K)"
+              aria-label="Open command palette"
             >
-              Clear
+              <Command className="w-3.5 h-3.5" aria-hidden="true" />
+              <kbd className="text-[10px] font-bold tracking-widest uppercase">⌘K</kbd>
             </button>
-          )}
-        </div>
-      )}
-
-      {/* Quick Actions */}
-      <div className="flex flex-wrap items-center gap-4 mb-8">
-        <button
-          type="button"
-          onClick={handleStartAll}
-          disabled={stoppedCount === 0 || isStartingAll}
-          className="flex items-center gap-2.5 px-4 py-2.5 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl border border-emerald-500/30 shadow-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/50"
-        >
-          {isStartingAll ? (
-            <Spinner size="md" color="border-t-emerald-400" />
-          ) : (
-            <PlayCircle className="w-5 h-5" aria-hidden="true" />
-          )}
-          <span className="font-bold">Start All</span>
-          <span className="text-emerald-500/80 bg-emerald-500/10 px-1.5 py-0.5 rounded-md text-[10px] ml-1">
-            {stoppedCount}
-          </span>
-        </button>
-
-        <button
-          type="button"
-          onClick={handleStopAll}
-          disabled={runningCount === 0 || isStoppingAll}
-          className="flex items-center gap-2.5 px-4 py-2.5 bg-rose-500/15 hover:bg-rose-500/25 text-rose-400 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl border border-rose-500/30 shadow-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/50"
-        >
-          {isStoppingAll ? (
-            <Spinner size="md" color="border-t-rose-400" />
-          ) : (
-            <StopCircle className="w-5 h-5" aria-hidden="true" />
-          )}
-          <span className="font-bold">Stop All</span>
-          <span className="text-rose-500/80 bg-rose-500/10 px-1.5 py-0.5 rounded-md text-[10px] ml-1">
-            {runningCount}
-          </span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setShowDeleteConfirm(true)}
-          disabled={stoppedCount === 0 || isDeletingStopped}
-          className="flex items-center gap-2.5 px-4 py-2.5 bg-slate-800/40 hover:bg-slate-800/60 text-gray-400 hover:text-rose-400 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl border border-slate-700/50 shadow-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/40"
-        >
-          {isDeletingStopped ? (
-            <Spinner size="md" color="border-t-gray-400" />
-          ) : (
-            <Trash2 className="w-5 h-5" aria-hidden="true" />
-          )}
-          <span className="font-bold">Delete Stopped</span>
-        </button>
-
-        <div className="flex items-center gap-3 ml-auto">
-          <button
-            type="button"
-            onClick={handleExportJSON}
-            disabled={sessions.length === 0}
-            className="flex items-center gap-2 px-3.5 py-2.5 bg-slate-800/40 hover:bg-slate-800/60 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl border border-slate-700/50 shadow-sm transition-all text-gray-300 font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
-            title="Export as JSON"
-          >
-            <FileJson className="w-4 h-4" aria-hidden="true" />
-            JSON
-          </button>
-          <button
-            type="button"
-            onClick={handleExportCSV}
-            disabled={sessions.length === 0}
-            className="flex items-center gap-2 px-3.5 py-2.5 bg-slate-800/40 hover:bg-slate-800/60 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl border border-slate-700/50 shadow-sm transition-all text-gray-300 font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
-            title="Export as CSV"
-          >
-            <FileSpreadsheet className="w-4 h-4" aria-hidden="true" />
-            CSV
-          </button>
-          <button
-            type="button"
-            onClick={handleExportMetrics}
-            disabled={sessions.length === 0}
-            className="flex items-center gap-2 px-3.5 py-2.5 bg-slate-800/40 hover:bg-slate-800/60 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl border border-slate-700/50 shadow-sm transition-all text-gray-300 font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
-            title="Export metrics summary"
-          >
-            <BarChart3 className="w-4 h-4" aria-hidden="true" />
-            Metrics
-          </button>
-        </div>
-      </div>
-      </motion.div>
-
-      {/* Sessions List */}
-      <motion.div variants={reduceMotion ? undefined : pageSectionVariants}>
-      <div className="bg-slate-900/40 border border-slate-700/50 rounded-2xl overflow-hidden shadow-xl backdrop-blur-md">
-        <div className="px-5 py-4 border-b border-slate-700/50 bg-slate-900/60 flex items-center justify-between">
-          <h2 className="font-bold text-lg text-gray-200">Agent Sessions</h2>
-          <span className="text-sm font-medium text-gray-400">
-            {hasActiveFilters
-              ? `${filteredSessions.length} of ${sessions.length}`
-              : `${sessions.length} total`}
-          </span>
-        </div>
-
-        {isLoading ? (
-          <div className="p-4 space-y-4">
-            {[1, 2, 3].map((i) => (
-              <SkeletonCard key={i} />
-            ))}
-          </div>
-        ) : sessions.length === 0 ? (
-          <EmptyState
-            icon={Bot}
-            title="No agent sessions yet"
-            description="Create your first agent to get started with autonomous customer service."
-            action={{
-              label: 'Create Agent',
-              onClick: handleCreateSession,
-            }}
-          />
-        ) : filteredSessions.length === 0 ? (
-          <EmptyState
-            icon={Search}
-            title="No matching agents"
-            description="Try adjusting your search or filter criteria."
-            action={{
-              label: 'Clear Filters',
-              onClick: () => {
-                setSearchQuery('');
-                setStatusFilter('all');
-              },
-            }}
-          />
-        ) : (
-          <>
-            <motion.div
-              className="divide-y divide-gray-800"
-              variants={listContainerVariants}
-              initial={reduceMotion ? 'visible' : 'hidden'}
-              animate="visible"
-              key={currentPage}
+            <button
+              type="button"
+              onClick={() => refetch()}
+              className="p-2 bg-slate-800/40 hover:bg-slate-800/60 rounded-xl border border-slate-700/50 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 shadow-sm"
+              title="Refresh (Ctrl/Cmd+R)"
+              aria-label="Refresh sessions"
             >
-              {paginatedSessions.map((session) => (
-                <motion.div key={session.id} variants={listItemVariants}>
-                  <DashboardSessionRow
-                    session={session}
-                    onStart={handleRowStart}
-                    onStop={handleRowStop}
-                    onClick={handleRowClick}
-                    onCopy={handleRowCopy}
-                    onExportSummary={handleRowExportSummary}
+              <RefreshCw className="w-4 h-4 text-gray-400" aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              onClick={handleCreateSession}
+              disabled={!currentBrand || isCreating}
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-b from-brand-500 to-brand-600 hover:from-brand-400 hover:to-brand-500 disabled:from-slate-700 disabled:to-slate-800 disabled:text-gray-400 rounded-xl font-bold text-sm border border-brand-500/30 transition-all shadow-sm shadow-brand-500/20 hover:shadow-brand-500/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
+              title="New Agent (Ctrl/Cmd+N)"
+              aria-label="Create new agent"
+            >
+              {isCreating ? (
+                <Spinner size="md" />
+              ) : (
+                <>
+                  <Plus className="w-4 h-4" aria-hidden="true" />
+                  <span>New Agent</span>
+                </>
+              )}
+            </button>
+          </div>
+        </motion.div>
+
+        {/* Stats */}
+        <motion.div variants={reduceMotion ? undefined : pageSectionVariants}>
+          <DashboardStats
+            sessions={sessions}
+            isLoading={isLoading}
+            activeFilter={statusFilter !== 'all' ? statusFilter : null}
+            onStatClick={handleStatClick}
+          />
+        </motion.div>
+
+        {/* Main content: 2-column grid */}
+        <motion.div variants={reduceMotion ? undefined : pageSectionVariants}>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Sessions panel - 2 columns */}
+            <div className="lg:col-span-2">
+              <div className="bg-slate-900/40 border border-slate-700/50 rounded-2xl overflow-hidden shadow-xl backdrop-blur-md">
+                {/* Card header with integrated toolbar */}
+                <div className="px-5 py-4 border-b border-slate-700/50 bg-slate-900/60 space-y-3">
+                  {/* Title row */}
+                  <div className="flex items-center justify-between">
+                    <h2 className="font-bold text-lg text-gray-200">Agent Sessions</h2>
+                    <span className="text-xs font-semibold text-gray-500">
+                      {hasActiveFilters
+                        ? `${filteredSessions.length} of ${sessions.length}`
+                        : `${sessions.length} total`}
+                    </span>
+                  </div>
+
+                  {/* Search + Filter row */}
+                  <div className="flex items-center gap-3">
+                    <div className="relative flex-1">
+                      <Search
+                        className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500"
+                        aria-hidden="true"
+                      />
+                      <input
+                        ref={searchInputRef}
+                        type="text"
+                        placeholder="Search agents..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        aria-label="Search agents"
+                        className="w-full pl-9 pr-8 py-2 bg-slate-800/50 border border-slate-700/40 rounded-xl text-sm font-medium placeholder-gray-500 focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 shadow-inner transition-all text-gray-200"
+                      />
+                      <AnimatePresence>
+                        {searchQuery && (
+                          <motion.button
+                            key="clear-search"
+                            type="button"
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.8 }}
+                            transition={{ duration: 0.15 }}
+                            onClick={() => setSearchQuery('')}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 hover:bg-slate-700/50 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 transition-colors"
+                            aria-label="Clear search"
+                          >
+                            <X
+                              className="w-3.5 h-3.5 text-gray-500 hover:text-gray-300"
+                              aria-hidden="true"
+                            />
+                          </motion.button>
+                        )}
+                      </AnimatePresence>
+                    </div>
+
+                    <div className="flex items-center gap-0.5 bg-slate-800/40 p-0.5 rounded-xl border border-slate-700/40">
+                      {(['all', 'running', 'stopped', 'failed'] as StatusFilter[]).map((filter) => (
+                        <button
+                          type="button"
+                          key={filter}
+                          onClick={() => setStatusFilter(filter)}
+                          className={clsx(
+                            'px-3 py-1.5 text-[11px] font-bold tracking-wide rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40',
+                            statusFilter === filter
+                              ? 'bg-slate-700/80 text-white shadow-sm'
+                              : 'text-gray-500 hover:text-gray-300 hover:bg-slate-800/60'
+                          )}
+                        >
+                          {filter.charAt(0).toUpperCase() + filter.slice(1)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Tag filter */}
+                  {allTags.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+                        Tags
+                      </span>
+                      <TagFilter
+                        allTags={allTags}
+                        selectedTags={selectedTags}
+                        onToggleTag={toggleTag}
+                      />
+                      {selectedTags.size > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedTags(new Set())}
+                          className="text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-gray-200 bg-slate-800/40 hover:bg-slate-800/60 px-2 py-0.5 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 rounded-md"
+                          aria-label="Clear selected tags"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Quick actions row */}
+                  <div className="flex items-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={handleStartAll}
+                      disabled={stoppedCount === 0 || isStartingAll}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg border border-emerald-500/20 text-xs font-bold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/50"
+                    >
+                      {isStartingAll ? (
+                        <Spinner size="md" color="border-t-emerald-400" />
+                      ) : (
+                        <PlayCircle className="w-3.5 h-3.5" aria-hidden="true" />
+                      )}
+                      Start All
+                      {stoppedCount > 0 && (
+                        <span className="text-emerald-500/70 text-[10px]">{stoppedCount}</span>
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleStopAll}
+                      disabled={runningCount === 0 || isStoppingAll}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg border border-rose-500/20 text-xs font-bold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/50"
+                    >
+                      {isStoppingAll ? (
+                        <Spinner size="md" color="border-t-rose-400" />
+                      ) : (
+                        <StopCircle className="w-3.5 h-3.5" aria-hidden="true" />
+                      )}
+                      Stop All
+                      {runningCount > 0 && (
+                        <span className="text-rose-500/70 text-[10px]">{runningCount}</span>
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowDeleteConfirm(true)}
+                      disabled={stoppedCount === 0 || isDeletingStopped}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800/40 hover:bg-slate-800/60 text-gray-400 hover:text-rose-400 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg border border-slate-700/40 text-xs font-bold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/40"
+                    >
+                      {isDeletingStopped ? (
+                        <Spinner size="md" color="border-t-gray-400" />
+                      ) : (
+                        <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+                      )}
+                      Clean Up
+                    </button>
+
+                    {/* Export dropdown */}
+                    <div className="relative ml-auto" ref={exportMenuRef}>
+                      <button
+                        type="button"
+                        onClick={() => setShowExportMenu(!showExportMenu)}
+                        disabled={sessions.length === 0}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800/40 hover:bg-slate-800/60 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg border border-slate-700/40 text-xs font-bold text-gray-400 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
+                      >
+                        <Download className="w-3.5 h-3.5" aria-hidden="true" />
+                        Export
+                        <ChevronDown
+                          className={clsx(
+                            'w-3 h-3 transition-transform',
+                            showExportMenu && 'rotate-180'
+                          )}
+                          aria-hidden="true"
+                        />
+                      </button>
+                      <AnimatePresence>
+                        {showExportMenu && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -4, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: -4, scale: 0.95 }}
+                            transition={{ duration: 0.12 }}
+                            className="absolute right-0 top-full mt-1 w-44 bg-slate-800 border border-slate-700/60 rounded-xl shadow-xl overflow-hidden z-20"
+                          >
+                            <button
+                              type="button"
+                              onClick={handleExportJSON}
+                              className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm font-medium text-gray-300 hover:bg-slate-700/60 hover:text-white transition-colors text-left"
+                            >
+                              <FileJson className="w-4 h-4 text-gray-500" aria-hidden="true" />
+                              JSON
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleExportCSV}
+                              className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm font-medium text-gray-300 hover:bg-slate-700/60 hover:text-white transition-colors text-left"
+                            >
+                              <FileSpreadsheet
+                                className="w-4 h-4 text-gray-500"
+                                aria-hidden="true"
+                              />
+                              CSV
+                            </button>
+                            <div className="border-t border-slate-700/50" />
+                            <button
+                              type="button"
+                              onClick={handleExportMetrics}
+                              className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm font-medium text-gray-300 hover:bg-slate-700/60 hover:text-white transition-colors text-left"
+                            >
+                              <BarChart3 className="w-4 h-4 text-gray-500" aria-hidden="true" />
+                              Metrics Summary
+                            </button>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Sessions list */}
+                {isLoading ? (
+                  <div className="p-4 space-y-3">
+                    {[1, 2, 3].map((i) => (
+                      <SkeletonCard key={i} />
+                    ))}
+                  </div>
+                ) : sessions.length === 0 ? (
+                  <EmptyState
+                    icon={Bot}
+                    title="Launch your first agent"
+                    description="Agents autonomously handle customer service, process orders, and manage workflows. Create one to get started."
+                    action={{
+                      label: 'Create Agent',
+                      onClick: handleCreateSession,
+                    }}
                   />
-                </motion.div>
-              ))}
-            </motion.div>
-            <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              totalItems={filteredSessions.length}
-              itemsPerPage={itemsPerPage}
-              onPageChange={setCurrentPage}
-            />
-          </>
-        )}
-      </div>
-      </motion.div>
+                ) : filteredSessions.length === 0 ? (
+                  <EmptyState
+                    icon={Search}
+                    title="No matching agents"
+                    description="Try adjusting your search or filter criteria."
+                    action={{
+                      label: 'Clear Filters',
+                      onClick: () => {
+                        setSearchQuery('');
+                        setStatusFilter('all');
+                        setSelectedTags(new Set());
+                      },
+                    }}
+                  />
+                ) : (
+                  <>
+                    <motion.div
+                      className="divide-y divide-slate-800/80"
+                      variants={listContainerVariants}
+                      initial={reduceMotion ? 'visible' : 'hidden'}
+                      animate="visible"
+                      key={currentPage}
+                    >
+                      {paginatedSessions.map((session) => (
+                        <motion.div key={session.id} variants={listItemVariants}>
+                          <DashboardSessionRow
+                            session={session}
+                            onStart={handleRowStart}
+                            onStop={handleRowStop}
+                            onClick={handleRowClick}
+                            onCopy={handleRowCopy}
+                            onExportSummary={handleRowExportSummary}
+                          />
+                        </motion.div>
+                      ))}
+                    </motion.div>
+                    <Pagination
+                      currentPage={currentPage}
+                      totalPages={totalPages}
+                      totalItems={filteredSessions.length}
+                      itemsPerPage={itemsPerPage}
+                      onPageChange={setCurrentPage}
+                    />
+                  </>
+                )}
+              </div>
+            </div>
 
-      {/* Keyboard shortcuts hint */}
-      <motion.div variants={reduceMotion ? undefined : pageSectionVariants}>
-      <div className="mt-6 glass-panel rounded-xl px-4 py-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-gray-500 font-medium">
-        <span className="flex items-center gap-1.5">
-          <kbd className="px-1.5 py-0.5 bg-slate-800/80 text-gray-400 border border-slate-700/50 rounded-md text-[10px] font-bold">⌘K</kbd>
-          <span>Command palette</span>
-        </span>
-        <span className="flex items-center gap-1.5">
-          <kbd className="px-1.5 py-0.5 bg-slate-800/80 text-gray-400 border border-slate-700/50 rounded-md text-[10px] font-bold">/</kbd>
-          <span>Search</span>
-        </span>
-        <span className="flex items-center gap-1.5">
-          <kbd className="px-1.5 py-0.5 bg-slate-800/80 text-gray-400 border border-slate-700/50 rounded-md text-[10px] font-bold">⌘N</kbd>
-          <span>New agent</span>
-        </span>
-        <span className="flex items-center gap-1.5">
-          <kbd className="px-1.5 py-0.5 bg-slate-800/80 text-gray-400 border border-slate-700/50 rounded-md text-[10px] font-bold">⌘R</kbd>
-          <span>Refresh</span>
-        </span>
-      </div>
-      </motion.div>
+            {/* Sidebar */}
+            <div className="space-y-5 sidebar-sticky">
+              {/* Fleet Overview */}
+              <div className="bg-slate-900/40 border border-slate-700/50 rounded-2xl overflow-hidden backdrop-blur-md">
+                <div className="px-4 py-3 border-b border-slate-700/50 bg-slate-900/60">
+                  <h3 className="text-sm font-bold text-gray-300">Fleet Overview</h3>
+                </div>
+                <div className="p-4 space-y-3">
+                  <div className="flex items-center justify-between group">
+                    <span className="flex items-center gap-2.5 text-sm text-gray-400">
+                      <span className="relative flex h-2 w-2">
+                        {runningCount > 0 && (
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                        )}
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                      </span>
+                      Running
+                    </span>
+                    <span className="text-sm font-bold text-gray-200 tabular-nums">
+                      {runningCount}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="flex items-center gap-2.5 text-sm text-gray-400">
+                      <span className="w-2 h-2 rounded-full bg-slate-500" />
+                      Stopped
+                    </span>
+                    <span className="text-sm font-bold text-gray-200 tabular-nums">
+                      {stoppedCount - failedCount}
+                    </span>
+                  </div>
+                  {failedCount > 0 && (
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center gap-2.5 text-sm text-rose-400">
+                        <span className="w-2 h-2 rounded-full bg-rose-500" />
+                        Failed
+                      </span>
+                      <span className="text-sm font-bold text-rose-300 tabular-nums">
+                        {failedCount}
+                      </span>
+                    </div>
+                  )}
 
+                  {/* Fleet health bar */}
+                  {sessions.length > 0 && (
+                    <div className="pt-2">
+                      <div className="h-1.5 rounded-full bg-slate-800 overflow-hidden flex">
+                        {runningCount > 0 && (
+                          <div
+                            className="h-full bg-emerald-500 transition-all duration-500"
+                            style={{
+                              width: `${(runningCount / sessions.length) * 100}%`,
+                            }}
+                          />
+                        )}
+                        {stoppedCount - failedCount > 0 && (
+                          <div
+                            className="h-full bg-slate-500 transition-all duration-500"
+                            style={{
+                              width: `${((stoppedCount - failedCount) / sessions.length) * 100}%`,
+                            }}
+                          />
+                        )}
+                        {failedCount > 0 && (
+                          <div
+                            className="h-full bg-rose-500 transition-all duration-500"
+                            style={{
+                              width: `${(failedCount / sessions.length) * 100}%`,
+                            }}
+                          />
+                        )}
+                      </div>
+                      <p className="text-[11px] text-gray-600 mt-1.5 font-medium">
+                        {sessions.length} agent{sessions.length !== 1 ? 's' : ''} total
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Fleet insights */}
+                  {sessions.length > 0 && (
+                    <div className="pt-3 mt-3 border-t border-slate-700/40 space-y-2">
+                      {totalUptime > 0 && (
+                        <div className="flex items-center justify-between text-[12px]">
+                          <span className="text-gray-500">Total Uptime</span>
+                          <span className="font-semibold text-gray-300 tabular-nums">
+                            {formatUptime(totalUptime)}
+                          </span>
+                        </div>
+                      )}
+                      {totalCost > 0 && (
+                        <div className="flex items-center justify-between text-[12px]">
+                          <span className="text-gray-500">Est. Cost</span>
+                          <span className="font-semibold text-gray-300 tabular-nums">
+                            ${(totalCost / 100).toFixed(2)}
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex items-center justify-between text-[12px]">
+                        <span className="text-gray-500">Avg Tokens / Agent</span>
+                        <span className="font-semibold text-gray-300 tabular-nums">
+                          {avgTokensPerAgent >= 1_000
+                            ? `${(avgTokensPerAgent / 1_000).toFixed(1)}K`
+                            : avgTokensPerAgent.toLocaleString()}
+                        </span>
+                      </div>
+                      {totalErrors > 0 && (
+                        <div className="flex items-center justify-between text-[12px]">
+                          <span className="text-gray-500">Total Errors</span>
+                          <span className="font-semibold text-amber-400 tabular-nums">
+                            {totalErrors}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Activity Timeline */}
+              {sessions.length > 0 && <RecentActivityTimeline sessions={sessions} />}
+
+              {/* Keyboard shortcuts */}
+              <div className="px-1 space-y-1.5">
+                {[
+                  { key: '⌘K', label: 'Command palette' },
+                  { key: '/', label: 'Search' },
+                  { key: '⌘N', label: 'New agent' },
+                  { key: '⌘R', label: 'Refresh' },
+                ].map((shortcut) => (
+                  <div key={shortcut.key} className="flex items-center gap-2 text-gray-600">
+                    <kbd className="inline-flex items-center justify-center min-w-[20px] px-1 py-0.5 bg-slate-800/60 text-gray-500 border border-slate-700/40 rounded text-[10px] font-bold">
+                      {shortcut.key}
+                    </kbd>
+                    <span className="text-[11px] font-medium">{shortcut.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </motion.div>
       </motion.div>
     </div>
   );
