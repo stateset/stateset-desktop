@@ -66,8 +66,8 @@ export interface AuthError {
 }
 
 type LoginFallback = {
-  tenant?: Tenant | null;
-  brands?: Brand[];
+  tenant?: { id: string; name: string; slug: string; tier: string } | null;
+  brands?: Array<{ id: string; name: string; slug: string; tenant_id: string; enabled: boolean }>;
 };
 
 /**
@@ -357,9 +357,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             isAuthenticated: true,
             apiKey,
             sandboxApiKey: get().sandboxApiKey,
-            tenant: fallback.tenant ?? null,
-            brands: fallbackBrands,
-            currentBrand: selectCurrentBrand(fallbackBrands, null),
+            tenant: (fallback.tenant as Tenant | undefined) ?? null,
+            brands: fallbackBrands as Brand[],
+            currentBrand: selectCurrentBrand(fallbackBrands as Brand[], null),
             isLoading: false,
           });
 

@@ -24,7 +24,8 @@ describe('ApprovalDialog', () => {
 
     expect(screen.getByText('Approval Required')).toBeInTheDocument();
     expect(screen.getByText('Budget Warning')).toBeInTheDocument();
-    expect(screen.getByText('Budget used: 85%')).toBeInTheDocument();
+    expect(screen.getByText('Budget used')).toBeInTheDocument();
+    expect(screen.getByText('85%')).toBeInTheDocument();
   });
 
   it('renders custom reason as-is when not budget_warning', () => {
@@ -44,7 +45,7 @@ describe('ApprovalDialog', () => {
       <ApprovalDialog approval={makeApproval()} onApprove={onApprove} onDeny={defaults.onDeny} />
     );
 
-    fireEvent.click(screen.getByText('Approve & Continue'));
+    fireEvent.click(screen.getByText('Approve and continue'));
     await waitFor(() => expect(onApprove).toHaveBeenCalledOnce());
   });
 
@@ -71,7 +72,7 @@ describe('ApprovalDialog', () => {
       <ApprovalDialog approval={makeApproval()} onApprove={onApprove} onDeny={defaults.onDeny} />
     );
 
-    fireEvent.click(screen.getByText('Approve & Continue'));
+    fireEvent.click(screen.getByText('Approve and continue'));
 
     // Both buttons should be disabled while the promise is pending
     await waitFor(() => {

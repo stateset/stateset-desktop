@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import {
   AlertTriangle,
   XCircle,
-  Handshake,
+  CheckCircle2,
   ShieldCheck,
   ChevronDown,
   ChevronUp,
@@ -165,7 +165,12 @@ export function ApprovalDialog({ approval, onApprove, onDeny }: ApprovalDialogPr
             <Button variant="secondary" icon={XCircle} onClick={handleDeny} disabled={isLoading}>
               Deny
             </Button>
-            <Button variant="primary" icon={Handshake} onClick={handleApprove} loading={isLoading}>
+            <Button
+              variant="primary"
+              icon={CheckCircle2}
+              onClick={handleApprove}
+              loading={isLoading}
+            >
               Approve and continue
             </Button>
           </div>

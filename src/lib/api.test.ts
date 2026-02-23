@@ -523,6 +523,7 @@ describe('Secrets API', () => {
         headers: { get: () => 'application/json' },
         text: async () =>
           JSON.stringify({
+            ok: true,
             platforms: ['shopify', 'custom'],
           }),
       });

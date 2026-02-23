@@ -250,7 +250,11 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
           type="button"
           onClick={handleNext}
           className="flex items-center gap-2 px-6 py-2 bg-brand-600 hover:bg-brand-500 rounded-lg font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
-          aria-label={isLastStep ? 'Finish onboarding and get started' : 'Go to next step'}
+          aria-label={
+            currentStep === steps.length - 1
+              ? 'Finish onboarding and get started'
+              : 'Go to next step'
+          }
         >
           {currentStep === steps.length - 1 ? 'Get Started' : 'Next'}
           <ArrowRight className="w-4 h-4" aria-hidden="true" />

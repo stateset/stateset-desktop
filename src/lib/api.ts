@@ -348,7 +348,7 @@ async function fetchWithFallbackPaths<T>(
 
   for (const [index, path] of paths.entries()) {
     try {
-      const raw = await apiRequest<unknown>(path);
+      const raw = await apiRequest<unknown>(path, { skipRetry: true });
       return parser(raw);
     } catch (error) {
       lastError = error;
