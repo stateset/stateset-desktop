@@ -121,6 +121,7 @@ export const StreamTokenResponseSchema = z.object({
 export const WebhookStatusSchema = z.enum(['active', 'paused', 'failed']);
 export const WebhookDirectionSchema = z.enum(['incoming', 'outgoing']);
 
+/** Desktop-side webhook shape (used by UI components — do NOT change). */
 export const WebhookSchema = z.object({
   id: z.string(),
   tenant_id: z.string(),
@@ -137,6 +138,7 @@ export const WebhookSchema = z.object({
   last_triggered_at: z.string().optional(),
 });
 
+/** Desktop-side webhook delivery shape (used by UI components — do NOT change). */
 export const WebhookDeliverySchema = z.object({
   id: z.string(),
   webhook_id: z.string(),
@@ -149,19 +151,47 @@ export const WebhookDeliverySchema = z.object({
   created_at: z.string(),
 });
 
+// ── Engine webhook schemas (what the orchestration engine actually returns) ──
+
+export const EngineWebhookSchema = z.object({
+  id: z.string(),
+  tenant_id: z.string(),
+  brand_id: z.string().optional(),
+  url: z.string(),
+  description: z.string().optional().nullable(),
+  events: z.array(z.string()),
+  enabled: z.boolean(),
+  secret: z.string().optional(),
+  created_at: z.string(),
+  updated_at: z.string(),
+  last_triggered_at: z.string().optional().nullable(),
+});
+
+export const EngineWebhookDeliverySchema = z.object({
+  id: z.string(),
+  webhook_id: z.string(),
+  event: z.string(),
+  response_status: z.number().nullable(),
+  payload: z.string(),
+  response_body: z.string().optional().nullable(),
+  duration_ms: z.number(),
+  success: z.boolean(),
+  created_at: z.string(),
+});
+
 export const WebhooksListResponseSchema = z.object({
   ok: z.boolean(),
-  webhooks: z.array(WebhookSchema),
+  webhooks: z.array(EngineWebhookSchema),
 });
 
 export const WebhookResponseSchema = z.object({
   ok: z.boolean(),
-  webhook: WebhookSchema,
+  webhook: EngineWebhookSchema,
 });
 
 export const WebhookDeliveriesResponseSchema = z.object({
   ok: z.boolean(),
-  deliveries: z.array(WebhookDeliverySchema),
+  deliveries: z.array(EngineWebhookDeliverySchema),
 });
 
 // ── Secrets / Connections ────────────────────────────────────────────
@@ -176,6 +206,35 @@ export const SecretsTestResponseSchema = z.object({
   success: z.boolean(),
   message: z.string(),
 });
+
+// ── Envelope unwrap helper ────────────────────────────────────────────
+
+/**
+ * The engine wraps some responses in `{ok, data: T}`.
+ * This helper extracts `data` and optionally re-keys it.
+ *
+ *   unwrapDataEnvelope(raw, 'brands')  → {ok, data: [...]}  becomes {ok, brands: [...]}
+ *   unwrapDataEnvelope(raw, 'webhook') → {ok, data: {...}}  becomes {ok, webhook: {...}}
+ *   unwrapDataEnvelope(raw, null)       → {ok, data: {...}}  becomes {...} (flat unwrap)
+ *
+ * If the payload doesn't have a top-level `data` key, it's returned as-is.
+ */
+export function unwrapDataEnvelope(raw: unknown, targetKey: string | null): unknown {
+  if (typeof raw !== 'object' || raw === null || !('data' in raw)) {
+    return raw;
+  }
+
+  const envelope = raw as Record<string, unknown>;
+
+  if (targetKey === null) {
+    // Flat unwrap: return the `data` value directly
+    return envelope.data;
+  }
+
+  // Re-key: { ok, data: X } → { ok, [targetKey]: X }
+  const { data, ...rest } = envelope;
+  return { ...rest, [targetKey]: data };
+}
 
 // ── Validate helper ───────────────────────────────────────────────────
 

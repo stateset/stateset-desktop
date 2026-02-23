@@ -12,6 +12,9 @@ import {
   BrandResponseSchema,
   StreamTokenResponseSchema,
   validateResponse,
+  unwrapDataEnvelope,
+  EngineWebhookSchema,
+  EngineWebhookDeliverySchema,
 } from './schemas';
 import { ZodError } from 'zod';
 
@@ -267,5 +270,109 @@ describe('validateResponse', () => {
 
   it('throws ZodError on null input', () => {
     expect(() => validateResponse(SessionResponseSchema, null)).toThrow(ZodError);
+  });
+});
+
+// ── unwrapDataEnvelope ──────────────────────────────────────────────────
+
+describe('unwrapDataEnvelope', () => {
+  it('re-keys data to target key', () => {
+    const raw = { ok: true, data: [{ id: 'b1' }] };
+    const result = unwrapDataEnvelope(raw, 'brands') as Record<string, unknown>;
+    expect(result).toEqual({ ok: true, brands: [{ id: 'b1' }] });
+    expect(result).not.toHaveProperty('data');
+  });
+
+  it('re-keys data for single object', () => {
+    const raw = { ok: true, data: { id: 'w1', url: 'https://example.com' } };
+    const result = unwrapDataEnvelope(raw, 'webhook') as Record<string, unknown>;
+    expect(result).toEqual({ ok: true, webhook: { id: 'w1', url: 'https://example.com' } });
+  });
+
+  it('flat unwraps when targetKey is null', () => {
+    const raw = { ok: true, data: { success: true, message: 'ok' } };
+    const result = unwrapDataEnvelope(raw, null);
+    expect(result).toEqual({ success: true, message: 'ok' });
+  });
+
+  it('returns raw as-is when no data key present', () => {
+    const raw = { ok: true, brands: [{ id: 'b1' }] };
+    const result = unwrapDataEnvelope(raw, 'brands');
+    expect(result).toBe(raw);
+  });
+
+  it('returns non-object values as-is', () => {
+    expect(unwrapDataEnvelope(null, 'brands')).toBeNull();
+    expect(unwrapDataEnvelope('string', 'brands')).toBe('string');
+    expect(unwrapDataEnvelope(42, 'brands')).toBe(42);
+  });
+
+  it('preserves extra fields when re-keying', () => {
+    const raw = { ok: true, data: ['a'], meta: { page: 1 } };
+    const result = unwrapDataEnvelope(raw, 'items') as Record<string, unknown>;
+    expect(result).toEqual({ ok: true, items: ['a'], meta: { page: 1 } });
+  });
+});
+
+// ── Engine webhook schemas ──────────────────────────────────────────────
+
+describe('EngineWebhookSchema', () => {
+  const validEngineWebhook = {
+    id: 'wh-1',
+    tenant_id: 'tenant-1',
+    url: 'https://example.com/hook',
+    events: ['order.created'],
+    enabled: true,
+    created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:00:00Z',
+  };
+
+  it('parses valid engine webhook without optional fields', () => {
+    const result = EngineWebhookSchema.parse(validEngineWebhook);
+    expect(result.id).toBe('wh-1');
+    expect(result.brand_id).toBeUndefined();
+    expect(result.description).toBeUndefined();
+  });
+
+  it('parses engine webhook with all optional fields', () => {
+    const full = {
+      ...validEngineWebhook,
+      brand_id: 'brand-1',
+      description: 'My hook',
+      secret: 'sec_abc',
+      last_triggered_at: '2026-01-02T00:00:00Z',
+    };
+    const result = EngineWebhookSchema.parse(full);
+    expect(result.brand_id).toBe('brand-1');
+    expect(result.description).toBe('My hook');
+  });
+
+  it('rejects engine webhook missing required fields', () => {
+    const { url: _, ...noUrl } = validEngineWebhook;
+    expect(() => EngineWebhookSchema.parse(noUrl)).toThrow(ZodError);
+  });
+});
+
+describe('EngineWebhookDeliverySchema', () => {
+  const validDelivery = {
+    id: 'del-1',
+    webhook_id: 'wh-1',
+    event: 'order.created',
+    response_status: 200,
+    payload: '{"order_id":"123"}',
+    duration_ms: 150,
+    success: true,
+    created_at: '2026-01-01T00:00:00Z',
+  };
+
+  it('parses valid engine delivery', () => {
+    const result = EngineWebhookDeliverySchema.parse(validDelivery);
+    expect(result.response_status).toBe(200);
+    expect(result.payload).toBe('{"order_id":"123"}');
+  });
+
+  it('accepts null response_status', () => {
+    const result = EngineWebhookDeliverySchema.parse({ ...validDelivery, response_status: null });
+    expect(result.response_status).toBeNull();
   });
 });

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi, type Mock } from 'vitest';
 import { API_CONFIG } from '../config/api.config';
-import { agentApi, secretsApi } from './api';
+import { agentApi, secretsApi, webhooksApi } from './api';
 
 const mockCircuitBreaker = vi.hoisted(() => ({
   isCallPermitted: vi.fn(() => true),
@@ -320,7 +320,7 @@ describe('Agent API', () => {
   });
 
   describe('listSessions', () => {
-    it('should prefer brand-scoped endpoint for tenant+brand sessions', async () => {
+    it('should prefer tenant-scoped endpoint for tenant+brand sessions', async () => {
       const tenantId = 'tenant with/space';
       const brandId = 'brand?value';
 
@@ -335,23 +335,15 @@ describe('Agent API', () => {
 
       const requestedUrl = String(fetchMock.mock.calls[0]?.[0]);
       expect(requestedUrl).toBe(
-        `${API_CONFIG.baseUrl}/api/v1/tenants/${encodeURIComponent(tenantId)}/brands/${encodeURIComponent(
-          brandId
-        )}/agents`
+        `${API_CONFIG.baseUrl}/api/v1/tenants/${encodeURIComponent(tenantId)}/agents`
       );
     });
 
-    it('should fallback across tenant-scoped, brand-scoped, and unscoped sessions endpoints', async () => {
+    it('should fallback from tenant-scoped to brand-scoped sessions endpoint', async () => {
       const tenantId = 'tenant-123';
       const brandId = 'brand-456';
 
       fetchMock
-        .mockResolvedValueOnce({
-          ok: false,
-          status: 500,
-          headers: { get: () => 'application/json' },
-          text: async () => JSON.stringify({ error: 'Internal server error' }),
-        })
         .mockResolvedValueOnce({
           ok: false,
           status: 500,
@@ -370,21 +362,17 @@ describe('Agent API', () => {
 
       await agentApi.listSessions(tenantId, brandId);
 
-      expect(fetchMock).toHaveBeenCalledTimes(3);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
       const firstUrl = String(fetchMock.mock.calls[0]?.[0]);
       const secondUrl = String(fetchMock.mock.calls[1]?.[0]);
-      const thirdUrl = String(fetchMock.mock.calls[2]?.[0]);
 
       expect(firstUrl).toBe(
+        `${API_CONFIG.baseUrl}/api/v1/tenants/${encodeURIComponent(tenantId)}/agents`
+      );
+      expect(secondUrl).toBe(
         `${API_CONFIG.baseUrl}/api/v1/tenants/${encodeURIComponent(tenantId)}/brands/${encodeURIComponent(
           brandId
         )}/agents`
-      );
-      expect(secondUrl).toBe(
-        `${API_CONFIG.baseUrl}/api/v1/brands/${encodeURIComponent(brandId)}/agents`
-      );
-      expect(thirdUrl).toBe(
-        `${API_CONFIG.baseUrl}/api/v1/tenants/${encodeURIComponent(tenantId)}/agents`
       );
     });
 
@@ -524,7 +512,7 @@ describe('Secrets API', () => {
         text: async () =>
           JSON.stringify({
             ok: true,
-            platforms: ['shopify', 'custom'],
+            data: ['shopify', 'custom'],
           }),
       });
 
@@ -556,6 +544,243 @@ describe('Secrets API', () => {
     expect(connections).toHaveLength(2);
     expect(connections[0]).toMatchObject({ platform: 'shopify', connected: true });
     expect(connections[1]).toMatchObject({ platform: 'custom', connected: true });
+  });
+
+  it('should handle secrets response without envelope wrapper', async () => {
+    const tenantId = 'tenant-123';
+    const brandId = 'brand-456';
+
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      headers: { get: () => 'application/json' },
+      text: async () =>
+        JSON.stringify({
+          ok: true,
+          platforms: ['shopify'],
+        }),
+    });
+
+    const connections = await secretsApi.listConnections(tenantId, brandId);
+    expect(connections).toHaveLength(1);
+    expect(connections[0]).toMatchObject({ platform: 'shopify', connected: true });
+  });
+});
+
+describe('Webhooks API', () => {
+  const engineWebhook = {
+    id: 'wh-1',
+    tenant_id: 'tenant-123',
+    brand_id: 'brand-456',
+    url: 'https://example.com/hook',
+    description: 'Order webhook',
+    events: ['order.created'],
+    enabled: true,
+    secret: 'sec_abc',
+    created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:00:00Z',
+    last_triggered_at: null,
+  };
+
+  it('should list webhooks from tenant-scoped endpoint', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      headers: { get: () => 'application/json' },
+      text: async () =>
+        JSON.stringify({
+          ok: true,
+          data: [engineWebhook],
+        }),
+    });
+
+    const webhooks = await webhooksApi.list('tenant-123', 'brand-456');
+
+    const requestedUrl = String(fetchMock.mock.calls[0]?.[0]);
+    expect(requestedUrl).toBe(`${API_CONFIG.baseUrl}/api/v1/tenants/tenant-123/webhooks`);
+    expect(webhooks).toHaveLength(1);
+    expect(webhooks[0]).toMatchObject({
+      id: 'wh-1',
+      name: 'Order webhook',
+      status: 'active',
+      direction: 'outgoing',
+      brand_id: 'brand-456',
+    });
+  });
+
+  it('should map engine webhook fields to desktop shape', async () => {
+    const disabledWebhook = {
+      ...engineWebhook,
+      enabled: false,
+      description: null,
+      brand_id: undefined,
+    };
+
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      headers: { get: () => 'application/json' },
+      text: async () =>
+        JSON.stringify({
+          ok: true,
+          webhooks: [disabledWebhook],
+        }),
+    });
+
+    const webhooks = await webhooksApi.list('tenant-123', 'brand-456');
+
+    expect(webhooks[0]).toMatchObject({
+      name: '',
+      status: 'paused',
+      brand_id: 'brand-456',
+    });
+  });
+
+  it('should get a single webhook from tenant-scoped endpoint', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      headers: { get: () => 'application/json' },
+      text: async () =>
+        JSON.stringify({
+          ok: true,
+          webhook: engineWebhook,
+        }),
+    });
+
+    const webhook = await webhooksApi.get('tenant-123', 'brand-456', 'wh-1');
+
+    const requestedUrl = String(fetchMock.mock.calls[0]?.[0]);
+    expect(requestedUrl).toBe(`${API_CONFIG.baseUrl}/api/v1/tenants/tenant-123/webhooks/wh-1`);
+    expect(webhook.id).toBe('wh-1');
+    expect(webhook.name).toBe('Order webhook');
+  });
+
+  it('should create a webhook on brand-scoped endpoint with mapped payload', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      headers: { get: () => 'application/json' },
+      text: async () =>
+        JSON.stringify({
+          ok: true,
+          data: engineWebhook,
+        }),
+    });
+
+    await webhooksApi.create('tenant-123', 'brand-456', {
+      name: 'Order webhook',
+      url: 'https://example.com/hook',
+      events: ['order.created'],
+    });
+
+    const requestedUrl = String(fetchMock.mock.calls[0]?.[0]);
+    expect(requestedUrl).toBe(
+      `${API_CONFIG.baseUrl}/api/v1/tenants/tenant-123/brands/brand-456/webhooks`
+    );
+
+    const sentBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    expect(sentBody).toEqual({
+      url: 'https://example.com/hook',
+      description: 'Order webhook',
+      events: ['order.created'],
+      enabled: true,
+    });
+  });
+
+  it('should update a webhook on tenant-scoped endpoint with mapped payload', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      headers: { get: () => 'application/json' },
+      text: async () =>
+        JSON.stringify({
+          ok: true,
+          webhook: { ...engineWebhook, enabled: false },
+        }),
+    });
+
+    await webhooksApi.update('tenant-123', 'brand-456', 'wh-1', {
+      name: 'Updated name',
+      status: 'paused',
+    });
+
+    const requestedUrl = String(fetchMock.mock.calls[0]?.[0]);
+    expect(requestedUrl).toBe(`${API_CONFIG.baseUrl}/api/v1/tenants/tenant-123/webhooks/wh-1`);
+
+    const sentBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    expect(sentBody).toEqual({
+      description: 'Updated name',
+      enabled: false,
+    });
+  });
+
+  it('should delete a webhook from tenant-scoped endpoint', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 204,
+      headers: { get: () => '' },
+      text: async () => '',
+    });
+
+    await webhooksApi.delete('tenant-123', 'brand-456', 'wh-1');
+
+    const requestedUrl = String(fetchMock.mock.calls[0]?.[0]);
+    expect(requestedUrl).toBe(`${API_CONFIG.baseUrl}/api/v1/tenants/tenant-123/webhooks/wh-1`);
+  });
+
+  it('should test a webhook from tenant-scoped endpoint', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      headers: { get: () => 'application/json' },
+      text: async () => JSON.stringify({ success: true, status_code: 200, duration_ms: 50 }),
+    });
+
+    const result = await webhooksApi.test('tenant-123', 'brand-456', 'wh-1');
+
+    const requestedUrl = String(fetchMock.mock.calls[0]?.[0]);
+    expect(requestedUrl).toBe(`${API_CONFIG.baseUrl}/api/v1/tenants/tenant-123/webhooks/wh-1/test`);
+    expect(result.success).toBe(true);
+  });
+
+  it('should list deliveries from tenant-scoped endpoint and map fields', async () => {
+    const engineDelivery = {
+      id: 'del-1',
+      webhook_id: 'wh-1',
+      event: 'order.created',
+      response_status: 200,
+      payload: '{"order_id":"123"}',
+      response_body: '{"ok":true}',
+      duration_ms: 150,
+      success: true,
+      created_at: '2026-01-01T00:00:00Z',
+    };
+
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      headers: { get: () => 'application/json' },
+      text: async () =>
+        JSON.stringify({
+          ok: true,
+          data: [engineDelivery],
+        }),
+    });
+
+    const deliveries = await webhooksApi.listDeliveries('tenant-123', 'brand-456', 'wh-1');
+
+    const requestedUrl = String(fetchMock.mock.calls[0]?.[0]);
+    expect(requestedUrl).toBe(
+      `${API_CONFIG.baseUrl}/api/v1/tenants/tenant-123/webhooks/wh-1/deliveries`
+    );
+    expect(deliveries).toHaveLength(1);
+    expect(deliveries[0]).toMatchObject({
+      id: 'del-1',
+      status_code: 200,
+      request_body: '{"order_id":"123"}',
+      response_body: '{"ok":true}',
+    });
   });
 });
 

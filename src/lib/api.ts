@@ -25,7 +25,10 @@ import {
   SecretsListResponseSchema,
   SecretsTestResponseSchema,
   validateResponse,
+  unwrapDataEnvelope,
 } from './schemas';
+import type { z } from 'zod';
+import type { EngineWebhookSchema, EngineWebhookDeliverySchema } from './schemas';
 
 const API_URL = API_CONFIG.baseUrl.replace(/\/+$/, '');
 const API_V1_PATH = '/api/v1';
@@ -324,9 +327,8 @@ function getTenantAgentSessionPaths(tenantId: string, brandId?: string): string[
   }
 
   return [
-    buildPath('tenants', tenantId, 'brands', brandId, 'agents'),
-    buildPath('brands', brandId, 'agents'),
     buildPath('tenants', tenantId, 'agents'),
+    buildPath('tenants', tenantId, 'brands', brandId, 'agents'),
   ];
 }
 
@@ -817,7 +819,8 @@ export const agentApi = {
 export const brandsApi = {
   list: async (tenantId: string): Promise<Brand[]> => {
     const raw = await apiRequest<unknown>(buildPath('tenants', tenantId, 'brands'));
-    const response = validateResponse(BrandsListResponseSchema, raw);
+    const unwrapped = unwrapDataEnvelope(raw, 'brands');
+    const response = validateResponse(BrandsListResponseSchema, unwrapped);
     return response.brands;
   },
 
@@ -826,7 +829,8 @@ export const brandsApi = {
     const raw = await apiRequest<unknown>(
       buildPath('tenants', tenantId, 'brands', resolvedBrandId)
     );
-    const response = validateResponse(BrandResponseSchema, raw);
+    const unwrapped = unwrapDataEnvelope(raw, 'brand');
+    const response = validateResponse(BrandResponseSchema, unwrapped);
     return response.brand;
   },
 
@@ -835,7 +839,8 @@ export const brandsApi = {
       method: 'POST',
       body: JSON.stringify(data),
     });
-    const response = validateResponse(BrandResponseSchema, raw);
+    const unwrapped = unwrapDataEnvelope(raw, 'brand');
+    const response = validateResponse(BrandResponseSchema, unwrapped);
     return response.brand;
   },
 };
@@ -849,9 +854,10 @@ export const secretsApi = {
   listConnections: async (tenantId: string, brandId: string): Promise<PlatformConnection[]> => {
     const resolvedBrandId = getRequiredBrandId(brandId);
     const resourcePaths = getBrandResourcePaths(tenantId, resolvedBrandId, 'secrets');
-    const response = await fetchWithFallbackPaths(resourcePaths, (raw) =>
-      validateResponse(SecretsListResponseSchema, raw)
-    );
+    const response = await fetchWithFallbackPaths(resourcePaths, (raw) => {
+      const unwrapped = unwrapDataEnvelope(raw, 'platforms');
+      return validateResponse(SecretsListResponseSchema, unwrapped);
+    });
 
     // Convert to PlatformConnection format
     return response.platforms.map((platform) => ({
@@ -886,7 +892,8 @@ export const secretsApi = {
       buildPath('tenants', tenantId, 'brands', resolvedBrandId, 'secrets', platform, 'test'),
       { method: 'POST' }
     );
-    const response = validateResponse(SecretsTestResponseSchema, raw);
+    const unwrapped = unwrapDataEnvelope(raw, null);
+    const response = validateResponse(SecretsTestResponseSchema, unwrapped);
     return { success: response.success, message: response.message };
   },
 
@@ -903,28 +910,99 @@ export const secretsApi = {
 };
 
 // ============================================
+// Webhook mapping helpers (engine ↔ desktop)
+// ============================================
+
+type EngineWebhook = z.infer<typeof EngineWebhookSchema>;
+type EngineWebhookDeliveryType = z.infer<typeof EngineWebhookDeliverySchema>;
+
+function mapEngineWebhook(engine: EngineWebhook, fallbackBrandId: string): Webhook {
+  return {
+    id: engine.id,
+    tenant_id: engine.tenant_id,
+    brand_id: engine.brand_id ?? fallbackBrandId,
+    name: engine.description ?? '',
+    url: engine.url,
+    direction: 'outgoing',
+    events: engine.events,
+    status: engine.enabled ? 'active' : 'paused',
+    secret: engine.secret,
+    created_at: engine.created_at,
+    updated_at: engine.updated_at,
+    last_triggered_at: engine.last_triggered_at ?? undefined,
+  };
+}
+
+function mapEngineDelivery(engine: EngineWebhookDeliveryType): WebhookDelivery {
+  return {
+    id: engine.id,
+    webhook_id: engine.webhook_id,
+    event: engine.event,
+    status_code: engine.response_status,
+    request_body: engine.payload,
+    response_body: engine.response_body ?? undefined,
+    duration_ms: engine.duration_ms,
+    success: engine.success,
+    created_at: engine.created_at,
+  };
+}
+
+function mapWebhookCreatePayload(data: {
+  name: string;
+  url: string;
+  events: string[];
+  direction?: string;
+  headers?: Record<string, string>;
+}): Record<string, unknown> {
+  return {
+    url: data.url,
+    description: data.name,
+    events: data.events,
+    enabled: true,
+  };
+}
+
+function mapWebhookUpdatePayload(
+  data: Partial<{
+    name: string;
+    url: string;
+    events: string[];
+    status: string;
+    headers: Record<string, string>;
+  }>
+): Record<string, unknown> {
+  const payload: Record<string, unknown> = {};
+  if (data.url !== undefined) payload.url = data.url;
+  if (data.name !== undefined) payload.description = data.name;
+  if (data.events !== undefined) payload.events = data.events;
+  if (data.status !== undefined) payload.enabled = data.status === 'active';
+  return payload;
+}
+
+// ============================================
 // Webhooks API
 // ============================================
 
 export const webhooksApi = {
-  list: async (tenantId: string, brandId: string): Promise<Webhook[]> => {
-    const resolvedBrandId = getRequiredBrandId(brandId);
-    const raw = await apiRequest<unknown>(
-      buildPath('tenants', tenantId, 'brands', resolvedBrandId, 'webhooks')
-    );
-    const response = validateResponse(WebhooksListResponseSchema, raw);
-    return response.webhooks;
+  // List — tenant-scoped (not brand-scoped)
+  list: async (tenantId: string, _brandId: string): Promise<Webhook[]> => {
+    const resolvedBrandId = getRequiredBrandId(_brandId);
+    const raw = await apiRequest<unknown>(buildPath('tenants', tenantId, 'webhooks'));
+    const unwrapped = unwrapDataEnvelope(raw, 'webhooks');
+    const response = validateResponse(WebhooksListResponseSchema, unwrapped);
+    return response.webhooks.map((w) => mapEngineWebhook(w, resolvedBrandId));
   },
 
-  get: async (tenantId: string, brandId: string, webhookId: string): Promise<Webhook> => {
-    const resolvedBrandId = getRequiredBrandId(brandId);
-    const raw = await apiRequest<unknown>(
-      buildPath('tenants', tenantId, 'brands', resolvedBrandId, 'webhooks', webhookId)
-    );
-    const response = validateResponse(WebhookResponseSchema, raw);
-    return response.webhook;
+  // Get — tenant-scoped
+  get: async (tenantId: string, _brandId: string, webhookId: string): Promise<Webhook> => {
+    const resolvedBrandId = getRequiredBrandId(_brandId);
+    const raw = await apiRequest<unknown>(buildPath('tenants', tenantId, 'webhooks', webhookId));
+    const unwrapped = unwrapDataEnvelope(raw, 'webhook');
+    const response = validateResponse(WebhookResponseSchema, unwrapped);
+    return mapEngineWebhook(response.webhook, resolvedBrandId);
   },
 
+  // Create — brand-scoped (kept as-is)
   create: async (
     tenantId: string,
     brandId: string,
@@ -939,15 +1017,17 @@ export const webhooksApi = {
     const resolvedBrandId = getRequiredBrandId(brandId);
     const raw = await apiRequest<unknown>(
       buildPath('tenants', tenantId, 'brands', resolvedBrandId, 'webhooks'),
-      { method: 'POST', body: JSON.stringify(data) }
+      { method: 'POST', body: JSON.stringify(mapWebhookCreatePayload(data)) }
     );
-    const response = validateResponse(WebhookResponseSchema, raw);
-    return response.webhook;
+    const unwrapped = unwrapDataEnvelope(raw, 'webhook');
+    const response = validateResponse(WebhookResponseSchema, unwrapped);
+    return mapEngineWebhook(response.webhook, resolvedBrandId);
   },
 
+  // Update — tenant-scoped
   update: async (
     tenantId: string,
-    brandId: string,
+    _brandId: string,
     webhookId: string,
     data: Partial<{
       name: string;
@@ -957,49 +1037,46 @@ export const webhooksApi = {
       headers: Record<string, string>;
     }>
   ): Promise<Webhook> => {
-    const resolvedBrandId = getRequiredBrandId(brandId);
-    const raw = await apiRequest<unknown>(
-      buildPath('tenants', tenantId, 'brands', resolvedBrandId, 'webhooks', webhookId),
-      { method: 'PUT', body: JSON.stringify(data) }
-    );
-    const response = validateResponse(WebhookResponseSchema, raw);
-    return response.webhook;
+    const resolvedBrandId = getRequiredBrandId(_brandId);
+    const raw = await apiRequest<unknown>(buildPath('tenants', tenantId, 'webhooks', webhookId), {
+      method: 'PUT',
+      body: JSON.stringify(mapWebhookUpdatePayload(data)),
+    });
+    const unwrapped = unwrapDataEnvelope(raw, 'webhook');
+    const response = validateResponse(WebhookResponseSchema, unwrapped);
+    return mapEngineWebhook(response.webhook, resolvedBrandId);
   },
 
-  delete: async (tenantId: string, brandId: string, webhookId: string): Promise<void> => {
-    const resolvedBrandId = getRequiredBrandId(brandId);
-    await apiRequest(
-      buildPath('tenants', tenantId, 'brands', resolvedBrandId, 'webhooks', webhookId),
-      {
-        method: 'DELETE',
-      }
-    );
+  // Delete — tenant-scoped
+  delete: async (tenantId: string, _brandId: string, webhookId: string): Promise<void> => {
+    await apiRequest(buildPath('tenants', tenantId, 'webhooks', webhookId), {
+      method: 'DELETE',
+    });
   },
 
+  // Test — tenant-scoped
   test: async (
     tenantId: string,
-    brandId: string,
+    _brandId: string,
     webhookId: string
   ): Promise<{ success: boolean; status_code: number | null; duration_ms: number }> => {
-    const resolvedBrandId = getRequiredBrandId(brandId);
-    return apiRequest(
-      buildPath('tenants', tenantId, 'brands', resolvedBrandId, 'webhooks', webhookId, 'test'),
-      {
-        method: 'POST',
-      }
-    );
+    return apiRequest(buildPath('tenants', tenantId, 'webhooks', webhookId, 'test'), {
+      method: 'POST',
+    });
   },
 
+  // Deliveries — tenant-scoped
   listDeliveries: async (
     tenantId: string,
-    brandId: string,
+    _brandId: string,
     webhookId: string
   ): Promise<WebhookDelivery[]> => {
-    const resolvedBrandId = getRequiredBrandId(brandId);
+    getRequiredBrandId(_brandId); // validate brand selection
     const raw = await apiRequest<unknown>(
-      buildPath('tenants', tenantId, 'brands', resolvedBrandId, 'webhooks', webhookId, 'deliveries')
+      buildPath('tenants', tenantId, 'webhooks', webhookId, 'deliveries')
     );
-    const response = validateResponse(WebhookDeliveriesResponseSchema, raw);
-    return response.deliveries;
+    const unwrapped = unwrapDataEnvelope(raw, 'deliveries');
+    const response = validateResponse(WebhookDeliveriesResponseSchema, unwrapped);
+    return response.deliveries.map(mapEngineDelivery);
   },
 };
