@@ -102,7 +102,11 @@ export function VirtualizedList<T>({
         style={{ height, overflowY: 'auto' }}
         onScroll={handleScroll}
       >
-        <div>{items.map((item, index) => renderItem(item, index, { height: itemHeight }))}</div>
+        <div>
+          {items.map((item, index) => (
+            <div key={getKey(item, index)}>{renderItem(item, index, { height: itemHeight })}</div>
+          ))}
+        </div>
       </div>
     );
   }

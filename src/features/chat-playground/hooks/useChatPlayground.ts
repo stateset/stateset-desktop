@@ -6,9 +6,13 @@ import type { ChatMessage, ChatConversation } from '../../../types';
 
 interface UseChatPlaygroundOptions {
   onError?: (message: string) => void;
+  model?: string;
+  temperature?: number;
 }
 
 export function useChatPlayground(options: UseChatPlaygroundOptions = {}) {
+  const selectedModel = options.model ?? 'claude-sonnet-4-6';
+  const selectedTemperature = options.temperature ?? 0.7;
   const { tenant, currentBrand } = useAuthStore();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -22,8 +26,8 @@ export function useChatPlayground(options: UseChatPlaygroundOptions = {}) {
     const bid = requireBrandId(currentBrand);
 
     const session = await agentApi.createSession(tid, bid, 'interactive', {
-      model: 'claude-sonnet-4-6',
-      temperature: 0.7,
+      model: selectedModel,
+      temperature: selectedTemperature,
       loop_interval_ms: 1000,
       max_iterations: 50,
       iteration_timeout_secs: 300,
@@ -35,7 +39,7 @@ export function useChatPlayground(options: UseChatPlaygroundOptions = {}) {
     setActiveSessionId(session.id);
     sessionCreatedRef.current = true;
     return session.id;
-  }, [activeSessionId, tenant, currentBrand]);
+  }, [activeSessionId, tenant, currentBrand, selectedModel, selectedTemperature]);
 
   const sendMessage = useCallback(
     async (content: string) => {

@@ -99,13 +99,18 @@ export const usePreferencesStore = create<PreferencesState>((set, get) => ({
   initialize: async () => {
     if (get().initialized || _prefsInitializing) return;
     _prefsInitializing = true;
-    if (typeof window === 'undefined' || !window.electronAPI) {
-      applyTheme(get().theme);
-      set({ initialized: true });
-      return;
-    }
 
     try {
+      if (typeof window === 'undefined' || !window.electronAPI) {
+        const state = get();
+        applyTheme(state.theme);
+        applyAccentColor(state.accentColor);
+        applyReduceMotion(state.reduceMotion);
+        applyCompactMode(state.compactMode);
+        set({ initialized: true });
+        return;
+      }
+
       const [
         themeValue,
         accentColorValue,
@@ -187,6 +192,8 @@ export const usePreferencesStore = create<PreferencesState>((set, get) => ({
       applyReduceMotion(get().reduceMotion);
       applyCompactMode(get().compactMode);
       set({ initialized: true });
+    } finally {
+      _prefsInitializing = false;
     }
   },
 

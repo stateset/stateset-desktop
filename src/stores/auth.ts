@@ -14,6 +14,7 @@ const INVALID_SANDBOX_API_KEY_VALUES = new Set([
 ]);
 
 const normalize = (value: string): string => value.trim();
+const PREFERRED_BRAND_ID_KEY = 'currentBrandId';
 
 function selectCurrentBrand(brands: Brand[], preferredBrand: Brand | null): Brand | null {
   if (!brands.length) {
@@ -21,13 +22,63 @@ function selectCurrentBrand(brands: Brand[], preferredBrand: Brand | null): Bran
   }
 
   const enabledBrands = brands.filter((brand) => brand.enabled);
-  const candidates = enabledBrands.length > 0 ? enabledBrands : brands;
-
-  if (!preferredBrand?.id) {
-    return candidates[0] || null;
+  if (!enabledBrands.length) {
+    return null;
   }
 
-  return candidates.find((brand) => brand.id === preferredBrand.id) ?? candidates[0] ?? null;
+  if (!preferredBrand?.id) {
+    return enabledBrands[0] || null;
+  }
+
+  return enabledBrands.find((brand) => brand.id === preferredBrand.id) ?? enabledBrands[0] ?? null;
+}
+
+function resolvePreferredBrand(
+  brands: Brand[],
+  preferredBrandId: string | null,
+  preferredBrand: Brand | null
+): Brand | null {
+  const preferredFromId = preferredBrandId
+    ? (brands.find((brand) => brand.id === preferredBrandId) ?? null)
+    : null;
+
+  return selectCurrentBrand(brands, preferredFromId ?? preferredBrand);
+}
+
+async function getStoredPreferredBrandId(): Promise<string | null> {
+  if (typeof window === 'undefined' || !window.electronAPI?.store?.get) {
+    return null;
+  }
+
+  try {
+    const rawValue = await window.electronAPI.store.get(PREFERRED_BRAND_ID_KEY);
+    if (typeof rawValue !== 'string') {
+      return null;
+    }
+
+    const normalizedValue = rawValue.trim();
+    return normalizedValue.length > 0 ? normalizedValue : null;
+  } catch (error) {
+    console.warn('Failed to read preferred brand ID:', error);
+    return null;
+  }
+}
+
+async function persistPreferredBrandId(brandId: string | null): Promise<void> {
+  if (typeof window === 'undefined' || !window.electronAPI?.store) {
+    return;
+  }
+
+  try {
+    if (brandId) {
+      await window.electronAPI.store.set(PREFERRED_BRAND_ID_KEY, brandId);
+      return;
+    }
+
+    await window.electronAPI.store.delete(PREFERRED_BRAND_ID_KEY);
+  } catch (error) {
+    console.warn('Failed to persist preferred brand ID:', error);
+  }
 }
 
 export function normalizeSandboxApiKey(raw?: string | null): string | null {
@@ -189,6 +240,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const e2eAuth = typeof window !== 'undefined' ? window.__E2E_AUTH__ : null;
       const isE2ETest = window.electronAPI?.app?.isE2ETest === true;
       const effectiveSandboxKey = normalizeSandboxApiKey(storedSandboxKey);
+      const preferredBrandId = await getStoredPreferredBrandId();
       if (
         storedSandboxKey &&
         !effectiveSandboxKey &&
@@ -198,15 +250,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
 
       if (isE2ETest && e2eAuth?.tenant && Array.isArray(e2eAuth.brands)) {
+        const selectedBrand = resolvePreferredBrand(e2eAuth.brands, preferredBrandId, null);
         set({
           isAuthenticated: true,
           apiKey: storedKey || 'e2e-test-key',
           sandboxApiKey: effectiveSandboxKey || null,
           tenant: e2eAuth.tenant,
           brands: e2eAuth.brands,
-          currentBrand: selectCurrentBrand(e2eAuth.brands, null),
+          currentBrand: selectedBrand,
           isLoading: false,
         });
+        await persistPreferredBrandId(selectedBrand?.id ?? null);
         return;
       }
 
@@ -227,15 +281,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           if (response.ok) {
             const data = await response.json();
             const responseBrands = Array.isArray(data.brands) ? data.brands : [];
+            const selectedBrand = resolvePreferredBrand(
+              responseBrands,
+              preferredBrandId,
+              get().currentBrand
+            );
             set({
               isAuthenticated: true,
               apiKey: storedKey,
               sandboxApiKey: effectiveSandboxKey,
               tenant: data.tenant,
               brands: responseBrands,
-              currentBrand: selectCurrentBrand(responseBrands, get().currentBrand),
+              currentBrand: selectedBrand,
               isLoading: false,
             });
+            await persistPreferredBrandId(selectedBrand?.id ?? null);
             return;
           }
 
@@ -307,18 +367,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // E2E hook to avoid real network auth when tests provide mock auth data.
       const e2eAuth = typeof window !== 'undefined' ? window.__E2E_AUTH__ : null;
       const isE2ETest = window.electronAPI?.app?.isE2ETest === true;
+      const preferredBrandId = await getStoredPreferredBrandId();
       if (isE2ETest && e2eAuth?.tenant && Array.isArray(e2eAuth.brands)) {
         if (window.electronAPI) {
           await window.electronAPI.auth.setApiKey(apiKey);
         }
+        const selectedBrand = resolvePreferredBrand(e2eAuth.brands, preferredBrandId, null);
         set({
           isAuthenticated: true,
           apiKey,
           tenant: e2eAuth.tenant,
           brands: e2eAuth.brands,
-          currentBrand: selectCurrentBrand(e2eAuth.brands, null),
+          currentBrand: selectedBrand,
           isLoading: false,
         });
+        await persistPreferredBrandId(selectedBrand?.id ?? null);
         return;
       }
 
@@ -353,15 +416,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             console.error('Failed to store API key:', storageError);
           }
 
+          const selectedBrand = resolvePreferredBrand(
+            fallbackBrands as Brand[],
+            preferredBrandId,
+            get().currentBrand
+          );
           set({
             isAuthenticated: true,
             apiKey,
             sandboxApiKey: get().sandboxApiKey,
             tenant: (fallback.tenant as Tenant | undefined) ?? null,
             brands: fallbackBrands as Brand[],
-            currentBrand: selectCurrentBrand(fallbackBrands as Brand[], null),
+            currentBrand: selectedBrand,
             isLoading: false,
           });
+          await persistPreferredBrandId(selectedBrand?.id ?? null);
 
           useAuditLogStore
             .getState()
@@ -388,14 +457,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
 
       const loginBrands = Array.isArray(data.brands) ? data.brands : [];
+      const selectedBrand = resolvePreferredBrand(
+        loginBrands,
+        preferredBrandId,
+        get().currentBrand
+      );
       set({
         isAuthenticated: true,
         apiKey,
         tenant: data.tenant,
         brands: loginBrands,
-        currentBrand: selectCurrentBrand(loginBrands, get().currentBrand),
+        currentBrand: selectedBrand,
         isLoading: false,
       });
+      await persistPreferredBrandId(selectedBrand?.id ?? null);
 
       useAuditLogStore
         .getState()
@@ -415,6 +490,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       await Promise.allSettled([
         window.electronAPI.auth.clearApiKey?.() ?? Promise.resolve(false),
         window.electronAPI.auth.clearSandboxApiKey?.() ?? Promise.resolve(false),
+        window.electronAPI.store.delete?.(PREFERRED_BRAND_ID_KEY) ?? Promise.resolve(false),
       ]);
     }
     set({
@@ -433,14 +509,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   setCurrentBrand: (brand: Brand) => {
-    set({ currentBrand: brand });
+    const selectableBrand = get().brands.find((candidate) => candidate.id === brand.id);
+    if (!selectableBrand?.enabled) {
+      return;
+    }
+    set({ currentBrand: selectableBrand });
+    void persistPreferredBrandId(selectableBrand.id);
   },
 
   setBrands: (brands: Brand[]) => {
+    const selectedBrand = resolvePreferredBrand(brands, null, get().currentBrand);
     set({
       brands,
-      currentBrand: selectCurrentBrand(brands, get().currentBrand),
+      currentBrand: selectedBrand,
     });
+    void persistPreferredBrandId(selectedBrand?.id ?? null);
   },
 
   setSandboxApiKey: async (apiKey: string) => {

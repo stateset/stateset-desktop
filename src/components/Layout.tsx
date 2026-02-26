@@ -227,6 +227,10 @@ export default function Layout({ children }: LayoutProps) {
     []
   );
 
+  const enabledBrands = useMemo(() => brands.filter((brand) => brand.enabled), [brands]);
+  const disabledBrands = useMemo(() => brands.filter((brand) => !brand.enabled), [brands]);
+  const hasEnabledBrands = enabledBrands.length > 0;
+
   const pageTitle = useMemo(() => {
     const exactMatch = navItems.find((item) => item.to === location.pathname);
     if (exactMatch) {
@@ -311,7 +315,7 @@ export default function Layout({ children }: LayoutProps) {
                   {tenant?.name}
                 </span>
                 <span className="text-sm font-semibold text-gray-200">
-                  {currentBrand?.name || 'Select Brand'}
+                  {currentBrand?.name || (hasEnabledBrands ? 'Select Brand' : 'No Active Brands')}
                 </span>
               </div>
               <ChevronDown
@@ -331,7 +335,17 @@ export default function Layout({ children }: LayoutProps) {
                 aria-label="Available brands"
                 className="absolute top-full left-0 right-0 mt-2 py-1.5 bg-slate-900/95 border border-gray-800 rounded-xl shadow-2xl backdrop-blur-md z-50 overflow-hidden"
               >
-                {brands.map((brand) => (
+                {brands.length === 0 && (
+                  <div className="px-4 py-2.5 text-sm text-gray-500">No brands available</div>
+                )}
+
+                {!hasEnabledBrands && brands.length > 0 && (
+                  <div className="px-4 py-2 text-xs text-amber-300/90 border-b border-amber-500/20 bg-amber-500/5">
+                    No active brands available for agent actions.
+                  </div>
+                )}
+
+                {enabledBrands.map((brand) => (
                   <button
                     type="button"
                     key={brand.id}
@@ -344,8 +358,12 @@ export default function Layout({ children }: LayoutProps) {
                         : 'text-gray-400 hover:bg-slate-800 hover:text-gray-200 border-l-[3px] border-l-transparent'
                     )}
                     onClick={() => {
-                      setCurrentBrand(brand);
                       setShowBrandDropdown(false);
+                      if (currentBrand?.id === brand.id) {
+                        return;
+                      }
+
+                      setCurrentBrand(brand);
                       useAuditLogStore
                         .getState()
                         .log('brand.switched', `Switched to brand "${brand.name}"`, {
@@ -356,6 +374,30 @@ export default function Layout({ children }: LayoutProps) {
                     {brand.name}
                   </button>
                 ))}
+
+                {disabledBrands.length > 0 && (
+                  <>
+                    <div className="my-1 border-t border-gray-800/80" />
+                    <div className="px-4 py-1 text-[10px] uppercase tracking-[0.2em] text-gray-500 font-semibold">
+                      Disabled
+                    </div>
+                    {disabledBrands.map((brand) => (
+                      <button
+                        type="button"
+                        key={brand.id}
+                        role="option"
+                        aria-selected={false}
+                        disabled
+                        className="w-full px-4 py-2 text-left text-sm text-gray-500/80 cursor-not-allowed opacity-80 flex items-center justify-between"
+                      >
+                        <span className="truncate">{brand.name}</span>
+                        <span className="ml-2 rounded-md border border-gray-700 px-1.5 py-0.5 text-[10px] uppercase tracking-wide">
+                          Disabled
+                        </span>
+                      </button>
+                    ))}
+                  </>
+                )}
               </motion.div>
             )}
           </div>

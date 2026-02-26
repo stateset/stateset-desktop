@@ -19,13 +19,22 @@ vi.stubGlobal('window', {
 describe('usePreferencesStore', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockElectronAPI.store.get.mockResolvedValue(undefined);
     usePreferencesStore.setState({
       initialized: false,
       theme: 'dark',
+      accentColor: 'blue',
+      reduceMotion: false,
+      compactMode: false,
+      telemetryEnabled: false,
       minimizeToTray: true,
+      autoStartAgentsOnLaunch: true,
       desktopNotifications: true,
       soundAlerts: true,
+      refreshInterval: 5000,
+      pageSize: 10,
     });
+    (window as unknown as { electronAPI?: unknown }).electronAPI = mockElectronAPI;
   });
 
   describe('initial state', () => {
@@ -73,6 +82,65 @@ describe('usePreferencesStore', () => {
       await store.setTheme('light');
 
       expect(mockElectronAPI.store.set).toHaveBeenCalledWith('theme', 'light');
+    });
+  });
+
+  describe('initialize', () => {
+    it('loads persisted preferences from electron store', async () => {
+      const persistedValues: Record<string, unknown> = {
+        theme: 'light',
+        accentColor: 'green',
+        reduceMotion: true,
+        compactMode: true,
+        telemetryEnabled: false,
+        minimizeToTray: false,
+        autoStartAgentsOnLaunch: false,
+        desktopNotifications: false,
+        soundAlerts: false,
+        refreshInterval: 30000,
+        pageSize: 25,
+      };
+      mockElectronAPI.store.get.mockImplementation((key: string) => {
+        return Promise.resolve(persistedValues[key]);
+      });
+
+      await usePreferencesStore.getState().initialize();
+
+      const state = usePreferencesStore.getState();
+      expect(state.initialized).toBe(true);
+      expect(state.theme).toBe('light');
+      expect(state.accentColor).toBe('green');
+      expect(state.reduceMotion).toBe(true);
+      expect(state.compactMode).toBe(true);
+      expect(state.minimizeToTray).toBe(false);
+      expect(state.autoStartAgentsOnLaunch).toBe(false);
+      expect(state.desktopNotifications).toBe(false);
+      expect(state.soundAlerts).toBe(false);
+      expect(state.refreshInterval).toBe(30000);
+      expect(state.pageSize).toBe(25);
+    });
+
+    it('initializes and can re-initialize in browser mode without electron', async () => {
+      (window as unknown as { electronAPI?: unknown }).electronAPI = undefined;
+
+      await usePreferencesStore.getState().initialize();
+      expect(usePreferencesStore.getState().initialized).toBe(true);
+
+      usePreferencesStore.setState({
+        initialized: false,
+        theme: 'light',
+        accentColor: 'green',
+        reduceMotion: true,
+        compactMode: true,
+      });
+
+      await usePreferencesStore.getState().initialize();
+
+      expect(usePreferencesStore.getState().initialized).toBe(true);
+      expect(usePreferencesStore.getState().theme).toBe('light');
+      expect(usePreferencesStore.getState().accentColor).toBe('green');
+      expect(usePreferencesStore.getState().reduceMotion).toBe(true);
+      expect(usePreferencesStore.getState().compactMode).toBe(true);
     });
   });
 

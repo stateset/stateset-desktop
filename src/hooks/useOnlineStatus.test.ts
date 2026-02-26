@@ -44,21 +44,30 @@ describe('useOnlineStatus', () => {
     onlineGetter.mockRestore();
   });
 
-  it('initializes with navigator.onLine state', () => {
+  it('initializes with navigator.onLine state', async () => {
     onlineGetter.mockReturnValue(true);
     const { result } = renderHook(() => useOnlineStatus());
+    await act(async () => {
+      await Promise.resolve();
+    });
     expect(result.current.isOnline).toBe(true);
   });
 
-  it('detects offline state', () => {
+  it('detects offline state', async () => {
     onlineGetter.mockReturnValue(false);
     const { result } = renderHook(() => useOnlineStatus());
+    await act(async () => {
+      await Promise.resolve();
+    });
     expect(result.current.isOnline).toBe(false);
   });
 
   it('responds to online event', async () => {
     onlineGetter.mockReturnValue(false);
     const { result } = renderHook(() => useOnlineStatus());
+    await act(async () => {
+      await Promise.resolve();
+    });
 
     expect(result.current.isOnline).toBe(false);
 
@@ -74,6 +83,9 @@ describe('useOnlineStatus', () => {
   it('responds to offline event', async () => {
     onlineGetter.mockReturnValue(true);
     const { result } = renderHook(() => useOnlineStatus());
+    await act(async () => {
+      await Promise.resolve();
+    });
 
     onlineGetter.mockReturnValue(false);
     await act(async () => {
@@ -84,13 +96,19 @@ describe('useOnlineStatus', () => {
     expect(result.current.isOnline).toBe(false);
   });
 
-  it('provides a checkNow function', () => {
+  it('provides a checkNow function', async () => {
     const { result } = renderHook(() => useOnlineStatus());
+    await act(async () => {
+      await Promise.resolve();
+    });
     expect(typeof result.current.checkNow).toBe('function');
   });
 
   it('tracks latencyMs after health check', async () => {
     const { result } = renderHook(() => useOnlineStatus());
+    await act(async () => {
+      await Promise.resolve();
+    });
 
     await act(async () => {
       await result.current.checkNow();

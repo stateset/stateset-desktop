@@ -1,6 +1,6 @@
 /** @vitest-environment happy-dom */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, fireEvent } from '@testing-library/react';
+import { screen, fireEvent, waitFor } from '@testing-library/react';
 import { renderWithProviders, mockElectronAPI } from '../test-utils';
 
 // --- Mocks ---
@@ -36,6 +36,12 @@ const loadLogin = async () => {
   return mod.default;
 };
 
+async function waitForLoginEffects() {
+  await waitFor(() => {
+    expect(window.electronAPI!.auth.isSecureStorageAvailable).toHaveBeenCalled();
+  });
+}
+
 describe('Login page', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -52,6 +58,7 @@ describe('Login page', () => {
     // Actual placeholders: "you@company.com" and "Your password"
     expect(screen.getByPlaceholderText('you@company.com')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('Your password')).toBeInTheDocument();
+    await waitForLoginEffects();
   });
 
   it('switches to API key tab', async () => {
@@ -63,6 +70,7 @@ describe('Login page', () => {
 
     // Actual placeholder: "sk-..."
     expect(screen.getByPlaceholderText('sk-...')).toBeInTheDocument();
+    await waitForLoginEffects();
   });
 
   it('shows error message when auth error is set', async () => {
@@ -71,6 +79,7 @@ describe('Login page', () => {
     renderWithProviders(<Login />);
 
     expect(screen.getByText('Invalid credentials')).toBeInTheDocument();
+    await waitForLoginEffects();
   });
 
   it('has a sign in button', async () => {
@@ -78,5 +87,6 @@ describe('Login page', () => {
     renderWithProviders(<Login />);
 
     expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument();
+    await waitForLoginEffects();
   });
 });

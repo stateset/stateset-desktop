@@ -10,6 +10,11 @@ interface RenderWithProvidersOptions extends Omit<RenderOptions, 'wrapper'> {
   queryClient?: QueryClient;
 }
 
+const routerFutureFlags = {
+  v7_startTransition: true,
+  v7_relativeSplatPath: true,
+} as const;
+
 export function renderWithProviders(
   ui: ReactElement,
   { route = '/', queryClient, ...renderOptions }: RenderWithProvidersOptions = {}
@@ -26,7 +31,7 @@ export function renderWithProviders(
   function Wrapper({ children }: { children: React.ReactNode }) {
     return (
       <QueryClientProvider client={testQueryClient}>
-        <MemoryRouter initialEntries={[route]}>
+        <MemoryRouter initialEntries={[route]} future={routerFutureFlags}>
           <ToastProvider>{children}</ToastProvider>
         </MemoryRouter>
       </QueryClientProvider>

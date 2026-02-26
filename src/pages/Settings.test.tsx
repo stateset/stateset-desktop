@@ -1,6 +1,6 @@
 /** @vitest-environment happy-dom */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import { renderWithProviders, mockElectronAPI } from '../test-utils';
 
 vi.mock('../hooks/usePageTitle', () => ({
@@ -46,6 +46,11 @@ describe('Settings page', () => {
     renderWithProviders(<Settings />);
 
     expect(screen.getByText('Settings')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(window.electronAPI!.app.getVersion).toHaveBeenCalled();
+      expect(window.electronAPI!.app.getPlatform).toHaveBeenCalled();
+      expect(window.electronAPI!.auth.isSecureStorageAvailable).toHaveBeenCalled();
+    });
   });
 
   it('renders all settings sections', async () => {
@@ -56,5 +61,6 @@ describe('Settings page', () => {
     expect(screen.getByTestId('appearance-settings')).toBeInTheDocument();
     expect(screen.getByTestId('notification-settings')).toBeInTheDocument();
     expect(screen.getByTestId('about-settings')).toBeInTheDocument();
+    await waitFor(() => expect(window.electronAPI!.app.getVersion).toHaveBeenCalled());
   });
 });

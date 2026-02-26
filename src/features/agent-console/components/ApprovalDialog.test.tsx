@@ -1,6 +1,6 @@
 /** @vitest-environment happy-dom */
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { ApprovalDialog } from './ApprovalDialog';
 import type { PendingApproval } from '../../../hooks/useAgentStream';
 
@@ -83,7 +83,10 @@ describe('ApprovalDialog', () => {
     });
 
     // Resolve to clean up
-    resolveApprove!();
+    await act(async () => {
+      resolveApprove!();
+      await Promise.resolve();
+    });
   });
 
   it('does not render progress bar when percentUsed is absent', () => {

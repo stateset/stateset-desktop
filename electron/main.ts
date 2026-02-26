@@ -24,6 +24,12 @@ import {
   getConfiguredApiEndpoint,
   ALLOWED_HTTP_LOCALHOST_ORIGINS,
 } from './url-security';
+import {
+  sanitizeSensitiveText,
+  sanitizeValue,
+  sanitizeStringRecord,
+  sanitizeQueryParams,
+} from './sanitization';
 
 const isMac = process.platform === 'darwin';
 const isWindows = process.platform === 'win32';
@@ -163,73 +169,6 @@ const SECURITY_HEADERS = {
     'encrypted-media=(), fullscreen=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), ' +
     'payment=(), usb=(), xr-spatial-tracking=(), interest-cohort=()',
 };
-
-const SENSITIVE_PATTERNS: Array<[RegExp, string]> = [
-  [/sk-[a-zA-Z0-9_-]{20,}/g, '[REDACTED_API_KEY]'],
-  [
-    /(?:api[-_]?key|api[_-]?secret|access[-_]?token|refresh[-_]?token|sandbox_api_key|engine_api_key|bearer|authorization)[^\s"']{0,120}/gi,
-    '[REDACTED_TOKEN]',
-  ],
-  [/gh[pousr]_[A-Za-z0-9]{10,}/g, '[REDACTED_GITHUB_TOKEN]'],
-  [/AKIA[0-9A-Z]{16}/g, '[REDACTED_AWS_KEY]'],
-  [/[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g, '[REDACTED_JWT]'],
-  [/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g, '[REDACTED_EMAIL]'],
-];
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null;
-
-function sanitizeSensitiveText(value: string): string {
-  return SENSITIVE_PATTERNS.reduce((text, [pattern, replacement]) => {
-    return text.replace(pattern, replacement);
-  }, value);
-}
-
-function sanitizeValue(value: unknown): unknown {
-  if (typeof value === 'string') {
-    return sanitizeSensitiveText(value);
-  }
-
-  if (Array.isArray(value)) {
-    return value.map((item) => sanitizeValue(item));
-  }
-
-  if (isRecord(value)) {
-    const output: Record<string, unknown> = {};
-    for (const [key, item] of Object.entries(value)) {
-      output[key] = sanitizeValue(item);
-    }
-    return output;
-  }
-
-  return value;
-}
-
-function sanitizeStringRecord(value: unknown): Record<string, string> {
-  const output: Record<string, string> = {};
-
-  if (!isRecord(value)) {
-    return output;
-  }
-
-  for (const [key, item] of Object.entries(value)) {
-    const sanitized = sanitizeValue(item);
-    output[key] =
-      typeof sanitized === 'string' ? sanitizeSensitiveText(sanitized) : String(sanitized);
-  }
-
-  return output;
-}
-
-function sanitizeQueryParams(value: unknown): string {
-  if (typeof value === 'string') {
-    return sanitizeSensitiveText(value);
-  }
-
-  const queryParams = sanitizeStringRecord(value);
-  const normalized = new URLSearchParams(queryParams);
-  return normalized.toString();
-}
 
 if (isWindows) {
   app.setAppUserModelId('io.stateset.desktop');

@@ -23,6 +23,8 @@ export function ChatPlayground() {
   const { messages, isLoading, sendMessage, loadConversation, startNewChat, currentConversation } =
     useChatPlayground({
       onError: (msg) => showToast({ variant: 'error', title: 'Chat error', message: msg }),
+      model,
+      temperature,
     });
 
   // Auto-scroll on new messages
