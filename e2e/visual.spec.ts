@@ -65,7 +65,13 @@ test.beforeAll(async () => {
 });
 
 const mockTenant = { id: 'tenant_1', name: 'Test Tenant', slug: 'test-tenant', tier: 'pro' };
-const mockBrand = { id: 'brand_1', name: 'Demo Brand', slug: 'demo', tenant_id: 'tenant_1' };
+const mockBrand = {
+  id: 'brand_1',
+  name: 'Demo Brand',
+  slug: 'demo',
+  tenant_id: 'tenant_1',
+  enabled: true,
+};
 
 const mockSessions = [
   {
@@ -245,7 +251,7 @@ async function launchWithMocks(): Promise<{ electronApp: ElectronApplication; pa
     },
     { tenant: mockTenant, brand: mockBrand }
   );
-  await page.getByRole('button', { name: 'API Key' }).click();
+  await page.getByRole('button', { name: 'API Key', exact: true }).click();
   await page.getByLabel('API Key').fill('sk-test-visual');
   const signInButton = page.getByRole('button', { name: 'Sign In' });
   await expect(signInButton).toBeEnabled();
@@ -255,7 +261,7 @@ async function launchWithMocks(): Promise<{ electronApp: ElectronApplication; pa
   if (await loginError.isVisible()) {
     throw new Error(`Login failed: ${await loginError.textContent()}`);
   }
-  await expect(page.getByRole('heading', { name: 'Agent Dashboard' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Agent Sessions' })).toBeVisible();
 
   return { electronApp, page };
 }
@@ -299,12 +305,12 @@ test.describe('Visual Regression Tests', () => {
       },
       { tenant: mockTenant, brand: mockBrand }
     );
-    await page.getByRole('button', { name: 'API Key' }).click();
+    await page.getByRole('button', { name: 'API Key', exact: true }).click();
     await page.getByLabel('API Key').fill('sk-test-visual');
     const signInButton = page.getByRole('button', { name: 'Sign In' });
     await expect(signInButton).toBeEnabled();
     await signInButton.click();
-    await expect(page.getByRole('heading', { name: 'Agent Dashboard' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Agent Sessions' })).toBeVisible();
   });
 
   test('Dashboard with agents', async () => {
@@ -382,7 +388,7 @@ test.describe('Visual Regression Tests', () => {
 
   test('Connections page appearance', async () => {
     await page.getByRole('link', { name: 'Connections' }).click();
-    await expect(page.getByRole('heading', { name: 'Connections' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Platform Connections' })).toBeVisible();
     await page.waitForTimeout(500);
 
     await expect(page).toHaveScreenshot('connections-page.png', {
@@ -394,7 +400,7 @@ test.describe('Visual Regression Tests', () => {
   test('Command palette appearance', async () => {
     // Go back to dashboard
     await page.getByRole('link', { name: 'Dashboard' }).click();
-    await expect(page.getByRole('heading', { name: 'Agent Dashboard' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Agent Sessions' })).toBeVisible();
 
     // Open command palette
     await page.keyboard.press('Control+k');
@@ -502,12 +508,12 @@ test.describe('Responsive Visual Tests', () => {
         },
         { tenant: mockTenant, brand: mockBrand }
       );
-      await page.getByRole('button', { name: 'API Key' }).click();
-      await page.getByLabel('API Key').fill('sk-test');
+      await page.getByRole('button', { name: 'API Key', exact: true }).click();
+      await page.getByLabel('API Key').fill('sk-test-token');
       const signInButton = page.getByRole('button', { name: 'Sign In' });
       await expect(signInButton).toBeEnabled();
       await signInButton.click();
-      await expect(page.getByRole('heading', { name: 'Agent Dashboard' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Agent Sessions' })).toBeVisible();
 
       // Test different viewport sizes
       const viewports = [

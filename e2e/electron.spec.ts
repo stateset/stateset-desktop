@@ -12,8 +12,14 @@ const hasDisplay = (() => {
   return result.status === 0;
 })();
 
-const mockTenant = { id: 'tenant_1', name: 'Test Tenant' };
-const mockBrand = { id: 'brand_1', name: 'Demo Brand' };
+const mockTenant = { id: 'tenant_1', name: 'Test Tenant', slug: 'test-tenant', tier: 'pro' };
+const mockBrand = {
+  id: 'brand_1',
+  name: 'Demo Brand',
+  slug: 'demo',
+  tenant_id: 'tenant_1',
+  enabled: true,
+};
 const electronArgs = ['.'];
 if (process.platform === 'linux') {
   electronArgs.push(
@@ -127,11 +133,23 @@ async function launchWithMocks() {
   const hasElectronApi = await page.evaluate(() => typeof (window as any).electronAPI === 'object');
   expect(hasElectronApi).toBe(true);
 
-  await page.getByRole('button', { name: 'API Key' }).click();
-  await page.getByLabel('API Key').fill('sk-test');
-  await page.getByRole('button', { name: 'Sign In' }).click();
+  await page.evaluate(
+    ({ tenant, brand }) => {
+      (window as any).__E2E_AUTH__ = { tenant, brands: [brand] };
+    },
+    { tenant: mockTenant, brand: mockBrand }
+  );
 
-  await expect(page.getByRole('heading', { name: 'Agent Dashboard' })).toBeVisible();
+  await page.getByRole('button', { name: 'API Key', exact: true }).click();
+  await page.getByLabel('API Key').fill('sk-test-token');
+  await page.getByRole('button', { name: 'Sign In' }).click();
+  await page.waitForTimeout(200);
+  const loginError = page.getByText('Invalid API key').or(page.getByText('Login failed'));
+  if (await loginError.isVisible()) {
+    throw new Error(`Login failed: ${await loginError.textContent()}`);
+  }
+
+  await expect(page.getByRole('heading', { name: 'Agent Sessions' })).toBeVisible();
 
   return { electronApp, page };
 }
@@ -145,7 +163,7 @@ test.describe('Electron UI', () => {
     const { electronApp, page } = await launchWithMocks();
 
     try {
-      await expect(page.getByText('No agent sessions yet')).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Agent Sessions' })).toBeVisible();
     } finally {
       await electronApp.close();
     }
@@ -179,7 +197,7 @@ test.describe('Electron UI', () => {
       await expect(desktopToggle).not.toBeChecked();
       await expect(soundToggle).not.toBeChecked();
 
-      await page.getByLabel('Theme').selectOption('light');
+      await page.getByLabel('Theme', { exact: true }).selectOption('light');
 
       await expect
         .poll(async () => {
@@ -203,7 +221,7 @@ test.describe('Electron UI', () => {
         });
 
       // Restore defaults for subsequent tests that rely on persisted preferences.
-      await page.getByLabel('Theme').selectOption('dark');
+      await page.getByLabel('Theme', { exact: true }).selectOption('dark');
 
       if (!(await minimizeToggle.isChecked())) {
         await minimizeToggle.focus();

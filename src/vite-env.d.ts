@@ -67,7 +67,7 @@ interface ElectronAPI {
       message?: string;
     }>;
     installUpdate: () => Promise<boolean>;
-    getUpdateStatus: () => Promise<{ checking: boolean }>;
+    getUpdateStatus: () => Promise<UpdateStatusSnapshot>;
     isE2ETest: boolean;
     onUpdateChecking: (callback: () => void) => () => void;
     onUpdateAvailable: (callback: (info: UpdateInfo) => void) => () => void;
@@ -97,6 +97,16 @@ interface UpdateProgress {
   bytesPerSecond: number;
   total: number;
   transferred: number;
+}
+
+interface UpdateStatusSnapshot {
+  status: 'idle' | 'checking' | 'available' | 'downloading' | 'ready' | 'error' | 'disabled';
+  checking: boolean;
+  available: boolean;
+  progress: number;
+  version?: string;
+  error?: string;
+  message?: string;
 }
 
 declare global {

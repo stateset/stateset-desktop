@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Download, RefreshCw, Loader2, Check } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -23,14 +23,54 @@ type UpdateStatus =
   | 'error'
   | 'disabled';
 
+interface UpdateStatusSnapshot {
+  status: UpdateStatus;
+  checking: boolean;
+  available: boolean;
+  progress: number;
+  version?: string;
+  error?: string;
+  message?: string;
+}
+
 export function UpdateSettings({ appVersion }: { appVersion: string }) {
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>('idle');
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [updateError, setUpdateError] = useState<string | null>(null);
 
+  const applyUpdateStatusSnapshot = useCallback((snapshot: UpdateStatusSnapshot) => {
+    setUpdateStatus(snapshot.status);
+    setDownloadProgress(snapshot.progress || 0);
+
+    if (snapshot.version) {
+      setUpdateInfo({ version: snapshot.version });
+    } else if (snapshot.status === 'idle' || snapshot.status === 'disabled') {
+      setUpdateInfo(null);
+    }
+
+    if (snapshot.error) {
+      setUpdateError(snapshot.error);
+      return;
+    }
+    if (snapshot.status === 'disabled' && snapshot.message) {
+      setUpdateError(snapshot.message);
+      return;
+    }
+    setUpdateError(null);
+  }, []);
+
   useEffect(() => {
     if (!window.electronAPI) return;
+
+    void window.electronAPI.app
+      .getUpdateStatus()
+      .then((snapshot) => {
+        applyUpdateStatusSnapshot(snapshot);
+      })
+      .catch(() => {
+        // Ignore and keep UI in default state if the status endpoint is unavailable.
+      });
 
     const unsubscribers = [
       window.electronAPI.app.onUpdateChecking(() => {
@@ -61,7 +101,7 @@ export function UpdateSettings({ appVersion }: { appVersion: string }) {
     return () => {
       unsubscribers.forEach((unsubscribe) => unsubscribe());
     };
-  }, []);
+  }, [applyUpdateStatusSnapshot]);
 
   const checkForUpdates = async () => {
     if (window.electronAPI) {

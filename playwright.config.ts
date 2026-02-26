@@ -57,10 +57,6 @@ export default defineConfig({
     {
       name: 'integration',
       testMatch: /integration\.spec\.ts/,
-      use: {
-        // No browser needed for API tests
-        baseURL: 'https://engine.stateset.cloud.stateset.app',
-      },
     },
   ],
 });

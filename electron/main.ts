@@ -251,6 +251,54 @@ let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let isQuitting = false;
 
+type UpdateLifecycleState =
+  | 'idle'
+  | 'checking'
+  | 'available'
+  | 'downloading'
+  | 'ready'
+  | 'error'
+  | 'disabled';
+
+type UpdateStatusSnapshot = {
+  status: UpdateLifecycleState;
+  checking: boolean;
+  available: boolean;
+  progress: number;
+  version?: string;
+  error?: string;
+  message?: string;
+};
+
+function createInitialUpdateStatusSnapshot(): UpdateStatusSnapshot {
+  const updaterStatus = getAutoUpdaterStatus();
+  if (!updaterStatus.enabled) {
+    return {
+      status: 'disabled',
+      checking: false,
+      available: false,
+      progress: 0,
+      message: updaterStatus.reason || 'Updates disabled in this build',
+    };
+  }
+
+  return {
+    status: 'idle',
+    checking: false,
+    available: false,
+    progress: 0,
+  };
+}
+
+let updateStatusSnapshot = createInitialUpdateStatusSnapshot();
+
+function setUpdateStatusSnapshot(snapshot: Partial<UpdateStatusSnapshot>): void {
+  updateStatusSnapshot = {
+    ...updateStatusSnapshot,
+    ...snapshot,
+  };
+}
+
 // In-memory fallback storage when secure storage is unavailable
 const inMemorySecrets = new Map<string, string>();
 
@@ -494,8 +542,26 @@ function getAutoUpdaterStatus(): { enabled: boolean; reason?: string } {
 function setupAutoUpdater() {
   const updaterStatus = getAutoUpdaterStatus();
   if (!updaterStatus.enabled) {
+    setUpdateStatusSnapshot({
+      status: 'disabled',
+      checking: false,
+      available: false,
+      progress: 0,
+      message: updaterStatus.reason || 'Updates disabled in this build',
+      error: undefined,
+      version: undefined,
+    });
     return;
   }
+
+  setUpdateStatusSnapshot({
+    status: 'idle',
+    checking: false,
+    available: false,
+    progress: 0,
+    message: undefined,
+    error: undefined,
+  });
 
   // Configure auto-updater
   autoUpdater.autoDownload = true;
@@ -504,11 +570,29 @@ function setupAutoUpdater() {
 
   autoUpdater.on('checking-for-update', () => {
     console.log('Checking for updates...');
+    setUpdateStatusSnapshot({
+      status: 'checking',
+      checking: true,
+      available: false,
+      progress: 0,
+      message: undefined,
+      error: undefined,
+      version: undefined,
+    });
     mainWindow?.webContents.send('updater:checking');
   });
 
   autoUpdater.on('update-available', (info) => {
     console.log('Update available:', info.version);
+    setUpdateStatusSnapshot({
+      status: 'available',
+      checking: false,
+      available: true,
+      progress: 0,
+      version: info.version,
+      error: undefined,
+      message: undefined,
+    });
     mainWindow?.webContents.send('updater:available', info);
 
     // Show notification
@@ -522,16 +606,42 @@ function setupAutoUpdater() {
 
   autoUpdater.on('update-not-available', () => {
     console.log('No updates available');
+    setUpdateStatusSnapshot({
+      status: 'idle',
+      checking: false,
+      available: false,
+      progress: 0,
+      version: undefined,
+      error: undefined,
+      message: undefined,
+    });
     mainWindow?.webContents.send('updater:not-available');
   });
 
   autoUpdater.on('download-progress', (progress) => {
     console.log(`Download progress: ${progress.percent.toFixed(1)}%`);
+    setUpdateStatusSnapshot({
+      status: 'downloading',
+      checking: false,
+      available: true,
+      progress: Math.max(0, Math.min(100, progress.percent)),
+      error: undefined,
+      message: undefined,
+    });
     mainWindow?.webContents.send('updater:progress', progress);
   });
 
   autoUpdater.on('update-downloaded', (info) => {
     console.log('Update downloaded:', info.version);
+    setUpdateStatusSnapshot({
+      status: 'ready',
+      checking: false,
+      available: true,
+      progress: 100,
+      version: info.version,
+      error: undefined,
+      message: undefined,
+    });
     mainWindow?.webContents.send('updater:downloaded', info);
 
     // Show notification with option to restart
@@ -550,6 +660,12 @@ function setupAutoUpdater() {
   autoUpdater.on('error', (error) => {
     console.error('Auto-updater error:', error);
     Sentry.captureException(error);
+    setUpdateStatusSnapshot({
+      status: 'error',
+      checking: false,
+      error: error.message,
+      message: undefined,
+    });
     mainWindow?.webContents.send('updater:error', error.message);
   });
 
@@ -1036,12 +1152,58 @@ ipcMain.handle('app:getPlatform', () => {
 ipcMain.handle('app:checkForUpdates', async () => {
   const updaterStatus = getAutoUpdaterStatus();
   if (!updaterStatus.enabled) {
+    setUpdateStatusSnapshot({
+      status: 'disabled',
+      checking: false,
+      available: false,
+      progress: 0,
+      message: updaterStatus.reason || 'Updates disabled in this build',
+      error: undefined,
+      version: undefined,
+    });
     return { available: false, message: updaterStatus.reason || 'Updates disabled in this build' };
   }
+
+  setUpdateStatusSnapshot({
+    status: 'checking',
+    checking: true,
+    available: false,
+    progress: 0,
+    message: undefined,
+    error: undefined,
+    version: undefined,
+  });
+
   try {
     const result = await autoUpdater.checkForUpdates();
-    return { available: !!result?.updateInfo, version: result?.updateInfo?.version };
+    const version = result?.updateInfo?.version;
+    const available = Boolean(version);
+
+    if (available) {
+      setUpdateStatusSnapshot({
+        status: 'available',
+        checking: false,
+        available: true,
+        progress: 0,
+        version,
+      });
+    } else {
+      setUpdateStatusSnapshot({
+        status: 'idle',
+        checking: false,
+        available: false,
+        progress: 0,
+        version: undefined,
+      });
+    }
+
+    return { available, version };
   } catch (error) {
+    setUpdateStatusSnapshot({
+      status: 'error',
+      checking: false,
+      error: String(error),
+    });
     return { available: false, error: String(error) };
   }
 });
@@ -1055,9 +1217,7 @@ ipcMain.handle('app:installUpdate', () => {
 });
 
 ipcMain.handle('app:getUpdateStatus', () => {
-  return {
-    checking: false, // Would need state management for real-time status
-  };
+  return updateStatusSnapshot;
 });
 
 // ============================================

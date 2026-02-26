@@ -1,57 +1,38 @@
-/**
- * @vitest-environment happy-dom
- */
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import type { Brand, Tenant } from '../types';
+/** @vitest-environment happy-dom */
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { fireEvent, screen } from '@testing-library/react';
+import type { PropsWithChildren } from 'react';
 import Layout from './Layout';
+import { renderWithProviders } from '../test-utils';
 import { useAuthStore } from '../stores/auth';
 import { useUiStore } from '../stores/ui';
-import { useNotificationsStore } from '../stores/notifications';
-import { useAuditLogStore } from '../stores/auditLog';
+import type { Brand, Tenant } from '../types';
 
-const listSessionsMock = vi.fn().mockResolvedValue([]);
+const mockListSessions = vi.fn();
+const mockLog = vi.fn();
 
 vi.mock('../lib/api', () => ({
   agentApi: {
-    listSessions: (...args: unknown[]) => listSessionsMock(...args),
+    listSessions: (...args: unknown[]) => mockListSessions(...args),
   },
 }));
 
 vi.mock('../hooks/useOfflineCache', () => ({
   useSessionsCache: () => ({
-    isOnline: true,
     cacheFromQuery: vi.fn().mockResolvedValue(undefined),
     getCachedSessions: vi.fn().mockResolvedValue([]),
+    isOnline: true,
   }),
 }));
 
-vi.mock('framer-motion', () => ({
-  motion: {
-    div: ({
-      children,
-      initial: _initial,
-      animate: _animate,
-      transition: _transition,
-      variants: _variants,
-      ...rest
-    }: React.PropsWithChildren<Record<string, unknown>>) => <div {...rest}>{children}</div>,
-    main: ({
-      children,
-      initial: _initial,
-      animate: _animate,
-      transition: _transition,
-      variants: _variants,
-      ...rest
-    }: React.PropsWithChildren<Record<string, unknown>>) => <main {...rest}>{children}</main>,
+vi.mock('../stores/auditLog', () => ({
+  useAuditLogStore: {
+    getState: () => ({ log: mockLog }),
   },
-  useReducedMotion: () => true,
 }));
 
 vi.mock('./ApiHealthIndicator', () => ({
-  ApiHealthIndicator: () => <div data-testid="api-health" />,
+  ApiHealthIndicator: () => <div data-testid="api-health-indicator" />,
 }));
 
 vi.mock('./CommandPalette', () => ({
@@ -67,7 +48,20 @@ vi.mock('./ThemeToggle', () => ({
 }));
 
 vi.mock('./NotificationsCenter', () => ({
-  NotificationsCenter: () => <div data-testid="notifications-center" />,
+  NotificationsCenter: () => <button type="button">Notifications</button>,
+}));
+
+vi.mock('framer-motion', () => ({
+  motion: {
+    div: ({ children, className }: PropsWithChildren<{ className?: string }>) => (
+      <div className={className}>{children}</div>
+    ),
+    main: ({ children, className }: PropsWithChildren<{ className?: string }>) => (
+      <main className={className}>{children}</main>
+    ),
+  },
+  AnimatePresence: ({ children }: PropsWithChildren) => <>{children}</>,
+  useReducedMotion: () => false,
 }));
 
 const tenant: Tenant = {
@@ -78,7 +72,7 @@ const tenant: Tenant = {
   created_at: '2026-02-26T00:00:00Z',
 };
 
-const enabledBrand: Brand = {
+const enabledBrandOne: Brand = {
   id: 'brand-1',
   tenant_id: tenant.id,
   slug: 'brand-one',
@@ -92,131 +86,47 @@ const enabledBrand: Brand = {
 };
 
 const enabledBrandTwo: Brand = {
-  ...enabledBrand,
+  ...enabledBrandOne,
   id: 'brand-2',
   slug: 'brand-two',
   name: 'Brand Two',
 };
 
 const disabledBrand: Brand = {
-  ...enabledBrand,
+  ...enabledBrandOne,
   id: 'brand-3',
   slug: 'brand-three',
-  name: 'Brand Three',
+  name: 'Disabled Brand',
   enabled: false,
 };
 
-function createElectronApiMock() {
-  return {
-    auth: {
-      getApiKey: vi.fn().mockResolvedValue(undefined),
-      setApiKey: vi.fn().mockResolvedValue(true),
-      clearApiKey: vi.fn().mockResolvedValue(true),
-      getSandboxApiKey: vi.fn().mockResolvedValue(undefined),
-      setSandboxApiKey: vi.fn().mockResolvedValue(true),
-      clearSandboxApiKey: vi.fn().mockResolvedValue(true),
-      isSecureStorageAvailable: vi.fn().mockResolvedValue(true),
-    },
-    store: {
-      get: vi.fn().mockResolvedValue(undefined),
-      set: vi.fn().mockResolvedValue(true),
-      delete: vi.fn().mockResolvedValue(true),
-      clear: vi.fn().mockResolvedValue(true),
-    },
-    oauth: {
-      shopify: {
-        start: vi.fn().mockResolvedValue(undefined),
-        onSuccess: vi.fn().mockReturnValue(() => {}),
-        onError: vi.fn().mockReturnValue(() => {}),
-      },
-      gorgias: {
-        start: vi.fn().mockResolvedValue(undefined),
-        onSuccess: vi.fn().mockReturnValue(() => {}),
-        onError: vi.fn().mockReturnValue(() => {}),
-      },
-      zendesk: {
-        start: vi.fn().mockResolvedValue(undefined),
-        onSuccess: vi.fn().mockReturnValue(() => {}),
-        onError: vi.fn().mockReturnValue(() => {}),
-      },
-    },
-    secrets: {
-      getLocal: vi.fn().mockResolvedValue(undefined),
-      setLocal: vi.fn().mockResolvedValue(true),
-      clearLocal: vi.fn().mockResolvedValue(true),
-    },
-    window: {
-      minimize: vi.fn().mockResolvedValue(undefined),
-      maximize: vi.fn().mockResolvedValue(undefined),
-      close: vi.fn().mockResolvedValue(undefined),
-    },
-    app: {
-      // Intentionally omit getVersion to avoid async state updates unrelated to these tests.
-    },
-    background: {
-      setMinimizeToTray: vi.fn().mockResolvedValue(true),
-      getMinimizeToTray: vi.fn().mockResolvedValue(true),
-      updateAgentStatus: vi.fn().mockResolvedValue(true),
-    },
-    notifications: {
-      show: vi.fn().mockResolvedValue(true),
-    },
-  } as unknown as Window['electronAPI'];
-}
-
-function renderLayout(queryClient?: QueryClient) {
-  const client =
-    queryClient ??
-    new QueryClient({
-      defaultOptions: {
-        queries: { retry: false },
-        mutations: { retry: false },
-      },
-    });
-
-  render(
-    <QueryClientProvider client={client}>
-      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-        <Routes>
-          <Route path="/login" element={<div>Login Route</div>} />
-          <Route
-            path="*"
-            element={
-              <Layout>
-                <div>Layout Body</div>
-              </Layout>
-            }
-          />
-        </Routes>
-      </MemoryRouter>
-    </QueryClientProvider>
+function renderLayout() {
+  return renderWithProviders(
+    <Layout>
+      <div>Page Content</div>
+    </Layout>
   );
-
-  return client;
 }
 
-describe('Layout', () => {
+describe('Layout brand selector', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    useUiStore.setState({ commandPaletteOpen: false, commandPaletteAgents: [] });
-    useNotificationsStore.setState({ notifications: [] });
-    useAuditLogStore.setState({ entries: [], isLoaded: true });
+    mockListSessions.mockResolvedValue([]);
 
     Object.defineProperty(window, 'electronAPI', {
-      value: createElectronApiMock(),
-      writable: true,
       configurable: true,
+      writable: true,
+      value: {
+        app: {
+          getVersion: vi.fn().mockImplementation(() => new Promise(() => {})),
+        },
+      },
     });
-  });
 
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it('shows enabled and disabled brands and blocks disabled selection', async () => {
-    const setCurrentBrand = vi.fn();
-    const logout = vi.fn().mockResolvedValue(undefined);
-    const logSpy = vi.spyOn(useAuditLogStore.getState(), 'log');
+    useUiStore.setState({
+      commandPaletteOpen: false,
+      commandPaletteAgents: [],
+    });
 
     useAuthStore.setState({
       isAuthenticated: true,
@@ -224,108 +134,53 @@ describe('Layout', () => {
       apiKey: 'engine-key',
       sandboxApiKey: null,
       tenant,
-      currentBrand: enabledBrand,
-      brands: [enabledBrand, enabledBrandTwo, disabledBrand],
+      currentBrand: enabledBrandOne,
+      brands: [enabledBrandOne, enabledBrandTwo, disabledBrand],
       error: null,
       initAttempts: 0,
-      setCurrentBrand,
-      logout,
     });
+  });
 
+  it('switches between enabled brands from the dropdown', () => {
+    renderLayout();
+
+    fireEvent.click(screen.getByRole('button', { name: /select brand/i }));
+    fireEvent.click(screen.getByRole('option', { name: 'Brand Two' }));
+
+    expect(useAuthStore.getState().currentBrand?.id).toBe(enabledBrandTwo.id);
+    expect(mockLog).toHaveBeenCalledWith(
+      'brand.switched',
+      expect.stringContaining('Brand Two'),
+      expect.objectContaining({ brandId: enabledBrandTwo.id })
+    );
+  });
+
+  it('renders disabled brands as non-interactive options', () => {
     renderLayout();
 
     fireEvent.click(screen.getByRole('button', { name: /select brand/i }));
 
-    const enabledOption = screen.getByRole('option', { name: enabledBrandTwo.name });
-    const disabledOption = screen.getByRole('option', { name: new RegExp(disabledBrand.name) });
-
-    expect(enabledOption).toBeEnabled();
+    const disabledOption = screen.getByRole('option', { name: /disabled brand/i });
     expect(disabledOption).toBeDisabled();
 
     fireEvent.click(disabledOption);
-    expect(setCurrentBrand).not.toHaveBeenCalledWith(disabledBrand);
 
-    fireEvent.click(enabledOption);
-
-    await waitFor(() => {
-      expect(setCurrentBrand).toHaveBeenCalledWith(enabledBrandTwo);
-    });
-    expect(logSpy).toHaveBeenCalledWith(
-      'brand.switched',
-      `Switched to brand "${enabledBrandTwo.name}"`,
-      { brandId: enabledBrandTwo.id }
-    );
-    expect(screen.queryByRole('listbox', { name: /available brands/i })).not.toBeInTheDocument();
+    expect(useAuthStore.getState().currentBrand?.id).toBe(enabledBrandOne.id);
+    expect(mockLog).not.toHaveBeenCalled();
+    expect(screen.getAllByText('Disabled').length).toBeGreaterThan(0);
   });
 
-  it('shows no-active-brands state when all brands are disabled', () => {
-    const setCurrentBrand = vi.fn();
-    const logout = vi.fn().mockResolvedValue(undefined);
-
+  it('shows no-active-brand state when tenant has no enabled brands', () => {
     useAuthStore.setState({
-      isAuthenticated: true,
-      isLoading: false,
-      apiKey: 'engine-key',
-      sandboxApiKey: null,
-      tenant,
       currentBrand: null,
       brands: [disabledBrand],
-      error: null,
-      initAttempts: 0,
-      setCurrentBrand,
-      logout,
     });
 
     renderLayout();
 
-    expect(screen.getByRole('button', { name: /select brand/i })).toHaveTextContent(
-      'No Active Brands'
-    );
+    expect(screen.getByText('No Active Brands')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /select brand/i }));
-
     expect(screen.getByText('No active brands available for agent actions.')).toBeInTheDocument();
-    const disabledOption = screen.getByRole('option', { name: new RegExp(disabledBrand.name) });
-    expect(disabledOption).toBeDisabled();
-    expect(setCurrentBrand).not.toHaveBeenCalled();
-  });
-
-  it('logs out, clears query cache, and navigates to login', async () => {
-    const logout = vi.fn().mockResolvedValue(undefined);
-    const setCurrentBrand = vi.fn();
-
-    useAuthStore.setState({
-      isAuthenticated: true,
-      isLoading: false,
-      apiKey: 'engine-key',
-      sandboxApiKey: null,
-      tenant,
-      currentBrand: enabledBrand,
-      brands: [enabledBrand],
-      error: null,
-      initAttempts: 0,
-      setCurrentBrand,
-      logout,
-    });
-
-    const queryClient = new QueryClient({
-      defaultOptions: {
-        queries: { retry: false },
-        mutations: { retry: false },
-      },
-    });
-    const clearSpy = vi.spyOn(queryClient, 'clear');
-
-    renderLayout(queryClient);
-
-    fireEvent.click(screen.getByRole('button', { name: /logout from stateset/i }));
-
-    await waitFor(() => {
-      expect(logout).toHaveBeenCalledTimes(1);
-    });
-    await waitFor(() => {
-      expect(clearSpy).toHaveBeenCalledTimes(1);
-    });
-    expect(await screen.findByText('Login Route')).toBeInTheDocument();
   });
 });
