@@ -4,6 +4,24 @@ All notable changes to StateSet Desktop will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.1.10] - 2026-02-27
+
+### Added
+
+- Added stronger API integration tests for auth-header fallback behavior and metrics status fidelity.
+- Added expanded query-key tests for webhook and session cache scoping.
+
+### Changed
+
+- Hardened API auth fallback flow to prevent unintended unauthenticated fallthrough on protected requests.
+- Improved webhook mutation UX with consistent success and failure notifications.
+- Scoped session detail query keys by tenant and brand to prevent cross-tenant cache collisions.
+- Preserved stream log metadata in SSE event parsing for richer troubleshooting context.
+
+### Fixed
+
+- Fixed API metrics recording to retain HTTP status and retry count for sanitized error paths.
+
 ## [1.1.9] - 2026-02-27
 
 ### Added
