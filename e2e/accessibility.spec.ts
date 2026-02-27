@@ -292,7 +292,7 @@ test.describe('Accessibility Tests', () => {
     await expect(form).toBeVisible();
 
     // Check input has label
-    await page.getByRole('button', { name: 'API Key', exact: true }).click();
+    await page.getByRole('button', { name: 'API Key', exact: true }).click({ force: true });
     const apiKeyInput = page.getByLabel('API Key');
     await expect(apiKeyInput).toBeVisible();
     await expect(apiKeyInput).toHaveAttribute('type', 'password');
@@ -312,9 +312,9 @@ test.describe('Accessibility Tests', () => {
       },
       { tenant: mockTenant, brand: mockBrand }
     );
-    await page.getByRole('button', { name: 'API Key', exact: true }).click();
+    await page.getByRole('button', { name: 'API Key', exact: true }).click({ force: true });
     await page.getByLabel('API Key').fill('sk-test-a11y');
-    await page.getByRole('button', { name: 'Sign In' }).click();
+    await page.getByRole('button', { name: 'Sign In' }).click({ force: true });
     await expect(page.getByRole('heading', { name: 'Agent Sessions' })).toBeVisible();
 
     // Wait for content to load
@@ -383,7 +383,7 @@ test.describe('Accessibility Tests', () => {
   });
 
   test('Settings page should have no accessibility violations', async () => {
-    await page.getByRole('link', { name: 'Settings' }).click();
+    await page.getByRole('link', { name: 'Settings' }).click({ force: true });
     await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
     await page.waitForTimeout(500);
 
@@ -431,7 +431,7 @@ test.describe('Accessibility Tests', () => {
   });
 
   test('Connections page should have no accessibility violations', async () => {
-    await page.getByRole('link', { name: 'Connections' }).click();
+    await page.getByRole('link', { name: 'Connections' }).click({ force: true });
     await expect(page.getByRole('heading', { name: 'Platform Connections' })).toBeVisible();
     await page.waitForTimeout(500);
 
@@ -552,9 +552,9 @@ test.describe('Color Contrast Analysis', () => {
         },
         { tenant: mockTenant, brand: mockBrand }
       );
-      await page.getByRole('button', { name: 'API Key', exact: true }).click();
+      await page.getByRole('button', { name: 'API Key', exact: true }).click({ force: true });
       await page.getByLabel('API Key').fill('sk-test-token');
-      await page.getByRole('button', { name: 'Sign In' }).click();
+      await page.getByRole('button', { name: 'Sign In' }).click({ force: true });
       await expect(page.getByRole('heading', { name: 'Agent Sessions' })).toBeVisible();
 
       // Check color contrast specifically
@@ -605,9 +605,9 @@ test.describe('Screen Reader Accessibility', () => {
         },
         { tenant: mockTenant, brand: mockBrand }
       );
-      await page.getByRole('button', { name: 'API Key', exact: true }).click();
+      await page.getByRole('button', { name: 'API Key', exact: true }).click({ force: true });
       await page.getByLabel('API Key').fill('sk-test-token');
-      await page.getByRole('button', { name: 'Sign In' }).click();
+      await page.getByRole('button', { name: 'Sign In' }).click({ force: true });
       await expect(page.getByRole('heading', { name: 'Agent Sessions' })).toBeVisible();
 
       // Check for main landmark

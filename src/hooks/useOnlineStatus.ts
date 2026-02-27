@@ -202,18 +202,25 @@ export function useOnlineStatus(): OnlineStatus {
 
     const startTime = performance.now();
     let checkSucceeded = false;
-
-    try {
+    const fetchWithTimeout = async (url: string, init: RequestInit = {}): Promise<Response> => {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
+      try {
+        return await fetch(url, {
+          ...init,
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timeoutId);
+      }
+    };
 
+    try {
       // Always check basic /health first for reachability (no auth required)
-      const response = await fetch(`${API_URL}/health`, {
+      const response = await fetchWithTimeout(`${API_URL}/health`, {
         method: 'GET',
-        signal: controller.signal,
       });
 
-      clearTimeout(timeoutId);
       const endTime = performance.now();
       setLatencyMs(Math.round(endTime - startTime));
 
@@ -230,10 +237,9 @@ export function useOnlineStatus(): OnlineStatus {
         const apiKey = useAuthStore.getState().apiKey;
         if (apiKey) {
           try {
-            const detailedResp = await fetch(`${API_URL}/health/detailed`, {
+            const detailedResp = await fetchWithTimeout(`${API_URL}/health/detailed`, {
               method: 'GET',
               headers: { Authorization: `ApiKey ${apiKey}` },
-              signal: controller.signal,
             });
 
             if (detailedResp.ok) {

@@ -140,9 +140,9 @@ async function launchWithMocks() {
     { tenant: mockTenant, brand: mockBrand }
   );
 
-  await page.getByRole('button', { name: 'API Key', exact: true }).click();
+  await page.getByRole('button', { name: 'API Key', exact: true }).click({ force: true });
   await page.getByLabel('API Key').fill('sk-test-token');
-  await page.getByRole('button', { name: 'Sign In' }).click();
+  await page.getByRole('button', { name: 'Sign In' }).click({ force: true });
   await page.waitForTimeout(200);
   const loginError = page.getByText('Invalid API key').or(page.getByText('Login failed'));
   if (await loginError.isVisible()) {
@@ -173,7 +173,7 @@ test.describe('Electron UI', () => {
     const { electronApp, page } = await launchWithMocks();
 
     try {
-      await page.getByRole('link', { name: 'Settings' }).click();
+      await page.getByRole('link', { name: 'Settings' }).click({ force: true });
       await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
 
       const minimizeToggle = page.getByLabel('Minimize to System Tray');

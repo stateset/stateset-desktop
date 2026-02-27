@@ -147,6 +147,14 @@ export default function Layout({ children }: LayoutProps) {
 
       const key = e.key.toLowerCase();
 
+      // Escape always closes command palette first when open.
+      if (key === 'escape' && commandPaletteOpen) {
+        e.preventDefault();
+        e.stopPropagation();
+        closeCommandPalette();
+        return;
+      }
+
       // Ctrl/Cmd+K opens command palette
       if ((e.ctrlKey || e.metaKey) && key === 'k') {
         e.preventDefault();
@@ -205,7 +213,7 @@ export default function Layout({ children }: LayoutProps) {
         setShowShortcutsModal(true);
       }
     },
-    [handleRefreshData, navigate, openCommandPalette]
+    [commandPaletteOpen, closeCommandPalette, handleRefreshData, navigate, openCommandPalette]
   );
 
   useEffect(() => {

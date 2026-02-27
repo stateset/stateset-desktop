@@ -86,6 +86,11 @@ log.info('Application starting', {
   environment: import.meta.env.MODE,
 });
 
+// Stabilize UI interactions under Playwright/E2E by disabling motion globally in test runtime.
+if (window.electronAPI?.app?.isE2ETest) {
+  document.documentElement.dataset.e2e = 'true';
+}
+
 // Initialize telemetry (opt-in; will only activate if enabled in preferences)
 initializeTelemetry({
   endpoint: import.meta.env.VITE_TELEMETRY_ENDPOINT,

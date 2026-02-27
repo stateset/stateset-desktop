@@ -78,6 +78,7 @@ const STORE_KEYS = new Set([
   'customAgentTemplates',
   'chatPlaygroundConversations',
   'auditLog',
+  'currentBrandId',
 ]);
 const OAUTH_SECRET_KEYS = {
   shopifyClientId: 'oauth:shopify:clientId',

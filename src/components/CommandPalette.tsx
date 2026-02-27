@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import {
@@ -49,6 +49,10 @@ export function CommandPalette({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
+  const isOpenRef = useRef(isOpen);
+  const filteredCommandsRef = useRef<CommandItem[]>([]);
+  const selectedIndexRef = useRef(0);
+  const onCloseRef = useRef(onClose);
   const navigate = useNavigate();
   const reduceMotion = useReducedMotion();
   const dur = reduceMotion ? 0 : 0.2;
@@ -229,40 +233,21 @@ export function CommandPalette({
       cmd.description?.toLowerCase().includes(query.toLowerCase())
   );
 
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if (!isOpen) return;
-      if (filteredCommands.length === 0) {
-        if (e.key === 'Escape') {
-          e.preventDefault();
-          onClose();
-        }
-        return;
-      }
+  useEffect(() => {
+    isOpenRef.current = isOpen;
+  }, [isOpen]);
 
-      switch (e.key) {
-        case 'ArrowDown':
-          e.preventDefault();
-          setSelectedIndex((i) => (i + 1) % filteredCommands.length);
-          break;
-        case 'ArrowUp':
-          e.preventDefault();
-          setSelectedIndex((i) => (i - 1 < 0 ? Math.max(filteredCommands.length - 1, 0) : i - 1));
-          break;
-        case 'Enter':
-          e.preventDefault();
-          if (filteredCommands[selectedIndex]) {
-            filteredCommands[selectedIndex].action();
-          }
-          break;
-        case 'Escape':
-          e.preventDefault();
-          onClose();
-          break;
-      }
-    },
-    [isOpen, filteredCommands, selectedIndex, onClose]
-  );
+  useEffect(() => {
+    filteredCommandsRef.current = filteredCommands;
+  }, [filteredCommands]);
+
+  useEffect(() => {
+    selectedIndexRef.current = selectedIndex;
+  }, [selectedIndex]);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   useEffect(() => {
     if (isOpen && document.activeElement instanceof HTMLElement) {
@@ -280,9 +265,41 @@ export function CommandPalette({
   }, [isOpen]);
 
   useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!isOpenRef.current) return;
+
+      const currentCommands = filteredCommandsRef.current;
+      if (currentCommands.length === 0) {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          onCloseRef.current();
+        }
+        return;
+      }
+
+      switch (e.key) {
+        case 'ArrowDown':
+          e.preventDefault();
+          setSelectedIndex((i) => (i + 1) % currentCommands.length);
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          setSelectedIndex((i) => (i - 1 < 0 ? Math.max(currentCommands.length - 1, 0) : i - 1));
+          break;
+        case 'Enter':
+          e.preventDefault();
+          currentCommands[selectedIndexRef.current]?.action();
+          break;
+        case 'Escape':
+          e.preventDefault();
+          onCloseRef.current();
+          break;
+      }
+    };
+
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleKeyDown]);
+  }, []);
 
   useEffect(() => {
     if (isOpen) {

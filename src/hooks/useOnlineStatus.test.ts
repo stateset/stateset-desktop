@@ -119,4 +119,49 @@ describe('useOnlineStatus', () => {
       true
     );
   });
+
+  it('uses independent abort signals for basic and detailed health checks', async () => {
+    const signals: Array<AbortSignal | undefined> = [];
+    const fetchMock = vi.fn().mockImplementation(async (_url: string, init?: RequestInit) => {
+      signals.push(init?.signal as AbortSignal | undefined);
+      return {
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            status: 'ok',
+            version: '1.0.0',
+            checks: {
+              database: { status: 'healthy' },
+              redis: { status: 'healthy' },
+              nats: { status: 'healthy' },
+            },
+            circuit_breakers: {
+              sandbox: 'closed',
+              webhook: 'closed',
+              database: 'closed',
+              external_api: 'closed',
+            },
+            resilience_healthy: true,
+          }),
+      } as Response;
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const { result } = renderHook(() => useOnlineStatus());
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    fetchMock.mockClear();
+    signals.length = 0;
+
+    await act(async () => {
+      await result.current.checkNow();
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(signals[0]).toBeDefined();
+    expect(signals[1]).toBeDefined();
+    expect(signals[0]).not.toBe(signals[1]);
+  });
 });

@@ -203,6 +203,9 @@ export default function App() {
   const initializeAuth = useAuthStore((s) => s.initialize);
   const initializePreferences = usePreferencesStore((s) => s.initialize);
   const reduceMotion = usePreferencesStore((s) => s.reduceMotion);
+  const isE2ETestRuntime =
+    typeof window !== 'undefined' && window.electronAPI?.app?.isE2ETest === true;
+  const useReducedMotionMode = reduceMotion || isE2ETestRuntime;
 
   useEffect(() => {
     initializeAuth();
@@ -213,7 +216,7 @@ export default function App() {
   }, [initializePreferences]);
 
   return (
-    <MotionConfig reducedMotion={reduceMotion ? 'always' : 'user'}>
+    <MotionConfig reducedMotion={useReducedMotionMode ? 'always' : 'user'}>
       <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Suspense fallback={<AppLoadingScreen status="loading" />}>
           <Routes>

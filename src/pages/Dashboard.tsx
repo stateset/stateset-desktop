@@ -133,6 +133,7 @@ export default function Dashboard() {
   const {
     data: sessions = [],
     isLoading,
+    isFetching,
     error: sessionsError,
     refetch,
   } = useQuery<AgentSession[]>({
@@ -159,11 +160,14 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (sessionsError) {
-      handleQueryError('Failed to load sessions')(sessionsError);
-    } else {
+      handleQueryError('Failed to load sessions', 'dashboard:sessions')(sessionsError);
+      return;
+    }
+
+    if (!isFetching) {
       clearLastError();
     }
-  }, [sessionsError, handleQueryError, clearLastError]);
+  }, [sessionsError, isFetching, handleQueryError, clearLastError]);
 
   // Close export menu on click outside
   useEffect(() => {
