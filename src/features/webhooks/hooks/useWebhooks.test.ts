@@ -8,6 +8,7 @@ import {
   useCreateWebhook,
   useDeleteWebhook,
   useUpdateWebhook,
+  useTestWebhook,
 } from './useWebhooks';
 
 // Mock auth store
@@ -23,6 +24,8 @@ const mockList = vi.fn();
 const mockCreate = vi.fn();
 const mockUpdate = vi.fn();
 const mockDelete = vi.fn();
+const mockTest = vi.fn();
+const mockShowToast = vi.fn();
 
 vi.mock('../../../lib/api', () => ({
   webhooksApi: {
@@ -30,7 +33,12 @@ vi.mock('../../../lib/api', () => ({
     create: (...args: unknown[]) => mockCreate(...args),
     update: (...args: unknown[]) => mockUpdate(...args),
     delete: (...args: unknown[]) => mockDelete(...args),
+    test: (...args: unknown[]) => mockTest(...args),
   },
+}));
+
+vi.mock('../../../components/ToastProvider', () => ({
+  useToast: () => ({ showToast: mockShowToast }),
 }));
 
 function createWrapper() {
@@ -113,5 +121,41 @@ describe('useDeleteWebhook', () => {
     await result.current.mutateAsync('wh-1');
 
     expect(mockDelete).toHaveBeenCalledWith('tenant-1', 'brand-1', 'wh-1');
+  });
+});
+
+describe('useTestWebhook', () => {
+  it('calls test API and shows success toast', async () => {
+    mockTest.mockResolvedValue({ success: true, status_code: 200, duration_ms: 41 });
+
+    const { result } = renderHook(() => useTestWebhook(), {
+      wrapper: createWrapper(),
+    });
+
+    await result.current.mutateAsync('wh-1');
+
+    expect(mockTest).toHaveBeenCalledWith('tenant-1', 'brand-1', 'wh-1');
+    expect(mockShowToast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        variant: 'success',
+        title: 'Webhook test succeeded',
+      })
+    );
+  });
+
+  it('shows error toast on test failure', async () => {
+    mockTest.mockRejectedValue(new Error('boom'));
+
+    const { result } = renderHook(() => useTestWebhook(), {
+      wrapper: createWrapper(),
+    });
+
+    await expect(result.current.mutateAsync('wh-1')).rejects.toThrow('boom');
+    expect(mockShowToast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        variant: 'error',
+        title: 'Webhook test failed',
+      })
+    );
   });
 });

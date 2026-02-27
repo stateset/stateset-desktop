@@ -190,6 +190,61 @@ describe('API Request Integration', () => {
     expect(mockHeaders['Authorization']).toBe('ApiKey test-api-key');
   });
 
+  it('should retry auth header variants and succeed with X-API-Key', async () => {
+    const unauthorizedResponse = {
+      ok: false,
+      status: 401,
+      headers: { get: () => 'application/json' },
+      text: async () => JSON.stringify({ error: 'Unauthorized' }),
+    };
+
+    fetchMock.mockResolvedValueOnce(unauthorizedResponse);
+    fetchMock.mockResolvedValueOnce(unauthorizedResponse);
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      headers: { get: () => 'application/json' },
+      text: async () =>
+        JSON.stringify({
+          ok: true,
+          webhooks: [],
+        }),
+    });
+
+    await webhooksApi.list('tenant-123', 'brand-456');
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+
+    const firstHeaders = fetchMock.mock.calls[0]?.[1]?.headers as Record<string, string>;
+    const secondHeaders = fetchMock.mock.calls[1]?.[1]?.headers as Record<string, string>;
+    const thirdHeaders = fetchMock.mock.calls[2]?.[1]?.headers as Record<string, string>;
+
+    expect(firstHeaders.Authorization).toBe('ApiKey test-api-key');
+    expect(secondHeaders.Authorization).toBe('Bearer test-api-key');
+    expect(thirdHeaders['X-API-Key']).toBe('test-api-key');
+  });
+
+  it('should not attempt unauthenticated fallback after auth failures', async () => {
+    const unauthorizedResponse = {
+      ok: false,
+      status: 401,
+      headers: { get: () => 'application/json' },
+      text: async () => JSON.stringify({ error: 'Unauthorized' }),
+    };
+
+    fetchMock.mockResolvedValueOnce(unauthorizedResponse);
+    fetchMock.mockResolvedValueOnce(unauthorizedResponse);
+    fetchMock.mockResolvedValueOnce(unauthorizedResponse);
+
+    await expect(webhooksApi.list('tenant-123', 'brand-456')).rejects.toThrow(
+      'Authentication required'
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+
+    const finalHeaders = fetchMock.mock.calls[2]?.[1]?.headers as Record<string, string>;
+    expect(finalHeaders['X-API-Key']).toBe('test-api-key');
+  });
+
   it('should handle successful JSON response', async () => {
     const responseData = { ok: true, data: 'test' };
     fetchMock.mockResolvedValueOnce({

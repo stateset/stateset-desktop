@@ -57,7 +57,10 @@ function getStoredApiKey(): string | null {
   return trimmed || null;
 }
 
-function buildAuthHeaderCandidates(apiKey: string | null): AuthHeaderCandidate[] {
+function buildAuthHeaderCandidates(
+  apiKey: string | null,
+  allowUnauthenticatedFallback: boolean = false
+): AuthHeaderCandidate[] {
   if (!apiKey) {
     return [{ headers: {}, description: 'No API key' }];
   }
@@ -86,8 +89,9 @@ function buildAuthHeaderCandidates(apiKey: string | null): AuthHeaderCandidate[]
   addCandidate('Bearer Authorization', { Authorization: `Bearer ${apiKey}` });
   addCandidate('X-API-Key', { 'X-API-Key': apiKey });
 
-  // Keep a no-auth fallback for endpoints that permit unauthenticated access (health, etc.).
-  addCandidate('No Authorization', {});
+  if (allowUnauthenticatedFallback) {
+    addCandidate('No Authorization', {});
+  }
   return candidates;
 }
 
@@ -176,6 +180,7 @@ type ApiRequestOptions = RequestInit & {
   skipRetry?: boolean;
   skipCircuitBreaker?: boolean;
   retryOn?: 'safe' | 'all';
+  allowUnauthenticatedFallback?: boolean;
 };
 
 // Status codes that are retryable
@@ -385,6 +390,7 @@ async function apiRequestInternal<T>(
     skipRetry = false,
     skipCircuitBreaker = false,
     retryOn = 'safe',
+    allowUnauthenticatedFallback = false,
     ...fetchOptions
   } = options;
 
@@ -443,7 +449,7 @@ async function apiRequestInternal<T>(
 
       const authHeaderCandidates = explicitAuthCandidate
         ? [explicitAuthCandidate]
-        : buildAuthHeaderCandidates(requestedApiKey);
+        : buildAuthHeaderCandidates(requestedApiKey, allowUnauthenticatedFallback);
       let response: Response | null = null;
 
       for (let candidateIndex = 0; candidateIndex < authHeaderCandidates.length; candidateIndex++) {
