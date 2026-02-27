@@ -223,6 +223,60 @@ type AgentEventType =
   | 'heartbeat'; // Keep-alive ping
 ```
 
+## Desktop Engine Contract (Verified February 27, 2026)
+
+This section documents the runtime contract between desktop and
+`stateset-orchestration-engine`, including compatibility handling for known payload variants.
+
+### Route + Auth Summary
+
+| Category  | Desktop Route Usage                                                                                               | Engine Auth Requirement                                                                             |
+| --------- | ----------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Health    | `GET /health`, `GET /api/v1/health/detailed` with fallback `GET /health/detailed` on `404`                        | `/health` is public. `/api/v1/health/detailed` requires API auth scopes (`read/admin/ops/metrics`). |
+| Agents    | `GET/POST/PUT/DELETE` under `/api/v1/tenants/:tenant/brands/:brand/agents/*` and `/api/v1/tenants/:tenant/agents` | API auth with tenant + brand authorization checks; write scope required for mutations.              |
+| Streaming | `POST /stream/token`, `GET /stream` (SSE)                                                                         | Protected token route + callback auth middleware for SSE stream route.                              |
+| Secrets   | `GET/POST/DELETE` and `POST /test` under brand secrets endpoints with tenant/brand fallbacks                      | API auth with read/write scope and tenant-brand ownership checks.                                   |
+| Webhooks  | Tenant-scoped list/get/update/delete/test/deliveries plus brand-scoped create                                     | API auth with read/write scope and tenant-brand ownership checks.                                   |
+| Auth      | `POST /auth/register`, `POST /auth/login`, `GET /auth/me`                                                         | Register/login are public; `/auth/me` is protected.                                                 |
+
+### Response Envelope Compatibility
+
+Desktop currently normalizes these response variants:
+
+- `{ ok, data: T }` envelope via `unwrapDataEnvelope(...)`
+- Direct payloads like `{ ok, webhooks: [...] }` or `{ success, ... }`
+- Secrets list variants:
+  - `{ ok, platforms: string[] }`
+  - `{ ok, data: { platforms: string[] } }`
+- Webhook delivery variants:
+  - Legacy shape with `payload: string`, `duration_ms`, `success`
+  - Canonical engine DB shape with `payload: object`, `response_status`, `attempts`, `delivered_at`
+- Webhook test variants:
+  - Legacy `{ success, status_code, duration_ms }`
+  - Canonical `{ ok, data: WebhookDelivery }` normalized to the legacy shape for UI callers
+- Webhook create variants:
+  - Full webhook object
+  - Minimal create payload (`id/url/events/secret/enabled/created_at`) normalized with tenant/brand/name fallbacks
+
+### Health Parsing Strategy
+
+- Desktop always checks `GET /health` first for reachability.
+- For detailed status, desktop prefers `GET /api/v1/health/detailed`.
+- If that route returns `404`, desktop falls back to `GET /health/detailed`.
+- Detailed payload parsing is defensive:
+  - supports top-level and `{ ok, data }` envelope shapes
+  - normalizes unknown component statuses to `unknown` (not falsely `unhealthy`)
+  - defaults missing circuit breaker fields to `closed`
+
+### Verification Commands
+
+```bash
+npm test -- src/lib/api.test.ts src/lib/schemas.test.ts src/hooks/useOnlineStatus.test.ts src/lib/registration.test.ts
+npx eslint src/lib/api.ts src/lib/schemas.ts src/hooks/useOnlineStatus.ts src/lib/registration.ts
+```
+
+For cross-repo checks against the engine implementation, see `docs/ENGINE_API_ALIGNMENT.md`.
+
 ## Security
 
 - API keys encrypted at rest using Electron `safeStorage`

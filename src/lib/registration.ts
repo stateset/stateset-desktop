@@ -249,6 +249,11 @@ export async function requestPasswordReset(email: string): Promise<void> {
   }
 
   if (!response.ok) {
+    if (response.status === 404) {
+      throw new Error(
+        'Password reset is not yet available. Please contact your administrator to reset access.'
+      );
+    }
     throw await parseAuthError(response, 'Failed to send reset email');
   }
 }

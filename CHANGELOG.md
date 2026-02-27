@@ -4,6 +4,23 @@ All notable changes to StateSet Desktop will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.1.9] - 2026-02-27
+
+### Added
+
+- Added `docs/ENGINE_API_ALIGNMENT.md` to document verified desktop-to-engine API contracts, drift risks, and guardrails.
+- Expanded architecture docs with a concrete route/auth contract matrix and verification commands.
+
+### Changed
+
+- Hardened webhook API compatibility in desktop client parsing for canonical engine payloads (create/test/deliveries), while preserving backward compatibility.
+- Improved detailed health parsing to handle `{ ok, data }` envelopes and normalize unknown component statuses safely.
+- Improved password-reset UX by returning a dedicated message when `POST /api/v1/auth/forgot-password` is unavailable (`404`).
+
+### Fixed
+
+- Prevented empty webhook names in desktop state when engine create responses omit optional description fields.
+
 ## [1.1.3] - 2026-02-22
 
 ### Added

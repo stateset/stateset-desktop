@@ -57,6 +57,7 @@ At runtime:
 - Offline cache (`src/lib/cache.ts`, IndexedDB) provides fallback reads for key lists.
 
 For full details, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+For desktop-engine contract details, see [docs/ENGINE_API_ALIGNMENT.md](docs/ENGINE_API_ALIGNMENT.md).
 
 ## Request Lifecycle Example: Start Agent & Stream
 

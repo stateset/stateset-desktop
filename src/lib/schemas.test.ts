@@ -15,6 +15,7 @@ import {
   unwrapDataEnvelope,
   EngineWebhookSchema,
   EngineWebhookDeliverySchema,
+  WebhookTestResponseSchema,
 } from './schemas';
 import { ZodError } from 'zod';
 
@@ -347,6 +348,20 @@ describe('EngineWebhookSchema', () => {
     expect(result.description).toBe('My hook');
   });
 
+  it('accepts create-webhook response shape without tenant_id/updated_at', () => {
+    const createShape = {
+      id: 'wh-2',
+      url: 'https://example.com/create',
+      events: ['order.created'],
+      enabled: true,
+      secret: 'whsec_x',
+      created_at: '2026-01-01T00:00:00Z',
+    };
+    const result = EngineWebhookSchema.parse(createShape);
+    expect(result.tenant_id).toBeUndefined();
+    expect(result.updated_at).toBeUndefined();
+  });
+
   it('rejects engine webhook missing required fields', () => {
     const { url: _, ...noUrl } = validEngineWebhook;
     expect(() => EngineWebhookSchema.parse(noUrl)).toThrow(ZodError);
@@ -374,5 +389,54 @@ describe('EngineWebhookDeliverySchema', () => {
   it('accepts null response_status', () => {
     const result = EngineWebhookDeliverySchema.parse({ ...validDelivery, response_status: null });
     expect(result.response_status).toBeNull();
+  });
+
+  it('normalizes canonical engine deliveries with JSON payload and missing duration/success', () => {
+    const canonical = {
+      id: 'del-2',
+      webhook_id: 'wh-1',
+      event: 'test',
+      response_status: 202,
+      payload: { test: true },
+      attempts: 1,
+      delivered_at: '2026-01-01T00:00:01Z',
+      created_at: '2026-01-01T00:00:00Z',
+    };
+    const result = EngineWebhookDeliverySchema.parse(canonical);
+    expect(result.payload).toBe('{"test":true}');
+    expect(result.duration_ms).toBe(0);
+    expect(result.success).toBe(true);
+  });
+});
+
+describe('WebhookTestResponseSchema', () => {
+  it('passes through legacy webhook test result shape', () => {
+    const result = WebhookTestResponseSchema.parse({
+      success: true,
+      status_code: 200,
+      duration_ms: 35,
+    });
+    expect(result).toEqual({
+      success: true,
+      status_code: 200,
+      duration_ms: 35,
+    });
+  });
+
+  it('normalizes canonical webhook delivery shape into test result', () => {
+    const result = WebhookTestResponseSchema.parse({
+      id: 'del-3',
+      webhook_id: 'wh-1',
+      event: 'test',
+      response_status: null,
+      payload: { event: 'test' },
+      attempts: 1,
+      created_at: '2026-01-01T00:00:00Z',
+    });
+    expect(result).toEqual({
+      success: false,
+      status_code: null,
+      duration_ms: 0,
+    });
   });
 });

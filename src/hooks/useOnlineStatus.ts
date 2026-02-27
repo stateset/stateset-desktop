@@ -21,19 +21,76 @@ interface CircuitBreakerStates {
   external_api: 'closed' | 'open' | 'half_open';
 }
 
-/**
- * Detailed health response from the API
- */
-interface DetailedHealthResponse {
-  status: string;
-  version: string;
-  checks: {
-    database: { status: string; latency_ms?: number };
-    redis: { status: string; latency_ms?: number };
-    nats: { status: string; latency_ms?: number };
+type ComponentHealthStatus = ComponentHealth[keyof ComponentHealth];
+type CircuitBreakerState = CircuitBreakerStates[keyof CircuitBreakerStates];
+
+function normalizeComponentStatus(status: unknown): ComponentHealthStatus {
+  if (status === 'healthy' || status === 'unhealthy' || status === 'unknown') {
+    return status;
+  }
+  return 'unknown';
+}
+
+function normalizeCircuitBreakerState(value: unknown): CircuitBreakerState {
+  if (value === 'closed' || value === 'open' || value === 'half_open') {
+    return value;
+  }
+  return 'closed';
+}
+
+function extractCheckStatus(checks: Record<string, unknown>, key: string): unknown {
+  const value = checks[key];
+  if (typeof value === 'object' && value !== null) {
+    return (value as Record<string, unknown>).status;
+  }
+  return value;
+}
+
+function parseDetailedHealth(raw: unknown): {
+  componentHealth: ComponentHealth;
+  circuitBreakers: CircuitBreakerStates | null;
+  resilienceHealthy: boolean;
+} | null {
+  if (typeof raw !== 'object' || raw === null) {
+    return null;
+  }
+
+  const root = raw as Record<string, unknown>;
+  const payload =
+    typeof root.data === 'object' && root.data !== null
+      ? (root.data as Record<string, unknown>)
+      : root;
+
+  const checks =
+    typeof payload.checks === 'object' && payload.checks !== null
+      ? (payload.checks as Record<string, unknown>)
+      : {};
+
+  const componentHealth: ComponentHealth = {
+    database: normalizeComponentStatus(extractCheckStatus(checks, 'database')),
+    nats: normalizeComponentStatus(extractCheckStatus(checks, 'nats')),
+    redis: normalizeComponentStatus(extractCheckStatus(checks, 'redis')),
   };
-  circuit_breakers: CircuitBreakerStates;
-  resilience_healthy: boolean;
+
+  let circuitBreakers: CircuitBreakerStates | null = null;
+  if (typeof payload.circuit_breakers === 'object' && payload.circuit_breakers !== null) {
+    const rawCircuitBreakers = payload.circuit_breakers as Record<string, unknown>;
+    circuitBreakers = {
+      sandbox: normalizeCircuitBreakerState(rawCircuitBreakers.sandbox),
+      webhook: normalizeCircuitBreakerState(rawCircuitBreakers.webhook),
+      database: normalizeCircuitBreakerState(rawCircuitBreakers.database),
+      external_api: normalizeCircuitBreakerState(rawCircuitBreakers.external_api),
+    };
+  }
+
+  const resilienceHealthy =
+    typeof payload.resilience_healthy === 'boolean' ? payload.resilience_healthy : true;
+
+  return {
+    componentHealth,
+    circuitBreakers,
+    resilienceHealthy,
+  };
 }
 
 interface OnlineStatus {
@@ -237,25 +294,42 @@ export function useOnlineStatus(): OnlineStatus {
         const apiKey = useAuthStore.getState().apiKey;
         if (apiKey) {
           try {
-            const detailedResp = await fetchWithTimeout(`${API_URL}/health/detailed`, {
-              method: 'GET',
-              headers: { Authorization: `ApiKey ${apiKey}` },
-            });
+            const detailedHealthUrls = [
+              `${API_URL}/api/v1/health/detailed`,
+              `${API_URL}/health/detailed`,
+            ];
+            let detailedResp: Response | null = null;
 
-            if (detailedResp.ok) {
-              const data: DetailedHealthResponse = await detailedResp.json();
-
-              setComponentHealth({
-                database: data.checks?.database?.status === 'healthy' ? 'healthy' : 'unhealthy',
-                nats: data.checks?.nats?.status === 'healthy' ? 'healthy' : 'unhealthy',
-                redis: data.checks?.redis?.status === 'healthy' ? 'healthy' : 'unhealthy',
+            for (const detailedUrl of detailedHealthUrls) {
+              const candidate = await fetchWithTimeout(detailedUrl, {
+                method: 'GET',
+                headers: { Authorization: `ApiKey ${apiKey}` },
               });
 
-              if (data.circuit_breakers) {
-                setServerCircuitBreakers(data.circuit_breakers);
+              if (candidate.ok) {
+                detailedResp = candidate;
+                break;
               }
 
-              setServerResilienceHealthy(data.resilience_healthy ?? true);
+              // Fallback to the legacy endpoint only when the authenticated route is unavailable.
+              if (candidate.status !== 404) {
+                detailedResp = candidate;
+                break;
+              }
+            }
+
+            if (detailedResp?.ok) {
+              const parsedHealth = parseDetailedHealth(await detailedResp.json());
+
+              if (parsedHealth) {
+                setComponentHealth(parsedHealth.componentHealth);
+                setServerCircuitBreakers(parsedHealth.circuitBreakers);
+                setServerResilienceHealthy(parsedHealth.resilienceHealthy);
+              } else {
+                setComponentHealth(null);
+                setServerCircuitBreakers(null);
+                setServerResilienceHealthy(true);
+              }
             } else {
               // Auth failed but API is reachable — skip component details
               setComponentHealth(null);

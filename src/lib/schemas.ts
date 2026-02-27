@@ -155,29 +155,58 @@ export const WebhookDeliverySchema = z.object({
 
 export const EngineWebhookSchema = z.object({
   id: z.string(),
-  tenant_id: z.string(),
-  brand_id: z.string().optional(),
+  tenant_id: z.string().optional().nullable(),
+  brand_id: z.string().optional().nullable(),
   url: z.string(),
   description: z.string().optional().nullable(),
   events: z.array(z.string()),
   enabled: z.boolean(),
   secret: z.string().optional(),
+  secret_preview: z.string().optional(),
   created_at: z.string(),
-  updated_at: z.string(),
+  updated_at: z.string().optional(),
   last_triggered_at: z.string().optional().nullable(),
 });
 
-export const EngineWebhookDeliverySchema = z.object({
-  id: z.string(),
-  webhook_id: z.string(),
-  event: z.string(),
-  response_status: z.number().nullable(),
-  payload: z.string(),
-  response_body: z.string().optional().nullable(),
-  duration_ms: z.number(),
-  success: z.boolean(),
-  created_at: z.string(),
-});
+export const EngineWebhookDeliverySchema = z
+  .object({
+    id: z.string(),
+    webhook_id: z.string(),
+    event: z.string(),
+    response_status: z.number().nullable().optional(),
+    payload: z.union([
+      z.string(),
+      z.number(),
+      z.boolean(),
+      z.record(z.string(), z.unknown()),
+      z.array(z.unknown()),
+      z.null(),
+    ]),
+    response_body: z.string().optional().nullable(),
+    duration_ms: z.number().optional(),
+    success: z.boolean().optional(),
+    attempts: z.number().optional(),
+    delivered_at: z.string().optional().nullable(),
+    created_at: z.string(),
+  })
+  .transform((delivery) => {
+    const responseStatus = delivery.response_status ?? null;
+    const success =
+      typeof delivery.success === 'boolean'
+        ? delivery.success
+        : responseStatus !== null
+          ? responseStatus >= 200 && responseStatus < 300
+          : false;
+
+    return {
+      ...delivery,
+      response_status: responseStatus,
+      payload:
+        typeof delivery.payload === 'string' ? delivery.payload : JSON.stringify(delivery.payload),
+      duration_ms: delivery.duration_ms ?? 0,
+      success,
+    };
+  });
 
 export const WebhooksListResponseSchema = z.object({
   ok: z.boolean(),
@@ -194,15 +223,42 @@ export const WebhookDeliveriesResponseSchema = z.object({
   deliveries: z.array(EngineWebhookDeliverySchema),
 });
 
+export const WebhookTestResponseSchema = z
+  .union([
+    z.object({
+      success: z.boolean(),
+      status_code: z.number().nullable(),
+      duration_ms: z.number().optional(),
+    }),
+    EngineWebhookDeliverySchema,
+  ])
+  .transform((value) => {
+    if ('status_code' in value) {
+      return {
+        success: value.success,
+        status_code: value.status_code,
+        duration_ms: value.duration_ms ?? 0,
+      };
+    }
+
+    return {
+      success: value.success,
+      status_code: value.response_status,
+      duration_ms: value.duration_ms,
+    };
+  });
+
 // ── Secrets / Connections ────────────────────────────────────────────
 
 export const SecretsListResponseSchema = z.object({
   ok: z.boolean(),
-  platforms: z.array(z.string()),
+  platforms: z
+    .union([z.array(z.string()), z.object({ platforms: z.array(z.string()) })])
+    .transform((value) => (Array.isArray(value) ? value : value.platforms)),
 });
 
 export const SecretsTestResponseSchema = z.object({
-  ok: z.boolean(),
+  ok: z.boolean().optional(),
   success: z.boolean(),
   message: z.string(),
 });

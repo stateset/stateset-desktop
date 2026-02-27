@@ -164,4 +164,108 @@ describe('useOnlineStatus', () => {
     expect(signals[1]).toBeDefined();
     expect(signals[0]).not.toBe(signals[1]);
   });
+
+  it('falls back to legacy /health/detailed when /api/v1/health/detailed is unavailable', async () => {
+    const requestedUrls: string[] = [];
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      requestedUrls.push(url);
+
+      if (url.endsWith('/health')) {
+        return { ok: true, status: 200, json: async () => ({ status: 'healthy' }) } as Response;
+      }
+
+      if (url.endsWith('/api/v1/health/detailed')) {
+        return { ok: false, status: 404, json: async () => ({}) } as Response;
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          status: 'ok',
+          version: '1.0.0',
+          checks: {
+            database: { status: 'healthy' },
+            redis: { status: 'healthy' },
+            nats: { status: 'healthy' },
+          },
+          circuit_breakers: {
+            sandbox: 'closed',
+            webhook: 'closed',
+            database: 'closed',
+            external_api: 'closed',
+          },
+          resilience_healthy: true,
+        }),
+      } as Response;
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const { result } = renderHook(() => useOnlineStatus());
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    fetchMock.mockClear();
+    requestedUrls.length = 0;
+
+    await act(async () => {
+      await result.current.checkNow();
+    });
+
+    expect(requestedUrls.some((url) => url.endsWith('/api/v1/health/detailed'))).toBe(true);
+    expect(requestedUrls.some((url) => url.endsWith('/health/detailed'))).toBe(true);
+  });
+
+  it('parses detailed health envelopes and safely normalizes unknown statuses', async () => {
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      if (url.endsWith('/health')) {
+        return { ok: true, status: 200, json: async () => ({ status: 'healthy' }) } as Response;
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          ok: true,
+          data: {
+            checks: {
+              database: { status: 'healthy' },
+              redis: { status: 'degraded' },
+              nats: { status: 'flaky' },
+            },
+            circuit_breakers: {
+              sandbox: 'open',
+              webhook: 'unexpected_value',
+              database: 'closed',
+            },
+            resilience_healthy: false,
+          },
+        }),
+      } as Response;
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const { result } = renderHook(() => useOnlineStatus());
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      await result.current.checkNow();
+    });
+
+    expect(result.current.componentHealth).toEqual({
+      database: 'healthy',
+      redis: 'unknown',
+      nats: 'unknown',
+    });
+    expect(result.current.serverCircuitBreakers).toEqual({
+      sandbox: 'open',
+      webhook: 'closed',
+      database: 'closed',
+      external_api: 'closed',
+    });
+    expect(result.current.serverResilienceHealthy).toBe(false);
+  });
 });

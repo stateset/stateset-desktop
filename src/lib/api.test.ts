@@ -565,6 +565,61 @@ describe('Secrets API', () => {
     expect(connections).toHaveLength(1);
     expect(connections[0]).toMatchObject({ platform: 'shopify', connected: true });
   });
+
+  it('should handle engine-style secrets response with nested data.platforms', async () => {
+    const tenantId = 'tenant-123';
+    const brandId = 'brand-456';
+
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      headers: { get: () => 'application/json' },
+      text: async () =>
+        JSON.stringify({
+          ok: true,
+          data: {
+            platforms: ['shopify', 'zendesk'],
+          },
+        }),
+    });
+
+    const connections = await secretsApi.listConnections(tenantId, brandId);
+    expect(connections).toHaveLength(2);
+    expect(connections[0]).toMatchObject({ platform: 'shopify', connected: true });
+    expect(connections[1]).toMatchObject({ platform: 'zendesk', connected: true });
+  });
+
+  it('should handle engine-style test response wrapped in data envelope', async () => {
+    const tenantId = 'tenant-123';
+    const brandId = 'brand-456';
+
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      headers: { get: () => 'application/json' },
+      text: async () =>
+        JSON.stringify({
+          ok: true,
+          data: {
+            success: true,
+            message: 'Connection verified',
+          },
+        }),
+    });
+
+    const result = await secretsApi.testConnection(tenantId, brandId, 'shopify');
+    const requestedUrl = String(fetchMock.mock.calls[0]?.[0]);
+
+    expect(requestedUrl).toBe(
+      `${API_CONFIG.baseUrl}/api/v1/tenants/${encodeURIComponent(tenantId)}/brands/${encodeURIComponent(
+        brandId
+      )}/secrets/shopify/test`
+    );
+    expect(result).toEqual({
+      success: true,
+      message: 'Connection verified',
+    });
+  });
 });
 
 describe('Webhooks API', () => {
@@ -657,6 +712,15 @@ describe('Webhooks API', () => {
   });
 
   it('should create a webhook on brand-scoped endpoint with mapped payload', async () => {
+    const engineCreateResponse = {
+      id: 'wh-1',
+      url: 'https://example.com/hook',
+      events: ['order.created'],
+      secret: 'whsec_test',
+      enabled: true,
+      created_at: '2026-01-01T00:00:00Z',
+    };
+
     fetchMock.mockResolvedValueOnce({
       ok: true,
       status: 200,
@@ -664,11 +728,11 @@ describe('Webhooks API', () => {
       text: async () =>
         JSON.stringify({
           ok: true,
-          data: engineWebhook,
+          data: engineCreateResponse,
         }),
     });
 
-    await webhooksApi.create('tenant-123', 'brand-456', {
+    const created = await webhooksApi.create('tenant-123', 'brand-456', {
       name: 'Order webhook',
       url: 'https://example.com/hook',
       events: ['order.created'],
@@ -685,6 +749,16 @@ describe('Webhooks API', () => {
       description: 'Order webhook',
       events: ['order.created'],
       enabled: true,
+    });
+
+    expect(created).toMatchObject({
+      id: 'wh-1',
+      tenant_id: 'tenant-123',
+      brand_id: 'brand-456',
+      name: 'Order webhook',
+      status: 'active',
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-01T00:00:00Z',
     });
   });
 
@@ -744,16 +818,47 @@ describe('Webhooks API', () => {
     expect(result.success).toBe(true);
   });
 
+  it('should normalize canonical webhook test delivery responses', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      headers: { get: () => 'application/json' },
+      text: async () =>
+        JSON.stringify({
+          ok: true,
+          data: {
+            id: 'del-2',
+            webhook_id: 'wh-1',
+            event: 'test',
+            payload: { event: 'test', data: { message: 'ok' } },
+            response_status: 202,
+            response_body: '{"accepted":true}',
+            attempts: 1,
+            delivered_at: '2026-01-01T00:00:10Z',
+            created_at: '2026-01-01T00:00:00Z',
+          },
+        }),
+    });
+
+    const result = await webhooksApi.test('tenant-123', 'brand-456', 'wh-1');
+
+    expect(result).toEqual({
+      success: true,
+      status_code: 202,
+      duration_ms: 0,
+    });
+  });
+
   it('should list deliveries from tenant-scoped endpoint and map fields', async () => {
     const engineDelivery = {
       id: 'del-1',
       webhook_id: 'wh-1',
       event: 'order.created',
       response_status: 200,
-      payload: '{"order_id":"123"}',
+      payload: { order_id: '123' },
       response_body: '{"ok":true}',
-      duration_ms: 150,
-      success: true,
+      attempts: 1,
+      delivered_at: '2026-01-01T00:00:01Z',
       created_at: '2026-01-01T00:00:00Z',
     };
 
@@ -780,6 +885,8 @@ describe('Webhooks API', () => {
       status_code: 200,
       request_body: '{"order_id":"123"}',
       response_body: '{"ok":true}',
+      duration_ms: 0,
+      success: true,
     });
   });
 });

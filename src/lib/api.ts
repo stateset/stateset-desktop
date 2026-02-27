@@ -22,6 +22,7 @@ import {
   WebhooksListResponseSchema,
   WebhookResponseSchema,
   WebhookDeliveriesResponseSchema,
+  WebhookTestResponseSchema,
   SecretsListResponseSchema,
   SecretsTestResponseSchema,
   validateResponse,
@@ -916,19 +917,24 @@ export const secretsApi = {
 type EngineWebhook = z.infer<typeof EngineWebhookSchema>;
 type EngineWebhookDeliveryType = z.infer<typeof EngineWebhookDeliverySchema>;
 
-function mapEngineWebhook(engine: EngineWebhook, fallbackBrandId: string): Webhook {
+function mapEngineWebhook(
+  engine: EngineWebhook,
+  fallbackTenantId: string,
+  fallbackBrandId: string,
+  fallbackName: string = ''
+): Webhook {
   return {
     id: engine.id,
-    tenant_id: engine.tenant_id,
+    tenant_id: engine.tenant_id ?? fallbackTenantId,
     brand_id: engine.brand_id ?? fallbackBrandId,
-    name: engine.description ?? '',
+    name: engine.description ?? fallbackName,
     url: engine.url,
     direction: 'outgoing',
     events: engine.events,
     status: engine.enabled ? 'active' : 'paused',
     secret: engine.secret,
     created_at: engine.created_at,
-    updated_at: engine.updated_at,
+    updated_at: engine.updated_at ?? engine.created_at,
     last_triggered_at: engine.last_triggered_at ?? undefined,
   };
 }
@@ -990,7 +996,7 @@ export const webhooksApi = {
     const raw = await apiRequest<unknown>(buildPath('tenants', tenantId, 'webhooks'));
     const unwrapped = unwrapDataEnvelope(raw, 'webhooks');
     const response = validateResponse(WebhooksListResponseSchema, unwrapped);
-    return response.webhooks.map((w) => mapEngineWebhook(w, resolvedBrandId));
+    return response.webhooks.map((w) => mapEngineWebhook(w, tenantId, resolvedBrandId));
   },
 
   // Get — tenant-scoped
@@ -999,7 +1005,7 @@ export const webhooksApi = {
     const raw = await apiRequest<unknown>(buildPath('tenants', tenantId, 'webhooks', webhookId));
     const unwrapped = unwrapDataEnvelope(raw, 'webhook');
     const response = validateResponse(WebhookResponseSchema, unwrapped);
-    return mapEngineWebhook(response.webhook, resolvedBrandId);
+    return mapEngineWebhook(response.webhook, tenantId, resolvedBrandId);
   },
 
   // Create — brand-scoped (kept as-is)
@@ -1021,7 +1027,7 @@ export const webhooksApi = {
     );
     const unwrapped = unwrapDataEnvelope(raw, 'webhook');
     const response = validateResponse(WebhookResponseSchema, unwrapped);
-    return mapEngineWebhook(response.webhook, resolvedBrandId);
+    return mapEngineWebhook(response.webhook, tenantId, resolvedBrandId, data.name);
   },
 
   // Update — tenant-scoped
@@ -1044,7 +1050,7 @@ export const webhooksApi = {
     });
     const unwrapped = unwrapDataEnvelope(raw, 'webhook');
     const response = validateResponse(WebhookResponseSchema, unwrapped);
-    return mapEngineWebhook(response.webhook, resolvedBrandId);
+    return mapEngineWebhook(response.webhook, tenantId, resolvedBrandId);
   },
 
   // Delete — tenant-scoped
@@ -1060,9 +1066,15 @@ export const webhooksApi = {
     _brandId: string,
     webhookId: string
   ): Promise<{ success: boolean; status_code: number | null; duration_ms: number }> => {
-    return apiRequest(buildPath('tenants', tenantId, 'webhooks', webhookId, 'test'), {
-      method: 'POST',
-    });
+    getRequiredBrandId(_brandId); // validate brand selection
+    const raw = await apiRequest<unknown>(
+      buildPath('tenants', tenantId, 'webhooks', webhookId, 'test'),
+      {
+        method: 'POST',
+      }
+    );
+    const unwrapped = unwrapDataEnvelope(raw, null);
+    return validateResponse(WebhookTestResponseSchema, unwrapped);
   },
 
   // Deliveries — tenant-scoped

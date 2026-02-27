@@ -102,6 +102,13 @@ describe('registration API', () => {
     await expect(requestPasswordReset('a@b.com')).rejects.toThrow('No account found');
   });
 
+  it('requestPasswordReset returns dedicated message for 404', async () => {
+    global.fetch = vi.fn().mockResolvedValue(new Response('', { status: 404 }));
+    await expect(requestPasswordReset('a@b.com')).rejects.toThrow(
+      'Password reset is not yet available'
+    );
+  });
+
   it('returns network error message on fetch failure', async () => {
     global.fetch = vi.fn().mockRejectedValue(new TypeError('fetch failed'));
 
