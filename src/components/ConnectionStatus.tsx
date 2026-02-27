@@ -94,7 +94,7 @@ export const ConnectionStatus = memo(function ConnectionStatus({
   if (compact) {
     return (
       <div className={clsx('flex items-center gap-1.5', className)} title={displayMessage}>
-        <span className="relative flex h-2 w-2">
+        <span className="relative flex h-2 w-2" aria-hidden="true">
           {(state === 'connected' || state === 'connecting' || state === 'reconnecting') && (
             <span
               className={clsx(
@@ -176,6 +176,7 @@ export const ConnectionDot = memo(function ConnectionDot({
     >
       {shouldPulse && (
         <span
+          aria-hidden="true"
           className={clsx(
             'absolute inline-flex h-full w-full rounded-full opacity-75 animate-ping',
             colorClasses[state]

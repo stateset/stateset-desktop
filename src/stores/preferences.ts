@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { getTelemetry } from '../lib/telemetry';
+import { isElectronAvailable } from '../lib/electron';
 
 export type ThemePreference = 'dark' | 'light';
 export type AccentColor = 'blue' | 'purple' | 'green' | 'amber' | 'rose' | 'cyan';
@@ -101,7 +102,7 @@ export const usePreferencesStore = create<PreferencesState>((set, get) => ({
     _prefsInitializing = true;
 
     try {
-      if (typeof window === 'undefined' || !window.electronAPI) {
+      if (!isElectronAvailable()) {
         const state = get();
         applyTheme(state.theme);
         applyAccentColor(state.accentColor);
@@ -124,17 +125,17 @@ export const usePreferencesStore = create<PreferencesState>((set, get) => ({
         refreshInterval,
         pageSize,
       ] = await Promise.all([
-        window.electronAPI.store.get('theme'),
-        window.electronAPI.store.get('accentColor'),
-        window.electronAPI.store.get('reduceMotion'),
-        window.electronAPI.store.get('compactMode'),
-        window.electronAPI.store.get('telemetryEnabled'),
-        window.electronAPI.store.get('minimizeToTray'),
-        window.electronAPI.store.get('autoStartAgentsOnLaunch'),
-        window.electronAPI.store.get('desktopNotifications'),
-        window.electronAPI.store.get('soundAlerts'),
-        window.electronAPI.store.get('refreshInterval'),
-        window.electronAPI.store.get('pageSize'),
+        window.electronAPI!.store.get('theme'),
+        window.electronAPI!.store.get('accentColor'),
+        window.electronAPI!.store.get('reduceMotion'),
+        window.electronAPI!.store.get('compactMode'),
+        window.electronAPI!.store.get('telemetryEnabled'),
+        window.electronAPI!.store.get('minimizeToTray'),
+        window.electronAPI!.store.get('autoStartAgentsOnLaunch'),
+        window.electronAPI!.store.get('desktopNotifications'),
+        window.electronAPI!.store.get('soundAlerts'),
+        window.electronAPI!.store.get('refreshInterval'),
+        window.electronAPI!.store.get('pageSize'),
       ]);
 
       const theme = themeValue === 'light' ? 'light' : DEFAULTS.theme;

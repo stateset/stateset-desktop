@@ -65,7 +65,7 @@ export function WebhookForm({ isOpen, onClose, onSubmit, isLoading, initial }: W
               onChange={(e) => setName(e.target.value)}
               placeholder="My Webhook"
               required
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg hover:border-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 focus-visible:border-brand-500 transition-all focus-glow"
+              className="input-base hover:border-gray-600 focus-visible:border-brand-500 transition-all focus-glow"
             />
           </div>
 
@@ -80,7 +80,7 @@ export function WebhookForm({ isOpen, onClose, onSubmit, isLoading, initial }: W
               onChange={(e) => setUrl(e.target.value)}
               placeholder="https://example.com/webhook"
               required
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg hover:border-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 focus-visible:border-brand-500 transition-all focus-glow"
+              className="input-base hover:border-gray-600 focus-visible:border-brand-500 transition-all focus-glow"
             />
           </div>
 

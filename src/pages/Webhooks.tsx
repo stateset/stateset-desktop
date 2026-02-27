@@ -15,26 +15,12 @@ import {
 import type { Webhook } from '../types';
 import { motion, useReducedMotion } from 'framer-motion';
 import { Spinner } from '../components/Spinner';
-
-const pageContainerVariants = {
-  hidden: {},
-  visible: { transition: { staggerChildren: 0.05 } },
-};
-
-const pageSectionVariants = {
-  hidden: { opacity: 0, y: 10 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.25, ease: [0.4, 0, 0.2, 1] } },
-};
-
-const listContainerVariants = {
-  hidden: {},
-  visible: { transition: { staggerChildren: 0.04 } },
-};
-
-const listItemVariants = {
-  hidden: { opacity: 0, y: 8 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.25, ease: [0.4, 0, 0.2, 1] } },
-};
+import {
+  pageContainerVariants,
+  pageSectionVariants,
+  listContainerVariants,
+  listItemVariants,
+} from '../lib/animations';
 
 export default function Webhooks() {
   usePageTitle('Webhooks');

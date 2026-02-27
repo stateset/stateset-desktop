@@ -1,3 +1,17 @@
+const withBrandOpacity = (cssVariable) => ({ opacityValue }) => {
+  if (opacityValue === undefined) {
+    return `var(${cssVariable})`;
+  }
+
+  const parsed = Number(opacityValue);
+  if (Number.isNaN(parsed)) {
+    return `var(${cssVariable})`;
+  }
+
+  const opacity = Math.max(0, Math.min(1, parsed));
+  return `color-mix(in srgb, var(${cssVariable}) ${opacity * 100}%, transparent)`;
+};
+
 /** @type {import('tailwindcss').Config} */
 export default {
   content: [
@@ -9,17 +23,17 @@ export default {
     extend: {
       colors: {
         brand: {
-          50: 'var(--brand-50)',
-          100: 'var(--brand-100)',
-          200: 'var(--brand-200)',
-          300: 'var(--brand-300)',
-          400: 'var(--brand-400)',
-          500: 'var(--brand-500)',
-          600: 'var(--brand-600)',
-          700: 'var(--brand-700)',
-          800: 'var(--brand-800)',
-          900: 'var(--brand-900)',
-          950: 'var(--brand-950)',
+          50: withBrandOpacity('--brand-50'),
+          100: withBrandOpacity('--brand-100'),
+          200: withBrandOpacity('--brand-200'),
+          300: withBrandOpacity('--brand-300'),
+          400: withBrandOpacity('--brand-400'),
+          500: withBrandOpacity('--brand-500'),
+          600: withBrandOpacity('--brand-600'),
+          700: withBrandOpacity('--brand-700'),
+          800: withBrandOpacity('--brand-800'),
+          900: withBrandOpacity('--brand-900'),
+          950: withBrandOpacity('--brand-950'),
         },
       },
       fontFamily: {

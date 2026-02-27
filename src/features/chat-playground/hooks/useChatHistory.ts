@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { ChatConversation } from '../../../types';
+import { isElectronAvailable } from '../../../lib/electron';
 
 const STORAGE_KEY = 'chatPlaygroundConversations';
 const MAX_CONVERSATIONS = 50;
@@ -12,8 +13,8 @@ export function useChatHistory() {
   useEffect(() => {
     const load = async () => {
       try {
-        if (typeof window.electronAPI !== 'undefined') {
-          const stored = await window.electronAPI.store.get(STORAGE_KEY);
+        if (isElectronAvailable()) {
+          const stored = await window.electronAPI!.store.get(STORAGE_KEY);
           if (Array.isArray(stored)) {
             setConversations(stored as ChatConversation[]);
           }
@@ -28,8 +29,8 @@ export function useChatHistory() {
 
   const persist = useCallback(async (convos: ChatConversation[]) => {
     try {
-      if (typeof window.electronAPI !== 'undefined') {
-        await window.electronAPI.store.set(STORAGE_KEY, convos.slice(0, MAX_CONVERSATIONS));
+      if (isElectronAvailable()) {
+        await window.electronAPI!.store.set(STORAGE_KEY, convos.slice(0, MAX_CONVERSATIONS));
       }
     } catch {
       // Best effort

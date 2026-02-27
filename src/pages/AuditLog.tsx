@@ -10,16 +10,7 @@ import { usePreferencesStore } from '../stores/preferences';
 import { Pagination } from '../components/Pagination';
 import { AUDIT_ACTION_COLORS, AUDIT_ACTION_LABELS, type AuditAction } from '../lib/auditLog';
 import { motion, useReducedMotion } from 'framer-motion';
-
-const pageContainerVariants = {
-  hidden: {},
-  visible: { transition: { staggerChildren: 0.05 } },
-};
-
-const pageSectionVariants = {
-  hidden: { opacity: 0, y: 10 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.25, ease: [0.4, 0, 0.2, 1] } },
-};
+import { pageContainerVariants, pageSectionVariants } from '../lib/animations';
 
 const ACTION_FILTER_OPTIONS: { value: string; label: string }[] = [
   { value: 'all', label: 'All Actions' },

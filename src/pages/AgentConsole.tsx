@@ -45,6 +45,9 @@ export default function AgentConsole() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  // These refs (not useState) are intentional: they are synchronization flags
+  // read inside async closures and event handlers. Using state would cause
+  // unnecessary re-renders and stale-closure issues during rapid interactions.
   const manualAwaitingResponseRef = useRef(false);
   const manualPauseInFlightRef = useRef(false);
   const loopIntervalClampedRef = useRef(false);

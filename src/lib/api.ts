@@ -393,6 +393,18 @@ interface ApiResult<T> {
   retryCount: number;
 }
 
+function extractExplicitApiKeyHeader(
+  headers: Record<string, string>
+): { headers: Record<string, string>; description: string } | null {
+  if (headers['X-API-Key']) {
+    return { headers: { 'X-API-Key': headers['X-API-Key'] }, description: 'Explicit X-API-Key' };
+  }
+  if (headers['X-Api-Key']) {
+    return { headers: { 'X-API-Key': headers['X-Api-Key'] }, description: 'Explicit X-Api-Key' };
+  }
+  return null;
+}
+
 // Core fetch logic with retry and circuit breaker
 async function apiRequestInternal<T>(
   path: string,
@@ -447,17 +459,7 @@ async function apiRequestInternal<T>(
     try {
       const requestedApiKey = getStoredApiKey();
       const explicitHeaders = normalizeHeaders(fetchOptions.headers);
-      const explicitApiKeyHeader = explicitHeaders['X-API-Key']
-        ? {
-            headers: { 'X-API-Key': explicitHeaders['X-API-Key'] },
-            description: 'Explicit X-API-Key',
-          }
-        : explicitHeaders['X-Api-Key']
-          ? {
-              headers: { 'X-API-Key': explicitHeaders['X-Api-Key'] },
-              description: 'Explicit X-Api-Key',
-            }
-          : null;
+      const explicitApiKeyHeader = extractExplicitApiKeyHeader(explicitHeaders);
       const explicitAuthCandidate =
         getAuthCandidateFromHeaders(explicitHeaders) ?? explicitApiKeyHeader;
 

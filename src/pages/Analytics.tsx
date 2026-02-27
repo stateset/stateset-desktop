@@ -22,16 +22,7 @@ import { usePageTitle } from '../hooks/usePageTitle';
 import { DateRangePicker } from '../components/DateRangePicker';
 import { useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
-
-const pageContainerVariants = {
-  hidden: {},
-  visible: { transition: { staggerChildren: 0.05 } },
-};
-
-const pageSectionVariants = {
-  hidden: { opacity: 0, y: 10 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.25, ease: [0.4, 0, 0.2, 1] } },
-};
+import { pageContainerVariants, pageSectionVariants } from '../lib/animations';
 
 export default function Analytics() {
   usePageTitle('Analytics');

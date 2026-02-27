@@ -7,11 +7,12 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { X, CheckCircle, AlertCircle, Info, AlertTriangle } from 'lucide-react';
+import { X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
+import { SEVERITY_CONFIG, type Severity } from '../lib/severityStyles';
 
-type ToastVariant = 'info' | 'success' | 'error' | 'warning';
+type ToastVariant = Severity;
 
 interface Toast {
   id: string;
@@ -52,11 +53,11 @@ const VARIANT_STYLES: Record<ToastVariant, string> = {
   warning: 'border-amber-500/40 bg-amber-950/80 border-l-2 border-l-amber-400',
 };
 
-const VARIANT_ICONS: Record<ToastVariant, typeof Info> = {
-  info: Info,
-  success: CheckCircle,
-  error: AlertCircle,
-  warning: AlertTriangle,
+const VARIANT_ICONS: Record<ToastVariant, (typeof SEVERITY_CONFIG)[ToastVariant]['icon']> = {
+  info: SEVERITY_CONFIG.info.icon,
+  success: SEVERITY_CONFIG.success.icon,
+  error: SEVERITY_CONFIG.error.icon,
+  warning: SEVERITY_CONFIG.warning.icon,
 };
 
 const VARIANT_ICON_COLORS: Record<ToastVariant, string> = {

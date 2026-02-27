@@ -84,7 +84,7 @@ export const MetricsPanel = memo(function MetricsPanel({
           <h2 className="text-sm font-semibold text-slate-100 uppercase tracking-wider">
             Session Metrics
           </h2>
-          <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+          <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" aria-hidden="true" />
         </div>
         <p className="text-xs text-slate-500">
           {session.name?.trim() ? `${session.name} • ${session.agent_type}` : session.agent_type}

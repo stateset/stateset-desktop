@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { isElectronAvailable } from '../lib/electron';
 import { AccountSettings } from '../features/settings/components/AccountSettings';
 import { SandboxSettings } from '../features/settings/components/SandboxSettings';
 import { BackgroundSettings } from '../features/settings/components/BackgroundSettings';
@@ -28,12 +29,10 @@ export default function Settings() {
 
   useEffect(() => {
     const loadAppInfo = async () => {
-      if (window.electronAPI) {
-        const version = await window.electronAPI.app.getVersion();
-        const plat = await window.electronAPI.app.getPlatform();
-        const secureStorage = window.electronAPI.auth?.isSecureStorageAvailable
-          ? await window.electronAPI.auth.isSecureStorageAvailable()
-          : true;
+      if (isElectronAvailable()) {
+        const version = await window.electronAPI!.app.getVersion();
+        const plat = await window.electronAPI!.app.getPlatform();
+        const secureStorage = await window.electronAPI!.auth?.isSecureStorageAvailable() ?? true;
         setAppVersion(version);
         setPlatform(plat);
         setSecureStorageAvailable(secureStorage);

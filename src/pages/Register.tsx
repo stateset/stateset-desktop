@@ -161,19 +161,20 @@ export default function Register() {
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Name */}
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Full Name</label>
+                <label htmlFor="register-name" className="block text-sm font-medium text-gray-300 mb-2">Full Name</label>
                 <div className="relative">
                   <User
                     className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500"
                     aria-hidden="true"
                   />
                   <input
+                    id="register-name"
                     type="text"
                     name="name"
                     value={formData.name}
                     onChange={handleChange}
                     placeholder="John Doe"
-                    className="w-full pl-10 pr-4 py-2.5 bg-gray-800/90 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+                    className="input-base pl-10 pr-4 py-2.5 bg-gray-800/90"
                     autoFocus
                   />
                 </div>
@@ -181,7 +182,7 @@ export default function Register() {
 
               {/* Email */}
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label htmlFor="register-email" className="block text-sm font-medium text-gray-300 mb-2">
                   Email Address
                 </label>
                 <div className="relative">
@@ -190,31 +191,33 @@ export default function Register() {
                     aria-hidden="true"
                   />
                   <input
+                    id="register-email"
                     type="email"
                     name="email"
                     value={formData.email}
                     onChange={handleChange}
                     placeholder="you@company.com"
-                    className="w-full pl-10 pr-4 py-2.5 bg-gray-800/90 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+                    className="input-base pl-10 pr-4 py-2.5 bg-gray-800/90"
                   />
                 </div>
               </div>
 
               {/* Password */}
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Password</label>
+                <label htmlFor="register-password" className="block text-sm font-medium text-gray-300 mb-2">Password</label>
                 <div className="relative">
                   <Lock
                     className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500"
                     aria-hidden="true"
                   />
                   <input
+                    id="register-password"
                     type={showPassword ? 'text' : 'password'}
                     name="password"
                     value={formData.password}
                     onChange={handleChange}
                     placeholder="Min. 8 characters"
-                    className="w-full pl-10 pr-12 py-2.5 bg-gray-800/90 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+                    className="input-base pl-10 pr-12 py-2.5 bg-gray-800/90"
                   />
                   <button
                     type="button"
@@ -258,7 +261,7 @@ export default function Register() {
 
               {/* Company (optional) */}
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label htmlFor="register-company" className="block text-sm font-medium text-gray-300 mb-2">
                   Company <span className="text-gray-500">(optional)</span>
                 </label>
                 <div className="relative">
@@ -267,12 +270,13 @@ export default function Register() {
                     aria-hidden="true"
                   />
                   <input
+                    id="register-company"
                     type="text"
                     name="company"
                     value={formData.company}
                     onChange={handleChange}
                     placeholder="Acme Inc."
-                    className="w-full pl-10 pr-4 py-2.5 bg-gray-800/90 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+                    className="input-base pl-10 pr-4 py-2.5 bg-gray-800/90"
                   />
                 </div>
               </div>

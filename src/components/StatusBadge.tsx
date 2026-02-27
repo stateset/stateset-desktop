@@ -70,7 +70,7 @@ export const StatusBadge = memo(function StatusBadge({
         ))}
       <span>{getStatusText(status)}</span>
       {showPulse && isActive && !isLoading && (
-        <span className="relative flex h-2 w-2">
+        <span className="relative flex h-2 w-2" aria-hidden="true">
           <span
             className={clsx(
               'animate-ping absolute inline-flex h-full w-full rounded-full opacity-75',

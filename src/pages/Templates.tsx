@@ -11,26 +11,12 @@ import { SaveAsTemplateDialog } from '../features/templates/components/SaveAsTem
 import type { AgentTemplate } from '../types';
 import clsx from 'clsx';
 import { motion, useReducedMotion } from 'framer-motion';
-
-const pageContainerVariants = {
-  hidden: {},
-  visible: { transition: { staggerChildren: 0.05 } },
-};
-
-const pageSectionVariants = {
-  hidden: { opacity: 0, y: 10 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.25, ease: [0.4, 0, 0.2, 1] } },
-};
-
-const listContainerVariants = {
-  hidden: {},
-  visible: { transition: { staggerChildren: 0.04 } },
-};
-
-const listItemVariants = {
-  hidden: { opacity: 0, y: 8 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.25, ease: [0.4, 0, 0.2, 1] } },
-};
+import {
+  pageContainerVariants,
+  pageSectionVariants,
+  listContainerVariants,
+  listItemVariants,
+} from '../lib/animations';
 
 export default function Templates() {
   usePageTitle('Templates');

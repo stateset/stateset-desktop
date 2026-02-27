@@ -69,7 +69,7 @@ export function CustomMcpForm({ isStoring, onAdd, onCancel }: CustomMcpFormProps
             value={serverId}
             placeholder="my-mcp-server"
             onChange={(e) => setServerId(e.target.value)}
-            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+            className="input-base"
           />
         </label>
         <label className="space-y-1">
@@ -79,7 +79,7 @@ export function CustomMcpForm({ isStoring, onAdd, onCancel }: CustomMcpFormProps
             value={endpoint}
             placeholder="https://... or custom command"
             onChange={(e) => setEndpoint(e.target.value)}
-            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+            className="input-base"
           />
         </label>
         <label className="space-y-1 md:col-span-2">
@@ -89,7 +89,7 @@ export function CustomMcpForm({ isStoring, onAdd, onCancel }: CustomMcpFormProps
             value={authToken}
             placeholder="Optional API key or token"
             onChange={(e) => setAuthToken(e.target.value)}
-            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+            className="input-base"
           />
         </label>
       </div>

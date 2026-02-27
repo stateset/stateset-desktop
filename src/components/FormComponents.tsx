@@ -1,4 +1,4 @@
-import { memo, type ReactNode, type InputHTMLAttributes, forwardRef } from 'react';
+import { memo, useId, type ReactNode, type InputHTMLAttributes, forwardRef } from 'react';
 import clsx from 'clsx';
 
 interface FormSectionProps {
@@ -249,14 +249,21 @@ interface TextInputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'on
  * Styled text input with label and error state
  */
 export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(function TextInput(
-  { label, error, onChange, className, ...props },
+  { label, error, onChange, className, id: externalId, ...props },
   ref
 ) {
+  const generatedId = useId();
+  const id = externalId || generatedId;
+  const errorId = error ? `${id}-error` : undefined;
+
   return (
     <div className={clsx('space-y-1.5', className)}>
-      {label && <label className="block text-sm font-medium text-gray-300 ml-1">{label}</label>}
+      {label && <label htmlFor={id} className="block text-sm font-medium text-gray-300 ml-1">{label}</label>}
       <input
         ref={ref}
+        id={id}
+        aria-invalid={!!error}
+        aria-describedby={errorId}
         onChange={onChange ? (e) => onChange(e.target.value) : undefined}
         className={clsx(
           'w-full px-3.5 py-2.5 bg-slate-900/60 border rounded-xl focus:outline-none transition-all shadow-inner',
@@ -266,7 +273,7 @@ export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(function T
         )}
         {...props}
       />
-      {error && <p className="text-sm font-medium text-rose-400 ml-1 mt-1">{error}</p>}
+      {error && <p id={errorId} className="text-sm font-medium text-rose-400 ml-1 mt-1">{error}</p>}
     </div>
   );
 });
@@ -287,14 +294,21 @@ interface TextAreaProps extends Omit<
  * Styled textarea with label and error state
  */
 export const TextArea = forwardRef<HTMLTextAreaElement, TextAreaProps>(function TextArea(
-  { label, error, onChange, className, ...props },
+  { label, error, onChange, className, id: externalId, ...props },
   ref
 ) {
+  const generatedId = useId();
+  const id = externalId || generatedId;
+  const errorId = error ? `${id}-error` : undefined;
+
   return (
     <div className={clsx('space-y-1.5', className)}>
-      {label && <label className="block text-sm font-medium text-gray-300 ml-1">{label}</label>}
+      {label && <label htmlFor={id} className="block text-sm font-medium text-gray-300 ml-1">{label}</label>}
       <textarea
         ref={ref}
+        id={id}
+        aria-invalid={!!error}
+        aria-describedby={errorId}
         onChange={onChange ? (e) => onChange(e.target.value) : undefined}
         className={clsx(
           'w-full px-3.5 py-2.5 bg-slate-900/60 border rounded-xl focus:outline-none transition-all shadow-inner resize-none',
@@ -304,7 +318,7 @@ export const TextArea = forwardRef<HTMLTextAreaElement, TextAreaProps>(function 
         )}
         {...props}
       />
-      {error && <p className="text-sm font-medium text-rose-400 ml-1 mt-1">{error}</p>}
+      {error && <p id={errorId} className="text-sm font-medium text-rose-400 ml-1 mt-1">{error}</p>}
     </div>
   );
 });

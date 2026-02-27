@@ -108,7 +108,7 @@ export function PlatformCard({
                     type={field.type}
                     value={credentials[field.key] || ''}
                     onChange={(e) => onCredentialChange(field.key, e.target.value)}
-                    className="w-full px-3 py-2 bg-gray-800/90 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+                    className="input-base bg-gray-800/90"
                   />
                 </div>
               ))}
@@ -151,7 +151,7 @@ export function PlatformCard({
                   placeholder={field.placeholder}
                   value={oauthInputs[field.key] || ''}
                   onChange={(e) => onOauthInputChange(field.key, e.target.value)}
-                  className="w-full px-3 py-2 bg-gray-800/90 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+                  className="input-base bg-gray-800/90"
                 />
               </div>
             ))}

@@ -120,7 +120,7 @@ export function CreateAgentDialog({
                   <select
                     value={finalConfig.model || 'claude-sonnet-4-6'}
                     onChange={(e) => updateCustomConfig({ model: e.target.value })}
-                    className="w-full px-3 py-2 bg-gray-800/90 border border-gray-700 rounded-lg hover:border-gray-600 focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 transition-all focus-glow"
+                    className="input-base bg-gray-800/90 hover:border-gray-600 transition-all focus-glow"
                   >
                     <option value="claude-sonnet-4-6">Claude Sonnet 4.6 (Recommended)</option>
                     <option value="claude-opus-4-20250514">Claude Opus 4</option>
@@ -141,7 +141,7 @@ export function CreateAgentDialog({
                         temperature: Math.min(2, Math.max(0, parseFloat(e.target.value) || 0)),
                       })
                     }
-                    className="w-full px-3 py-2 bg-gray-800/90 border border-gray-700 rounded-lg hover:border-gray-600 focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 transition-all focus-glow"
+                    className="input-base bg-gray-800/90 hover:border-gray-600 transition-all focus-glow"
                   />
                 </label>
 
@@ -156,7 +156,7 @@ export function CreateAgentDialog({
                         max_iterations: Math.max(1, parseInt(e.target.value) || 1),
                       })
                     }
-                    className="w-full px-3 py-2 bg-gray-800/90 border border-gray-700 rounded-lg hover:border-gray-600 focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 transition-all focus-glow"
+                    className="input-base bg-gray-800/90 hover:border-gray-600 transition-all focus-glow"
                   />
                 </label>
 
@@ -171,7 +171,7 @@ export function CreateAgentDialog({
                         loop_interval_ms: Math.max(100, parseInt(e.target.value) || 100),
                       })
                     }
-                    className="w-full px-3 py-2 bg-gray-800/90 border border-gray-700 rounded-lg hover:border-gray-600 focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 transition-all focus-glow"
+                    className="input-base bg-gray-800/90 hover:border-gray-600 transition-all focus-glow"
                   />
                 </label>
               </div>
@@ -183,7 +183,7 @@ export function CreateAgentDialog({
                   value={finalConfig.custom_instructions ?? ''}
                   onChange={(e) => updateCustomConfig({ custom_instructions: e.target.value })}
                   placeholder="Add specific instructions for this agent..."
-                  className="w-full px-3 py-2 bg-gray-800/90 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+                  className="input-base bg-gray-800/90"
                 />
               </label>
 

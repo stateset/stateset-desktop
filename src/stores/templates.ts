@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { AgentTemplate } from '../types';
 import { BUILT_IN_TEMPLATES } from '../lib/agentTemplates';
 import { useAuditLogStore } from './auditLog';
+import { isElectronAvailable } from '../lib/electron';
 
 interface TemplatesState {
   customTemplates: AgentTemplate[];
@@ -19,8 +20,8 @@ export const useTemplatesStore = create<TemplatesState>((set, get) => ({
   initialize: async () => {
     if (get().isLoaded) return;
     try {
-      if (typeof window.electronAPI !== 'undefined') {
-        const stored = await window.electronAPI.store.get('customAgentTemplates');
+      if (isElectronAvailable()) {
+        const stored = await window.electronAPI!.store.get('customAgentTemplates');
         if (Array.isArray(stored)) {
           set({ customTemplates: stored as AgentTemplate[], isLoaded: true });
           return;
@@ -36,8 +37,8 @@ export const useTemplatesStore = create<TemplatesState>((set, get) => ({
     const updated = [...get().customTemplates, { ...template, isCustom: true }];
     set({ customTemplates: updated });
     try {
-      if (typeof window.electronAPI !== 'undefined') {
-        await window.electronAPI.store.set('customAgentTemplates', updated);
+      if (isElectronAvailable()) {
+        await window.electronAPI!.store.set('customAgentTemplates', updated);
       }
     } catch {
       // Best effort persist
@@ -52,8 +53,8 @@ export const useTemplatesStore = create<TemplatesState>((set, get) => ({
     const updated = get().customTemplates.filter((t) => t.id !== id);
     set({ customTemplates: updated });
     try {
-      if (typeof window.electronAPI !== 'undefined') {
-        await window.electronAPI.store.set('customAgentTemplates', updated);
+      if (isElectronAvailable()) {
+        await window.electronAPI!.store.set('customAgentTemplates', updated);
       }
     } catch {
       // Best effort persist

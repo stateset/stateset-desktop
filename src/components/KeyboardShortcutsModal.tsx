@@ -39,6 +39,7 @@ export function KeyboardShortcutsModal({ isOpen, onClose }: KeyboardShortcutsMod
           { keys: [MOD_KEY, 'Shift', 'A'], description: 'Go to Analytics' },
           { keys: [MOD_KEY, 'Shift', 'C'], description: 'Go to Connections' },
           { keys: [MOD_KEY, 'Shift', 'P'], description: 'Go to Playground' },
+          { keys: [MOD_KEY, 'Shift', 'V'], description: 'Go to Voice' },
           { keys: [MOD_KEY, ','], description: 'Go to Settings' },
         ],
       },

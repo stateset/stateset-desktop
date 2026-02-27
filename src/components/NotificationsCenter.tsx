@@ -1,10 +1,11 @@
 import { memo, useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { Bell, X, AlertTriangle, Info, CheckCircle, XCircle, Trash2 } from 'lucide-react';
+import { Bell, X, Trash2 } from 'lucide-react';
 import clsx from 'clsx';
 import { formatDistanceToNow } from 'date-fns';
+import { NOTIFICATION_SEVERITY_CONFIG, type Severity } from '../lib/severityStyles';
 
-export type NotificationType = 'success' | 'error' | 'warning' | 'info';
+export type NotificationType = Severity;
 
 export interface Notification {
   id: string;
@@ -25,29 +26,29 @@ interface NotificationsCenterProps {
   onClearAll: () => void;
 }
 
-const typeConfig = {
+const typeConfig: Record<NotificationType, { icon: (typeof NOTIFICATION_SEVERITY_CONFIG)[NotificationType]['icon']; color: string; bg: string; border: string }> = {
   success: {
-    icon: CheckCircle,
+    icon: NOTIFICATION_SEVERITY_CONFIG.success.icon,
     color: 'text-emerald-400',
-    bg: 'bg-emerald-500/15',
+    bg: NOTIFICATION_SEVERITY_CONFIG.success.bgClass,
     border: 'border-emerald-500/30',
   },
   error: {
-    icon: XCircle,
+    icon: NOTIFICATION_SEVERITY_CONFIG.error.icon,
     color: 'text-rose-400',
-    bg: 'bg-rose-500/15',
+    bg: NOTIFICATION_SEVERITY_CONFIG.error.bgClass,
     border: 'border-rose-500/30',
   },
   warning: {
-    icon: AlertTriangle,
+    icon: NOTIFICATION_SEVERITY_CONFIG.warning.icon,
     color: 'text-amber-400',
-    bg: 'bg-amber-500/15',
+    bg: NOTIFICATION_SEVERITY_CONFIG.warning.bgClass,
     border: 'border-amber-500/30',
   },
   info: {
-    icon: Info,
+    icon: NOTIFICATION_SEVERITY_CONFIG.info.icon,
     color: 'text-brand-400',
-    bg: 'bg-brand-500/15',
+    bg: NOTIFICATION_SEVERITY_CONFIG.info.bgClass,
     border: 'border-brand-500/30',
   },
 };

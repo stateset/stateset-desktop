@@ -17,6 +17,7 @@ import {
   BarChart3,
   Command,
   MessageSquare,
+  Mic,
   Webhook,
   BookTemplate,
   ClipboardList,
@@ -200,6 +201,12 @@ export default function Layout({ children }: LayoutProps) {
         return;
       }
 
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && key === 'v') {
+        e.preventDefault();
+        navigate('/voice');
+        return;
+      }
+
       // Ctrl/Cmd+R refreshes app data (avoid full reload)
       if ((e.ctrlKey || e.metaKey) && key === 'r') {
         e.preventDefault();
@@ -225,6 +232,7 @@ export default function Layout({ children }: LayoutProps) {
     () => [
       { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
       { to: '/playground', icon: MessageSquare, label: 'Playground' },
+      { to: '/voice', icon: Mic, label: 'Voice' },
       { to: '/templates', icon: BookTemplate, label: 'Templates' },
       { to: '/analytics', icon: BarChart3, label: 'Analytics' },
       { to: '/connections', icon: Plug, label: 'Connections' },

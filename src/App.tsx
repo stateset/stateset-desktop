@@ -2,6 +2,7 @@ import { useEffect, useState, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './stores/auth';
 import { usePreferencesStore } from './stores/preferences';
+import { isElectronAvailable } from './lib/electron';
 import Layout from './components/Layout';
 import { AppLoadingScreen } from './components/AppLoadingScreen';
 import { RouteErrorBoundary } from './components/RouteErrorBoundary';
@@ -18,6 +19,7 @@ const Connections = lazy(() => import('./pages/Connections'));
 const Settings = lazy(() => import('./pages/Settings'));
 const Analytics = lazy(() => import('./pages/Analytics'));
 const ChatPlayground = lazy(() => import('./pages/ChatPlayground'));
+const Voice = lazy(() => import('./pages/Voice'));
 const Webhooks = lazy(() => import('./pages/Webhooks'));
 const Templates = lazy(() => import('./pages/Templates'));
 const AuditLog = lazy(() => import('./pages/AuditLog'));
@@ -83,13 +85,13 @@ function AuthenticatedApp() {
   // Check if user has completed onboarding
   useEffect(() => {
     const checkOnboarding = async () => {
-      if (typeof window.electronAPI !== 'undefined') {
-        if (window.electronAPI.app?.isE2ETest) {
+      if (isElectronAvailable()) {
+        if (window.electronAPI!.app?.isE2ETest) {
           setShowOnboarding(false);
           setHasCheckedOnboarding(true);
           return;
         }
-        const hasCompletedOnboarding = await window.electronAPI.store.get('onboardingCompleted');
+        const hasCompletedOnboarding = await window.electronAPI!.store.get('onboardingCompleted');
         setShowOnboarding(!hasCompletedOnboarding);
       }
       setHasCheckedOnboarding(true);
@@ -98,8 +100,8 @@ function AuthenticatedApp() {
   }, []);
 
   const handleOnboardingComplete = async () => {
-    if (typeof window.electronAPI !== 'undefined') {
-      await window.electronAPI.store.set('onboardingCompleted', true);
+    if (isElectronAvailable()) {
+      await window.electronAPI!.store.set('onboardingCompleted', true);
     }
     setShowOnboarding(false);
   };
@@ -170,6 +172,14 @@ function AuthenticatedApp() {
             }
           />
           <Route
+            path="/voice"
+            element={
+              <RouteErrorBoundary>
+                <Voice />
+              </RouteErrorBoundary>
+            }
+          />
+          <Route
             path="/webhooks"
             element={
               <RouteErrorBoundary>
@@ -204,7 +214,7 @@ export default function App() {
   const initializePreferences = usePreferencesStore((s) => s.initialize);
   const reduceMotion = usePreferencesStore((s) => s.reduceMotion);
   const isE2ETestRuntime =
-    typeof window !== 'undefined' && window.electronAPI?.app?.isE2ETest === true;
+    isElectronAvailable() && window.electronAPI?.app?.isE2ETest === true;
   const useReducedMotionMode = reduceMotion || isE2ETestRuntime;
 
   useEffect(() => {

@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { Tenant, Brand } from '../types';
 import { API_CONFIG } from '../config/api.config';
 import { useAuditLogStore } from './auditLog';
+import { isElectronAvailable } from '../lib/electron';
 
 const INVALID_SANDBOX_API_KEY_VALUES = new Set([
   'sandbox_key_pending',
@@ -46,7 +47,7 @@ function resolvePreferredBrand(
 }
 
 async function getStoredPreferredBrandId(): Promise<string | null> {
-  if (typeof window === 'undefined' || !window.electronAPI?.store?.get) {
+  if (!isElectronAvailable() || !window.electronAPI?.store?.get) {
     return null;
   }
 
@@ -65,7 +66,7 @@ async function getStoredPreferredBrandId(): Promise<string | null> {
 }
 
 async function persistPreferredBrandId(brandId: string | null): Promise<void> {
-  if (typeof window === 'undefined' || !window.electronAPI?.store) {
+  if (!isElectronAvailable() || !window.electronAPI?.store) {
     return;
   }
 

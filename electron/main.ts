@@ -121,7 +121,11 @@ function loadOAuthCredentials(options: OAuthSecretSource): OAuthCredentials {
 
   return { clientId, clientSecret };
 }
-const ALLOWED_PERMISSION_TYPES = new Set(['clipboard-read', 'clipboard-write']);
+const ALLOWED_PERMISSION_TYPES = new Set([
+  'clipboard-read',
+  'clipboard-write',
+  'media',
+]);
 const APP_RENDERER_ROOT = path.normalize(path.join(__dirname, '../renderer'));
 const CONFIGURED_API_ENDPOINT = getConfiguredApiEndpoint();
 const CONFIGURED_API_URL = new URL(CONFIGURED_API_ENDPOINT);
@@ -142,15 +146,18 @@ const CORS_ORIGIN_URLS = [
 ];
 const API_REQUEST_URL_PATTERNS = Array.from(new Set(CORS_ORIGIN_URLS));
 const CONFIGURED_API_WS_SCHEME = CONFIGURED_API_URL.protocol === 'https:' ? 'wss:' : 'ws:';
+const ELEVENLABS_API_ORIGIN = 'https://api.elevenlabs.io';
+const ELEVENLABS_WS_ORIGIN = 'wss://api.elevenlabs.io';
 const CSP_CONNECT_HOSTS = app.isPackaged
-  ? `${CONFIGURED_API_URL.origin} ${CONFIGURED_API_WS_SCHEME}//${CONFIGURED_API_URL.host}`
-  : `${CONFIGURED_API_URL.origin} ${CONFIGURED_API_WS_SCHEME}//${CONFIGURED_API_URL.host} ws://localhost:* http://localhost:* ws://127.0.0.1:* http://127.0.0.1:* ws://[::1]:* http://[::1]:*`;
+  ? `${CONFIGURED_API_URL.origin} ${CONFIGURED_API_WS_SCHEME}//${CONFIGURED_API_URL.host} ${ELEVENLABS_API_ORIGIN} ${ELEVENLABS_WS_ORIGIN}`
+  : `${CONFIGURED_API_URL.origin} ${CONFIGURED_API_WS_SCHEME}//${CONFIGURED_API_URL.host} ${ELEVENLABS_API_ORIGIN} ${ELEVENLABS_WS_ORIGIN} ws://localhost:* http://localhost:* ws://127.0.0.1:* http://127.0.0.1:* ws://[::1]:* http://[::1]:*`;
 const CSP_HEADER =
   "default-src 'self'; " +
   "base-uri 'none'; " +
   "form-action 'self'; " +
   "frame-ancestors 'none'; " +
   "img-src 'self' https: data:; " +
+  "media-src 'self' blob: data: https:; " +
   "font-src 'self' https://fonts.gstatic.com data:; " +
   "style-src 'self' https://fonts.googleapis.com; " +
   "style-src-attr 'unsafe-inline'; " +
@@ -167,7 +174,7 @@ const SECURITY_HEADERS = {
   crossOriginOpenerPolicy: 'same-origin',
   permissionsPolicy:
     'accelerometer=(), ambient-light-sensor=(), autoplay=(), camera=(), display-capture=(), document-domain=(), ' +
-    'encrypted-media=(), fullscreen=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), ' +
+    'encrypted-media=(), fullscreen=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(self), ' +
     'payment=(), usb=(), xr-spatial-tracking=(), interest-cohort=()',
 };
 
@@ -945,7 +952,23 @@ app.on('web-contents-created', (_event, contents) => {
     }
 
     const requesterUrl = details?.requestingUrl || _webContents.getURL();
-    callback(isAllowedRendererSource(requesterUrl));
+    if (!isAllowedRendererSource(requesterUrl)) {
+      callback(false);
+      return;
+    }
+
+    if (permission === 'media') {
+      const mediaTypes =
+        details && 'mediaTypes' in details && Array.isArray(details.mediaTypes)
+          ? details.mediaTypes
+          : [];
+      const requestsAudio = mediaTypes.length === 0 || mediaTypes.includes('audio');
+      const requestsVideo = mediaTypes.includes('video');
+      callback(requestsAudio && !requestsVideo);
+      return;
+    }
+
+    callback(true);
   });
 
   contents.setWindowOpenHandler(({ url }) => {

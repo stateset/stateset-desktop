@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Download, RefreshCw, Loader2, Check } from 'lucide-react';
 import clsx from 'clsx';
+import { isElectronAvailable } from '../../../lib/electron';
 
 interface UpdateInfo {
   version: string;
@@ -61,9 +62,9 @@ export function UpdateSettings({ appVersion }: { appVersion: string }) {
   }, []);
 
   useEffect(() => {
-    if (!window.electronAPI) return;
+    if (!isElectronAvailable()) return;
 
-    void window.electronAPI.app
+    void window.electronAPI!.app
       .getUpdateStatus()
       .then((snapshot) => {
         applyUpdateStatusSnapshot(snapshot);
@@ -73,26 +74,26 @@ export function UpdateSettings({ appVersion }: { appVersion: string }) {
       });
 
     const unsubscribers = [
-      window.electronAPI.app.onUpdateChecking(() => {
+      window.electronAPI!.app.onUpdateChecking(() => {
         setUpdateStatus('checking');
         setUpdateError(null);
       }),
-      window.electronAPI.app.onUpdateAvailable((info: UpdateInfo) => {
+      window.electronAPI!.app.onUpdateAvailable((info: UpdateInfo) => {
         setUpdateStatus('available');
         setUpdateInfo(info);
       }),
-      window.electronAPI.app.onUpdateNotAvailable(() => {
+      window.electronAPI!.app.onUpdateNotAvailable(() => {
         setUpdateStatus('idle');
       }),
-      window.electronAPI.app.onUpdateProgress((progress: UpdateProgress) => {
+      window.electronAPI!.app.onUpdateProgress((progress: UpdateProgress) => {
         setUpdateStatus('downloading');
         setDownloadProgress(progress.percent);
       }),
-      window.electronAPI.app.onUpdateDownloaded((info: UpdateInfo) => {
+      window.electronAPI!.app.onUpdateDownloaded((info: UpdateInfo) => {
         setUpdateStatus('ready');
         setUpdateInfo(info);
       }),
-      window.electronAPI.app.onUpdateError((error: string) => {
+      window.electronAPI!.app.onUpdateError((error: string) => {
         setUpdateStatus('error');
         setUpdateError(error);
       }),
@@ -104,10 +105,10 @@ export function UpdateSettings({ appVersion }: { appVersion: string }) {
   }, [applyUpdateStatusSnapshot]);
 
   const checkForUpdates = async () => {
-    if (window.electronAPI) {
+    if (isElectronAvailable()) {
       setUpdateStatus('checking');
       setUpdateError(null);
-      const result = await window.electronAPI.app.checkForUpdates();
+      const result = await window.electronAPI!.app.checkForUpdates();
       if (result?.available === false) {
         if (result.message) {
           setUpdateStatus('disabled');
@@ -125,8 +126,8 @@ export function UpdateSettings({ appVersion }: { appVersion: string }) {
   };
 
   const installUpdate = () => {
-    if (window.electronAPI) {
-      window.electronAPI.app.installUpdate();
+    if (isElectronAvailable()) {
+      window.electronAPI!.app.installUpdate();
     }
   };
 

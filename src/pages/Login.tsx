@@ -273,7 +273,7 @@ export default function Login() {
                         }}
                         placeholder="you@company.com"
                         autoComplete="email"
-                        className="w-full pl-10 pr-4 py-2.5 bg-gray-800/90 border border-gray-700 rounded-lg hover:border-gray-600 focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 transition-all focus-glow"
+                        className="input-base pl-10 pr-4 py-2.5 bg-gray-800/90 hover:border-gray-600 transition-all focus-glow"
                         autoFocus
                       />
                     </div>
@@ -305,7 +305,7 @@ export default function Login() {
                         }}
                         placeholder="Your password"
                         autoComplete="current-password"
-                        className="w-full pl-10 pr-4 py-2.5 bg-gray-800/90 border border-gray-700 rounded-lg hover:border-gray-600 focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 transition-all focus-glow"
+                        className="input-base pl-10 pr-4 py-2.5 bg-gray-800/90 hover:border-gray-600 transition-all focus-glow"
                       />
                     </div>
                   </div>
@@ -336,7 +336,7 @@ export default function Login() {
                       }}
                       placeholder="sk-..."
                       autoComplete="off"
-                      className="w-full pl-10 pr-4 py-2.5 bg-gray-800/90 border border-gray-700 rounded-lg hover:border-gray-600 focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 transition-all focus-glow"
+                      className="input-base pl-10 pr-4 py-2.5 bg-gray-800/90 hover:border-gray-600 transition-all focus-glow"
                       autoFocus
                     />
                   </div>
