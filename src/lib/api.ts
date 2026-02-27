@@ -235,6 +235,19 @@ function getErrorStatus(error: unknown): number | undefined {
   return undefined;
 }
 
+function getErrorRetryCount(error: unknown): number | undefined {
+  if (!(error && typeof error === 'object')) {
+    return undefined;
+  }
+
+  if ('retryCount' in error) {
+    const retryCount = (error as { retryCount?: unknown }).retryCount;
+    return typeof retryCount === 'number' ? retryCount : undefined;
+  }
+
+  return undefined;
+}
+
 function getBrandSelectionState(): {
   brands: Brand[];
   currentBrand: Brand | null;
@@ -377,6 +390,7 @@ async function fetchWithFallbackPaths<T>(
 interface ApiResult<T> {
   data: T;
   status: number;
+  retryCount: number;
 }
 
 // Core fetch logic with retry and circuit breaker
@@ -513,7 +527,9 @@ async function apiRequestInternal<T>(
         const errorMessage = safeMessages[response.status] ?? `HTTP ${response.status}`;
 
         const error = new Error(errorMessage);
-        (error as Error & { status: number; detail?: string }).status = response.status;
+        (error as Error & { status: number; detail?: string; retryCount?: number }).status =
+          response.status;
+        (error as Error & { retryCount?: number }).retryCount = attempt;
         if (rawDetail) {
           (error as Error & { detail?: string }).detail = rawDetail;
         }
@@ -533,14 +549,14 @@ async function apiRequestInternal<T>(
       }
 
       if (!bodyText) {
-        return { data: undefined as T, status: response.status };
+        return { data: undefined as T, status: response.status, retryCount: attempt };
       }
 
       if (isJson) {
-        return { data: JSON.parse(bodyText) as T, status: response.status };
+        return { data: JSON.parse(bodyText) as T, status: response.status, retryCount: attempt };
       }
 
-      return { data: bodyText as unknown as T, status: response.status };
+      return { data: bodyText as unknown as T, status: response.status, retryCount: attempt };
     } catch (error) {
       if (timeoutId) {
         clearTimeout(timeoutId);
@@ -558,6 +574,8 @@ async function apiRequestInternal<T>(
       if (allowRetry && attempt < maxRetries && isRetryableError(lastError, lastStatus)) {
         continue;
       }
+
+      (lastError as Error & { retryCount?: number }).retryCount = attempt;
 
       // Don't double-count circuit breaker for already-handled errors
       if (!skipCircuitBreaker && !(error instanceof CircuitBreakerError)) {
@@ -582,6 +600,7 @@ async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Pro
   const method = (options.method ?? 'GET').toUpperCase();
   const start = performance.now();
   let status: number | null = null;
+  let retryCount = 0;
   let fromCache = false;
 
   try {
@@ -597,11 +616,17 @@ async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Pro
     }
 
     status = result.status;
+    retryCount = result.retryCount;
     return result.data;
   } catch (error) {
-    if (error instanceof Error && error.message.startsWith('HTTP ')) {
-      const code = parseInt(error.message.replace('HTTP ', ''), 10);
-      if (!isNaN(code)) status = code;
+    const errorStatus = getErrorStatus(error);
+    if (typeof errorStatus === 'number') {
+      status = errorStatus;
+    }
+
+    const errorRetryCount = getErrorRetryCount(error);
+    if (typeof errorRetryCount === 'number') {
+      retryCount = errorRetryCount;
     }
     throw error;
   } finally {
@@ -610,7 +635,7 @@ async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Pro
       method,
       status,
       durationMs: Math.round(performance.now() - start),
-      retryCount: 0, // retries are internal to apiRequestInternal
+      retryCount,
       fromCache,
       timestamp: Date.now(),
     });

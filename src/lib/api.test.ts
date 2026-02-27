@@ -16,6 +16,8 @@ const mockCircuitBreaker = vi.hoisted(() => ({
   })),
 }));
 
+const mockRecordApiCall = vi.hoisted(() => vi.fn());
+
 // Mock the auth store before importing api
 vi.mock('../stores/auth', () => ({
   useAuthStore: {
@@ -52,6 +54,22 @@ vi.mock('./circuit-breaker', () => ({
       this.status = status;
     }
   },
+}));
+
+vi.mock('./metrics', () => ({
+  recordApiCall: (...args: unknown[]) => mockRecordApiCall(...args),
+  getMetricsSummary: vi.fn(() => ({
+    totalRequests: 0,
+    avgLatencyMs: 0,
+    p50LatencyMs: 0,
+    p95LatencyMs: 0,
+    p99LatencyMs: 0,
+    errorRate: 0,
+    cacheHitRate: 0,
+    totalRetries: 0,
+    circuitBreakerTrips: 0,
+    windowStartMs: 0,
+  })),
 }));
 
 // We need to test the retry logic and helper functions
@@ -243,6 +261,30 @@ describe('API Request Integration', () => {
 
     const finalHeaders = fetchMock.mock.calls[2]?.[1]?.headers as Record<string, string>;
     expect(finalHeaders['X-API-Key']).toBe('test-api-key');
+  });
+
+  it('should preserve HTTP status in recorded metrics for sanitized auth errors', async () => {
+    const unauthorizedResponse = {
+      ok: false,
+      status: 401,
+      headers: { get: () => 'application/json' },
+      text: async () => JSON.stringify({ error: 'Unauthorized' }),
+    };
+
+    fetchMock.mockResolvedValueOnce(unauthorizedResponse);
+    fetchMock.mockResolvedValueOnce(unauthorizedResponse);
+    fetchMock.mockResolvedValueOnce(unauthorizedResponse);
+
+    await expect(webhooksApi.list('tenant-123', 'brand-456')).rejects.toThrow(
+      'Authentication required'
+    );
+
+    const lastMetric = mockRecordApiCall.mock.calls.at(-1)?.[0] as
+      | { status: number | null; retryCount: number }
+      | undefined;
+
+    expect(lastMetric?.status).toBe(401);
+    expect(lastMetric?.retryCount).toBe(0);
   });
 
   it('should handle successful JSON response', async () => {

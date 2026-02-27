@@ -22,7 +22,7 @@ export function useWebhookDeliveries(webhookId: string | null) {
   const { tenant, currentBrand } = useAuthStore();
 
   return useQuery<WebhookDelivery[]>({
-    queryKey: queryKeys.webhooks.deliveries(webhookId || ''),
+    queryKey: queryKeys.webhooks.deliveries(tenant?.id, currentBrand?.id, webhookId || ''),
     queryFn: () =>
       webhooksApi.listDeliveries(requireTenantId(tenant), requireBrandId(currentBrand), webhookId!),
     enabled: !!tenant?.id && !!currentBrand?.id && !!webhookId,

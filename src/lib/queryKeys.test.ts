@@ -56,6 +56,35 @@ describe('queryKeys', () => {
     });
   });
 
+  describe('webhooks', () => {
+    it('all is a stable reference', () => {
+      expect(queryKeys.webhooks.all).toEqual(['webhooks']);
+    });
+
+    it('list includes tenantId and brandId', () => {
+      expect(queryKeys.webhooks.list('t1', 'b1')).toEqual(['webhooks', 't1', 'b1']);
+    });
+
+    it('detail includes tenantId, brandId, and webhookId', () => {
+      expect(queryKeys.webhooks.detail('t1', 'b1', 'wh-1')).toEqual([
+        'webhook',
+        't1',
+        'b1',
+        'wh-1',
+      ]);
+    });
+
+    it('deliveries includes tenantId, brandId, and webhookId', () => {
+      expect(queryKeys.webhooks.deliveries('t1', 'b1', 'wh-1')).toEqual([
+        'webhook',
+        't1',
+        'b1',
+        'wh-1',
+        'deliveries',
+      ]);
+    });
+  });
+
   describe('hierarchy', () => {
     it('sessions.all is a prefix of sessions.list', () => {
       const all = queryKeys.sessions.all;

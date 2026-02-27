@@ -29,8 +29,10 @@ export const queryKeys = {
   webhooks: {
     all: ['webhooks'] as const,
     list: (tenantId?: string, brandId?: string) => ['webhooks', tenantId, brandId] as const,
-    detail: (webhookId: string) => ['webhook', webhookId] as const,
-    deliveries: (webhookId: string) => ['webhook', webhookId, 'deliveries'] as const,
+    detail: (tenantId?: string, brandId?: string, webhookId?: string) =>
+      ['webhook', tenantId, brandId, webhookId] as const,
+    deliveries: (tenantId?: string, brandId?: string, webhookId?: string) =>
+      ['webhook', tenantId, brandId, webhookId, 'deliveries'] as const,
   },
 
   // Brands
