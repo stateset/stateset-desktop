@@ -20,6 +20,7 @@ export function useAgentSession({ sessionId, onError, onSuccess }: UseAgentSessi
   const queryClient = useQueryClient();
   const refreshInterval = usePreferencesStore((s) => s.refreshInterval);
   const lastQueryErrorRef = useRef<string | null>(null);
+  const sessionDetailKey = queryKeys.sessions.detail(tenant?.id, currentBrand?.id, sessionId);
 
   // Safe accessors — guards against null tenant/brand in mutation callbacks
   const getTenantId = useCallback(() => {
@@ -58,7 +59,7 @@ export function useAgentSession({ sessionId, onError, onSuccess }: UseAgentSessi
     error: sessionError,
     refetch,
   } = useQuery<AgentSession>({
-    queryKey: queryKeys.sessions.detail(sessionId),
+    queryKey: sessionDetailKey,
     queryFn: () => agentApi.getSession(getTenantId(), getBrandId(), sessionId),
     enabled: !!tenant?.id && !!currentBrand?.id && !!sessionId,
     refetchInterval: refreshInterval,
@@ -76,7 +77,7 @@ export function useAgentSession({ sessionId, onError, onSuccess }: UseAgentSessi
   const startSession = useMutation({
     mutationFn: () => agentApi.startSession(getTenantId(), getBrandId(), sessionId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.sessions.detail(sessionId) });
+      queryClient.invalidateQueries({ queryKey: sessionDetailKey });
       onSuccess?.('Session Started', 'Agent session has been started.');
     },
     onError: handleMutationError('Failed to start session'),
@@ -85,7 +86,7 @@ export function useAgentSession({ sessionId, onError, onSuccess }: UseAgentSessi
   const pauseSession = useMutation({
     mutationFn: () => agentApi.pauseSession(getTenantId(), getBrandId(), sessionId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.sessions.detail(sessionId) });
+      queryClient.invalidateQueries({ queryKey: sessionDetailKey });
     },
     onError: handleMutationError('Failed to pause session'),
   });
@@ -93,7 +94,7 @@ export function useAgentSession({ sessionId, onError, onSuccess }: UseAgentSessi
   const resumeSession = useMutation({
     mutationFn: () => agentApi.resumeSession(getTenantId(), getBrandId(), sessionId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.sessions.detail(sessionId) });
+      queryClient.invalidateQueries({ queryKey: sessionDetailKey });
     },
     onError: handleMutationError('Failed to resume session'),
   });
@@ -101,7 +102,7 @@ export function useAgentSession({ sessionId, onError, onSuccess }: UseAgentSessi
   const stopSession = useMutation({
     mutationFn: () => agentApi.stopSession(getTenantId(), getBrandId(), sessionId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.sessions.detail(sessionId) });
+      queryClient.invalidateQueries({ queryKey: sessionDetailKey });
       onSuccess?.('Session Stopped', 'Agent session has been stopped.');
     },
     onError: handleMutationError('Failed to stop session'),
@@ -117,7 +118,7 @@ export function useAgentSession({ sessionId, onError, onSuccess }: UseAgentSessi
     mutationFn: (config: AgentSessionConfig) =>
       agentApi.updateConfig(getTenantId(), getBrandId(), sessionId, config),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.sessions.detail(sessionId) });
+      queryClient.invalidateQueries({ queryKey: sessionDetailKey });
       onSuccess?.('Config Updated', 'Agent settings have been saved.');
     },
     onError: handleMutationError('Failed to update config'),

@@ -357,6 +357,9 @@ function parseEventType(rawEventName: string, rawData: string): AgentEvent | nul
         type: 'log',
         level: parsed.level as 'debug' | 'info' | 'warn' | 'error',
         message: parsed.message,
+        ...(isPlainObject(parsed.metadata)
+          ? { metadata: parsed.metadata as Record<string, unknown> }
+          : {}),
       };
     }
 

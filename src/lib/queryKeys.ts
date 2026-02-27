@@ -14,7 +14,8 @@ export const queryKeys = {
   sessions: {
     all: ['sessions'] as const,
     list: (tenantId?: string, brandId?: string) => ['sessions', tenantId, brandId] as const,
-    detail: (sessionId: string) => ['session', sessionId] as const,
+    detail: (tenantId?: string, brandId?: string, sessionId?: string) =>
+      ['session', tenantId, brandId, sessionId] as const,
   },
 
   // Connections/Secrets

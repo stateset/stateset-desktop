@@ -55,6 +55,19 @@ describe('useAgentStream logic', () => {
       expect(parsed.events).toHaveLength(0);
     });
 
+    it('preserves log metadata when provided', () => {
+      const raw =
+        'event: log\n' +
+        'data: {"type":"log","level":"info","message":"step complete","metadata":{"phase":"tool"}}\n\n';
+      const parsed = parseEventChunk(raw);
+      expect(parsed.events[0]).toMatchObject({
+        type: 'log',
+        level: 'info',
+        message: 'step complete',
+        metadata: { phase: 'tool' },
+      });
+    });
+
     it('drops non-object payloads', () => {
       const raw = 'data: []\n\n';
       const parsed = parseEventChunk(raw);

@@ -288,7 +288,11 @@ export default function AgentConsole() {
       ),
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: queryKeys.sessions.detail(requireSessionId(sessionId)),
+        queryKey: queryKeys.sessions.detail(
+          tenant?.id,
+          currentBrand?.id,
+          requireSessionId(sessionId)
+        ),
       });
       showToast({
         variant: 'success',
@@ -381,7 +385,11 @@ export default function AgentConsole() {
               )
             );
             queryClient.invalidateQueries({
-              queryKey: queryKeys.sessions.detail(requireSessionId(sessionId)),
+              queryKey: queryKeys.sessions.detail(
+                tenant?.id,
+                currentBrand?.id,
+                requireSessionId(sessionId)
+              ),
             });
           } catch (error) {
             showToast({
@@ -685,45 +693,45 @@ export default function AgentConsole() {
             ) : (
               <>
                 <AnimatePresence>
-                {showStreamBanner && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -8 }}
-                    transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
-                    className="p-3 bg-gradient-to-r from-slate-900/70 via-slate-900/40 to-slate-900/70 border border-slate-700/50 rounded-xl flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between backdrop-blur-sm shadow-sm"
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-slate-800/60 border border-slate-700/50 flex items-center justify-center">
-                        {showStreamDisconnected ? (
-                          <AlertCircle className="w-4 h-4 text-amber-400" />
-                        ) : (
-                          <PlayCircle className="w-4 h-4 text-brand-400" />
-                        )}
+                  {showStreamBanner && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -8 }}
+                      transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+                      className="p-3 bg-gradient-to-r from-slate-900/70 via-slate-900/40 to-slate-900/70 border border-slate-700/50 rounded-xl flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between backdrop-blur-sm shadow-sm"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-slate-800/60 border border-slate-700/50 flex items-center justify-center">
+                          {showStreamDisconnected ? (
+                            <AlertCircle className="w-4 h-4 text-amber-400" />
+                          ) : (
+                            <PlayCircle className="w-4 h-4 text-brand-400" />
+                          )}
+                        </div>
+                        <p className="text-sm text-slate-200">{streamCtaMessage}</p>
                       </div>
-                      <p className="text-sm text-slate-200">{streamCtaMessage}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {hasCachedLogs && !showLogs && (
+                      <div className="flex items-center gap-2">
+                        {hasCachedLogs && !showLogs && (
+                          <button
+                            type="button"
+                            onClick={handleReplayLogs}
+                            className="px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+                          >
+                            Replay logs
+                          </button>
+                        )}
                         <button
                           type="button"
-                          onClick={handleReplayLogs}
-                          className="px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+                          onClick={handleStartAndStream}
+                          disabled={isStartStreamPending}
+                          className="px-3 py-1.5 text-xs bg-brand-600 hover:bg-brand-500 disabled:opacity-60 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/50 focus-visible:ring-offset-1"
                         >
-                          Replay logs
+                          {startStreamLabel}
                         </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={handleStartAndStream}
-                        disabled={isStartStreamPending}
-                        className="px-3 py-1.5 text-xs bg-brand-600 hover:bg-brand-500 disabled:opacity-60 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/50 focus-visible:ring-offset-1"
-                      >
-                        {startStreamLabel}
-                      </button>
-                    </div>
-                  </motion.div>
-                )}
+                      </div>
+                    </motion.div>
+                  )}
                 </AnimatePresence>
                 <AnimatePresence initial={false}>
                   {filteredMessages.map((event) => (
@@ -738,19 +746,19 @@ export default function AgentConsole() {
                 {isTyping && <TypingIndicator />}
                 <div ref={messagesEndRef} />
                 <AnimatePresence>
-                {!autoScroll && (
-                  <motion.button
-                    type="button"
-                    onClick={handleScrollToBottom}
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 8 }}
-                    transition={{ duration: 0.15 }}
-                    className="absolute bottom-4 right-4 px-3 py-1.5 bg-slate-800/90 hover:bg-slate-700/90 text-xs rounded-full shadow-lg border border-slate-600/50 backdrop-blur-sm hover:scale-105 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
-                  >
-                    Jump to latest
-                  </motion.button>
-                )}
+                  {!autoScroll && (
+                    <motion.button
+                      type="button"
+                      onClick={handleScrollToBottom}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 8 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute bottom-4 right-4 px-3 py-1.5 bg-slate-800/90 hover:bg-slate-700/90 text-xs rounded-full shadow-lg border border-slate-600/50 backdrop-blur-sm hover:scale-105 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+                    >
+                      Jump to latest
+                    </motion.button>
+                  )}
                 </AnimatePresence>
               </>
             )}

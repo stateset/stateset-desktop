@@ -17,9 +17,9 @@ describe('queryKeys', () => {
       expect(key).toEqual(['sessions', 't1', undefined]);
     });
 
-    it('detail includes sessionId', () => {
-      const key = queryKeys.sessions.detail('sess-1');
-      expect(key).toEqual(['session', 'sess-1']);
+    it('detail includes tenantId, brandId, and sessionId', () => {
+      const key = queryKeys.sessions.detail('t1', 'b1', 'sess-1');
+      expect(key).toEqual(['session', 't1', 'b1', 'sess-1']);
     });
   });
 
