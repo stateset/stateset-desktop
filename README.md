@@ -37,6 +37,42 @@ AI Agent Desktop application for StateSet - manage autonomous customer service a
 └─────────────────────────────────────────┘
 ```
 
+## How It Works
+
+The app runs as three connected layers:
+
+1. **Electron main process** (`electron/main.ts`)
+   Creates the desktop window and tray behavior, enforces navigation/security policy, handles secure key storage, and exposes IPC handlers for auth/store/oauth/notifications/updates.
+2. **Preload bridge** (`electron/preload.ts`)
+   Exposes a minimal `window.electronAPI` surface so the renderer can call approved capabilities without direct Node.js access.
+3. **React renderer** (`src/main.tsx` + `src/App.tsx`)
+   Boots UI, initializes auth/preferences, and renders protected routes (`Dashboard`, `Agent Console`, `Connections`, `Settings`, etc.) once authenticated.
+
+At runtime:
+
+- Auth state is restored from secure storage and validated with `GET /api/v1/auth/me`.
+- API requests flow through `src/lib/api.ts` (retry, timeout, circuit breaker, validation, request dedupe).
+- React Query stores server state; Zustand stores app/session UI state.
+- Agent console uses SSE (`src/hooks/useAgentStream.ts`) for live event streaming.
+- Offline cache (`src/lib/cache.ts`, IndexedDB) provides fallback reads for key lists.
+
+For full details, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+## Request Lifecycle Example: Start Agent & Stream
+
+Example: clicking **Start** for a stopped agent on Dashboard.
+
+1. User clicks start in `Dashboard` (`src/pages/Dashboard.tsx`).
+2. `useOptimisticSessionMutation` marks session state as `starting` immediately for responsive UI.
+3. Mutation calls `agentApi.startSession(tenantId, brandId, sessionId)` in `src/lib/api.ts`.
+4. `agentApi` sends `POST /api/v1/tenants/:tenantId/brands/:brandId/agents/:sessionId/start`.
+5. `apiRequest()` handles retry/timeout/circuit-breaker concerns and records metrics.
+6. On success, React Query invalidates session queries and refetches canonical state.
+7. UI re-renders with updated status (`running`/`paused`) from API.
+8. In `Agent Console` (`src/pages/AgentConsole.tsx`), `useAgentStream()` connects to SSE endpoint.
+9. SSE events (`thinking`, `message`, `tool_call`, `metrics`, `status_changed`) stream in and update the live timeline + metrics panel.
+10. Background sync updates tray status and optionally shows desktop notifications (`src/hooks/useBackgroundAgents.ts`).
+
 ## Development
 
 ### Prerequisites
