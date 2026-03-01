@@ -72,6 +72,14 @@ describe('CommandPalette', () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 
+  it('Escape on search input calls onClose', () => {
+    const onClose = vi.fn();
+    render(<CommandPalette {...defaultProps} onClose={onClose} />);
+    const input = screen.getByPlaceholderText('Search commands...');
+    fireEvent.keyDown(input, { key: 'Escape' });
+    expect(onClose).toHaveBeenCalled();
+  });
+
   it('renders agent entries when agents are provided', () => {
     const agents = [{ id: '1', agent_type: 'commerce', status: 'running', name: 'Sales Bot' }];
     render(<CommandPalette {...defaultProps} agents={agents} />);

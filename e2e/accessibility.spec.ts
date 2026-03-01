@@ -459,7 +459,7 @@ test.describe('Accessibility Tests', () => {
     await page.waitForTimeout(300);
 
     // Should be visible
-    const palette = page.locator('[role="dialog"]');
+    const palette = page.getByRole('dialog', { name: 'Command Palette' });
     await expect(palette).toBeVisible();
 
     // Should trap focus
@@ -470,7 +470,7 @@ test.describe('Accessibility Tests', () => {
 
     // Close with Escape
     await page.keyboard.press('Escape');
-    await expect(palette).not.toBeVisible();
+    await expect(palette).toBeHidden();
   });
 
   test('Create agent dialog should be accessible', async () => {

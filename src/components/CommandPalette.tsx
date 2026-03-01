@@ -340,6 +340,17 @@ export function CommandPalette({
     agents: filteredCommands.filter((c) => c.category === 'agents'),
   };
 
+  const handleDialogKeyDownCapture = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'Escape') {
+      return;
+    }
+    // Handle Escape at the dialog boundary so close is reliable even when
+    // page-level shortcut handlers are active.
+    event.preventDefault();
+    event.stopPropagation();
+    onClose();
+  };
+
   return createPortal(
     <AnimatePresence>
       {isOpen ? (
@@ -361,6 +372,7 @@ export function CommandPalette({
             aria-labelledby="command-palette-title"
             className="w-[min(92vw,36rem)] bg-slate-900/80 backdrop-blur-xl border border-slate-700/60 rounded-2xl shadow-2xl overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
+            onKeyDownCapture={handleDialogKeyDownCapture}
           >
             <h2 id="command-palette-title" className="sr-only">
               Command Palette
