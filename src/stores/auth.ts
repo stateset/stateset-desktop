@@ -82,6 +82,14 @@ async function persistPreferredBrandId(brandId: string | null): Promise<void> {
   }
 }
 
+function buildCachedAuthError(code: 'NETWORK_ERROR' | 'SERVER_ERROR'): AuthError {
+  return {
+    code,
+    message: 'Could not verify credentials',
+    details: 'Running in cached mode with stored credentials.',
+  };
+}
+
 export function normalizeSandboxApiKey(raw?: string | null): string | null {
   if (!raw || typeof raw !== 'string') {
     return null;
@@ -315,6 +323,25 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             });
             return;
           }
+
+          if (response.status >= 500 || response.status === 429) {
+            console.warn(`Auth validation returned ${response.status}, using cached credentials.`);
+            set({
+              isAuthenticated: true,
+              apiKey: storedKey,
+              sandboxApiKey: effectiveSandboxKey,
+              isLoading: false,
+              error: buildCachedAuthError('SERVER_ERROR'),
+            });
+            return;
+          }
+
+          set({
+            isLoading: false,
+            sandboxApiKey: effectiveSandboxKey,
+            error: parseAuthError(response, 'Could not verify stored credentials'),
+          });
+          return;
         } catch (fetchError) {
           clearTimeout(timeoutId);
           // On network error during init, don't clear the key - user might be offline
@@ -329,11 +356,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             apiKey: storedKey,
             sandboxApiKey: effectiveSandboxKey,
             isLoading: false,
-            error: {
-              code: 'NETWORK_ERROR',
-              message: 'Could not verify credentials',
-              details: 'Running in offline mode with cached credentials.',
-            },
+            error: buildCachedAuthError('NETWORK_ERROR'),
           });
           return;
         }

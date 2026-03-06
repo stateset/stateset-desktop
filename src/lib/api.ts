@@ -248,6 +248,30 @@ function getErrorRetryCount(error: unknown): number | undefined {
   return undefined;
 }
 
+function getErrorDetail(error: unknown): string | undefined {
+  if (!(error && typeof error === 'object')) {
+    return undefined;
+  }
+
+  if ('detail' in error) {
+    const detail = (error as { detail?: unknown }).detail;
+    return typeof detail === 'string' ? detail : undefined;
+  }
+
+  return undefined;
+}
+
+function isSessionAlreadyRunningError(error: unknown): boolean {
+  const status = getErrorStatus(error);
+  if (status !== 409 && status !== 500) {
+    return false;
+  }
+
+  const detail = getErrorDetail(error)?.toLowerCase() ?? '';
+  const message = error instanceof Error ? error.message.toLowerCase() : '';
+  return detail.includes('session is already running') || message.includes('already running');
+}
+
 function getBrandSelectionState(): {
   brands: Brand[];
   currentBrand: Brand | null;
@@ -716,12 +740,19 @@ export const agentApi = {
     sessionId: string
   ): Promise<AgentSession> => {
     const resolvedBrandId = getRequiredBrandId(brandId);
-    const raw = await apiRequest<unknown>(
-      buildPath('tenants', tenantId, 'brands', resolvedBrandId, 'agents', sessionId, 'start'),
-      { method: 'POST' }
-    );
-    const response = validateResponse(SessionResponseSchema, raw);
-    return response.session;
+    try {
+      const raw = await apiRequest<unknown>(
+        buildPath('tenants', tenantId, 'brands', resolvedBrandId, 'agents', sessionId, 'start'),
+        { method: 'POST' }
+      );
+      const response = validateResponse(SessionResponseSchema, raw);
+      return response.session;
+    } catch (error) {
+      if (isSessionAlreadyRunningError(error)) {
+        return agentApi.getSession(tenantId, resolvedBrandId, sessionId);
+      }
+      throw error;
+    }
   },
 
   // Pause a session

@@ -526,6 +526,68 @@ describe('Agent API', () => {
   });
 
   describe('agent endpoints', () => {
+    it('treats "already running" start errors as a successful start', async () => {
+      const tenantId = 'tenant-123';
+      const brandId = 'brand-456';
+      const sessionId = 'session-789';
+      const runningSession = {
+        id: sessionId,
+        tenant_id: tenantId,
+        brand_id: brandId,
+        agent_type: 'interactive',
+        status: 'running',
+        created_at: '2026-03-01T00:00:00Z',
+        updated_at: '2026-03-01T00:00:00Z',
+        config: {
+          loop_interval_ms: 1000,
+          max_iterations: 100,
+          iteration_timeout_secs: 300,
+          pause_on_error: false,
+          mcp_servers: [],
+          model: 'claude-sonnet-4-6',
+          temperature: 0.2,
+        },
+        metrics: {
+          loop_count: 1,
+          tokens_used: 0,
+          tool_calls: 0,
+          errors: 0,
+          messages_sent: 0,
+          uptime_seconds: 5,
+        },
+      };
+
+      fetchMock
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 500,
+          headers: { get: () => 'application/json' },
+          text: async () => JSON.stringify({ error: 'Internal error: Session is already running' }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          headers: { get: () => 'application/json' },
+          text: async () => JSON.stringify({ session: runningSession }),
+        });
+
+      const result = await agentApi.startSession(tenantId, brandId, sessionId);
+
+      expect(result.id).toBe(sessionId);
+      expect(result.status).toBe('running');
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(String(fetchMock.mock.calls[0]?.[0])).toBe(
+        `${API_CONFIG.baseUrl}/api/v1/tenants/${encodeURIComponent(
+          tenantId
+        )}/brands/${encodeURIComponent(brandId)}/agents/${encodeURIComponent(sessionId)}/start`
+      );
+      expect(String(fetchMock.mock.calls[1]?.[0])).toBe(
+        `${API_CONFIG.baseUrl}/api/v1/tenants/${encodeURIComponent(
+          tenantId
+        )}/brands/${encodeURIComponent(brandId)}/agents/${encodeURIComponent(sessionId)}`
+      );
+    });
+
     it('encodes dynamic segments for session fetches', async () => {
       fetchMock.mockResolvedValueOnce({
         ok: true,

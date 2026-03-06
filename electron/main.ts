@@ -30,6 +30,7 @@ import {
   sanitizeStringRecord,
   sanitizeQueryParams,
 } from './sanitization';
+import { resolveTrayIconPath } from './runtime-assets';
 
 const isMac = process.platform === 'darwin';
 const isWindows = process.platform === 'win32';
@@ -121,11 +122,7 @@ function loadOAuthCredentials(options: OAuthSecretSource): OAuthCredentials {
 
   return { clientId, clientSecret };
 }
-const ALLOWED_PERMISSION_TYPES = new Set([
-  'clipboard-read',
-  'clipboard-write',
-  'media',
-]);
+const ALLOWED_PERMISSION_TYPES = new Set(['clipboard-read', 'clipboard-write', 'media']);
 const APP_RENDERER_ROOT = path.normalize(path.join(__dirname, '../renderer'));
 const CONFIGURED_API_ENDPOINT = getConfiguredApiEndpoint();
 const CONFIGURED_API_URL = new URL(CONFIGURED_API_ENDPOINT);
@@ -706,21 +703,29 @@ function setupAutoUpdater() {
 function createTray() {
   const updaterStatus = getAutoUpdaterStatus();
 
-  // Create tray icon - use template image on macOS for dark/light mode support
-  const iconPath =
-    process.platform === 'darwin'
-      ? path.join(__dirname, '../assets/tray-icon-template.png')
-      : path.join(__dirname, '../assets/tray-icon.png');
-
-  // Use a simple icon if assets don't exist yet
   let trayIcon: NativeImage;
-  try {
-    trayIcon = nativeImage.createFromPath(iconPath);
-    if (trayIcon.isEmpty()) {
-      // Create a simple 16x16 icon as fallback
+  const trayIconPath = resolveTrayIconPath({
+    appPath: app.getAppPath(),
+    isPackaged: app.isPackaged,
+    platform: process.platform,
+    resourcesPath: process.resourcesPath,
+  });
+
+  if (trayIconPath) {
+    trayIcon = nativeImage.createFromPath(trayIconPath);
+    if (!trayIcon.isEmpty()) {
+      trayIcon = trayIcon.resize({ width: 18, height: 18 });
+
+      if (process.platform === 'darwin' && trayIconPath.endsWith('tray-icon-template.png')) {
+        const templateTrayIcon = trayIcon as NativeImage & {
+          setTemplateImage?: (isTemplate: boolean) => void;
+        };
+        templateTrayIcon.setTemplateImage?.(true);
+      }
+    } else {
       trayIcon = nativeImage.createEmpty();
     }
-  } catch {
+  } else {
     trayIcon = nativeImage.createEmpty();
   }
 

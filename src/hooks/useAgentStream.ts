@@ -562,7 +562,10 @@ export function useAgentStream({
             }
             return;
           }
-          setStreamError(normalizeStreamStatusErrorMessage(lastResponseStatus));
+          const isNotReady404 = lastResponseStatus === 404 && !hasConnectedRef.current;
+          if (!isNotReady404) {
+            setStreamError(normalizeStreamStatusErrorMessage(lastResponseStatus));
+          }
         }
         setIsConnecting(false);
         scheduleReconnect();
@@ -575,7 +578,10 @@ export function useAgentStream({
       if (!response.ok) {
         const status = response?.status ?? lastResponseStatus ?? null;
         const isAuthError = status === 401 || status === 403;
-        setStreamError(normalizeStreamStatusErrorMessage(status));
+        const isNotReady404 = status === 404 && !hasConnectedRef.current;
+        if (!isNotReady404) {
+          setStreamError(normalizeStreamStatusErrorMessage(status));
+        }
         setIsConnecting(false);
         if (isAuthError) {
           setIsConnected(false);

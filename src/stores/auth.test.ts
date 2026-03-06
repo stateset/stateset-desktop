@@ -423,6 +423,23 @@ describe('useAuthStore', () => {
     expect(state.error?.code).toBe('NETWORK_ERROR');
   });
 
+  it('keeps cached credentials when auth validation returns 500', async () => {
+    const api = createElectronApiMock({
+      auth: {
+        getApiKey: vi.fn().mockResolvedValue('engine-key'),
+      },
+    });
+    setElectronApi(api);
+    fetchMock.mockResolvedValue(new Response('', { status: 500 }));
+
+    await useAuthStore.getState().initialize();
+
+    const state = useAuthStore.getState();
+    expect(state.isAuthenticated).toBe(true);
+    expect(state.apiKey).toBe('engine-key');
+    expect(state.error?.code).toBe('SERVER_ERROR');
+  });
+
   it('rejects invalid api key format on login', async () => {
     await expect(useAuthStore.getState().login('short')).rejects.toThrow('Invalid API key format');
     expect(useAuthStore.getState().error?.code).toBe('INVALID_API_KEY');
