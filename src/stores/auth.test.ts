@@ -3,11 +3,23 @@ import { normalizeSandboxApiKey, useAuthStore } from './auth';
 import type { Brand, Tenant } from '../types';
 
 const mockLog = vi.fn();
+const mockCachedAuthContextGet = vi.fn();
+const mockCachedAuthContextSet = vi.fn();
+const mockClearAllCaches = vi.fn();
 
 vi.mock('./auditLog', () => ({
   useAuditLogStore: {
     getState: () => ({ log: mockLog }),
   },
+}));
+
+vi.mock('../lib/cache', () => ({
+  authContextCache: {
+    get: (...args: unknown[]) => mockCachedAuthContextGet(...args),
+    set: (...args: unknown[]) => mockCachedAuthContextSet(...args),
+    clear: vi.fn().mockResolvedValue(undefined),
+  },
+  clearAllCaches: (...args: unknown[]) => mockClearAllCaches(...args),
 }));
 
 const fetchMock = vi.fn();
@@ -198,6 +210,9 @@ describe('useAuthStore', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     fetchMock.mockReset();
+    mockCachedAuthContextGet.mockReset().mockResolvedValue(null);
+    mockCachedAuthContextSet.mockReset().mockResolvedValue(undefined);
+    mockClearAllCaches.mockReset().mockResolvedValue(undefined);
     delete window.__E2E_AUTH__;
     resetStore();
     setElectronApi(createElectronApiMock());
@@ -250,6 +265,10 @@ describe('useAuthStore', () => {
     expect(useAuthStore.getState().isAuthenticated).toBe(true);
     expect(useAuthStore.getState().tenant?.id).toBe(tenant.id);
     expect(useAuthStore.getState().currentBrand?.id).toBe(enabledBrand.id);
+    expect(mockCachedAuthContextSet).toHaveBeenCalledWith({
+      tenant,
+      brands: [enabledBrand],
+    });
   });
 
   it('clears invalid stored sandbox key during initialize', async () => {
@@ -407,29 +426,39 @@ describe('useAuthStore', () => {
     expect(useAuthStore.getState().isAuthenticated).toBe(false);
   });
 
-  it('enters offline mode when key validation fetch fails', async () => {
+  it('restores cached auth context when key validation fetch fails', async () => {
     const api = createElectronApiMock({
       auth: {
         getApiKey: vi.fn().mockResolvedValue('engine-key'),
       },
     });
     setElectronApi(api);
+    mockCachedAuthContextGet.mockResolvedValue({
+      tenant,
+      brands: [enabledBrand, disabledBrand],
+    });
     fetchMock.mockRejectedValue(new TypeError('fetch failed'));
 
     await useAuthStore.getState().initialize();
 
     const state = useAuthStore.getState();
     expect(state.isAuthenticated).toBe(true);
+    expect(state.tenant?.id).toBe(tenant.id);
+    expect(state.currentBrand?.id).toBe(enabledBrand.id);
     expect(state.error?.code).toBe('NETWORK_ERROR');
   });
 
-  it('keeps cached credentials when auth validation returns 500', async () => {
+  it('restores cached auth context when auth validation returns 500', async () => {
     const api = createElectronApiMock({
       auth: {
         getApiKey: vi.fn().mockResolvedValue('engine-key'),
       },
     });
     setElectronApi(api);
+    mockCachedAuthContextGet.mockResolvedValue({
+      tenant,
+      brands: [enabledBrand],
+    });
     fetchMock.mockResolvedValue(new Response('', { status: 500 }));
 
     await useAuthStore.getState().initialize();
@@ -437,6 +466,7 @@ describe('useAuthStore', () => {
     const state = useAuthStore.getState();
     expect(state.isAuthenticated).toBe(true);
     expect(state.apiKey).toBe('engine-key');
+    expect(state.tenant?.id).toBe(tenant.id);
     expect(state.error?.code).toBe('SERVER_ERROR');
   });
 
@@ -470,6 +500,10 @@ describe('useAuthStore', () => {
     expect(state.isAuthenticated).toBe(true);
     expect(state.currentBrand?.id).toBe(enabledBrand.id);
     expect(mockLog).toHaveBeenCalledWith('user.login', expect.stringContaining('Tenant One'));
+    expect(mockCachedAuthContextSet).toHaveBeenCalledWith({
+      tenant,
+      brands: [disabledBrand, enabledBrand],
+    });
   });
 
   it('uses persisted brand selection during login', async () => {
@@ -527,6 +561,64 @@ describe('useAuthStore', () => {
     expect(state.isAuthenticated).toBe(true);
     expect(state.tenant?.id).toBe(tenant.id);
     expect(setApiKey).toHaveBeenCalledTimes(1);
+    expect(mockCachedAuthContextSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenant: expect.objectContaining({
+          id: tenant.id,
+          name: tenant.name,
+          slug: tenant.slug,
+          tier: tenant.tier,
+        }),
+        brands: [enabledBrand],
+      })
+    );
+  });
+
+  it('ignores a stale initialize response after login starts', async () => {
+    let resolveInitialize: ((response: Response) => void) | undefined;
+    const initializeResponse = new Promise<Response>((resolve) => {
+      resolveInitialize = resolve;
+    });
+    const clearApiKey = vi.fn().mockResolvedValue(true);
+    const api = createElectronApiMock({
+      auth: {
+        getApiKey: vi.fn().mockResolvedValue('stale-api-key'),
+        clearApiKey,
+      },
+    });
+    setElectronApi(api);
+    fetchMock.mockImplementation((_input, init) => {
+      const authorization = (init?.headers as Record<string, string> | undefined)?.Authorization;
+      if (authorization === 'ApiKey stale-api-key') {
+        return initializeResponse;
+      }
+      if (authorization === 'ApiKey fresh-api-key-12345') {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              tenant,
+              brands: [enabledBrand],
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } }
+          )
+        );
+      }
+      throw new Error(`Unexpected authorization header: ${authorization ?? 'missing'}`);
+    });
+
+    const initializePromise = useAuthStore.getState().initialize();
+    const loginPromise = useAuthStore.getState().login('fresh-api-key-12345');
+    resolveInitialize!(new Response('', { status: 401 }));
+
+    await Promise.all([initializePromise, loginPromise]);
+
+    expect(clearApiKey).not.toHaveBeenCalled();
+    expect(useAuthStore.getState()).toMatchObject({
+      isAuthenticated: true,
+      apiKey: 'fresh-api-key-12345',
+      tenant,
+      currentBrand: enabledBrand,
+    });
   });
 
   it('sets invalid key error when login receives 401', async () => {
@@ -686,6 +778,7 @@ describe('useAuthStore', () => {
     expect(clearApiKey).toHaveBeenCalledTimes(1);
     expect(clearSandboxApiKey).toHaveBeenCalledTimes(1);
     expect(deleteStoreKey).toHaveBeenCalledWith('currentBrandId');
+    expect(mockClearAllCaches).toHaveBeenCalledTimes(1);
     expect(state.isAuthenticated).toBe(false);
     expect(state.apiKey).toBeNull();
     expect(state.sandboxApiKey).toBeNull();

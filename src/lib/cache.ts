@@ -12,7 +12,7 @@
  * - Offline detection
  */
 
-import type { AgentSession, Brand, PlatformConnection } from '../types';
+import type { AgentSession, Brand, PlatformConnection, Tenant } from '../types';
 import { cacheLogger } from './logger';
 
 // Database configuration
@@ -32,6 +32,7 @@ const TTL = {
   SESSIONS: 5 * 60 * 1000, // 5 minutes
   BRANDS: 30 * 60 * 1000, // 30 minutes
   CONNECTIONS: 15 * 60 * 1000, // 15 minutes
+  AUTH_CONTEXT: 30 * 24 * 60 * 60 * 1000, // 30 days
 };
 
 // Cache entry wrapper
@@ -306,6 +307,13 @@ function getSessionsCacheKey(tenantId: string, brandId?: string): string {
   return brandId ? `sessions:${tenantId}:${brandId}` : `sessions:${tenantId}`;
 }
 
+const AUTH_CONTEXT_CACHE_KEY = 'auth:context';
+
+export interface CachedAuthContext {
+  tenant: Tenant;
+  brands: Brand[];
+}
+
 export const sessionsCache = {
   async get(tenantId: string, brandId?: string): Promise<AgentSession[] | null> {
     const key = getSessionsCacheKey(tenantId, brandId);
@@ -390,6 +398,20 @@ export const connectionsCache = {
   },
 };
 
+export const authContextCache = {
+  async get(): Promise<CachedAuthContext | null> {
+    return get<CachedAuthContext>(STORES.METADATA, AUTH_CONTEXT_CACHE_KEY);
+  },
+
+  async set(context: CachedAuthContext): Promise<void> {
+    await set(STORES.METADATA, AUTH_CONTEXT_CACHE_KEY, context, TTL.AUTH_CONTEXT);
+  },
+
+  async clear(): Promise<void> {
+    await del(STORES.METADATA, AUTH_CONTEXT_CACHE_KEY);
+  },
+};
+
 // ============================================
 // Utility functions
 // ============================================
@@ -398,7 +420,12 @@ export const connectionsCache = {
  * Clear all cached data
  */
 export async function clearAllCaches(): Promise<void> {
-  await Promise.all([sessionsCache.clear(), brandsCache.clear(), connectionsCache.clear()]);
+  await Promise.all([
+    sessionsCache.clear(),
+    brandsCache.clear(),
+    connectionsCache.clear(),
+    authContextCache.clear(),
+  ]);
   cacheLogger.info('All caches cleared');
 }
 

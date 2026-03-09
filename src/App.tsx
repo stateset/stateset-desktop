@@ -1,8 +1,9 @@
 import { useEffect, useState, lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './stores/auth';
 import { usePreferencesStore } from './stores/preferences';
 import { isElectronAvailable } from './lib/electron';
+import { shouldUseHashRouting } from './lib/routing';
 import Layout from './components/Layout';
 import { AppLoadingScreen } from './components/AppLoadingScreen';
 import { RouteErrorBoundary } from './components/RouteErrorBoundary';
@@ -213,9 +214,9 @@ export default function App() {
   const initializeAuth = useAuthStore((s) => s.initialize);
   const initializePreferences = usePreferencesStore((s) => s.initialize);
   const reduceMotion = usePreferencesStore((s) => s.reduceMotion);
-  const isE2ETestRuntime =
-    isElectronAvailable() && window.electronAPI?.app?.isE2ETest === true;
+  const isE2ETestRuntime = isElectronAvailable() && window.electronAPI?.app?.isE2ETest === true;
   const useReducedMotionMode = reduceMotion || isE2ETestRuntime;
+  const RouterComponent = shouldUseHashRouting() ? HashRouter : BrowserRouter;
 
   useEffect(() => {
     initializeAuth();
@@ -227,7 +228,7 @@ export default function App() {
 
   return (
     <MotionConfig reducedMotion={useReducedMotionMode ? 'always' : 'user'}>
-      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <RouterComponent future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Suspense fallback={<AppLoadingScreen status="loading" />}>
           <Routes>
             <Route path="/login" element={<Login />} />
@@ -242,7 +243,7 @@ export default function App() {
             />
           </Routes>
         </Suspense>
-      </BrowserRouter>
+      </RouterComponent>
     </MotionConfig>
   );
 }

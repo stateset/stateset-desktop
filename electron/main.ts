@@ -470,13 +470,29 @@ function isAllowedAppUrl(targetUrl: string): boolean {
 const isAllowedMainNavigation = isAllowedAppUrl;
 const isAllowedRendererSource = isAllowedAppUrl;
 
+function isSafeExternalUrlForShell(targetUrl: string): boolean {
+  if (!isSafeExternalUrl(targetUrl)) {
+    return false;
+  }
+
+  if (!app.isPackaged) {
+    return true;
+  }
+
+  try {
+    return new URL(targetUrl).protocol !== 'http:';
+  } catch {
+    return false;
+  }
+}
+
 function handleNavigationAttempt(event: { preventDefault: () => void }, targetUrl: string): void {
   if (isAllowedMainNavigation(targetUrl)) {
     return;
   }
 
   event.preventDefault();
-  if (isSafeExternalUrl(targetUrl)) {
+  if (isSafeExternalUrlForShell(targetUrl)) {
     void shell.openExternal(targetUrl);
   }
 }
@@ -825,7 +841,9 @@ function createWindow() {
       const headers = { ...details.responseHeaders };
       const allowedOrigin = resolveCorsOrigin(details);
       headers['access-control-allow-origin'] = [allowedOrigin];
-      headers['access-control-allow-headers'] = ['Authorization, Content-Type, X-Requested-With'];
+      headers['access-control-allow-headers'] = [
+        'Authorization, Content-Type, X-Requested-With, X-API-Key',
+      ];
       headers['access-control-allow-methods'] = ['GET, POST, PUT, DELETE, OPTIONS'];
       headers['access-control-allow-credentials'] = ['true'];
       callback({ responseHeaders: headers });
@@ -834,7 +852,12 @@ function createWindow() {
 
   if (app.isPackaged) {
     mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
-      const headers = { ...details.responseHeaders };
+      if (!isAllowedRendererSource(details.url)) {
+        callback({ responseHeaders: details.responseHeaders ?? {} });
+        return;
+      }
+
+      const headers = { ...(details.responseHeaders ?? {}) };
       headers['content-security-policy'] = [CSP_HEADER];
       delete headers['content-security-policy-report-only'];
       delete headers['Content-Security-Policy-Report-Only'];
@@ -977,7 +1000,7 @@ app.on('web-contents-created', (_event, contents) => {
   });
 
   contents.setWindowOpenHandler(({ url }) => {
-    if (isSafeExternalUrl(url)) {
+    if (isSafeExternalUrlForShell(url)) {
       void shell.openExternal(url);
     }
     return { action: 'deny' };

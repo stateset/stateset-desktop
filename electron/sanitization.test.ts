@@ -21,6 +21,14 @@ describe('sanitizeSensitiveText', () => {
     const output = sanitizeSensitiveText('key AKIA1234567890ABCDEF leaked');
     expect(output).toContain('[REDACTED_AWS_KEY]');
   });
+
+  it('fully redacts bearer authorization values with opaque tokens', () => {
+    const input = 'Authorization: Bearer opaque-token-1234567890';
+    const output = sanitizeSensitiveText(input);
+
+    expect(output).toContain('[REDACTED_TOKEN]');
+    expect(output).not.toContain('opaque-token-1234567890');
+  });
 });
 
 describe('sanitizeValue', () => {
@@ -67,6 +75,15 @@ describe('sanitizeStringRecord', () => {
       count: '2',
       user: '[REDACTED_EMAIL]',
     });
+  });
+
+  it('redacts bearer tokens stored in header-style records', () => {
+    const output = sanitizeStringRecord({
+      authorization: 'Bearer opaque-token-1234567890',
+    });
+
+    expect(output.authorization).toContain('[REDACTED_TOKEN]');
+    expect(output.authorization).not.toContain('opaque-token-1234567890');
   });
 });
 

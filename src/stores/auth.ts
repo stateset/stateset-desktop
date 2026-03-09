@@ -3,6 +3,7 @@ import type { Tenant, Brand } from '../types';
 import { API_CONFIG } from '../config/api.config';
 import { useAuditLogStore } from './auditLog';
 import { isElectronAvailable } from '../lib/electron';
+import { authContextCache, clearAllCaches } from '../lib/cache';
 
 const INVALID_SANDBOX_API_KEY_VALUES = new Set([
   'sandbox_key_pending',
@@ -16,6 +17,16 @@ const INVALID_SANDBOX_API_KEY_VALUES = new Set([
 
 const normalize = (value: string): string => value.trim();
 const PREFERRED_BRAND_ID_KEY = 'currentBrandId';
+let authOperationVersion = 0;
+
+function beginAuthOperation(): number {
+  authOperationVersion += 1;
+  return authOperationVersion;
+}
+
+function isCurrentAuthOperation(operationId: number): boolean {
+  return operationId === authOperationVersion;
+}
 
 function selectCurrentBrand(brands: Brand[], preferredBrand: Brand | null): Brand | null {
   if (!brands.length) {
@@ -88,6 +99,35 @@ function buildCachedAuthError(code: 'NETWORK_ERROR' | 'SERVER_ERROR'): AuthError
     message: 'Could not verify credentials',
     details: 'Running in cached mode with stored credentials.',
   };
+}
+
+function buildUnavailableCachedAuthError(code: 'NETWORK_ERROR' | 'SERVER_ERROR'): AuthError {
+  return {
+    code,
+    message: 'Could not verify credentials',
+    details: 'Stored credentials could not be verified and no cached workspace is available.',
+  };
+}
+
+async function getCachedAuthContext(): Promise<{ tenant: Tenant; brands: Brand[] } | null> {
+  try {
+    return await authContextCache.get();
+  } catch (error) {
+    console.warn('Failed to read cached auth context:', error);
+    return null;
+  }
+}
+
+async function persistCachedAuthContext(tenant: Tenant | null, brands: Brand[]): Promise<void> {
+  if (!tenant) {
+    return;
+  }
+
+  try {
+    await authContextCache.set({ tenant, brands });
+  } catch (error) {
+    console.warn('Failed to persist cached auth context:', error);
+  }
 }
 
 export function normalizeSandboxApiKey(raw?: string | null): string | null {
@@ -217,13 +257,48 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   initialize: async () => {
     // Guard against concurrent initialization (e.g., React StrictMode double-mount)
     if (get().isLoading && get().initAttempts > 0) return;
+    const operationId = beginAuthOperation();
     const { initAttempts } = get();
     set({ isLoading: true, initAttempts: initAttempts + 1, error: null });
 
     try {
+      const restoreCachedAuthState = async (
+        code: 'NETWORK_ERROR' | 'SERVER_ERROR',
+        apiKey: string,
+        sandboxApiKey: string | null,
+        preferredBrandId: string | null
+      ): Promise<boolean> => {
+        const cachedAuth = await getCachedAuthContext();
+        if (!cachedAuth || !isCurrentAuthOperation(operationId)) {
+          return false;
+        }
+
+        const restoredBrands = Array.isArray(cachedAuth.brands) ? cachedAuth.brands : [];
+        const selectedBrand = resolvePreferredBrand(
+          restoredBrands,
+          preferredBrandId,
+          get().currentBrand
+        );
+
+        set({
+          isAuthenticated: true,
+          apiKey,
+          sandboxApiKey,
+          tenant: cachedAuth.tenant,
+          brands: restoredBrands,
+          currentBrand: selectedBrand,
+          isLoading: false,
+          error: buildCachedAuthError(code),
+        });
+        await persistPreferredBrandId(selectedBrand?.id ?? null);
+        return true;
+      };
+
       // Check for stored API key (only in Electron)
       if (!window.electronAPI) {
-        set({ isLoading: false });
+        if (isCurrentAuthOperation(operationId)) {
+          set({ isLoading: false });
+        }
         return;
       }
 
@@ -234,6 +309,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         storedKey = await window.electronAPI.auth.getApiKey();
         storedSandboxKey = await window.electronAPI.auth.getSandboxApiKey();
       } catch (storageError) {
+        if (!isCurrentAuthOperation(operationId)) {
+          return;
+        }
         console.error('Failed to read credentials from storage:', storageError);
         set({
           isLoading: false,
@@ -250,6 +328,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const isE2ETest = window.electronAPI?.app?.isE2ETest === true;
       const effectiveSandboxKey = normalizeSandboxApiKey(storedSandboxKey);
       const preferredBrandId = await getStoredPreferredBrandId();
+      if (!isCurrentAuthOperation(operationId)) {
+        return;
+      }
       if (
         storedSandboxKey &&
         !effectiveSandboxKey &&
@@ -269,6 +350,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           currentBrand: selectedBrand,
           isLoading: false,
         });
+        await persistCachedAuthContext(e2eAuth.tenant as Tenant, e2eAuth.brands as Brand[]);
         await persistPreferredBrandId(selectedBrand?.id ?? null);
         return;
       }
@@ -286,6 +368,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             signal: controller.signal,
           });
           clearTimeout(timeoutId);
+          if (!isCurrentAuthOperation(operationId)) {
+            return;
+          }
 
           if (response.ok) {
             const data = await response.json();
@@ -304,14 +389,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
               currentBrand: selectedBrand,
               isLoading: false,
             });
+            await persistCachedAuthContext((data.tenant as Tenant | null) ?? null, responseBrands);
             await persistPreferredBrandId(selectedBrand?.id ?? null);
             return;
           }
 
           // Stored key is invalid, clear it
           if (response.status === 401 || response.status === 403) {
+            if (!isCurrentAuthOperation(operationId)) {
+              return;
+            }
             console.warn('Stored API key is invalid, clearing...');
             await window.electronAPI.auth.clearApiKey();
+            await clearAllCaches().catch((error) => {
+              console.warn('Failed to clear local caches after auth expiry:', error);
+            });
             set({
               isLoading: false,
               sandboxApiKey: effectiveSandboxKey,
@@ -326,21 +418,29 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
           if (response.status >= 500 || response.status === 429) {
             console.warn(`Auth validation returned ${response.status}, using cached credentials.`);
-            set({
-              isAuthenticated: true,
-              apiKey: storedKey,
-              sandboxApiKey: effectiveSandboxKey,
-              isLoading: false,
-              error: buildCachedAuthError('SERVER_ERROR'),
-            });
+            const restored = await restoreCachedAuthState(
+              'SERVER_ERROR',
+              storedKey,
+              effectiveSandboxKey,
+              preferredBrandId
+            );
+            if (!restored && isCurrentAuthOperation(operationId)) {
+              set({
+                isLoading: false,
+                sandboxApiKey: effectiveSandboxKey,
+                error: buildUnavailableCachedAuthError('SERVER_ERROR'),
+              });
+            }
             return;
           }
 
-          set({
-            isLoading: false,
-            sandboxApiKey: effectiveSandboxKey,
-            error: parseAuthError(response, 'Could not verify stored credentials'),
-          });
+          if (isCurrentAuthOperation(operationId)) {
+            set({
+              isLoading: false,
+              sandboxApiKey: effectiveSandboxKey,
+              error: parseAuthError(response, 'Could not verify stored credentials'),
+            });
+          }
           return;
         } catch (fetchError) {
           clearTimeout(timeoutId);
@@ -350,21 +450,31 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           } else {
             console.warn('Failed to validate stored key:', fetchError);
           }
-          // Allow app to continue with stored key in offline mode
-          set({
-            isAuthenticated: true,
-            apiKey: storedKey,
-            sandboxApiKey: effectiveSandboxKey,
-            isLoading: false,
-            error: buildCachedAuthError('NETWORK_ERROR'),
-          });
+          const restored = await restoreCachedAuthState(
+            'NETWORK_ERROR',
+            storedKey,
+            effectiveSandboxKey,
+            preferredBrandId
+          );
+          if (!restored && isCurrentAuthOperation(operationId)) {
+            set({
+              isLoading: false,
+              sandboxApiKey: effectiveSandboxKey,
+              error: buildUnavailableCachedAuthError('NETWORK_ERROR'),
+            });
+          }
           return;
         }
       }
 
       // Even if not authenticated, load sandbox key if present
-      set({ isLoading: false, sandboxApiKey: effectiveSandboxKey });
+      if (isCurrentAuthOperation(operationId)) {
+        set({ isLoading: false, sandboxApiKey: effectiveSandboxKey });
+      }
     } catch (error) {
+      if (!isCurrentAuthOperation(operationId)) {
+        return;
+      }
       console.error('Failed to initialize auth:', error);
       set({
         isLoading: false,
@@ -374,6 +484,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   login: async (apiKey: string, fallback?: LoginFallback) => {
+    const operationId = beginAuthOperation();
     set({ isLoading: true, error: null });
 
     try {
@@ -392,9 +503,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const e2eAuth = typeof window !== 'undefined' ? window.__E2E_AUTH__ : null;
       const isE2ETest = window.electronAPI?.app?.isE2ETest === true;
       const preferredBrandId = await getStoredPreferredBrandId();
+      if (!isCurrentAuthOperation(operationId)) {
+        return;
+      }
       if (isE2ETest && e2eAuth?.tenant && Array.isArray(e2eAuth.brands)) {
         if (window.electronAPI) {
           await window.electronAPI.auth.setApiKey(apiKey);
+        }
+        if (!isCurrentAuthOperation(operationId)) {
+          return;
         }
         const selectedBrand = resolvePreferredBrand(e2eAuth.brands, preferredBrandId, null);
         set({
@@ -405,6 +522,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           currentBrand: selectedBrand,
           isLoading: false,
         });
+        await persistCachedAuthContext(e2eAuth.tenant as Tenant, e2eAuth.brands as Brand[]);
         await persistPreferredBrandId(selectedBrand?.id ?? null);
         return;
       }
@@ -422,8 +540,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           signal: controller.signal,
         });
         clearTimeout(timeoutId);
+        if (!isCurrentAuthOperation(operationId)) {
+          return;
+        }
       } catch (fetchError) {
         clearTimeout(timeoutId);
+        if (!isCurrentAuthOperation(operationId)) {
+          return;
+        }
         const error = parseNetworkError(fetchError);
         set({ isLoading: false, error });
         throw new Error(error.message);
@@ -438,6 +562,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             }
           } catch (storageError) {
             console.error('Failed to store API key:', storageError);
+          }
+          if (!isCurrentAuthOperation(operationId)) {
+            return;
           }
 
           const selectedBrand = resolvePreferredBrand(
@@ -454,6 +581,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             currentBrand: selectedBrand,
             isLoading: false,
           });
+          await persistCachedAuthContext(
+            ((fallback.tenant as Tenant | undefined) ?? null) as Tenant | null,
+            fallbackBrands as Brand[]
+          );
           await persistPreferredBrandId(selectedBrand?.id ?? null);
 
           useAuditLogStore
@@ -464,11 +595,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         }
 
         const error = parseAuthError(response, 'Login failed');
-        set({ isLoading: false, error });
+        if (isCurrentAuthOperation(operationId)) {
+          set({ isLoading: false, error });
+        }
         throw new Error(error.message);
       }
 
       const data = await response.json();
+      if (!isCurrentAuthOperation(operationId)) {
+        return;
+      }
 
       // Store the API key (only in Electron)
       if (window.electronAPI) {
@@ -478,6 +614,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           console.error('Failed to store API key:', storageError);
           // Continue anyway - the key will work for this session
         }
+      }
+      if (!isCurrentAuthOperation(operationId)) {
+        return;
       }
 
       const loginBrands = Array.isArray(data.brands) ? data.brands : [];
@@ -494,12 +633,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         currentBrand: selectedBrand,
         isLoading: false,
       });
+      await persistCachedAuthContext((data.tenant as Tenant | null) ?? null, loginBrands);
       await persistPreferredBrandId(selectedBrand?.id ?? null);
 
       useAuditLogStore
         .getState()
         .log('user.login', `Logged in as ${data.tenant?.name || 'unknown'}`);
     } catch (error) {
+      if (!isCurrentAuthOperation(operationId)) {
+        return;
+      }
       // Error already set in the try block for specific cases
       if (get().error === null) {
         set({ isLoading: false, error: parseNetworkError(error) });
@@ -509,6 +652,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   logout: async () => {
+    beginAuthOperation();
     useAuditLogStore.getState().log('user.logout', 'User logged out');
     if (window.electronAPI) {
       await Promise.allSettled([
@@ -517,14 +661,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         window.electronAPI.store.delete?.(PREFERRED_BRAND_ID_KEY) ?? Promise.resolve(false),
       ]);
     }
+    await clearAllCaches().catch((error) => {
+      console.warn('Failed to clear local caches during logout:', error);
+    });
     set({
       isAuthenticated: false,
+      isLoading: false,
       apiKey: null,
       sandboxApiKey: null,
       tenant: null,
       currentBrand: null,
       brands: [],
       error: null,
+      initAttempts: 0,
     });
   },
 
@@ -547,6 +696,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       brands,
       currentBrand: selectedBrand,
     });
+    void persistCachedAuthContext(get().tenant, brands);
     void persistPreferredBrandId(selectedBrand?.id ?? null);
   },
 

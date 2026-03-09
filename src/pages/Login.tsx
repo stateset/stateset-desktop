@@ -77,7 +77,6 @@ export default function Login() {
     login,
     setSandboxApiKey,
     clearSandboxApiKey,
-    initialize,
     isAuthenticated,
     error: authError,
     clearError,
@@ -87,10 +86,6 @@ export default function Login() {
   // Combined error from local state and auth store
   const displayError = authError ? authError.message : localError;
   const errorDetails = authError?.details;
-
-  useEffect(() => {
-    initialize();
-  }, [initialize]);
 
   useEffect(() => {
     const checkStorage = async () => {

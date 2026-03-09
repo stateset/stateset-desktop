@@ -19,12 +19,34 @@ const FINAL_REDACTIONS: Record<
   __STATESET_REDACT_6__: '[REDACTED_EMAIL]',
 };
 
+const PLACEHOLDER_PREFIX = '__STATESET_REDACT_';
+const UNREDACTED_VALUE_PATTERN = `(?!${PLACEHOLDER_PREFIX})[^\\s"'&,;]+`;
+const STRUCTURED_TOKEN_LABEL_PATTERN =
+  '(?:api[-_]?key|api[_-]?secret|access[-_]?token|refresh[-_]?token|sandbox_api_key|engine_api_key|x-api-key|x_api_key)';
+const COMPACT_TOKEN_LABEL_PATTERN =
+  '(?:api[-_]?key|api[_-]?secret|access[-_]?token|refresh[-_]?token|sandbox_api_key|engine_api_key|bearer|authorization|x-api-key|x_api_key)';
+
 const SENSITIVE_PATTERNS: Array<
   [RegExp, (typeof REDACTION_PLACEHOLDERS)[keyof typeof REDACTION_PLACEHOLDERS]]
 > = [
   [/sk-[a-zA-Z0-9_-]{20,}/g, REDACTION_PLACEHOLDERS.apiKey],
   [
-    /(?:api[-_]?key|api[_-]?secret|access[-_]?token|refresh[-_]?token|sandbox_api_key|engine_api_key|bearer|authorization)[^\s"']{0,120}/gi,
+    new RegExp(`authorization\\s*[:=]\\s*(?:bearer|apikey)\\s+${UNREDACTED_VALUE_PATTERN}`, 'gi'),
+    REDACTION_PLACEHOLDERS.token,
+  ],
+  [
+    new RegExp(`(?:bearer|apikey)\\s+${UNREDACTED_VALUE_PATTERN}`, 'gi'),
+    REDACTION_PLACEHOLDERS.token,
+  ],
+  [
+    new RegExp(
+      `${STRUCTURED_TOKEN_LABEL_PATTERN}\\s*[:=]\\s*${UNREDACTED_VALUE_PATTERN}(?:\\s+${UNREDACTED_VALUE_PATTERN})?`,
+      'gi'
+    ),
+    REDACTION_PLACEHOLDERS.token,
+  ],
+  [
+    new RegExp(`${COMPACT_TOKEN_LABEL_PATTERN}${UNREDACTED_VALUE_PATTERN}`, 'gi'),
     REDACTION_PLACEHOLDERS.token,
   ],
   [/gh[pousr]_[A-Za-z0-9]{10,}/g, REDACTION_PLACEHOLDERS.github],

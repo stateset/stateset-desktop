@@ -1,4 +1,4 @@
-import { BrowserWindow } from 'electron';
+import { BrowserWindow, shell } from 'electron';
 import * as http from 'http';
 import * as net from 'net';
 import { isAllowedLocalCallbackTarget } from '../url-security';
@@ -41,6 +41,31 @@ export interface OAuthConfig {
   timeoutMs: number;
   windowOptions?: Partial<Electron.BrowserWindowConstructorOptions>;
   callbackPath?: string;
+}
+
+function normalizeOAuthProviderId(provider: string): string {
+  const normalized = provider
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-');
+  return normalized.replace(/^-+|-+$/g, '') || 'provider';
+}
+
+export function getOAuthSessionPartition(provider: string): string {
+  return `oauth-${normalizeOAuthProviderId(provider)}`;
+}
+
+function isAllowedOAuthNavigation(targetUrl: string, config: OAuthConfig): boolean {
+  try {
+    const parsed = new URL(targetUrl);
+    if (isAllowedLocalCallbackTarget(parsed, config.redirectPort, config.callbackPath)) {
+      return true;
+    }
+
+    return parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
 }
 
 type PortCandidate = number;
@@ -315,6 +340,7 @@ export function openOAuthWindow(
   config: OAuthConfig,
   onClosed: () => void
 ): BrowserWindow {
+  const partition = getOAuthSessionPartition(config.provider);
   const window = new BrowserWindow({
     width: 600,
     height: 700,
@@ -327,8 +353,25 @@ export function openOAuthWindow(
       sandbox: true,
       webSecurity: true,
       allowRunningInsecureContent: false,
+      webviewTag: false,
+      partition,
       ...config.windowOptions?.webPreferences,
     },
+  });
+
+  window.webContents.on('will-navigate', (event, url) => {
+    if (isAllowedOAuthNavigation(url, config)) {
+      return;
+    }
+
+    event.preventDefault();
+  });
+
+  window.webContents.setWindowOpenHandler(({ url }) => {
+    if (isAllowedOAuthNavigation(url, config) && url.startsWith('https://')) {
+      void shell.openExternal(url);
+    }
+    return { action: 'deny' };
   });
 
   window.loadURL(authUrl);

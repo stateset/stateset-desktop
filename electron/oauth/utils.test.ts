@@ -1,4 +1,43 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+const { BrowserWindowMock, browserWindowInstances, shellOpenExternal } = vi.hoisted(() => {
+  const browserWindowInstances: Array<{
+    options: Electron.BrowserWindowConstructorOptions;
+    loadURL: ReturnType<typeof vi.fn>;
+    on: ReturnType<typeof vi.fn>;
+    webContents: {
+      on: ReturnType<typeof vi.fn>;
+      setWindowOpenHandler: ReturnType<typeof vi.fn>;
+    };
+  }> = [];
+
+  class BrowserWindowMock {
+    loadURL = vi.fn();
+    on = vi.fn();
+    webContents = {
+      on: vi.fn(),
+      setWindowOpenHandler: vi.fn(),
+    };
+
+    constructor(public options: Electron.BrowserWindowConstructorOptions) {
+      browserWindowInstances.push(this);
+    }
+  }
+
+  return {
+    BrowserWindowMock,
+    browserWindowInstances,
+    shellOpenExternal: vi.fn(),
+  };
+});
+
+vi.mock('electron', () => ({
+  BrowserWindow: BrowserWindowMock,
+  shell: {
+    openExternal: shellOpenExternal,
+  },
+}));
+
 import {
   OAuthError,
   type OAuthErrorCode,
@@ -7,7 +46,14 @@ import {
   getQueryValue,
   isValidSubdomain,
   getOAuthErrorMessage,
+  getOAuthSessionPartition,
+  openOAuthWindow,
 } from './utils';
+
+beforeEach(() => {
+  browserWindowInstances.length = 0;
+  shellOpenExternal.mockReset();
+});
 
 describe('OAuthError', () => {
   it('should create an error with correct properties', () => {
@@ -116,6 +162,109 @@ describe('getQueryValue', () => {
   it('should handle empty array', () => {
     const query = { code: [] as string[] };
     expect(getQueryValue(query, 'code')).toBeUndefined();
+  });
+});
+
+describe('getOAuthSessionPartition', () => {
+  it('creates a stable in-memory partition name per provider', () => {
+    expect(getOAuthSessionPartition('Shopify')).toBe('oauth-shopify');
+    expect(getOAuthSessionPartition('StateSet OAuth Provider')).toBe(
+      'oauth-stateset-oauth-provider'
+    );
+  });
+});
+
+describe('openOAuthWindow', () => {
+  it('uses an isolated partition and hardened web preferences', () => {
+    const onClosed = vi.fn();
+
+    openOAuthWindow(
+      'https://accounts.example.com/auth',
+      {
+        provider: 'Shopify',
+        clientId: 'client-id',
+        clientSecret: 'client-secret',
+        redirectPort: 8234,
+        timeoutMs: 5_000,
+        callbackPath: '/callback',
+      },
+      onClosed
+    );
+
+    expect(browserWindowInstances).toHaveLength(1);
+    const window = browserWindowInstances[0];
+
+    expect(window.options.webPreferences?.partition).toBe('oauth-shopify');
+    expect(window.options.webPreferences?.webviewTag).toBe(false);
+    expect(window.options.webPreferences?.sandbox).toBe(true);
+    expect(window.loadURL).toHaveBeenCalledWith('https://accounts.example.com/auth');
+    expect(window.on).toHaveBeenCalledWith('closed', onClosed);
+    expect(window.webContents.on).toHaveBeenCalledWith('will-navigate', expect.any(Function));
+    expect(window.webContents.setWindowOpenHandler).toHaveBeenCalledWith(expect.any(Function));
+  });
+
+  it('allows https and localhost callback navigation but blocks unsafe schemes', () => {
+    openOAuthWindow(
+      'https://accounts.example.com/auth',
+      {
+        provider: 'Gorgias',
+        clientId: 'client-id',
+        clientSecret: 'client-secret',
+        redirectPort: 8235,
+        timeoutMs: 5_000,
+        callbackPath: '/callback',
+      },
+      vi.fn()
+    );
+
+    const window = browserWindowInstances[0];
+    const navigationHandler = window.webContents.on.mock.calls.find(
+      ([eventName]) => eventName === 'will-navigate'
+    )?.[1] as (event: { preventDefault: () => void }, url: string) => void;
+
+    const safeHttpsEvent = { preventDefault: vi.fn() };
+    navigationHandler(safeHttpsEvent, 'https://accounts.example.com/login');
+    expect(safeHttpsEvent.preventDefault).not.toHaveBeenCalled();
+
+    const callbackEvent = { preventDefault: vi.fn() };
+    navigationHandler(callbackEvent, 'http://localhost:8235/callback?code=123');
+    expect(callbackEvent.preventDefault).not.toHaveBeenCalled();
+
+    const unsafeEvent = { preventDefault: vi.fn() };
+    navigationHandler(unsafeEvent, 'file:///tmp/evil.html');
+    expect(unsafeEvent.preventDefault).toHaveBeenCalledOnce();
+  });
+
+  it('denies popups and opens safe https targets externally', () => {
+    openOAuthWindow(
+      'https://accounts.example.com/auth',
+      {
+        provider: 'Zendesk',
+        clientId: 'client-id',
+        clientSecret: 'client-secret',
+        redirectPort: 8236,
+        timeoutMs: 5_000,
+        callbackPath: '/callback',
+      },
+      vi.fn()
+    );
+
+    const window = browserWindowInstances[0];
+    const popupHandler = window.webContents.setWindowOpenHandler.mock.calls[0]?.[0] as (details: {
+      url: string;
+    }) => { action: 'deny' | 'allow' };
+
+    expect(popupHandler({ url: 'https://help.example.com' })).toEqual({ action: 'deny' });
+    expect(shellOpenExternal).toHaveBeenCalledWith('https://help.example.com');
+
+    shellOpenExternal.mockClear();
+    expect(popupHandler({ url: 'http://localhost:8236/callback?code=123' })).toEqual({
+      action: 'deny',
+    });
+    expect(shellOpenExternal).not.toHaveBeenCalled();
+
+    expect(popupHandler({ url: 'javascript:alert(1)' })).toEqual({ action: 'deny' });
+    expect(shellOpenExternal).not.toHaveBeenCalled();
   });
 });
 
