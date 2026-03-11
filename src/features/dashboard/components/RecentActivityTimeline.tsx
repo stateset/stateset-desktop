@@ -67,9 +67,10 @@ export const RecentActivityTimeline = memo(function RecentActivityTimeline({
   const hasMore = activities.length > INITIAL_VISIBLE;
 
   return (
-    <div className="bg-slate-900/40 border border-slate-700/50 rounded-2xl overflow-hidden backdrop-blur-md">
-      <div className="px-4 py-3 border-b border-slate-700/50 bg-slate-900/60">
-        <h3 className="text-sm font-bold text-gray-300">Recent Activity</h3>
+    <div className="relative bg-slate-900/40 border border-slate-700/40 rounded-2xl overflow-hidden backdrop-blur-md">
+      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
+      <div className="px-4 py-3 border-b border-slate-700/40 bg-slate-900/50">
+        <h3 className="text-sm font-bold text-gray-300 tracking-tight">Recent Activity</h3>
       </div>
       <div className="px-4 py-3">
         <div className="relative">

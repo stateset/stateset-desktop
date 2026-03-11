@@ -36,29 +36,39 @@ export function AppLoadingScreen({
   const ErrorIcon = getErrorIcon();
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-gray-950 to-slate-950">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-gray-950 to-slate-950 relative overflow-hidden">
       {/* Drag region for window controls */}
       <div className="absolute top-0 left-0 right-0 h-10 drag-region" />
+
+      {/* Ambient glow */}
+      <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full bg-brand-500/[0.07] blur-[100px] animate-breathe" />
+      </div>
 
       {/* Logo and branding */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="flex flex-col items-center"
+        transition={{ duration: 0.5, ease: [0.23, 1, 0.32, 1] }}
+        className="flex flex-col items-center relative"
       >
         {/* Animated logo */}
-        <motion.div
-          animate={error ? {} : { scale: [1, 1.05, 1] }}
-          transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
-          className="w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-600 flex items-center justify-center mb-6 shadow-xl shadow-brand-500/30 border border-brand-400/20"
-        >
-          <Bot className="w-9 h-9 text-white" aria-hidden="true" />
-        </motion.div>
+        <div className="relative mb-6">
+          <div className="absolute -inset-6 bg-brand-500/10 rounded-full blur-2xl animate-breathe" />
+          <motion.div
+            animate={error ? {} : { scale: [1, 1.04, 1] }}
+            transition={{ repeat: Infinity, duration: 2.5, ease: 'easeInOut' }}
+            className="relative w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-400 via-brand-500 to-brand-600 flex items-center justify-center shadow-xl shadow-brand-500/30 border border-white/10"
+          >
+            <Bot className="w-9 h-9 text-white" aria-hidden="true" />
+          </motion.div>
+        </div>
 
         {/* App name */}
-        <h1 className="text-2xl font-bold text-white mb-2">StateSet</h1>
-        <p className="text-gray-500 text-sm mb-8">AI Agent Desktop</p>
+        <h1 className="text-2xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-b from-white to-gray-400 mb-1">
+          StateSet
+        </h1>
+        <p className="text-gray-500 text-sm font-medium mb-8">AI Agent Desktop</p>
 
         <AnimatePresence mode="wait">
           {error ? (
@@ -100,8 +110,12 @@ export function AppLoadingScreen({
             >
               {/* Loading spinner */}
               <div className="relative mb-4">
-                <div className="w-8 h-8 rounded-full border-2 border-gray-800" />
-                <div className="absolute inset-0 w-8 h-8 rounded-full border-2 border-brand-500 border-t-transparent animate-spin shadow-sm shadow-brand-500/20" />
+                <div className="w-10 h-10 rounded-full border-2 border-gray-800/60" />
+                <div className="absolute inset-0 w-10 h-10 rounded-full border-2 border-brand-500 border-t-transparent border-r-transparent animate-spin" />
+                <div
+                  className="absolute inset-1 w-8 h-8 rounded-full border border-brand-400/20 border-b-transparent animate-spin"
+                  style={{ animationDirection: 'reverse', animationDuration: '1.5s' }}
+                />
               </div>
 
               {/* Status message */}

@@ -295,34 +295,56 @@ export const sandboxApi = {
 
   /**
    * Execute a command in a sandbox
+   * API returns { execution_id, exit_code, stdout, stderr }
    */
   execute: async (
     sandboxId: string,
     command: string
-  ): Promise<{ output: string; exitCode: number }> => {
-    return sandboxRequest(`/api/sandbox/${sandboxId}/execute`, {
+  ): Promise<{ stdout: string; stderr: string; exitCode: number; executionId: string }> => {
+    const raw = await sandboxRequest<{
+      execution_id: string;
+      exit_code: number;
+      stdout: string;
+      stderr: string;
+    }>(`/api/sandbox/${sandboxId}/execute`, {
       method: 'POST',
       body: JSON.stringify({ command }),
     });
+    return {
+      executionId: raw.execution_id,
+      exitCode: raw.exit_code,
+      stdout: raw.stdout ?? '',
+      stderr: raw.stderr ?? '',
+    };
   },
 
   /**
-   * Write a file in the sandbox
+   * Write files in the sandbox.
+   * Paths must be under /workspace/; content is base64-encoded by this method.
+   * API expects { files: [{ path, content }] } where content is base64.
    */
   writeFile: async (sandboxId: string, path: string, content: string): Promise<void> => {
+    const encoded = btoa(unescape(encodeURIComponent(content)));
     await sandboxRequest(`/api/sandbox/${sandboxId}/files`, {
       method: 'POST',
-      body: JSON.stringify({ path, content }),
+      body: JSON.stringify({ files: [{ path, content: encoded }] }),
     });
   },
 
   /**
-   * Read a file from the sandbox
+   * Read a file from the sandbox.
+   * Path must be under /workspace/. Returns decoded string content.
    */
   readFile: async (sandboxId: string, path: string): Promise<{ content: string }> => {
-    return sandboxRequest<{ content: string }>(
+    const raw = await sandboxRequest<{ content: string }>(
       `/api/sandbox/${sandboxId}/files?path=${encodeURIComponent(path)}`
     );
+    // Content may be base64-encoded depending on server version
+    try {
+      return { content: decodeURIComponent(escape(atob(raw.content))) };
+    } catch {
+      return raw;
+    }
   },
 };
 

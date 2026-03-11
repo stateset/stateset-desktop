@@ -10,14 +10,21 @@ export { parseEventChunk } from '../lib/streamParsing';
 
 const MAX_EVENTS = API_CONFIG.stream.maxEvents;
 const MAX_MESSAGES = API_CONFIG.stream.maxMessages;
-const STREAM_QUERY_AUTH_ENABLED = (() => {
-  const raw = import.meta.env.VITE_ALLOW_STREAM_QUERY_AUTH;
+
+const readBooleanFlag = (raw: string | undefined, defaultValue = false): boolean => {
   if (typeof raw !== 'string') {
-    return false;
+    return defaultValue;
   }
+
   const normalized = raw.trim().toLowerCase();
   return normalized === 'true' || normalized === '1' || normalized === 'yes' || normalized === 'on';
-})();
+};
+
+// Stream auth defaults to query parameters so cross-origin SSE requests avoid preflight failures.
+const STREAM_QUERY_AUTH_ENABLED = readBooleanFlag(
+  import.meta.env.VITE_ALLOW_STREAM_QUERY_AUTH,
+  true
+);
 
 const MAX_RECONNECT_JITTER = 0.1;
 
@@ -57,13 +64,7 @@ type StreamAuthCandidate = {
 };
 
 const shouldAllowApiKeyInStreamHeader = (): boolean => {
-  const raw = import.meta.env.VITE_ALLOW_STREAM_API_KEY;
-  if (typeof raw !== 'string') {
-    return false;
-  }
-
-  const normalized = raw.trim().toLowerCase();
-  return normalized === 'true' || normalized === '1' || normalized === 'yes' || normalized === 'on';
+  return readBooleanFlag(import.meta.env.VITE_ALLOW_STREAM_API_KEY);
 };
 
 const buildStreamUrl = (baseUrl: string, query: Record<string, string>): string => {

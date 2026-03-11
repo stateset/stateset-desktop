@@ -279,10 +279,10 @@ export const DashboardStats = memo(function DashboardStats({
             className={clsx(
               'relative overflow-hidden rounded-2xl border p-5',
               'bg-gradient-to-b from-slate-900/80 to-slate-900/40 backdrop-blur-sm',
-              isActive ? c.activeBorder : 'border-slate-700/50',
+              isActive ? c.activeBorder : 'border-slate-700/40',
               !isActive && c.hoverBorder,
-              'hover:-translate-y-0.5 hover:shadow-lg',
-              'transition-all duration-300 group',
+              'hover:-translate-y-1 hover:shadow-xl',
+              'transition-all duration-300 ease-out group stat-card-hover',
               isClickable && 'cursor-pointer',
               isActive && 'ring-1 ring-emerald-500/20',
               card.glow && c.glow

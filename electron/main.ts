@@ -34,7 +34,18 @@ import { resolveTrayIconPath } from './runtime-assets';
 
 const isMac = process.platform === 'darwin';
 const isWindows = process.platform === 'win32';
-const isE2ETest = process.env.E2E_TEST === 'true' || process.env.PLAYWRIGHT_TEST === 'true';
+const readBooleanEnv = (value: string | undefined, defaultValue = false): boolean => {
+  if (typeof value !== 'string') {
+    return defaultValue;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  return normalized === 'true' || normalized === '1' || normalized === 'yes' || normalized === 'on';
+};
+
+const isE2ETest =
+  readBooleanEnv(process.env.E2E_TEST) || readBooleanEnv(process.env.PLAYWRIGHT_TEST);
+const AUTO_OPEN_DEVTOOLS = readBooleanEnv(process.env.OPEN_DEVTOOLS);
 const DEV_SERVER_ORIGINS = new Set(ALLOWED_HTTP_LOCALHOST_ORIGINS);
 const DEFAULT_DEV_SERVER_URL = 'http://localhost:5173';
 const CONFIGURED_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL?.trim() || DEFAULT_DEV_SERVER_URL;
@@ -57,7 +68,7 @@ const DEV_SERVER_URL = (() => {
 
   return DEFAULT_DEV_SERVER_URL;
 })();
-const AUTO_UPDATER_DISABLED_BY_ENV = process.env.DISABLE_AUTO_UPDATER === 'true';
+const AUTO_UPDATER_DISABLED_BY_ENV = readBooleanEnv(process.env.DISABLE_AUTO_UPDATER);
 const STORE_KEYS = new Set([
   'theme',
   'minimizeToTray',
@@ -89,6 +100,9 @@ const OAUTH_SECRET_KEYS = {
   zendeskClientId: 'oauth:zendesk:clientId',
   zendeskClientSecret: 'oauth:zendesk:clientSecret',
 } as const;
+const IGNORED_RENDERER_CONSOLE_PATTERNS = [
+  'Download the React DevTools for a better development experience',
+];
 type OAuthSecretSource = {
   clientIdEnv: string;
   clientSecretEnv: string;
@@ -874,10 +888,13 @@ function createWindow() {
   }
 
   // Forward renderer console messages to terminal in dev mode
-  mainWindow.webContents.on('console-message', (_event, level, message, line, sourceId) => {
-    const tag = ['LOG', 'WARN', 'ERROR'][level] ?? 'LOG';
-    if (!sourceId.includes('devtools://')) {
-      console.log(`[Renderer ${tag}] ${message}`);
+  mainWindow.webContents.on('console-message', (details) => {
+    if (IGNORED_RENDERER_CONSOLE_PATTERNS.some((pattern) => details.message.includes(pattern))) {
+      return;
+    }
+    const tag = details.level === 'error' ? 'ERROR' : details.level === 'warning' ? 'WARN' : 'LOG';
+    if (!details.sourceId.includes('devtools://')) {
+      console.log(`[Renderer ${tag}] ${details.message}`);
     }
   });
 
@@ -889,7 +906,9 @@ function createWindow() {
   // In development, load from Vite dev server
   if (process.env.NODE_ENV === 'development' || !app.isPackaged) {
     mainWindow.loadURL(DEV_SERVER_URL);
-    mainWindow.webContents.openDevTools();
+    if (AUTO_OPEN_DEVTOOLS && !isE2ETest) {
+      mainWindow.webContents.openDevTools();
+    }
   } else {
     // In production, load the built files
     mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));

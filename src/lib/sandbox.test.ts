@@ -184,11 +184,15 @@ describe('sandboxApi', () => {
   });
 
   it('executes command with JSON body', async () => {
-    global.fetch = vi.fn().mockResolvedValue(jsonResponse({ output: 'ok', exitCode: 0 }));
+    global.fetch = vi
+      .fn()
+      .mockResolvedValue(
+        jsonResponse({ execution_id: 'exec-1', exit_code: 0, stdout: 'ok', stderr: '' })
+      );
     const { sandboxApi } = await import('./sandbox');
 
     const result = await sandboxApi.execute('sandbox-5', 'ls -la');
-    expect(result).toEqual({ output: 'ok', exitCode: 0 });
+    expect(result).toEqual({ executionId: 'exec-1', exitCode: 0, stdout: 'ok', stderr: '' });
     expect(global.fetch).toHaveBeenCalledWith(
       expect.stringContaining('/api/sandbox/sandbox-5/execute'),
       expect.objectContaining({
@@ -198,18 +202,36 @@ describe('sandboxApi', () => {
     );
   });
 
-  it('writes files with JSON body', async () => {
+  it('writes files with JSON body and base64-encoded content', async () => {
     global.fetch = vi.fn().mockResolvedValue(new Response('', { status: 200 }));
     const { sandboxApi } = await import('./sandbox');
 
     await sandboxApi.writeFile('sandbox-6', '/tmp/test.txt', 'hello');
+    const encoded = btoa(unescape(encodeURIComponent('hello')));
     expect(global.fetch).toHaveBeenCalledWith(
       expect.stringContaining('/api/sandbox/sandbox-6/files'),
       expect.objectContaining({
         method: 'POST',
-        body: JSON.stringify({ path: '/tmp/test.txt', content: 'hello' }),
+        body: JSON.stringify({ files: [{ path: '/tmp/test.txt', content: encoded }] }),
       })
     );
+  });
+
+  it('readFile decodes base64 content from server', async () => {
+    const encoded = btoa(unescape(encodeURIComponent('hello world')));
+    global.fetch = vi.fn().mockResolvedValue(jsonResponse({ content: encoded }));
+    const { sandboxApi } = await import('./sandbox');
+
+    const result = await sandboxApi.readFile('sandbox-7', '/workspace/test.txt');
+    expect(result.content).toBe('hello world');
+  });
+
+  it('readFile falls back to raw content on non-base64', async () => {
+    global.fetch = vi.fn().mockResolvedValue(jsonResponse({ content: 'plain text' }));
+    const { sandboxApi } = await import('./sandbox');
+
+    const result = await sandboxApi.readFile('sandbox-8', '/workspace/test.txt');
+    expect(result.content).toBe('plain text');
   });
 
   it('retries on network TypeError for safe requests', async () => {

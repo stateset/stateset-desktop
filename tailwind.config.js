@@ -13,7 +13,7 @@ const withBrandOpacity = (cssVariable) => ({ opacityValue }) => {
 };
 
 /** @type {import('tailwindcss').Config} */
-export default {
+module.exports = {
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
@@ -49,14 +49,19 @@ export default {
           '0%, 100%': { boxShadow: '0 0 4px currentColor' },
           '50%': { boxShadow: '0 0 12px currentColor, 0 0 20px currentColor' },
         },
+        breathe: {
+          '0%, 100%': { opacity: '0.4', transform: 'scale(1)' },
+          '50%': { opacity: '0.7', transform: 'scale(1.05)' },
+        },
       },
       animation: {
         'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
         'spin-slow': 'spin 2s linear infinite',
         'float': 'float 3s ease-in-out infinite',
         'glow-pulse': 'glow-pulse 2s ease-in-out infinite',
+        'breathe': 'breathe 6s ease-in-out infinite',
       },
     },
   },
   plugins: [],
-}
+};

@@ -306,10 +306,13 @@ export default function Layout({ children }: LayoutProps) {
         {/* Logo & Drag Region */}
         <div className="h-14 flex items-center px-5 border-b border-gray-800/60 drag-region">
           <div className="flex items-center gap-2.5 no-drag">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-brand-500 to-brand-600 flex items-center justify-center shadow-lg shadow-brand-500/20">
-              <Bot className="w-5 h-5 text-white" aria-hidden="true" />
+            <div className="relative">
+              <div className="absolute -inset-1 bg-brand-500/15 rounded-xl blur-lg" />
+              <div className="relative w-8 h-8 rounded-xl bg-gradient-to-br from-brand-400 via-brand-500 to-brand-600 flex items-center justify-center shadow-lg shadow-brand-500/25 border border-white/10">
+                <Bot className="w-5 h-5 text-white" aria-hidden="true" />
+              </div>
             </div>
-            <span className="font-bold text-lg tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
+            <span className="font-extrabold text-lg tracking-tight bg-clip-text text-transparent bg-gradient-to-b from-white to-gray-400">
               StateSet
             </span>
           </div>
@@ -435,7 +438,7 @@ export default function Layout({ children }: LayoutProps) {
               }
             >
               <item.icon
-                className="w-5 h-5 transition-transform duration-200 group-hover:scale-110 group-active:scale-95"
+                className="w-[18px] h-[18px] transition-transform duration-200 group-hover:scale-110 group-active:scale-95"
                 aria-hidden="true"
               />
               <span className="font-medium">{item.label}</span>
@@ -465,18 +468,20 @@ export default function Layout({ children }: LayoutProps) {
       {/* Main Content */}
       <motion.main
         key={location.pathname}
-        initial={{ opacity: 0, x: 4 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+        initial={{ opacity: 0, y: 4 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
         className="layout-main-content flex-1 flex flex-col overflow-hidden relative"
       >
         {/* Top bar for window controls (macOS style) */}
         <div className="layout-topbar h-14 drag-region flex items-center justify-end px-6 gap-3 sticky top-0 z-10">
           <div className="flex-1 min-w-0 no-drag">
-            <p className="text-[11px] uppercase tracking-[0.2em] text-gray-400/80 font-medium">
+            <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500 font-semibold">
               {tenant?.name ? `${tenant.name} workspace` : 'StateSet'}
             </p>
-            <p className="text-sm md:text-base font-semibold text-gray-100 truncate">{pageTitle}</p>
+            <p className="text-sm md:text-base font-bold text-gray-100 truncate tracking-tight">
+              {pageTitle}
+            </p>
           </div>
           <div className="flex items-center gap-2 no-drag">
             <ApiHealthIndicator />

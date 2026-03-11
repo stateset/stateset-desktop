@@ -559,23 +559,32 @@ export default function Dashboard() {
         {/* Header */}
         <motion.div
           variants={reduceMotion ? undefined : pageSectionVariants}
-          className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6 mt-2"
+          className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-8 mt-2"
         >
           <div>
             <h1 className="page-title">{greeting}</h1>
-            <p className="page-subtitle flex items-center gap-2">
+            <p className="page-subtitle flex items-center gap-2 mt-1">
               {sessions.length > 0 && !isLoading ? (
-                <span>
+                <span className="flex items-center gap-2">
+                  {runningCount > 0 && (
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                    </span>
+                  )}
                   {runningCount > 0
                     ? `${runningCount} agent${runningCount !== 1 ? 's' : ''} running`
                     : 'No agents running'}
-                  {sessions.length > runningCount && ` · ${sessions.length - runningCount} idle`}
+                  {sessions.length > runningCount && <span className="text-gray-600">·</span>}
+                  {sessions.length > runningCount && (
+                    <span>{sessions.length - runningCount} idle</span>
+                  )}
                 </span>
               ) : (
                 <span>Manage your autonomous AI agents</span>
               )}
               {!isOnline && (
-                <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-400">
+                <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
                   <WifiOff className="w-3 h-3" aria-hidden="true" />
                   Offline
                 </span>
@@ -606,7 +615,7 @@ export default function Dashboard() {
               type="button"
               onClick={handleCreateSession}
               disabled={!currentBrand || isCreating}
-              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-b from-brand-500 to-brand-600 hover:from-brand-400 hover:to-brand-500 disabled:from-slate-700 disabled:to-slate-800 disabled:text-gray-400 rounded-xl font-bold text-sm border border-brand-500/30 transition-all shadow-sm shadow-brand-500/20 hover:shadow-brand-500/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
+              className="relative flex items-center gap-2 px-4 py-2 bg-gradient-to-b from-brand-500 to-brand-600 hover:from-brand-400 hover:to-brand-500 disabled:from-slate-700 disabled:to-slate-800 disabled:text-gray-400 rounded-xl font-bold text-sm border border-white/10 transition-all shadow-lg shadow-brand-500/20 hover:shadow-brand-500/30 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
               title="New Agent (Ctrl/Cmd+N)"
               aria-label="Create new agent"
             >
@@ -637,12 +646,16 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Sessions panel - 2 columns */}
             <div className="lg:col-span-2">
-              <div className="bg-slate-900/40 border border-slate-700/50 rounded-2xl overflow-hidden shadow-xl backdrop-blur-md">
+              <div className="relative bg-slate-900/40 border border-slate-700/40 rounded-2xl overflow-hidden shadow-xl backdrop-blur-md">
+                {/* Top highlight */}
+                <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
                 {/* Card header with integrated toolbar */}
-                <div className="px-5 py-4 border-b border-slate-700/50 bg-slate-900/60 space-y-3">
+                <div className="px-5 py-4 border-b border-slate-700/40 bg-slate-900/50 space-y-3">
                   {/* Title row */}
                   <div className="flex items-center justify-between">
-                    <h2 className="font-bold text-lg text-gray-200">Agent Sessions</h2>
+                    <h2 className="font-bold text-lg text-gray-200 tracking-tight">
+                      Agent Sessions
+                    </h2>
                     <span className="text-xs font-semibold text-gray-500">
                       {hasActiveFilters
                         ? `${filteredSessions.length} of ${sessions.length}`
@@ -911,9 +924,10 @@ export default function Dashboard() {
             {/* Sidebar */}
             <div className="space-y-5 sidebar-sticky">
               {/* Fleet Overview */}
-              <div className="bg-slate-900/40 border border-slate-700/50 rounded-2xl overflow-hidden backdrop-blur-md">
-                <div className="px-4 py-3 border-b border-slate-700/50 bg-slate-900/60">
-                  <h3 className="text-sm font-bold text-gray-300">Fleet Overview</h3>
+              <div className="relative bg-slate-900/40 border border-slate-700/40 rounded-2xl overflow-hidden backdrop-blur-md">
+                <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
+                <div className="px-4 py-3 border-b border-slate-700/40 bg-slate-900/50">
+                  <h3 className="text-sm font-bold text-gray-300 tracking-tight">Fleet Overview</h3>
                 </div>
                 <div className="p-4 space-y-3">
                   <div className="flex items-center justify-between group">

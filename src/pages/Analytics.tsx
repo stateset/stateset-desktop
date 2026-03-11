@@ -176,147 +176,175 @@ export default function Analytics() {
         initial={reduceMotion ? undefined : 'hidden'}
         animate={reduceMotion ? undefined : 'visible'}
       >
-      {/* Header */}
-      <motion.div variants={reduceMotion ? undefined : pageSectionVariants} className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="page-title">Analytics</h1>
-          <p className="page-subtitle">Monitor your agent performance and usage metrics</p>
-        </div>
-        <div className="w-full sm:w-auto">
-          <DateRangePicker value={dateRange} onChange={setDateRange} />
-        </div>
-      </motion.div>
+        {/* Header */}
+        <motion.div
+          variants={reduceMotion ? undefined : pageSectionVariants}
+          className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"
+        >
+          <div>
+            <h1 className="page-title">Analytics</h1>
+            <p className="page-subtitle">Monitor your agent performance and usage metrics</p>
+          </div>
+          <div className="w-full sm:w-auto">
+            <DateRangePicker value={dateRange} onChange={setDateRange} />
+          </div>
+        </motion.div>
 
-      {/* Key Metrics */}
-      <motion.div variants={reduceMotion ? undefined : pageSectionVariants} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Total Agents" value={analytics.totalAgents} icon={Bot} color="blue" />
-        <StatCard
-          label="Running Now"
-          value={analytics.runningAgents}
-          icon={Activity}
-          color="green"
-          change={analytics.runningAgents > 0 ? 100 : 0}
-          changeLabel="active"
-        />
-        <StatCard label="Total Tokens" value={analytics.totalTokens} icon={Zap} color="amber" />
-        <StatCard
-          label="Tool Calls"
-          value={analytics.totalToolCalls}
-          icon={Wrench}
-          color="purple"
-        />
-      </motion.div>
+        {/* Key Metrics */}
+        <motion.div
+          variants={reduceMotion ? undefined : pageSectionVariants}
+          className="grid grid-cols-2 lg:grid-cols-4 gap-4"
+        >
+          <StatCard label="Total Agents" value={analytics.totalAgents} icon={Bot} color="blue" />
+          <StatCard
+            label="Running Now"
+            value={analytics.runningAgents}
+            icon={Activity}
+            color="green"
+            change={analytics.runningAgents > 0 ? 100 : 0}
+            changeLabel="active"
+          />
+          <StatCard label="Total Tokens" value={analytics.totalTokens} icon={Zap} color="amber" />
+          <StatCard
+            label="Tool Calls"
+            value={analytics.totalToolCalls}
+            icon={Wrench}
+            color="purple"
+          />
+        </motion.div>
 
-      {/* Secondary Metrics */}
-      <motion.div variants={reduceMotion ? undefined : pageSectionVariants} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Total Loops" value={analytics.totalLoops} icon={TrendingUp} color="blue" />
-        <StatCard
-          label="Total Errors"
-          value={analytics.totalErrors}
-          icon={AlertTriangle}
-          color="red"
-        />
-        <StatCard
-          label="Avg Tokens/Session"
-          value={analytics.avgTokensPerSession}
-          icon={Clock}
-          color="amber"
-        />
-        <StatCard
-          label="Avg Tools/Session"
-          value={analytics.avgToolCallsPerSession}
-          icon={MessageSquare}
-          color="purple"
-        />
-      </motion.div>
+        {/* Secondary Metrics */}
+        <motion.div
+          variants={reduceMotion ? undefined : pageSectionVariants}
+          className="grid grid-cols-2 lg:grid-cols-4 gap-4"
+        >
+          <StatCard
+            label="Total Loops"
+            value={analytics.totalLoops}
+            icon={TrendingUp}
+            color="blue"
+          />
+          <StatCard
+            label="Total Errors"
+            value={analytics.totalErrors}
+            icon={AlertTriangle}
+            color="red"
+          />
+          <StatCard
+            label="Avg Tokens/Session"
+            value={analytics.avgTokensPerSession}
+            icon={Clock}
+            color="amber"
+          />
+          <StatCard
+            label="Avg Tools/Session"
+            value={analytics.avgToolCallsPerSession}
+            icon={MessageSquare}
+            color="purple"
+          />
+        </motion.div>
 
-      {/* Charts */}
-      <motion.div variants={reduceMotion ? undefined : pageSectionVariants} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Token Usage Over Time */}
-        <div className="bg-slate-900/40 border border-slate-700/50 rounded-2xl p-6 backdrop-blur-sm shadow-sm">
-          <h3 className="text-lg font-semibold mb-4">Token Usage Over Time</h3>
-          <LineChart data={analytics.tokensByDay} height={200} color="#0ea5e9" showArea />
-        </div>
+        {/* Charts */}
+        <motion.div
+          variants={reduceMotion ? undefined : pageSectionVariants}
+          className="grid grid-cols-1 lg:grid-cols-2 gap-6"
+        >
+          {/* Token Usage Over Time */}
+          <div className="relative bg-slate-900/40 border border-slate-700/40 rounded-2xl p-6 backdrop-blur-sm shadow-sm overflow-hidden">
+            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
+            <h3 className="text-lg font-semibold tracking-tight mb-4">Token Usage Over Time</h3>
+            <LineChart data={analytics.tokensByDay} height={200} color="#0ea5e9" showArea />
+          </div>
 
-        {/* Tool Calls Distribution */}
-        <div className="bg-slate-900/40 border border-slate-700/50 rounded-2xl p-6 backdrop-blur-sm shadow-sm">
-          <h3 className="text-lg font-semibold mb-4">Tool Calls by Agent Type</h3>
-          <BarChart data={analytics.toolCallsByAgentType} height={200} color="#a855f7" />
-        </div>
+          {/* Tool Calls Distribution */}
+          <div className="relative bg-slate-900/40 border border-slate-700/40 rounded-2xl p-6 backdrop-blur-sm shadow-sm overflow-hidden">
+            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
+            <h3 className="text-lg font-semibold tracking-tight mb-4">Tool Calls by Agent Type</h3>
+            <BarChart data={analytics.toolCallsByAgentType} height={200} color="#a855f7" />
+          </div>
 
-        {/* Agent Status Distribution */}
-        <div className="bg-slate-900/40 border border-slate-700/50 rounded-2xl p-6 backdrop-blur-sm shadow-sm">
-          <h3 className="text-lg font-semibold mb-4">Agent Status Distribution</h3>
-          <DonutChart data={analytics.statusDistribution} size={180} thickness={30} showLegend />
-        </div>
+          {/* Agent Status Distribution */}
+          <div className="relative bg-slate-900/40 border border-slate-700/40 rounded-2xl p-6 backdrop-blur-sm shadow-sm overflow-hidden">
+            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
+            <h3 className="text-lg font-semibold tracking-tight mb-4">Agent Status Distribution</h3>
+            <DonutChart data={analytics.statusDistribution} size={180} thickness={30} showLegend />
+          </div>
 
-        {/* Performance by Agent Type */}
-        <div className="bg-slate-900/40 border border-slate-700/50 rounded-2xl p-6 backdrop-blur-sm shadow-sm">
-          <h3 className="text-lg font-semibold mb-4">Tokens by Agent Type</h3>
-          <BarChart data={analytics.performanceByAgent} height={200} color="#22c55e" />
-        </div>
-      </motion.div>
+          {/* Performance by Agent Type */}
+          <div className="relative bg-slate-900/40 border border-slate-700/40 rounded-2xl p-6 backdrop-blur-sm shadow-sm overflow-hidden">
+            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
+            <h3 className="text-lg font-semibold tracking-tight mb-4">Tokens by Agent Type</h3>
+            <BarChart data={analytics.performanceByAgent} height={200} color="#22c55e" />
+          </div>
+        </motion.div>
 
-      {/* Summary Table */}
-      <motion.div variants={reduceMotion ? undefined : pageSectionVariants} className="bg-slate-900/40 border border-slate-700/50 rounded-2xl overflow-hidden backdrop-blur-sm shadow-sm">
-        <div className="px-6 py-4 border-b border-slate-700/50 bg-slate-900/60">
-          <h3 className="text-lg font-semibold">Agent Performance Summary</h3>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-slate-800/40">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                  Agent Type
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                  Count
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                  Tokens Used
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                  Tool Calls
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                  Avg Loops
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/50">
-              {[...new Set(sessions.map((s) => s.agent_type))].map((type) => {
-                const typeSessions = sessions.filter((s) => s.agent_type === type);
-                const totalTokens = typeSessions.reduce((acc, s) => acc + s.metrics.tokens_used, 0);
-                const totalTools = typeSessions.reduce((acc, s) => acc + s.metrics.tool_calls, 0);
-                const avgLoops = Math.round(
-                  typeSessions.reduce((acc, s) => acc + s.metrics.loop_count, 0) /
-                    typeSessions.length
-                );
+        {/* Summary Table */}
+        <motion.div
+          variants={reduceMotion ? undefined : pageSectionVariants}
+          className="relative bg-slate-900/40 border border-slate-700/40 rounded-2xl overflow-hidden backdrop-blur-sm shadow-sm"
+        >
+          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
+          <div className="px-6 py-4 border-b border-slate-700/40 bg-slate-900/50">
+            <h3 className="text-lg font-semibold tracking-tight">Agent Performance Summary</h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-slate-800/40">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                    Agent Type
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                    Count
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                    Tokens Used
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                    Tool Calls
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                    Avg Loops
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/50">
+                {[...new Set(sessions.map((s) => s.agent_type))].map((type) => {
+                  const typeSessions = sessions.filter((s) => s.agent_type === type);
+                  const totalTokens = typeSessions.reduce(
+                    (acc, s) => acc + s.metrics.tokens_used,
+                    0
+                  );
+                  const totalTools = typeSessions.reduce((acc, s) => acc + s.metrics.tool_calls, 0);
+                  const avgLoops = Math.round(
+                    typeSessions.reduce((acc, s) => acc + s.metrics.loop_count, 0) /
+                      typeSessions.length
+                  );
 
-                return (
-                  <tr key={type} className="hover:bg-slate-800/30 transition-colors duration-150">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="font-medium">
-                        {type.charAt(0).toUpperCase() + type.slice(1)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-gray-400">
-                      {typeSessions.length}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-gray-400">
-                      {totalTokens.toLocaleString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-gray-400">
-                      {totalTools.toLocaleString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-gray-400">{avgLoops}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </motion.div>
+                  return (
+                    <tr key={type} className="hover:bg-slate-800/30 transition-colors duration-150">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="font-medium">
+                          {type.charAt(0).toUpperCase() + type.slice(1)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-gray-400">
+                        {typeSessions.length}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-gray-400">
+                        {totalTokens.toLocaleString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-gray-400">
+                        {totalTools.toLocaleString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-gray-400">{avgLoops}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </motion.div>
       </motion.div>
     </div>
   );

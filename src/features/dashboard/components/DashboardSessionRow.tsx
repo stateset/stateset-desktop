@@ -138,7 +138,7 @@ export const DashboardSessionRow = memo(function DashboardSessionRow({
       <div
         className={clsx(
           'relative group border-l-[3px] transition-all duration-200',
-          'hover:bg-slate-800/30',
+          'hover:bg-slate-800/20',
           config.border
         )}
       >

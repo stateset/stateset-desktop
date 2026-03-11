@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { afterEach, describe, it, expect, vi } from 'vitest';
 import {
   AgentSessionStatusSchema,
   AgentSessionConfigSchema,
@@ -18,6 +18,10 @@ import {
   WebhookTestResponseSchema,
 } from './schemas';
 import { ZodError } from 'zod';
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 // ── Fixtures ────────────────────────────────────────────────────────────
 
@@ -264,13 +268,17 @@ describe('validateResponse', () => {
   });
 
   it('throws ZodError on invalid data', () => {
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     expect(() =>
       validateResponse(SessionsListResponseSchema, { ok: true, sessions: 'bad' })
     ).toThrow(ZodError);
+    expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
   });
 
   it('throws ZodError on null input', () => {
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     expect(() => validateResponse(SessionResponseSchema, null)).toThrow(ZodError);
+    expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
   });
 });
 

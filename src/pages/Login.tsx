@@ -165,10 +165,29 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-950 to-slate-950 flex flex-col relative overflow-hidden">
-      {/* Subtle background glow */}
+      {/* Ambient background orbs */}
       <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
-        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[480px] h-[480px] rounded-full bg-brand-500/[0.04] blur-3xl" />
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-brand-500/[0.06] blur-[100px] animate-breathe" />
+        <div
+          className="absolute bottom-1/4 left-1/3 w-[400px] h-[400px] rounded-full bg-purple-500/[0.04] blur-[80px] animate-breathe"
+          style={{ animationDelay: '-3s' }}
+        />
+        <div
+          className="absolute top-1/2 right-1/4 w-[300px] h-[300px] rounded-full bg-brand-400/[0.03] blur-[60px] animate-breathe"
+          style={{ animationDelay: '-1.5s' }}
+        />
       </div>
+
+      {/* Dot grid pattern */}
+      <div
+        className="absolute inset-0 pointer-events-none opacity-30"
+        aria-hidden="true"
+        style={{
+          backgroundImage:
+            'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.03) 1px, transparent 0)',
+          backgroundSize: '24px 24px',
+        }}
+      />
 
       {/* Drag region for title bar */}
       <div className="h-10 drag-region" />
@@ -182,18 +201,23 @@ export default function Login() {
           transition={{ duration: 0.35, ease: [0.4, 0, 0.2, 1] }}
         >
           {/* Logo */}
-          <div className="flex items-center justify-center gap-3 mb-8">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-500 to-brand-600 flex items-center justify-center shadow-lg shadow-brand-500/25 border border-brand-400/20">
-              <Bot className="w-7 h-7 text-white" aria-hidden="true" />
+          <div className="flex flex-col items-center mb-10">
+            <div className="relative mb-4">
+              <div className="absolute -inset-4 bg-brand-500/10 rounded-3xl blur-2xl" />
+              <div className="relative w-14 h-14 rounded-2xl bg-gradient-to-br from-brand-400 via-brand-500 to-brand-600 flex items-center justify-center shadow-xl shadow-brand-500/30 border border-white/10">
+                <Bot className="w-8 h-8 text-white" aria-hidden="true" />
+              </div>
             </div>
-            <div>
-              <h1 className="text-2xl font-bold">StateSet</h1>
-              <p className="text-gray-500 text-sm">AI Agent Desktop</p>
-            </div>
+            <h1 className="text-3xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-b from-white to-gray-400">
+              StateSet
+            </h1>
+            <p className="text-gray-500 text-sm font-medium mt-0.5">AI Agent Desktop</p>
           </div>
 
           {/* Login Form */}
-          <div className="bg-slate-900/90 border border-slate-700/50 rounded-2xl p-6 shadow-2xl backdrop-blur-xl">
+          <div className="relative bg-slate-900/80 border border-slate-700/40 rounded-2xl p-6 shadow-2xl backdrop-blur-xl overflow-hidden">
+            {/* Inner highlight */}
+            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
             <h2 className="text-lg font-semibold mb-1">Welcome back</h2>
             <p className="text-gray-400 text-sm mb-6">Sign in to connect to StateSet</p>
 
