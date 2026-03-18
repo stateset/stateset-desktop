@@ -1,0 +1,2435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StateSet Desktop &mdash; Technical Whitepaper</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,500;1,600;1,700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,300;1,9..40,400&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════
+   DESIGN TOKENS
+   ═══════════════════════════════════════════════ */
+:root {
+  --navy:       #0a1628;
+  --navy-light: #121e33;
+  --navy-mid:   #1a2940;
+  --slate:      #3a4f6e;
+  --steel:      #6b7f99;
+  --silver:     #94a3b8;
+  --mist:       #c8d0dc;
+  --paper:      #faf8f5;
+  --paper-warm: #f5f0ea;
+  --cream:      #eee8de;
+  --blue:       #2563eb;
+  --blue-light: #3b82f6;
+  --blue-dim:   rgba(37, 99, 235, 0.08);
+  --gold:       #c9a84c;
+  --gold-dim:   rgba(201, 168, 76, 0.12);
+  --gold-dark:  #a8893d;
+  --red:        #dc2626;
+  --green:      #16a34a;
+
+  --ff-display: 'Playfair Display', Georgia, 'Times New Roman', serif;
+  --ff-body:    'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --ff-mono:    'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+
+  --fs-hero:    clamp(3rem, 6vw, 5.5rem);
+  --fs-h1:      clamp(2rem, 3.5vw, 3rem);
+  --fs-h2:      clamp(1.5rem, 2.5vw, 2.25rem);
+  --fs-h3:      clamp(1.15rem, 1.8vw, 1.5rem);
+  --fs-h4:      1.125rem;
+  --fs-body:    1.0625rem;
+  --fs-small:   0.9375rem;
+  --fs-caption: 0.8125rem;
+  --fs-code:    0.875rem;
+
+  --lh-display: 1.1;
+  --lh-body:    1.72;
+  --lh-tight:   1.35;
+
+  --page-max:   1240px;
+  --page-pad:   clamp(1.5rem, 4vw, 4rem);
+  --gutter:     clamp(1.5rem, 3vw, 3rem);
+
+  --ease-out:   cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in:    cubic-bezier(0.7, 0, 0.84, 0);
+}
+
+/* ═══════════════════════════════════════════════
+   RESET & BASE
+   ═══════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html {
+  font-size: 16px;
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  font-family: var(--ff-body);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  color: var(--navy);
+  background: var(--paper);
+  overflow-x: hidden;
+}
+
+/* paper grain texture overlay */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 256px 256px;
+}
+
+img, svg { display: block; max-width: 100%; }
+a { color: var(--blue); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+::selection {
+  background: var(--gold-dim);
+  color: var(--navy);
+}
+
+/* ═══════════════════════════════════════════════
+   TYPOGRAPHY
+   ═══════════════════════════════════════════════ */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--ff-display);
+  font-weight: 700;
+  line-height: var(--lh-display);
+  letter-spacing: -0.02em;
+  color: var(--navy);
+}
+
+h1 { font-size: var(--fs-h1); margin-bottom: 1rem; }
+h2 { font-size: var(--fs-h2); margin-bottom: 0.75rem; }
+h3 { font-size: var(--fs-h3); margin-bottom: 0.5rem; font-weight: 600; }
+h4 { font-size: var(--fs-h4); margin-bottom: 0.4rem; font-weight: 600; }
+
+p { margin-bottom: 1.25em; }
+p:last-child { margin-bottom: 0; }
+
+strong { font-weight: 600; }
+
+/* ═══════════════════════════════════════════════
+   PAGE WRAPPER
+   ═══════════════════════════════════════════════ */
+.page {
+  max-width: var(--page-max);
+  margin: 0 auto;
+  padding: 0 var(--page-pad);
+}
+
+/* ═══════════════════════════════════════════════
+   COVER / HERO
+   ═══════════════════════════════════════════════ */
+.cover {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  background: var(--navy);
+  color: var(--paper);
+  overflow: hidden;
+}
+
+.cover::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 60% at 70% 40%, rgba(37, 99, 235, 0.08) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 50% at 20% 80%, rgba(201, 168, 76, 0.05) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+/* subtle grid pattern on cover */
+.cover::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.03;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px);
+  background-size: 60px 60px;
+  pointer-events: none;
+}
+
+.cover-inner {
+  position: relative;
+  z-index: 1;
+  max-width: var(--page-max);
+  margin: 0 auto;
+  padding: 6rem var(--page-pad) 4rem;
+  width: 100%;
+}
+
+.cover-eyebrow {
+  font-family: var(--ff-body);
+  font-size: var(--fs-caption);
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 2rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.cover-eyebrow::before {
+  content: '';
+  width: 40px;
+  height: 1px;
+  background: var(--gold);
+}
+
+.cover h1 {
+  font-size: var(--fs-hero);
+  font-weight: 800;
+  line-height: 1.05;
+  color: var(--paper);
+  margin-bottom: 1.5rem;
+  max-width: 14ch;
+}
+
+.cover h1 em {
+  font-style: italic;
+  color: var(--blue-light);
+}
+
+.cover-subtitle {
+  font-family: var(--ff-display);
+  font-size: clamp(1.1rem, 2vw, 1.5rem);
+  font-weight: 400;
+  font-style: italic;
+  line-height: 1.5;
+  color: var(--silver);
+  max-width: 52ch;
+  margin-bottom: 3rem;
+}
+
+.cover-meta {
+  display: flex;
+  gap: 3rem;
+  flex-wrap: wrap;
+  padding-top: 2rem;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+
+.cover-meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.cover-meta-label {
+  font-size: var(--fs-caption);
+  font-weight: 500;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--steel);
+}
+
+.cover-meta-value {
+  font-family: var(--ff-display);
+  font-size: 1.125rem;
+  color: var(--paper);
+}
+
+.cover-scroll-hint {
+  position: absolute;
+  bottom: 2.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--steel);
+  font-size: var(--fs-caption);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  animation: pulse-down 2s ease-in-out infinite;
+}
+
+.cover-scroll-hint svg {
+  width: 20px;
+  height: 20px;
+  stroke: var(--steel);
+}
+
+@keyframes pulse-down {
+  0%, 100% { opacity: 0.4; transform: translateX(-50%) translateY(0); }
+  50% { opacity: 0.8; transform: translateX(-50%) translateY(6px); }
+}
+
+/* ═══════════════════════════════════════════════
+   TABLE OF CONTENTS
+   ═══════════════════════════════════════════════ */
+.toc {
+  padding: 5rem 0;
+  border-bottom: 1px solid var(--cream);
+}
+
+.toc-header {
+  font-family: var(--ff-body);
+  font-size: var(--fs-caption);
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--steel);
+  margin-bottom: 2.5rem;
+}
+
+.toc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 0;
+}
+
+.toc-item {
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.2s;
+  text-decoration: none;
+  color: var(--navy);
+}
+
+.toc-item:hover {
+  border-bottom-color: var(--cream);
+  text-decoration: none;
+}
+
+.toc-num {
+  font-family: var(--ff-display);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--gold);
+  min-width: 2.5rem;
+}
+
+.toc-title {
+  font-family: var(--ff-display);
+  font-size: 1.0625rem;
+  font-weight: 500;
+  line-height: var(--lh-tight);
+}
+
+/* ═══════════════════════════════════════════════
+   SECTIONS
+   ═══════════════════════════════════════════════ */
+.section {
+  padding: 5rem 0 4rem;
+  border-bottom: 1px solid var(--cream);
+}
+
+.section:last-child {
+  border-bottom: none;
+}
+
+.section-num {
+  font-family: var(--ff-display);
+  font-size: clamp(3rem, 5vw, 4.5rem);
+  font-weight: 800;
+  color: var(--cream);
+  line-height: 1;
+  margin-bottom: 0.25rem;
+  user-select: none;
+}
+
+.section-title {
+  font-size: var(--fs-h1);
+  margin-bottom: 0.5rem;
+}
+
+.section-rule {
+  width: 60px;
+  height: 2px;
+  background: var(--gold);
+  border: none;
+  margin: 1.5rem 0 2.5rem;
+}
+
+/* subsection */
+.subsection {
+  margin-top: 3rem;
+}
+
+.subsection-title {
+  font-size: var(--fs-h3);
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--cream);
+}
+
+.sub-subsection {
+  margin-top: 2rem;
+}
+
+.sub-subsection-title {
+  font-size: var(--fs-h4);
+  font-family: var(--ff-body);
+  font-weight: 600;
+  color: var(--navy);
+  margin-bottom: 0.75rem;
+}
+
+/* ═══════════════════════════════════════════════
+   COLUMNS / GRID
+   ═══════════════════════════════════════════════ */
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--gutter);
+  margin: 2rem 0;
+}
+
+.three-col {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--gutter);
+  margin: 2rem 0;
+}
+
+@media (max-width: 768px) {
+  .two-col, .three-col { grid-template-columns: 1fr; }
+}
+
+/* wide content that breaks out of main column */
+.wide {
+  margin-left: calc(-1 * var(--page-pad));
+  margin-right: calc(-1 * var(--page-pad));
+  padding: 0 var(--page-pad);
+}
+
+/* ═══════════════════════════════════════════════
+   ABSTRACT BLOCK
+   ═══════════════════════════════════════════════ */
+.abstract {
+  padding: 4rem 0 3rem;
+  border-bottom: 1px solid var(--cream);
+}
+
+.abstract-label {
+  font-family: var(--ff-body);
+  font-size: var(--fs-caption);
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 1.5rem;
+}
+
+.abstract-text {
+  font-family: var(--ff-display);
+  font-size: clamp(1.1rem, 1.8vw, 1.35rem);
+  line-height: 1.65;
+  font-weight: 400;
+  color: var(--slate);
+  max-width: 72ch;
+}
+
+/* ═══════════════════════════════════════════════
+   PULL QUOTE
+   ═══════════════════════════════════════════════ */
+.pull-quote {
+  position: relative;
+  margin: 3rem -2rem 3rem 0;
+  padding: 2rem 0 2rem 2rem;
+  border-left: 3px solid var(--gold);
+}
+
+.pull-quote p {
+  font-family: var(--ff-display);
+  font-size: clamp(1.25rem, 2vw, 1.75rem);
+  font-style: italic;
+  font-weight: 500;
+  line-height: 1.45;
+  color: var(--navy);
+  margin-bottom: 0;
+}
+
+.pull-quote cite {
+  display: block;
+  margin-top: 1rem;
+  font-family: var(--ff-body);
+  font-size: var(--fs-small);
+  font-style: normal;
+  font-weight: 500;
+  color: var(--steel);
+  letter-spacing: 0.05em;
+}
+
+/* ═══════════════════════════════════════════════
+   CALLOUT BOX
+   ═══════════════════════════════════════════════ */
+.callout {
+  background: var(--blue-dim);
+  border-left: 3px solid var(--blue);
+  padding: 1.5rem 2rem;
+  margin: 2rem 0;
+  border-radius: 0 4px 4px 0;
+}
+
+.callout-gold {
+  background: var(--gold-dim);
+  border-left-color: var(--gold);
+}
+
+.callout-label {
+  font-family: var(--ff-body);
+  font-size: var(--fs-caption);
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--blue);
+  margin-bottom: 0.5rem;
+}
+
+.callout-gold .callout-label {
+  color: var(--gold-dark);
+}
+
+.callout p {
+  font-size: var(--fs-small);
+  line-height: 1.65;
+  color: var(--slate);
+}
+
+/* ═══════════════════════════════════════════════
+   TABLES
+   ═══════════════════════════════════════════════ */
+.table-wrap {
+  margin: 1.5rem 0 2rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-small);
+}
+
+thead th {
+  font-family: var(--ff-body);
+  font-weight: 600;
+  font-size: var(--fs-caption);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--steel);
+  text-align: left;
+  padding: 0.75rem 1rem;
+  border-bottom: 2px solid var(--navy);
+  white-space: nowrap;
+}
+
+tbody td {
+  padding: 0.65rem 1rem;
+  border-bottom: 1px solid var(--cream);
+  vertical-align: top;
+  line-height: 1.55;
+}
+
+tbody tr:last-child td {
+  border-bottom: none;
+}
+
+tbody tr:hover {
+  background: var(--blue-dim);
+}
+
+/* ═══════════════════════════════════════════════
+   CODE BLOCKS
+   ═══════════════════════════════════════════════ */
+code {
+  font-family: var(--ff-mono);
+  font-size: var(--fs-code);
+  background: rgba(10, 22, 40, 0.05);
+  padding: 0.15em 0.4em;
+  border-radius: 3px;
+  font-weight: 400;
+}
+
+pre {
+  background: var(--navy);
+  color: #e2e8f0;
+  padding: 1.75rem 2rem;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 1.5rem 0 2rem;
+  line-height: 1.6;
+  position: relative;
+}
+
+pre code {
+  font-size: var(--fs-code);
+  background: none;
+  padding: 0;
+  color: inherit;
+  border-radius: 0;
+}
+
+pre .comment { color: #64748b; }
+pre .keyword { color: #93c5fd; }
+pre .string { color: #86efac; }
+pre .type { color: #c4b5fd; }
+pre .number { color: #fbbf24; }
+pre .property { color: #67e8f9; }
+
+/* ═══════════════════════════════════════════════
+   ASCII DIAGRAMS
+   ═══════════════════════════════════════════════ */
+.diagram {
+  background: var(--navy);
+  color: var(--silver);
+  padding: 2rem 2.5rem;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 2rem 0;
+  font-family: var(--ff-mono);
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  white-space: pre;
+}
+
+.diagram .accent { color: var(--blue-light); }
+.diagram .gold { color: var(--gold); }
+.diagram .dim { color: var(--slate); }
+
+/* ═══════════════════════════════════════════════
+   LISTS
+   ═══════════════════════════════════════════════ */
+ul, ol {
+  margin: 1rem 0 1.5rem 1.5rem;
+}
+
+li {
+  margin-bottom: 0.5rem;
+  line-height: 1.65;
+}
+
+li::marker {
+  color: var(--gold);
+}
+
+/* definition-style list */
+.def-list {
+  list-style: none;
+  margin-left: 0;
+  padding: 0;
+}
+
+.def-list li {
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--cream);
+}
+
+.def-list li:last-child { border-bottom: none; }
+
+.def-term {
+  font-weight: 600;
+  color: var(--navy);
+}
+
+/* numbered design principle list */
+.principle-list {
+  list-style: none;
+  margin: 1.5rem 0;
+  padding: 0;
+  counter-reset: principle;
+}
+
+.principle-list li {
+  counter-increment: principle;
+  position: relative;
+  padding: 1.25rem 0 1.25rem 4rem;
+  border-bottom: 1px solid var(--cream);
+}
+
+.principle-list li:last-child { border-bottom: none; }
+
+.principle-list li::before {
+  content: counter(principle, decimal-leading-zero);
+  position: absolute;
+  left: 0;
+  top: 1.25rem;
+  font-family: var(--ff-display);
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--gold);
+}
+
+/* ═══════════════════════════════════════════════
+   STAT CARDS
+   ═══════════════════════════════════════════════ */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1px;
+  background: var(--cream);
+  border: 1px solid var(--cream);
+  margin: 2rem 0;
+}
+
+.stat-card {
+  background: var(--paper);
+  padding: 1.5rem;
+  text-align: center;
+}
+
+.stat-value {
+  font-family: var(--ff-display);
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--navy);
+  line-height: 1.1;
+}
+
+.stat-value .unit {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--steel);
+}
+
+.stat-label {
+  font-family: var(--ff-body);
+  font-size: var(--fs-caption);
+  font-weight: 500;
+  color: var(--steel);
+  margin-top: 0.35rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* ═══════════════════════════════════════════════
+   FLOW / PIPELINE STEPS
+   ═══════════════════════════════════════════════ */
+.pipeline {
+  display: flex;
+  gap: 0;
+  margin: 2rem 0;
+  overflow-x: auto;
+}
+
+.pipeline-step {
+  flex: 1;
+  min-width: 140px;
+  padding: 1.25rem 1rem;
+  background: var(--paper-warm);
+  border-right: 2px solid var(--paper);
+  position: relative;
+  text-align: center;
+}
+
+.pipeline-step:last-child { border-right: none; }
+
+.pipeline-step-num {
+  font-family: var(--ff-display);
+  font-size: var(--fs-caption);
+  font-weight: 700;
+  color: var(--gold);
+  margin-bottom: 0.35rem;
+}
+
+.pipeline-step-label {
+  font-size: var(--fs-caption);
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--navy);
+}
+
+/* ═══════════════════════════════════════════════
+   SECTION DIVIDER (ornament)
+   ═══════════════════════════════════════════════ */
+.ornament {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 1rem 0;
+  color: var(--cream);
+}
+
+.ornament::before,
+.ornament::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--cream);
+}
+
+.ornament svg {
+  width: 16px;
+  height: 16px;
+  fill: var(--gold);
+  flex-shrink: 0;
+}
+
+/* ═══════════════════════════════════════════════
+   FOOTER
+   ═══════════════════════════════════════════════ */
+.footer {
+  background: var(--navy);
+  color: var(--silver);
+  padding: 4rem 0;
+  margin-top: 2rem;
+}
+
+.footer-inner {
+  max-width: var(--page-max);
+  margin: 0 auto;
+  padding: 0 var(--page-pad);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.footer-brand {
+  font-family: var(--ff-display);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--paper);
+}
+
+.footer-links {
+  display: flex;
+  gap: 2rem;
+  font-size: var(--fs-caption);
+}
+
+.footer-links a {
+  color: var(--steel);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.footer-links a:hover { color: var(--paper); text-decoration: none; }
+
+.footer-legal {
+  width: 100%;
+  text-align: center;
+  font-size: var(--fs-caption);
+  color: var(--slate);
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+
+/* ═══════════════════════════════════════════════
+   PROGRESS BAR (reading progress)
+   ═══════════════════════════════════════════════ */
+.reading-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 0%;
+  height: 2px;
+  background: linear-gradient(90deg, var(--blue), var(--gold));
+  z-index: 10000;
+  transition: width 0.15s linear;
+}
+
+/* ═══════════════════════════════════════════════
+   BACK TO TOP
+   ═══════════════════════════════════════════════ */
+.back-to-top {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--navy);
+  color: var(--paper);
+  border: 1px solid rgba(255,255,255,0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 100;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.3s, transform 0.3s;
+  text-decoration: none;
+}
+
+.back-to-top.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.back-to-top:hover {
+  background: var(--blue);
+  text-decoration: none;
+}
+
+.back-to-top svg {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  fill: none;
+}
+
+/* ═══════════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════════ */
+@media (max-width: 640px) {
+  .cover-inner { padding: 4rem var(--page-pad) 3rem; }
+  .cover-meta { gap: 1.5rem; }
+  .section { padding: 3rem 0 2.5rem; }
+  .pull-quote { margin-right: 0; }
+  .stat-grid { grid-template-columns: repeat(2, 1fr); }
+  .pipeline { flex-direction: column; }
+  .pipeline-step { border-right: none; border-bottom: 2px solid var(--paper); }
+}
+
+/* print / PDF styles */
+@media print {
+  body::before { display: none !important; }
+  .reading-progress, .back-to-top, .cover-scroll-hint { display: none !important; }
+
+  body { background: white; }
+
+  .cover {
+    min-height: auto;
+    padding: 4cm 0;
+    page-break-after: always;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .cover-inner { padding: 0 2cm; }
+
+  .toc { page-break-after: always; }
+
+  .section {
+    page-break-before: always;
+    padding: 2rem 0 1.5rem;
+  }
+
+  .subsection { page-break-inside: avoid; }
+
+  pre, .diagram {
+    white-space: pre-wrap;
+    word-break: break-all;
+    page-break-inside: avoid;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .pull-quote, .callout, .stat-grid, .pipeline, .table-wrap {
+    page-break-inside: avoid;
+  }
+
+  table { page-break-inside: auto; }
+  tr { page-break-inside: avoid; }
+
+  .two-col, .three-col { page-break-inside: avoid; }
+
+  .footer {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  a { color: var(--navy) !important; text-decoration: none !important; }
+  a[href^="http"]::after { content: none; }
+
+  .page { max-width: 100%; padding: 0; }
+}
+</style>
+</head>
+<body>
+
+<!-- Reading progress bar -->
+<div class="reading-progress" id="progress"></div>
+
+<!-- Back to top button -->
+<a href="#top" class="back-to-top" id="backToTop">
+  <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="18 15 12 9 6 15"></polyline>
+  </svg>
+</a>
+
+<!-- ═══════════════════════════════════════════
+     COVER
+     ═══════════════════════════════════════════ -->
+<header class="cover" id="top">
+  <div class="cover-inner">
+    <div class="cover-eyebrow">Technical Whitepaper</div>
+    <h1>StateSet <em>Desktop</em></h1>
+    <p class="cover-subtitle">
+      A cross-platform Electron application for managing autonomous AI customer service agents &mdash; built on enterprise-grade resilience patterns, real-time streaming, and a zero-trust security model.
+    </p>
+    <div class="cover-meta">
+      <div class="cover-meta-item">
+        <span class="cover-meta-label">Version</span>
+        <span class="cover-meta-value">1.1.15</span>
+      </div>
+      <div class="cover-meta-item">
+        <span class="cover-meta-label">Date</span>
+        <span class="cover-meta-value">March 2026</span>
+      </div>
+      <div class="cover-meta-item">
+        <span class="cover-meta-label">Platform</span>
+        <span class="cover-meta-value">macOS &middot; Windows &middot; Linux</span>
+      </div>
+      <div class="cover-meta-item">
+        <span class="cover-meta-label">License</span>
+        <span class="cover-meta-value">MIT</span>
+      </div>
+    </div>
+  </div>
+  <div class="cover-scroll-hint">
+    <span>Scroll</span>
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="6 9 12 15 18 9"></polyline>
+    </svg>
+  </div>
+</header>
+
+<main class="page">
+
+  <!-- ═══════════════════════════════════════
+       ABSTRACT
+       ═══════════════════════════════════════ -->
+  <section class="abstract">
+    <div class="abstract-label">Abstract</div>
+    <p class="abstract-text">
+      StateSet Desktop is a cross-platform Electron application that provides a native desktop interface for managing autonomous AI customer service agents. Built on a modern React/TypeScript stack with enterprise-grade resilience patterns, the application enables operators to deploy, monitor, and interact with AI agents in real time across customer support and e-commerce workflows. This paper details the system architecture, security model, data flow patterns, real-time streaming infrastructure, voice interface, and engineering decisions that underpin the platform.
+    </p>
+  </section>
+
+  <!-- ═══════════════════════════════════════
+       TABLE OF CONTENTS
+       ═══════════════════════════════════════ -->
+  <nav class="toc">
+    <div class="toc-header">Contents</div>
+    <div class="toc-grid">
+      <a href="#sec-1" class="toc-item"><span class="toc-num">01</span><span class="toc-title">Introduction</span></a>
+      <a href="#sec-2" class="toc-item"><span class="toc-num">02</span><span class="toc-title">System Architecture</span></a>
+      <a href="#sec-3" class="toc-item"><span class="toc-num">03</span><span class="toc-title">Electron Main Process</span></a>
+      <a href="#sec-4" class="toc-item"><span class="toc-num">04</span><span class="toc-title">Renderer Application</span></a>
+      <a href="#sec-5" class="toc-item"><span class="toc-num">05</span><span class="toc-title">Data Model &amp; Type System</span></a>
+      <a href="#sec-6" class="toc-item"><span class="toc-num">06</span><span class="toc-title">API Client &amp; Resilience Layer</span></a>
+      <a href="#sec-7" class="toc-item"><span class="toc-num">07</span><span class="toc-title">Real-Time Streaming</span></a>
+      <a href="#sec-8" class="toc-item"><span class="toc-num">08</span><span class="toc-title">State Management</span></a>
+      <a href="#sec-9" class="toc-item"><span class="toc-num">09</span><span class="toc-title">Security Architecture</span></a>
+      <a href="#sec-10" class="toc-item"><span class="toc-num">10</span><span class="toc-title">Offline Resilience &amp; Caching</span></a>
+      <a href="#sec-11" class="toc-item"><span class="toc-num">11</span><span class="toc-title">Platform Integrations &amp; OAuth</span></a>
+      <a href="#sec-12" class="toc-item"><span class="toc-num">12</span><span class="toc-title">Voice Interface</span></a>
+      <a href="#sec-13" class="toc-item"><span class="toc-num">13</span><span class="toc-title">Agent Templates &amp; Configuration</span></a>
+      <a href="#sec-14" class="toc-item"><span class="toc-num">14</span><span class="toc-title">Observability &amp; Diagnostics</span></a>
+      <a href="#sec-15" class="toc-item"><span class="toc-num">15</span><span class="toc-title">Testing Strategy</span></a>
+      <a href="#sec-16" class="toc-item"><span class="toc-num">16</span><span class="toc-title">Build &amp; Distribution</span></a>
+      <a href="#sec-17" class="toc-item"><span class="toc-num">17</span><span class="toc-title">Future Architecture</span></a>
+      <a href="#sec-18" class="toc-item"><span class="toc-num">18</span><span class="toc-title">Conclusion</span></a>
+    </div>
+  </nav>
+
+
+  <!-- ═══════════════════════════════════════════════════════
+       SECTION 1: INTRODUCTION
+       ═══════════════════════════════════════════════════════ -->
+  <section class="section" id="sec-1">
+    <div class="section-num">01</div>
+    <h2 class="section-title">Introduction</h2>
+    <hr class="section-rule">
+
+    <div class="subsection">
+      <h3 class="subsection-title">1.1 Problem Statement</h3>
+      <p>Modern customer service operations require autonomous AI agents that can handle complex workflows &mdash; processing returns, managing orders, triaging tickets &mdash; with minimal human oversight. While cloud dashboards serve this need for browser-based access, operators managing critical agent fleets require a dedicated desktop application that provides:</p>
+      <ul>
+        <li>Native system integration (tray agents, desktop notifications, keyboard shortcuts)</li>
+        <li>Real-time streaming visibility into agent reasoning and tool usage</li>
+        <li>Offline-tolerant operation for unreliable network environments</li>
+        <li>Secure local credential storage via OS-level encryption</li>
+        <li>Background agent monitoring without a browser tab</li>
+        <li>Voice-based agent interaction via speech-to-text and text-to-speech</li>
+        <li>Reusable agent templates for rapid deployment across brands</li>
+      </ul>
+    </div>
+
+    <div class="subsection">
+      <h3 class="subsection-title">1.2 Design Goals</h3>
+      <p>StateSet Desktop was designed around five core principles:</p>
+      <ol class="principle-list">
+        <li><strong>Resilience over availability</strong> &mdash; The application must degrade gracefully. Circuit breakers, request deduplication, retry with backoff, and offline caching ensure the operator experience survives transient API failures.</li>
+        <li><strong>Security by default</strong> &mdash; Context isolation, sandboxed renderers, CSP enforcement, and OS-level credential encryption are non-negotiable. No raw IPC channels are exposed.</li>
+        <li><strong>Operator efficiency</strong> &mdash; Command palette navigation, comprehensive keyboard shortcuts, optimistic mutations, and background agent monitoring minimize time-to-action.</li>
+        <li><strong>Observable systems</strong> &mdash; Structured logging, request metrics with percentile tracking, circuit breaker state visibility, and audit trails make the system introspectable.</li>
+        <li><strong>Cross-platform fidelity</strong> &mdash; A single codebase produces native-quality experiences on macOS (Intel &amp; Apple Silicon), Windows, and Linux.</li>
+      </ol>
+    </div>
+
+    <div class="subsection">
+      <h3 class="subsection-title">1.3 Technology Summary</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Layer</th><th>Technology</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Runtime</td><td>Electron 35 (Chromium + Node.js)</td></tr>
+            <tr><td>UI Framework</td><td>React 18 + TypeScript 5.3</td></tr>
+            <tr><td>Build System</td><td>Vite 6.4 + electron-builder 26</td></tr>
+            <tr><td>State Management</td><td>Zustand 4.4 (client) + React Query 5 (server)</td></tr>
+            <tr><td>Styling</td><td>Tailwind CSS 3.4 + CSS Custom Properties</td></tr>
+            <tr><td>Validation</td><td>Zod 4.3 (runtime schema enforcement)</td></tr>
+            <tr><td>Animation</td><td>Framer Motion 10</td></tr>
+            <tr><td>Voice</td><td>ElevenLabs (STT/TTS)</td></tr>
+            <tr><td>Error Tracking</td><td>Sentry (main + renderer processes)</td></tr>
+            <tr><td>Testing</td><td>Vitest 4 (unit) + Playwright 1.58 (E2E)</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="subsection">
+      <h3 class="subsection-title">1.4 Codebase Metrics</h3>
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="stat-value">~37.5<span class="unit">K</span></div>
+          <div class="stat-label">TypeScript LOC</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">12</div>
+          <div class="stat-label">Pages</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">8</div>
+          <div class="stat-label">Feature Modules</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">48</div>
+          <div class="stat-label">Shared Components</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">27</div>
+          <div class="stat-label">Custom Hooks</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">78</div>
+          <div class="stat-label">Test Files</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ═══════════════════════════════════════════════════════
+       SECTION 2: SYSTEM ARCHITECTURE
+       ═══════════════════════════════════════════════════════ -->
+  <section class="section" id="sec-2">
+    <div class="section-num">02</div>
+    <h2 class="section-title">System Architecture</h2>
+    <hr class="section-rule">
+
+    <div class="subsection">
+      <h3 class="subsection-title">2.1 High-Level Topology</h3>
+      <div class="diagram"><span class="accent">┌────────────────────────────────────────────────────────────────┐</span>
+<span class="accent">│</span>                     <span class="gold">StateSet Desktop</span>                           <span class="accent">│</span>
+<span class="accent">│</span>                                                                <span class="accent">│</span>
+<span class="accent">│</span>  ┌──────────────────┐     IPC      ┌────────────────────────┐  <span class="accent">│</span>
+<span class="accent">│</span>  │  <span class="gold">Main Process</span>    │◄────────────►│  <span class="gold">Renderer Process</span>      │  <span class="accent">│</span>
+<span class="accent">│</span>  │  (Node.js)       │  (validated)  │  (Chromium Sandbox)    │  <span class="accent">│</span>
+<span class="accent">│</span>  │                  │              │                        │  <span class="accent">│</span>
+<span class="accent">│</span>  │  - Window mgmt   │              │  ┌──────────────────┐  │  <span class="accent">│</span>
+<span class="accent">│</span>  │  - System tray   │              │  │  <span class="gold">React App</span>       │  │  <span class="accent">│</span>
+<span class="accent">│</span>  │  - Auto-updater  │              │  │  - Pages/Routes  │  │  <span class="accent">│</span>
+<span class="accent">│</span>  │  - OAuth servers │              │  │  - Zustand Stores│  │  <span class="accent">│</span>
+<span class="accent">│</span>  │  - Secure store  │              │  │  - React Query   │  │  <span class="accent">│</span>
+<span class="accent">│</span>  │  - CSP headers   │              │  │  - SSE Streaming │  │  <span class="accent">│</span>
+<span class="accent">│</span>  │  - Notifications │              │  │  - Voice (STT/TTS│  │  <span class="accent">│</span>
+<span class="accent">│</span>  └──────────────────┘              │  └──────────────────┘  │  <span class="accent">│</span>
+<span class="accent">│</span>                                              │                 <span class="accent">│</span>
+<span class="accent">└──────────────────────────────────────────────┼─────────────────┘</span>
+                                               │
+                              HTTPS + SSE      │
+                                               ▼
+                               <span class="accent">┌───────────────────────────┐</span>
+                               <span class="accent">│</span>  <span class="gold">StateSet Engine API</span>      <span class="accent">│</span>
+                               <span class="accent">│</span>  engine.stateset.cloud    <span class="accent">│</span>
+                               <span class="accent">│</span>                           <span class="accent">│</span>
+                               <span class="accent">│</span>  - Agent orchestration    <span class="accent">│</span>
+                               <span class="accent">│</span>  - Session management     <span class="accent">│</span>
+                               <span class="accent">│</span>  - SSE event streaming    <span class="accent">│</span>
+                               <span class="accent">│</span>  - Webhook delivery       <span class="accent">│</span>
+                               <span class="accent">│</span>  - OAuth token exchange   <span class="accent">│</span>
+                               <span class="accent">└───────────┬───────────────┘</span>
+                                           │
+                          ┌────────────────┼────────────────┐
+                          ▼                ▼                ▼
+                   ┌──────────┐    ┌──────────┐    ┌──────────┐
+                   │ <span class="dim">Shopify</span>  │    │ <span class="dim">Gorgias</span>  │    │ <span class="dim">Zendesk</span>  │
+                   └──────────┘    └──────────┘    └──────────┘</div>
+    </div>
+
+    <div class="subsection">
+      <h3 class="subsection-title">2.2 Process Isolation Model</h3>
+      <p>Electron enforces strict process separation:</p>
+      <ul class="def-list">
+        <li><span class="def-term">Main Process</span> &mdash; Privileged Node.js process managing windows, system tray, auto-updates, OAuth HTTP servers, and encrypted credential storage. No direct renderer access.</li>
+        <li><span class="def-term">Preload Script</span> &mdash; A narrow bridge exposing 30+ typed IPC methods via <code>contextBridge.exposeInMainWorld()</code>. Every method maps to a validated <code>ipcRenderer.invoke()</code> call.</li>
+        <li><span class="def-term">Renderer Process</span> &mdash; Sandboxed Chromium instance running the React application. No Node.js APIs, no <code>require()</code>, no filesystem access. All system interactions route through the preload bridge.</li>
+      </ul>
+    </div>
+
+    <div class="subsection">
+      <h3 class="subsection-title">2.3 Directory Organization</h3>
+      <p>The codebase follows a feature-based modular structure:</p>
+      <div class="two-col">
+        <div>
+          <h4 class="sub-subsection-title">Electron Layer</h4>
+          <pre><code><span class="keyword">electron/</span>
+├── main.ts              <span class="comment"># 1,359 lines</span>
+├── preload.ts           <span class="comment"># 30+ IPC methods</span>
+├── url-security.ts      <span class="comment"># Navigation guards</span>
+├── sanitization.ts      <span class="comment"># Sentry redaction</span>
+└── <span class="keyword">oauth/</span>
+    ├── shopify.ts
+    ├── gorgias.ts
+    ├── zendesk.ts
+    └── utils.ts</code></pre>
+        </div>
+        <div>
+          <h4 class="sub-subsection-title">React Renderer</h4>
+          <pre><code><span class="keyword">src/</span>
+├── pages/          <span class="comment"># 12 routes</span>
+├── features/       <span class="comment"># 8 feature modules</span>
+├── components/     <span class="comment"># 48 shared</span>
+├── hooks/          <span class="comment"># 27 custom hooks</span>
+├── stores/         <span class="comment"># 6 Zustand stores</span>
+├── lib/            <span class="comment"># Core utilities</span>
+│   └── voice/      <span class="comment"># ElevenLabs</span>
+├── config/         <span class="comment"># Centralized config</span>
+└── types/          <span class="comment"># TypeScript types</span></code></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ═══════════════════════════════════════════════════════
+       SECTION 3: ELECTRON MAIN PROCESS
+       ═══════════════════════════════════════════════════════ -->
+  <section class="section" id="sec-3">
+    <div class="section-num">03</div>
+    <h2 class="section-title">Electron Main Process</h2>
+    <hr class="section-rule">
+
+    <div class="subsection">
+      <h3 class="subsection-title">3.1 Window Lifecycle</h3>
+      <p>The main window is created with hardened defaults:</p>
+      <pre><code>{
+  <span class="property">contextIsolation</span>: <span class="keyword">true</span>,    <span class="comment">// Strict renderer isolation</span>
+  <span class="property">sandbox</span>: <span class="keyword">true</span>,             <span class="comment">// OS-level sandboxing</span>
+  <span class="property">nodeIntegration</span>: <span class="keyword">false</span>,    <span class="comment">// No Node.js in renderer</span>
+  <span class="property">webSecurity</span>: <span class="keyword">true</span>,         <span class="comment">// Enforce same-origin</span>
+  <span class="property">devTools</span>: !isProduction    <span class="comment">// Disabled in release builds</span>
+}</code></pre>
+      <p>Window dimensions default to 1400&times;900 with a minimum of 1000&times;700. On macOS, the title bar is hidden with custom traffic light positioning for a native feel. The window is shown only after the <code>ready-to-show</code> event to prevent visual flash.</p>
+    </div>
+
+    <div class="subsection">
+      <h3 class="subsection-title">3.2 Navigation Guards</h3>
+      <p>All navigation events are intercepted and validated:</p>
+      <ul>
+        <li><strong><code>will-navigate</code></strong> &mdash; Only allows navigation to the renderer origin (<code>file://</code> or <code>localhost</code> dev server). All other URLs are blocked.</li>
+        <li><strong><code>will-redirect</code></strong> &mdash; Same validation applied to server-initiated redirects.</li>
+        <li><strong>Window open handler</strong> &mdash; External HTTPS links matching the URL allowlist open in the system browser via <code>shell.openExternal()</code>. Everything else is denied.</li>
+        <li><strong>Webview prevention</strong> &mdash; The <code>web-contents-created</code> handler blocks <code>&lt;webview&gt;</code> tag attachment entirely.</li>
+      </ul>
+    </div>
+
+    <div class="subsection">
+      <h3 class="subsection-title">3.3 System Tray Integration</h3>
+      <p>A persistent system tray icon provides always-available agent status:</p>
+      <ul>
+        <li>Context menu with Open, Agent Status, Check for Updates, and Quit actions</li>
+        <li>Dynamic tooltip reflecting running agent count (e.g., &ldquo;2 agents running&rdquo;)</li>
+        <li>Double-click restores the main window</li>
+        <li>Configurable minimize-to-tray behavior with a one-time instructional notification</li>
+        <li>Agent status updates received from the renderer via IPC</li>
+      </ul>
+    </div>
+
+    <div class="subsection">
+      <h3 class="subsection-title">3.4 Auto-Update Pipeline</h3>
+      <p>Updates are managed via <code>electron-updater</code> with GitHub Releases as the provider:</p>
+      <div class="pipeline">
+        <div class="pipeline-step"><div class="pipeline-step-num">01</div><div class="pipeline-step-label">Idle</div></div>
+        <div class="pipeline-step"><div class="pipeline-step-num">02</div><div class="pipeline-step-label">Checking</div></div>
+        <div class="pipeline-step"><div class="pipeline-step-num">03</div><div class="pipeline-step-label">Available</div></div>
+        <div class="pipeline-step"><div class="pipeline-step-num">04</div><div class="pipeline-step-label">Downloading</div></div>
+        <div class="pipeline-step"><div class="pipeline-step-num">05</div><div class="pipeline-step-label">Ready</div></div>
+        <div class="pipeline-step"><div class="pipeline-step-num">06</div><div class="pipeline-step-label">Installed</div></div>
+      </div>
+      <p>The updater checks on startup (after a 5-second delay) and then hourly. Updates auto-install on application quit. Desktop notifications alert the operator when an update is available or ready. The updater is disabled during E2E tests, in development, and on Linux without AppImage.</p>
+    </div>
+
+    <div class="subsection">
+      <h3 class="subsection-title">3.5 IPC Handler Architecture</h3>
+      <p>The main process registers 22 validated IPC handlers organized by domain:</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Domain</th><th>Handlers</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>Store</strong></td><td><code>get</code>, <code>set</code>, <code>delete</code> (22-key allowlist)</td></tr>
+            <tr><td><strong>OAuth</strong></td><td>Shopify, Gorgias, Zendesk authorization flows</td></tr>
+            <tr><td><strong>Auth</strong></td><td><code>setApiKey</code>, <code>getApiKey</code>, <code>hasApiKey</code>, <code>clearApiKey</code></td></tr>
+            <tr><td><strong>Secrets</strong></td><td>Secure credential storage via <code>safeStorage</code></td></tr>
+            <tr><td><strong>Window</strong></td><td>Minimize, maximize, close, full-screen</td></tr>
+            <tr><td><strong>Notifications</strong></td><td>System notification dispatch</td></tr>
+            <tr><td><strong>App</strong></td><td>Version, platform info, dev tools</td></tr>
+            <tr><td><strong>Background</strong></td><td>Agent status reporting to tray</td></tr>
+            <tr><td><strong>Updates</strong></td><td>Check, download, install triggers</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>All store operations validate keys against a static allowlist. API key inputs are capped at 4,096 characters. Secret values are limited to 10MB with serialization verification.</p>
+    </div>
+  </section>
+
+
+  <!-- ═══════════════════════════════════════════════════════
+       SECTION 4: RENDERER APPLICATION
+       ═══════════════════════════════════════════════════════ -->
+  <section class="section" id="sec-4">
+    <div class="section-num">04</div>
+    <h2 class="section-title">Renderer Application</h2>
+    <hr class="section-rule">
+
+    <div class="subsection">
+      <h3 class="subsection-title">4.1 Routing &amp; Page Structure</h3>
+      <p>The application uses React Router v6 with lazy-loaded page components:</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Route</th><th>Component</th><th>Purpose</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>/</code></td><td>Dashboard</td><td>Agent session list, stats, bulk operations</td></tr>
+            <tr><td><code>/agent/:sessionId</code></td><td>AgentConsole</td><td>Real-time streaming agent interaction</td></tr>
+            <tr><td><code>/playground</code></td><td>ChatPlayground</td><td>Interactive agent chat testing</td></tr>
+            <tr><td><code>/voice</code></td><td>Voice</td><td>Voice agent interface (ElevenLabs STT/TTS)</td></tr>
+            <tr><td><code>/analytics</code></td><td>Analytics</td><td>Usage metrics and performance charts</td></tr>
+            <tr><td><code>/connections</code></td><td>Connections</td><td>Platform OAuth integrations and MCP servers</td></tr>
+            <tr><td><code>/templates</code></td><td>Templates</td><td>Reusable agent configuration templates</td></tr>
+            <tr><td><code>/webhooks</code></td><td>Webhooks</td><td>Webhook endpoint management</td></tr>
+            <tr><td><code>/settings</code></td><td>Settings</td><td>Application preferences (7 subsections)</td></tr>
+            <tr><td><code>/audit-log</code></td><td>AuditLog</td><td>System activity trail</td></tr>
+            <tr><td><code>/login</code></td><td>Login</td><td>API key authentication</td></tr>
+            <tr><td><code>/register</code></td><td>Register</td><td>Account registration</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>All pages are wrapped in a <code>ProtectedRoute</code> guard that validates authentication before rendering. A <code>Suspense</code> boundary with a <code>PageLoader</code> fallback handles chunk loading.</p>
+    </div>
+
+    <div class="subsection">
+      <h3 class="subsection-title">4.2 Layout Architecture</h3>
+      <ul>
+        <li><strong>Sidebar</strong> (264px) &mdash; Logo, brand selector dropdown, 9 navigation items with Lucide icons, user section with logout and version display, Electron-native drag region</li>
+        <li><strong>Top Bar</strong> &mdash; Workspace name, page title, API health indicator, notification bell with unread count, theme toggle, command palette trigger</li>
+        <li><strong>Content Area</strong> &mdash; Scrollable page content with animated route transitions via Framer Motion</li>
+      </ul>
+    </div>
+
+    <div class="subsection">
+      <h3 class="subsection-title">4.3 Command Palette</h3>
+      <p>A global command palette (<code>Cmd/Ctrl+K</code>) provides instant access to:</p>
+      <ul>
+        <li>Page navigation (all routes searchable)</li>
+        <li>Active agent sessions (searchable by name/ID)</li>
+        <li>Quick actions (create agent, refresh data, toggle theme)</li>
+      </ul>
+      <p>The palette uses fuzzy matching, keyboard arrow navigation, and renders in a modal overlay.</p>
+    </div>
+
+    <div class="subsection">
+      <h3 class="subsection-title">4.4 Theming System</h3>
+      <p>The theming system uses CSS custom properties controlled by <code>data-*</code> attributes on the document root. Six accent colors and two base themes produce 12 visual combinations. The <code>data-reduce-motion</code> attribute respects accessibility preferences by collapsing all transitions.</p>
+
+      <div class="callout callout-gold">
+        <div class="callout-label">Implementation Note</div>
+        <p>Tailwind utilities reference brand colors via CSS variable indirection (<code>text-brand-500</code>, <code>bg-brand-600</code>), using <code>color-mix()</code> for opacity modifiers since <code>@apply</code> with CSS variable-based color opacity fails in Tailwind.</p>
+      </div>
+    </div>
+
+    <div class="subsection">
+      <h3 class="subsection-title">4.5 Accessibility</h3>
+      <ul>
+        <li><strong>Semantic HTML</strong> &mdash; Proper use of <code>&lt;nav&gt;</code>, <code>&lt;main&gt;</code>, <code>&lt;aside&gt;</code>, ARIA roles and labels</li>
+        <li><strong>Skip link</strong> &mdash; &ldquo;Skip to content&rdquo; link for keyboard users</li>
+        <li><strong>Focus management</strong> &mdash; <code>useFocusTrap()</code> for modals, <code>useAutoFocus()</code> for form fields</li>
+        <li><strong>Keyboard navigation</strong> &mdash; Full list navigation with arrow keys, Home/End, multi-select via Shift/Ctrl</li>
+        <li><strong>Screen reader support</strong> &mdash; ARIA attributes on all interactive elements</li>
+        <li><strong>Reduced motion</strong> &mdash; Respects <code>prefers-reduced-motion</code> and user preference</li>
+        <li><strong>E2E testing</strong> &mdash; Dedicated Playwright accessibility suite using axe-core</li>
+      </ul>
+    </div>
+
+    <div class="subsection">
+      <h3 class="subsection-title">4.6 Keyboard Shortcuts</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Shortcut</th><th>Action</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>Cmd/Ctrl+K</code></td><td>Open command palette</td></tr>
+            <tr><td><code>Cmd/Ctrl+F</code></td><td>Search messages (Agent Console)</td></tr>
+            <tr><td><code>Cmd/Ctrl+E</code></td><td>Export conversation</td></tr>
+            <tr><td><code>Cmd/Ctrl+Shift+L</code></td><td>Toggle logs panel</td></tr>
+            <tr><td><code>Escape</code></td><td>Close modals, dismiss search</td></tr>
+            <tr><td>Arrow keys</td><td>Navigate lists, command palette</td></tr>
+            <tr><td><code>Enter/Space</code></td><td>Activate selected item</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ═══════════════════════════════════════════════════════
+       SECTION 5: DATA MODEL & TYPE SYSTEM
+       ═══════════════════════════════════════════════════════ -->
+  <section class="section" id="sec-5">
+    <div class="section-num">05</div>
+    <h2 class="section-title">Data Model &amp; Type System</h2>
+    <hr class="section-rule">
+
+    <div class="subsection">
+      <h3 class="subsection-title">5.1 Core Domain Types</h3>
+      <p>The application is built around a strongly-typed domain model defined in <code>src/types/index.ts</code>:</p>
+
+      <h4 class="sub-subsection-title">Agent Session</h4>
+      <pre><code><span class="keyword">interface</span> <span class="type">AgentSession</span> {
+  <span class="property">id</span>: <span class="type">string</span>;
+  <span class="property">tenant_id</span>: <span class="type">string</span>;
+  <span class="property">brand_id</span>: <span class="type">string</span>;
+  <span class="property">agent_type</span>: <span class="type">string</span>;
+  <span class="property">name</span>?: <span class="type">string</span> | <span class="keyword">null</span>;
+  <span class="property">tags</span>?: <span class="type">string</span>[] | <span class="keyword">null</span>;
+  <span class="property">status</span>: <span class="type">AgentSessionStatus</span>;
+  <span class="comment">// starting | running | paused | stopping | stopped | failed</span>
+  <span class="property">config</span>: <span class="type">AgentSessionConfig</span>;
+  <span class="property">metrics</span>: <span class="type">AgentSessionMetrics</span>;
+  <span class="property">created_at</span>: <span class="type">string</span>;
+  <span class="property">updated_at</span>: <span class="type">string</span>;
+}</code></pre>
+
+      <h4 class="sub-subsection-title">Agent Configuration</h4>
+      <pre><code><span class="keyword">interface</span> <span class="type">AgentSessionConfig</span> {
+  <span class="property">loop_interval_ms</span>: <span class="type">number</span>;       <span class="comment">// &le;100ms = manual mode</span>
+  <span class="property">max_iterations</span>: <span class="type">number</span>;         <span class="comment">// Safety cap on loop count</span>
+  <span class="property">iteration_timeout_secs</span>: <span class="type">number</span>; <span class="comment">// Per-iteration timeout</span>
+  <span class="property">pause_on_error</span>: <span class="type">boolean</span>;        <span class="comment">// Auto-pause on failure</span>
+  <span class="property">custom_instructions</span>?: <span class="type">string</span>;   <span class="comment">// Operator system prompt</span>
+  <span class="property">mcp_servers</span>: <span class="type">string</span>[] | <span class="keyword">null</span>;  <span class="comment">// Model Context Protocol</span>
+  <span class="property">model</span>: <span class="type">string</span>;                  <span class="comment">// LLM model identifier</span>
+  <span class="property">temperature</span>: <span class="type">number</span>;            <span class="comment">// Sampling temperature</span>
+}</code></pre>
+    </div>
+
+    <div class="subsection">
+      <h3 class="subsection-title">5.2 Multi-Tenant Hierarchy</h3>
+      <div class="diagram"><span class="gold">Tenant</span> (organization)
+  └── <span class="accent">Brand</span> (customer-facing entity)
+        ├── Agent Sessions (running AI agents)
+        ├── Platform Connections (Shopify, Gorgias, Zendesk, ...)
+        └── Webhooks (event subscriptions)</div>
+      <p>Each tenant contains one or more brands. Brands isolate agent sessions, platform credentials, and webhook configurations. Operators switch brands via a sidebar dropdown, and the selection is persisted to preferences.</p>
+    </div>
+
+    <div class="subsection">
+      <h3 class="subsection-title">5.3 Event Types (SSE)</h3>
+      <p>The streaming protocol defines nine event types:</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Event</th><th>Key Fields</th><th>Purpose</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>status_changed</code></td><td>status, message</td><td>Agent state transitions</td></tr>
+            <tr><td><code>thinking</code></td><td>content</td><td>Agent reasoning visibility</td></tr>
+            <tr><td><code>message</code></td><td>id, role, content</td><td>User/assistant messages</td></tr>
+            <tr><td><code>tool_call</code></td><td>id, tool_name, arguments</td><td>Tool invocation</td></tr>
+            <tr><td><code>tool_result</code></td><td>tool_call_id, result, success</td><td>Tool execution output</td></tr>
+            <tr><td><code>log</code></td><td>level, message, metadata</td><td>Operational logging</td></tr>
+            <tr><td><code>error</code></td><td>code, message, recoverable</td><td>Error reporting</td></tr>
+            <tr><td><code>metrics</code></td><td>loop_count, tokens_used</td><td>Performance counters</td></tr>
+            <tr><td><code>heartbeat</code></td><td>timestamp</td><td>Connection keepalive</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="subsection">
+      <h3 class="subsection-title">5.4 Schema Validation</h3>
+      <p>All API responses are validated at the boundary using Zod schemas (<code>src/lib/schemas.ts</code>) before entering the application. Schemas use <code>.passthrough()</code> for forward compatibility &mdash; unknown fields from newer API versions are preserved, not rejected.</p>
+
+      <div class="callout">
+        <div class="callout-label">Design Decision</div>
+        <p>Built-in transforms handle data normalization (e.g., computing webhook delivery <code>success</code> from <code>response_status</code>, stringifying nested payloads). The <code>unwrapDataEnvelope()</code> utility normalizes the engine's <code>{ok, data: T}</code> wrapper format.</p>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ═══════════════════════════════════════════════════════
+       SECTION 6: API CLIENT & RESILIENCE
+       ═══════════════════════════════════════════════════════ -->
+  <section class="section" id="sec-6">
+    <div class="section-num">06</div>
+    <h2 class="section-title">API Client &amp; Resilience Layer</h2>
+    <hr class="section-rule">
+
+    <div class="pull-quote">
+      <p>A four-layer defense &mdash; deduplication, retry, circuit breaker, offline cache &mdash; ensures operators maintain visibility even during API degradation.</p>
+    </div>
+
+    <div class="subsection">
+      <h3 class="subsection-title">6.1 Request Pipeline</h3>
+      <div class="diagram">Caller → <span class="gold">apiRequest&lt;T&gt;()</span>
+           │
+           ├─ <span class="accent">Request Deduplication</span> (GET only, 100ms TTL)
+           │    └─ Cache hit? Return shared Promise
+           │
+           ├─ <span class="accent">Circuit Breaker Gate</span>
+           │    └─ OPEN? Reject immediately
+           │
+           ├─ <span class="accent">Auth Header Construction</span>
+           │    └─ Try ApiKey → Bearer → X-API-Key formats
+           │
+           ├─ <span class="accent">Retry Loop</span> (up to 3 attempts)
+           │    ├─ fetch() with AbortController timeout (15s)
+           │    ├─ Exponential backoff: 1s × 2^attempt + jitter (25%)
+           │    ├─ Re-check circuit breaker before retry
+           │    └─ Only retry on: 429, 500, 502, 503, 504
+           │
+           ├─ <span class="accent">Circuit Breaker Update</span>
+           │    └─ onSuccess() or onFailure()
+           │
+           ├─ <span class="accent">Zod Schema Validation</span>
+           │    └─ validateResponse(schema, data)
+           │
+           └─ <span class="accent">Metrics Recording</span>
+                └─ Status, duration, retries, cache hit</div>
+    </div>
+
+    <div class="subsection">
+      <h3 class="subsection-title">6.2 Configuration</h3>
+      <pre><code><span class="keyword">const</span> <span class="type">API_CONFIG</span> = {
+  <span class="property">baseUrl</span>: <span class="string">'https://engine.stateset.cloud.stateset.app'</span>,
+  <span class="property">timeout</span>: <span class="number">15000</span>,
+  <span class="property">maxRetries</span>: <span class="number">3</span>,
+  <span class="property">retryableStatusCodes</span>: [<span class="number">429</span>, <span class="number">500</span>, <span class="number">502</span>, <span class="number">503</span>, <span class="number">504</span>],
+  <span class="property">circuitBreaker</span>: {
+    <span class="property">maxFailures</span>: <span class="number">5</span>,
+    <span class="property">halfOpenTimeout</span>: <span class="number">30000</span>,
+    <span class="property">resetTimeout</span>: <span class="number">60000</span>,
+  },
+  <span class="property">stream</span>: {
+    <span class="property">maxEvents</span>: <span class="number">500</span>,
+    <span class="property">maxMessages</span>: <span class="number">500</span>,
+    <span class="property">maxReconnectAttempts</span>: <span class="number">12</span>,
+    <span class="property">reconnectBaseDelay</span>: <span class="number">1000</span>,
+    <span class="property">reconnectMaxDelay</span>: <span class="number">30000</span>,
+  },
+};</code></pre>
+    </div>
+
+    <div class="subsection">
+      <h3 class="subsection-title">6.3 Circuit Breaker</h3>
+      <div class="diagram">         <span class="gold">5 consecutive failures</span>
+<span class="accent">CLOSED</span> ──────────────────────────► <span class="accent">OPEN</span>
+  ▲                                  │
+  │ <span class="gold">2 successes</span>                      │ <span class="dim">30s timeout</span>
+  │                                  ▼
+  └──────────────── <span class="accent">HALF_OPEN</span> ◄──────┘
+                       │
+                   <span class="gold">any failure</span>
+                       │
+                       └──────────► <span class="accent">OPEN</span></div>
+      <p>Configuration: 5 failures to open, 30-second half-open timeout, 60-second failure count reset. State changes are observable via callbacks for UI integration (the <code>ApiHealthIndicator</code> component renders a colored dot reflecting circuit state).</p>
+    </div>
+
+    <div class="subsection">
+      <h3 class="subsection-title">6.4 Request Deduplication</h3>
+      <p>Concurrent identical GET requests share a single in-flight promise. The deduplicator uses a <code>method:path:params</code> cache key with a 100ms TTL and a maximum of 100 entries. This prevents redundant network calls during rapid component remounting or React Query background refetches.</p>
+    </div>
+
+    <div class="subsection">
+      <h3 class="subsection-title">6.5 Fallback Endpoint Resolution</h3>
+      <p>For API endpoints undergoing versioning or path migration, the client supports multi-path fallback. Each path is attempted in order; the first successful response is used. This provides forward compatibility during API evolution.</p>
+      <pre><code><span class="keyword">fetchWithFallbackPaths</span>([
+  <span class="string">`/api/v1/tenants/${tenant}/brands/${brand}/agents`</span>,
+  <span class="string">`/api/v1/tenants/${tenant}/agents`</span>,
+  <span class="string">`/api/v1/agents`</span>,
+]);</code></pre>
+    </div>
+
+    <div class="subsection">
+      <h3 class="subsection-title">6.6 Auth Header Strategy</h3>
+      <p>The API client supports multiple authentication header formats:</p>
+      <ol>
+        <li><strong>ApiKey</strong> &mdash; <code>Authorization: ApiKey &lt;key&gt;</code> (primary)</li>
+        <li><strong>Bearer</strong> &mdash; <code>Authorization: Bearer &lt;key&gt;</code> (fallback)</li>
+        <li><strong>X-API-Key</strong> &mdash; Custom header (legacy support)</li>
+      </ol>
+    </div>
+  </section>
+
+
+  <!-- ═══════════════════════════════════════════════════════
+       SECTION 7: REAL-TIME STREAMING
+       ═══════════════════════════════════════════════════════ -->
+  <section class="section" id="sec-7">
+    <div class="section-num">07</div>
+    <h2 class="section-title">Real-Time Streaming</h2>
+    <hr class="section-rule">
+
+    <div class="subsection">
+      <h3 class="subsection-title">7.1 SSE Architecture</h3>
+      <p>Agent sessions emit real-time events via Server-Sent Events. The <code>useAgentStream()</code> hook manages the full lifecycle:</p>
+      <div class="diagram">Agent Console mounts
+  │
+  ├─ <span class="accent">useAgentStream(sessionId)</span> initializes
+  │    ├─ Selects auth method (stream token → API key header → query param)
+  │    ├─ Opens EventSource to /api/v1/.../agents/:id/stream
+  │    └─ Registers event handlers for all 9 event types
+  │
+  ├─ <span class="gold">Events arrive</span>
+  │    ├─ Parsed → deduplicated by event ID
+  │    ├─ Status changes → update session status
+  │    ├─ Messages → append to message list (capped at 500)
+  │    ├─ Metrics → update counters (loop_count, tokens, cost)
+  │    ├─ Tool calls/results → render in message timeline
+  │    └─ Heartbeats → reset connection timeout
+  │
+  ├─ <span class="gold">Connection lost</span>
+  │    ├─ Exponential backoff: 1s × 2^attempt + 25% jitter
+  │    ├─ Max 12 reconnection attempts
+  │    └─ Immediate reconnect on navigator.onLine change
+  │
+  └─ Agent Console unmounts → close EventSource, clear timers</div>
+    </div>
+
+    <div class="subsection">
+      <h3 class="subsection-title">7.2 Connection Management</h3>
+      <ul>
+        <li><strong>Auth cascade</strong> &mdash; Tries stream token, then API key header, then API key query parameter</li>
+        <li><strong>Exponential backoff</strong> &mdash; 1s base, 2&times; multiplier, 30s ceiling, 25% jitter</li>
+        <li><strong>Max reconnects</strong> &mdash; 12 attempts before giving up</li>
+        <li><strong>Online detection</strong> &mdash; Triggers immediate reconnect on <code>navigator.onLine</code> change</li>
+        <li><strong>Buffer management</strong> &mdash; Events capped at 500, messages at 500 to bound memory</li>
+        <li><strong>Typing indicator</strong> &mdash; Auto-cleared after 30 seconds of inactivity</li>
+        <li><strong>Deduplication</strong> &mdash; Events deduplicated by ID to handle reconnection replays</li>
+      </ul>
+    </div>
+
+    <div class="subsection">
+      <h3 class="subsection-title">7.3 Manual vs. Autonomous Mode</h3>
+      <div class="two-col">
+        <div>
+          <h4 class="sub-subsection-title">Autonomous Mode</h4>
+          <p><code>loop_interval_ms &gt; 100</code> &mdash; Agent iterates automatically at the configured interval. The console displays a continuous stream of events.</p>
+        </div>
+        <div>
+          <h4 class="sub-subsection-title">Manual Mode</h4>
+          <p><code>loop_interval_ms &le; 100</code> &mdash; Agent pauses after each iteration, waiting for operator input. The operator drives the conversation turn-by-turn.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="subsection">
+      <h3 class="subsection-title">7.4 Agent Console UI</h3>
+      <ul>
+        <li><strong>Message stream</strong> &mdash; Scrollable message list with auto-scroll (500px threshold) and manual scroll lock</li>
+        <li><strong>Message search</strong> &mdash; <code>Cmd/Ctrl+F</code> to search within the message history</li>
+        <li><strong>Tool call visualization</strong> &mdash; Expandable tool call/result pairs with syntax highlighting</li>
+        <li><strong>Metrics panel</strong> &mdash; Live counters for tokens, tool calls, loop iterations, cost, and uptime</li>
+        <li><strong>Configuration modal</strong> &mdash; Runtime agent parameter adjustment</li>
+        <li><strong>Agent toolbar</strong> &mdash; Status badge, start/pause/stop controls, export, clone, log replay</li>
+        <li><strong>Approval dialog</strong> &mdash; Human-in-the-loop approval for sensitive agent actions</li>
+      </ul>
+    </div>
+  </section>
+
+
+  <!-- ═══════════════════════════════════════════════════════
+       SECTION 8: STATE MANAGEMENT
+       ═══════════════════════════════════════════════════════ -->
+  <section class="section" id="sec-8">
+    <div class="section-num">08</div>
+    <h2 class="section-title">State Management</h2>
+    <hr class="section-rule">
+
+    <div class="subsection">
+      <h3 class="subsection-title">8.1 Dual-Layer Architecture</h3>
+      <div class="two-col">
+        <div>
+          <h4 class="sub-subsection-title">Server State (React Query)</h4>
+          <ul>
+            <li>Agent sessions, brands, webhooks, connections, analytics</li>
+            <li>Automatic background refetch on window focus</li>
+            <li>Configurable polling intervals (5s default for sessions)</li>
+            <li>Cache invalidation tied to mutations</li>
+            <li>Query key factory ensures consistent cache addressing</li>
+          </ul>
+        </div>
+        <div>
+          <h4 class="sub-subsection-title">Client State (Zustand)</h4>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Store</th><th>Persistence</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code>auth.ts</code></td><td>OS keychain</td></tr>
+                <tr><td><code>preferences.ts</code></td><td>electron-store</td></tr>
+                <tr><td><code>ui.ts</code></td><td>In-memory</td></tr>
+                <tr><td><code>notifications.ts</code></td><td>electron-store</td></tr>
+                <tr><td><code>auditLog.ts</code></td><td>electron-store</td></tr>
+                <tr><td><code>templates.ts</code></td><td>electron-store</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="subsection">
+      <h3 class="subsection-title">8.3 Optimistic Mutations</h3>
+      <p>Session lifecycle operations use optimistic updates for immediate UI feedback:</p>
+      <div class="pipeline">
+        <div class="pipeline-step"><div class="pipeline-step-num">01</div><div class="pipeline-step-label">Cancel pending queries</div></div>
+        <div class="pipeline-step"><div class="pipeline-step-num">02</div><div class="pipeline-step-label">Snapshot cache</div></div>
+        <div class="pipeline-step"><div class="pipeline-step-num">03</div><div class="pipeline-step-label">Apply optimistic update</div></div>
+        <div class="pipeline-step"><div class="pipeline-step-num">04</div><div class="pipeline-step-label">Execute mutation</div></div>
+        <div class="pipeline-step"><div class="pipeline-step-num">05</div><div class="pipeline-step-label">Invalidate or rollback</div></div>
+      </div>
+      <p>This pattern is encapsulated in the <code>useOptimisticSessionMutation()</code> hook, which handles cancellation, snapshot, rollback, and cache invalidation as a single unit.</p>
+    </div>
+
+    <div class="subsection">
+      <h3 class="subsection-title">8.4 Persistence Strategy</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Store</th><th>Backend</th><th>Encryption</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>API keys</td><td>Electron <code>safeStorage</code></td><td>OS keychain (Keychain/Credential Manager)</td></tr>
+            <tr><td>Preferences</td><td><code>electron-store</code></td><td>Optional (AES with env key)</td></tr>
+            <tr><td>Audit log</td><td><code>electron-store</code></td><td>Optional</td></tr>
+            <tr><td>Custom templates</td><td><code>electron-store</code></td><td>Optional</td></tr>
+            <tr><td>Offline cache</td><td>IndexedDB</td><td>None (non-sensitive data)</td></tr>
+            <tr><td>Chat history</td><td>LocalStorage</td><td>None</td></tr>
+            <tr><td>Voice settings</td><td>LocalStorage</td><td>None</td></tr>
+            <tr><td>Session UI state</td><td>In-memory</td><td>N/A</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ═══════════════════════════════════════════════════════
+       SECTION 9: SECURITY ARCHITECTURE
+       ═══════════════════════════════════════════════════════ -->
+  <section class="section" id="sec-9">
+    <div class="section-num">09</div>
+    <h2 class="section-title">Security Architecture</h2>
+    <hr class="section-rule">
+
+    <div class="pull-quote">
+      <p>Process isolation, CSP enforcement, IPC allowlisting, and OS-level credential encryption establish a zero-trust boundary between the network and the operator.</p>
+    </div>
+
+    <div class="subsection">
+      <h3 class="subsection-title">9.1 Defense in Depth</h3>
+
+      <h4 class="sub-subsection-title">Process Level</h4>
+      <ul>
+        <li>Context isolation between main and renderer</li>
+        <li>Sandboxed renderer with no Node.js access</li>
+        <li>Single-instance lock prevents duplicate processes</li>
+      </ul>
+
+      <h4 class="sub-subsection-title">Network Level</h4>
+      <ul>
+        <li>Content Security Policy restricting script, connect, and frame sources</li>
+        <li>Security headers: <code>X-Frame-Options: DENY</code>, <code>X-Content-Type-Options: nosniff</code>, <code>Referrer-Policy: strict-origin-when-cross-origin</code></li>
+        <li>URL allowlist for external navigation</li>
+        <li>Protocol blocking: <code>javascript:</code>, <code>data:</code>, <code>vbscript:</code>, <code>blob:</code> all denied</li>
+      </ul>
+
+      <h4 class="sub-subsection-title">IPC Level</h4>
+      <ul>
+        <li>No raw <code>ipcRenderer</code> exposed to renderer</li>
+        <li>All IPC methods are explicitly typed in the preload bridge</li>
+        <li>Store key allowlist prevents arbitrary data access</li>
+        <li>Input validation: string length limits, integer bounds checking, serialization verification</li>
+      </ul>
+
+      <h4 class="sub-subsection-title">Credential Level</h4>
+      <ul>
+        <li>API keys encrypted via OS <code>safeStorage</code> API</li>
+        <li>Migration path from legacy unencrypted storage</li>
+        <li>CSRF tokens (random 16-byte hex) for OAuth flows</li>
+        <li>Timing-safe HMAC comparison for Shopify webhooks</li>
+      </ul>
+
+      <h4 class="sub-subsection-title">Data Level</h4>
+      <ul>
+        <li>Sentry events sanitized before transmission &mdash; redacts API keys, tokens, JWTs, emails, AWS credentials</li>
+        <li>Multi-pass redaction with intermediate placeholders prevents partial exposure</li>
+        <li>Audit log records all significant operator actions</li>
+      </ul>
+    </div>
+
+    <div class="subsection">
+      <h3 class="subsection-title">9.3 Content Security Policy</h3>
+      <pre><code><span class="property">default-src</span> <span class="string">'self'</span>;
+<span class="property">script-src</span> <span class="string">'self'</span>;
+<span class="property">style-src</span> <span class="string">'self'</span> https://fonts.googleapis.com <span class="string">'unsafe-inline'</span>;
+<span class="property">font-src</span> <span class="string">'self'</span> https://fonts.gstatic.com data:;
+<span class="property">connect-src</span> <span class="string">'self'</span> &lt;configured-api-hosts&gt; wss://api.elevenlabs.io;
+<span class="property">media-src</span> <span class="string">'self'</span> blob: data: https:;
+<span class="property">object-src</span> <span class="string">'none'</span>;
+<span class="property">frame-ancestors</span> <span class="string">'none'</span>;
+<span class="property">base-uri</span> <span class="string">'none'</span>;
+<span class="property">form-action</span> <span class="string">'self'</span>;
+<span class="property">upgrade-insecure-requests</span>;</code></pre>
+      <div class="callout callout-gold">
+        <div class="callout-label">Pragmatic Concession</div>
+        <p><code>unsafe-inline</code> for styles is required for Tailwind CSS compatibility, mitigated by the absence of user-generated style content.</p>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ═══════════════════════════════════════════════════════
+       SECTION 10: OFFLINE RESILIENCE & CACHING
+       ═══════════════════════════════════════════════════════ -->
+  <section class="section" id="sec-10">
+    <div class="section-num">10</div>
+    <h2 class="section-title">Offline Resilience &amp; Caching</h2>
+    <hr class="section-rule">
+
+    <div class="subsection">
+      <h3 class="subsection-title">10.1 Offline Cache (IndexedDB)</h3>
+      <p>The application maintains an IndexedDB cache for critical entity types: sessions, brands, connections, and auth context. Each cache entry carries a TTL.</p>
+      <div class="diagram">Query fires → Network available?
+  ├─ <span class="accent">Yes</span> → Fetch from API, cache result
+  └─ <span class="gold">No</span>  → Return cached data, show offline banner</div>
+    </div>
+
+    <div class="subsection">
+      <h3 class="subsection-title">10.2 Auth Resilience</h3>
+      <ol>
+        <li>Attempt to validate stored API key against <code>/api/v1/auth/me</code></li>
+        <li>If network error &rarr; Accept cached credentials and allow offline operation</li>
+        <li>If 401/403 &rarr; Clear stored key, redirect to login</li>
+        <li>If 5xx &rarr; Accept provided auth data as fallback</li>
+      </ol>
+    </div>
+
+    <div class="subsection">
+      <h3 class="subsection-title">10.3 Health Monitoring</h3>
+      <p>The <code>useOnlineStatus()</code> hook provides multi-dimensional health assessment:</p>
+      <ul>
+        <li><strong>Connectivity</strong> &mdash; <code>navigator.onLine</code> + periodic health endpoint checks</li>
+        <li><strong>API reachability</strong> &mdash; Latency measurement against <code>/health</code></li>
+        <li><strong>Component health</strong> &mdash; Database, NATS, Redis status from detailed health endpoint</li>
+        <li><strong>Circuit breaker state</strong> &mdash; Both server-side and client-side circuit states</li>
+        <li><strong>Retry logic</strong> &mdash; Exponential backoff for health checks (30s base, 2min ceiling)</li>
+      </ul>
+    </div>
+  </section>
+
+
+  <!-- ═══════════════════════════════════════════════════════
+       SECTION 11: PLATFORM INTEGRATIONS & OAUTH
+       ═══════════════════════════════════════════════════════ -->
+  <section class="section" id="sec-11">
+    <div class="section-num">11</div>
+    <h2 class="section-title">Platform Integrations &amp; OAuth</h2>
+    <hr class="section-rule">
+
+    <div class="subsection">
+      <h3 class="subsection-title">11.1 Supported Platforms</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Platform</th><th>Auth Method</th><th>Key Capabilities</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>Shopify</strong></td><td>OAuth 2.0</td><td>Orders, customers, products, fulfillments</td></tr>
+            <tr><td><strong>Gorgias</strong></td><td>OAuth 2.0</td><td>Tickets, customers, account info</td></tr>
+            <tr><td><strong>Zendesk</strong></td><td>OAuth 2.0</td><td>Tickets, users, read/write access</td></tr>
+            <tr><td><strong>Recharge</strong></td><td>API Key</td><td>Subscription management</td></tr>
+            <tr><td><strong>Klaviyo</strong></td><td>API Key</td><td>Email/SMS marketing automation</td></tr>
+            <tr><td><strong>Make</strong></td><td>API Key</td><td>Workflow automation</td></tr>
+            <tr><td><strong>N8N</strong></td><td>API Key</td><td>Workflow automation</td></tr>
+            <tr><td><strong>Zapier</strong></td><td>API Key</td><td>Integration automation</td></tr>
+            <tr><td><strong>Custom MCP</strong></td><td>Manual</td><td>Arbitrary Model Context Protocol servers</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="subsection">
+      <h3 class="subsection-title">11.2 OAuth 2.0 Flow</h3>
+      <div class="pipeline">
+        <div class="pipeline-step"><div class="pipeline-step-num">01</div><div class="pipeline-step-label">Start local HTTP server</div></div>
+        <div class="pipeline-step"><div class="pipeline-step-num">02</div><div class="pipeline-step-label">Generate CSRF token</div></div>
+        <div class="pipeline-step"><div class="pipeline-step-num">03</div><div class="pipeline-step-label">Open OAuth window</div></div>
+        <div class="pipeline-step"><div class="pipeline-step-num">04</div><div class="pipeline-step-label">User authorizes</div></div>
+        <div class="pipeline-step"><div class="pipeline-step-num">05</div><div class="pipeline-step-label">Validate &amp; exchange code</div></div>
+        <div class="pipeline-step"><div class="pipeline-step-num">06</div><div class="pipeline-step-label">Encrypt &amp; store token</div></div>
+      </div>
+
+      <div class="callout">
+        <div class="callout-label">Security Measures</div>
+        <p>State parameter validation prevents CSRF attacks. Authorization code length capped at 2,048 characters. Domain validation for provider subdomains. Timing-safe HMAC-SHA256 verification for Shopify callbacks. 5-minute timeout on OAuth windows. Client credentials auto-cleared in production.</p>
+      </div>
+    </div>
+
+    <div class="subsection">
+      <h3 class="subsection-title">11.3 Credential Storage Modes</h3>
+      <div class="two-col">
+        <div>
+          <h4 class="sub-subsection-title">Local</h4>
+          <p>Encrypted via <code>safeStorage</code> on the operator's machine. Credentials never leave the device.</p>
+        </div>
+        <div>
+          <h4 class="sub-subsection-title">Vault</h4>
+          <p>Stored server-side via the StateSet Engine API's secrets endpoint. Enables credential sharing across multiple desktop instances.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ═══════════════════════════════════════════════════════
+       SECTION 12: VOICE INTERFACE
+       ═══════════════════════════════════════════════════════ -->
+  <section class="section" id="sec-12">
+    <div class="section-num">12</div>
+    <h2 class="section-title">Voice Interface</h2>
+    <hr class="section-rule">
+
+    <div class="subsection">
+      <h3 class="subsection-title">12.1 Architecture</h3>
+      <div class="diagram">Operator speaks → <span class="accent">Browser MediaRecorder API</span>
+  → Audio blob → <span class="gold">ElevenLabs STT API</span>
+  → Transcription text → <span class="accent">StateSet Engine API</span> (agent chat)
+  → Agent response text → <span class="gold">ElevenLabs TTS API</span>
+  → Audio playback → <span class="accent">Browser Audio API</span></div>
+    </div>
+
+    <div class="subsection">
+      <h3 class="subsection-title">12.2&ndash;12.3 Speech Pipeline</h3>
+      <div class="two-col">
+        <div>
+          <h4 class="sub-subsection-title">Speech-to-Text</h4>
+          <ul>
+            <li>ElevenLabs STT API with configurable model selection</li>
+            <li>Browser <code>MediaRecorder</code> for audio capture</li>
+            <li>Visual recording indicator with waveform animation</li>
+            <li>Auto-send transcription on recording stop</li>
+          </ul>
+        </div>
+        <div>
+          <h4 class="sub-subsection-title">Text-to-Speech</h4>
+          <ul>
+            <li>ElevenLabs TTS API with configurable voice selection</li>
+            <li>Auto-speak toggle for hands-free operation</li>
+            <li>Barge-in support &mdash; interrupt by starting a new recording</li>
+            <li>Voice settings persisted to LocalStorage</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="subsection">
+      <h3 class="subsection-title">12.4 Conversation Focus</h3>
+      <div class="three-col">
+        <div class="callout callout-gold" style="margin: 0;">
+          <div class="callout-label">Support</div>
+          <p>Customer service, ticket triage, escalation</p>
+        </div>
+        <div class="callout callout-gold" style="margin: 0;">
+          <div class="callout-label">Operations</div>
+          <p>Order management, inventory, fulfillment</p>
+        </div>
+        <div class="callout callout-gold" style="margin: 0;">
+          <div class="callout-label">Growth</div>
+          <p>Marketing, retention, customer engagement</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="subsection">
+      <h3 class="subsection-title">12.5&ndash;12.6 Response Controls</h3>
+      <p>Operators can control response verbosity across three levels: <strong>Concise</strong> (brief, actionable), <strong>Balanced</strong> (standard detail), and <strong>Detailed</strong> (comprehensive analysis). The voice interface maintains the last 40 messages in memory, providing context continuity without unbounded memory growth.</p>
+    </div>
+  </section>
+
+
+  <!-- ═══════════════════════════════════════════════════════
+       SECTION 13: AGENT TEMPLATES & CONFIGURATION
+       ═══════════════════════════════════════════════════════ -->
+  <section class="section" id="sec-13">
+    <div class="section-num">13</div>
+    <h2 class="section-title">Agent Templates &amp; Configuration</h2>
+    <hr class="section-rule">
+
+    <div class="subsection">
+      <h3 class="subsection-title">13.1 Template System</h3>
+      <pre><code><span class="keyword">interface</span> <span class="type">AgentTemplate</span> {
+  <span class="property">id</span>: <span class="type">string</span>;
+  <span class="property">name</span>: <span class="type">string</span>;
+  <span class="property">description</span>: <span class="type">string</span>;
+  <span class="property">icon</span>: <span class="type">string</span>;
+  <span class="property">color</span>: <span class="type">string</span>;
+  <span class="property">category</span>: <span class="string">'general'</span> | <span class="string">'support'</span> | <span class="string">'commerce'</span> | <span class="string">'automation'</span> | <span class="string">'custom'</span>;
+  <span class="property">agentType</span>: <span class="type">string</span>;
+  <span class="property">config</span>: <span class="type">Partial</span>&lt;<span class="type">AgentSessionConfig</span>&gt;;
+  <span class="property">isCustom</span>?: <span class="type">boolean</span>;
+}</code></pre>
+    </div>
+
+    <div class="subsection">
+      <h3 class="subsection-title">13.2 Built-in Templates</h3>
+      <div class="three-col">
+        <div class="callout" style="margin: 0;">
+          <div class="callout-label">Customer Support Agent</div>
+          <p>Ticket triage, response drafting, escalation routing</p>
+        </div>
+        <div class="callout" style="margin: 0;">
+          <div class="callout-label">E-commerce Agent</div>
+          <p>Order lookup, return processing, inventory queries</p>
+        </div>
+        <div class="callout" style="margin: 0;">
+          <div class="callout-label">Automation Agent</div>
+          <p>Workflow execution, data synchronization, webhook handling</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="subsection">
+      <h3 class="subsection-title">13.4 Agent Creation Flow</h3>
+      <div class="diagram"><span class="accent">Dashboard</span> → "New Agent" button → <span class="gold">CreateAgentDialog</span>
+  ├─ Select template (or start from scratch)
+  ├─ Configure: name, model, temperature, instructions
+  ├─ Optional: attach MCP servers
+  ├─ Optional: set sandbox API key for isolated execution
+  └─ Submit → POST /api/v1/.../agents → New session created</div>
+    </div>
+  </section>
+
+
+  <!-- ═══════════════════════════════════════════════════════
+       SECTION 14: OBSERVABILITY & DIAGNOSTICS
+       ═══════════════════════════════════════════════════════ -->
+  <section class="section" id="sec-14">
+    <div class="section-num">14</div>
+    <h2 class="section-title">Observability &amp; Diagnostics</h2>
+    <hr class="section-rule">
+
+    <div class="subsection">
+      <h3 class="subsection-title">14.1 Structured Logging</h3>
+      <ul>
+        <li><strong>JSON output</strong> in production, human-readable format in development</li>
+        <li><strong>Session correlation</strong> &mdash; Unique session ID in all log entries</li>
+        <li><strong>Scoped loggers</strong> &mdash; <code>apiLogger</code>, <code>authLogger</code>, <code>agentLogger</code></li>
+        <li><strong>Sensitive data masking</strong> &mdash; API keys, tokens, passwords redacted</li>
+        <li><strong>Performance timing</strong> &mdash; <code>log.time()</code> for measuring async operations</li>
+        <li><strong>Buffer</strong> &mdash; Last 1,000 entries retained for export and debugging</li>
+      </ul>
+    </div>
+
+    <div class="subsection">
+      <h3 class="subsection-title">14.2 Request Metrics</h3>
+      <p>The metrics module maintains a rolling window of the last 500 API calls and computes:</p>
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="stat-value">p50</div>
+          <div class="stat-label">Latency Percentile</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">p95</div>
+          <div class="stat-label">Latency Percentile</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">p99</div>
+          <div class="stat-label">Latency Percentile</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">%</div>
+          <div class="stat-label">Error Rate</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">%</div>
+          <div class="stat-label">Cache Hit Rate</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">#</div>
+          <div class="stat-label">Circuit Breaker Trips</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="subsection">
+      <h3 class="subsection-title">14.3 Analytics Dashboard</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Metric Card</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Total Agents</td><td>Count of all agent sessions</td></tr>
+            <tr><td>Running Agents</td><td>Currently active sessions</td></tr>
+            <tr><td>Total Tokens</td><td>Aggregate token consumption</td></tr>
+            <tr><td>Total Tool Calls</td><td>Aggregate tool invocations</td></tr>
+            <tr><td>Total Loops</td><td>Aggregate iteration count</td></tr>
+            <tr><td>Total Errors</td><td>Aggregate error count</td></tr>
+            <tr><td>Avg Tokens/Agent</td><td>Mean token usage per session</td></tr>
+            <tr><td>Avg Tool Calls/Agent</td><td>Mean tool calls per session</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="subsection">
+      <h3 class="subsection-title">14.6 Error Classification</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Category</th><th>Retryable</th><th>Suggested Action</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>NETWORK</code></td><td>Yes</td><td>&ldquo;Try Again&rdquo;</td></tr>
+            <tr><td><code>SERVER</code></td><td>Yes</td><td>&ldquo;Try Again&rdquo;</td></tr>
+            <tr><td><code>RATE_LIMIT</code></td><td>Yes</td><td>&ldquo;Try Again&rdquo; (after delay)</td></tr>
+            <tr><td><code>AUTH</code></td><td>No</td><td>&ldquo;Log In&rdquo;</td></tr>
+            <tr><td><code>VALIDATION</code></td><td>No</td><td>&ldquo;Dismiss&rdquo;</td></tr>
+            <tr><td><code>CLIENT</code></td><td>No</td><td>&ldquo;Dismiss&rdquo;</td></tr>
+            <tr><td><code>UNKNOWN</code></td><td>No</td><td>&ldquo;Contact Support&rdquo;</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ═══════════════════════════════════════════════════════
+       SECTION 15: TESTING STRATEGY
+       ═══════════════════════════════════════════════════════ -->
+  <section class="section" id="sec-15">
+    <div class="section-num">15</div>
+    <h2 class="section-title">Testing Strategy</h2>
+    <hr class="section-rule">
+
+    <div class="subsection">
+      <h3 class="subsection-title">15.1 Test Pyramid</h3>
+      <div class="diagram">              ┌─────────┐
+              │  <span class="gold">E2E</span>    │  Playwright (4 projects)
+              │  Tests  │  - Electron lifecycle
+             ┌┴─────────┴┐ - Visual regression
+             │ <span class="accent">Integration</span> │ - Accessibility (axe-core)
+             │   Tests     │ - Cross-feature flows
+            ┌┴─────────────┴┐
+            │  <span class="accent">Component</span>     │  Vitest + Testing Library
+            │    Tests       │  - 78 test files
+           ┌┴────────────────┴┐ - happy-dom environment
+           │   <span class="accent">Unit Tests</span>      │ - API, stores, hooks, utilities
+           └───────────────────┘</div>
+    </div>
+
+    <div class="subsection">
+      <h3 class="subsection-title">15.2 Unit &amp; Component Testing</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Layer</th><th>Files</th><th>Scope</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Libraries</td><td>21</td><td>API client, schemas, circuit breaker, metrics, cache, errors</td></tr>
+            <tr><td>Components</td><td>15</td><td>Modal, Button, Dropdown, Pagination, ErrorBoundary</td></tr>
+            <tr><td>Pages</td><td>11</td><td>Login, Dashboard, AgentConsole, Settings, Analytics</td></tr>
+            <tr><td>Hooks</td><td>10</td><td>useErrorHandler, useOptimisticSessionMutation, useAgentStream</td></tr>
+            <tr><td>Stores</td><td>6</td><td>auth, preferences, notifications, auditLog, ui, templates</td></tr>
+            <tr><td>Features</td><td>8</td><td>agent-console, webhooks, chat-playground, connections</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="subsection">
+      <h3 class="subsection-title">15.3 End-to-End Testing</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Project</th><th>Purpose</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>electron</code></td><td>App lifecycle, IPC communication, window management</td></tr>
+            <tr><td><code>visual</code></td><td>Screenshot comparison with 2% diff tolerance</td></tr>
+            <tr><td><code>accessibility</code></td><td>WCAG compliance via axe-core</td></tr>
+            <tr><td><code>integration</code></td><td>Cross-feature user flows</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="subsection">
+      <h3 class="subsection-title">15.4 Code Quality Gates</h3>
+      <ul>
+        <li><strong>ESLint</strong> &mdash; Zero-warning policy with TypeScript and React hooks rules</li>
+        <li><strong>Prettier</strong> &mdash; Consistent formatting (single quotes, trailing commas, 100-char width)</li>
+        <li><strong>TypeScript</strong> &mdash; Strict mode with <code>noEmit</code> type checking</li>
+        <li><strong>Pre-commit hooks</strong> &mdash; Husky + lint-staged runs ESLint fix and Prettier on staged files</li>
+        <li><strong>CI pipeline</strong> &mdash; Lint &rarr; Typecheck &rarr; Unit tests &rarr; E2E &rarr; Build (all must pass)</li>
+      </ul>
+    </div>
+  </section>
+
+
+  <!-- ═══════════════════════════════════════════════════════
+       SECTION 16: BUILD & DISTRIBUTION
+       ═══════════════════════════════════════════════════════ -->
+  <section class="section" id="sec-16">
+    <div class="section-num">16</div>
+    <h2 class="section-title">Build &amp; Distribution</h2>
+    <hr class="section-rule">
+
+    <div class="subsection">
+      <h3 class="subsection-title">16.1 Build Pipeline</h3>
+      <div class="pipeline">
+        <div class="pipeline-step"><div class="pipeline-step-num">01</div><div class="pipeline-step-label">Test (Lint, Types, Unit)</div></div>
+        <div class="pipeline-step"><div class="pipeline-step-num">02</div><div class="pipeline-step-label">E2E (xvfb)</div></div>
+        <div class="pipeline-step"><div class="pipeline-step-num">03</div><div class="pipeline-step-label">Build (macOS, Win, Linux)</div></div>
+        <div class="pipeline-step"><div class="pipeline-step-num">04</div><div class="pipeline-step-label">Release (GitHub)</div></div>
+      </div>
+    </div>
+
+    <div class="subsection">
+      <h3 class="subsection-title">16.2 Platform Artifacts</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Platform</th><th>Formats</th><th>Code Signing</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>macOS (Intel + Apple Silicon)</td><td>DMG, ZIP</td><td>Hardened runtime, team signing</td></tr>
+            <tr><td>Windows (x64, arm64)</td><td>NSIS installer, portable</td><td>SHA-256 certificate</td></tr>
+            <tr><td>Linux (x64)</td><td>AppImage, .deb</td><td>N/A</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="subsection">
+      <h3 class="subsection-title">16.4 Vite Code Splitting</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Chunk</th><th>Contents</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>react-vendor</code></td><td>React, React DOM, React Router</td></tr>
+            <tr><td><code>ui-vendor</code></td><td>Framer Motion, Lucide icons</td></tr>
+            <tr><td><code>data-vendor</code></td><td>React Query, Zustand, date-fns</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="subsection">
+      <h3 class="subsection-title">16.5 Runtime Requirements</h3>
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="stat-value">&ge;22.12</div>
+          <div class="stat-label">Node.js</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">35.7.5</div>
+          <div class="stat-label">Electron</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">65</div>
+          <div class="stat-label">Runtime Deps</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">61</div>
+          <div class="stat-label">Dev Deps</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ═══════════════════════════════════════════════════════
+       SECTION 17: FUTURE ARCHITECTURE
+       ═══════════════════════════════════════════════════════ -->
+  <section class="section" id="sec-17">
+    <div class="section-num">17</div>
+    <h2 class="section-title">Future Architecture Considerations</h2>
+    <hr class="section-rule">
+
+    <p>While the current architecture is production-hardened, several areas present opportunities for further improvement as the platform scales.</p>
+
+    <div class="subsection">
+      <h3 class="subsection-title">17.1 Main-Process SSE Streaming</h3>
+      <div class="callout">
+        <div class="callout-label">Problem</div>
+        <p>The SSE streaming connection lives in the Renderer process. Chromium aggressively throttles background renderers &mdash; timers, network streams, and <code>requestAnimationFrame</code> are deprioritized when a window is hidden or minimized.</p>
+      </div>
+      <p><strong>Recommendation:</strong> Migrate the SSE connection layer to the Node.js Main Process, which is never subject to Chromium's background throttling. The main process would maintain persistent SSE connections, buffer events, and forward rate-limited updates to the renderer via IPC when active.</p>
+    </div>
+
+    <div class="subsection">
+      <h3 class="subsection-title">17.2 Custom Protocol Handler for OAuth</h3>
+      <div class="callout">
+        <div class="callout-label">Problem</div>
+        <p>OAuth flows rely on fixed local HTTP servers bound to ports 8234&ndash;8236. In enterprise environments, these ports may be blocked by corporate firewalls or VPN clients.</p>
+      </div>
+      <p><strong>Recommendation:</strong> Register a custom protocol handler via <code>app.setAsDefaultProtocolClient('stateset')</code> and use <code>stateset://oauth/callback</code> as the redirect URI. This eliminates port conflicts entirely.</p>
+    </div>
+
+    <div class="subsection">
+      <h3 class="subsection-title">17.3 Event Stream Memory Management</h3>
+      <div class="callout">
+        <div class="callout-label">Problem</div>
+        <p>The SSE event buffer is capped at 500 events. For long-running sessions, holding hundreds of deeply nested JSON objects creates GC pressure and potential UI stutter.</p>
+      </div>
+      <p><strong>Recommendation:</strong> Implement a tiered storage strategy: keep only the most recent 200 events in React state, persist the full history to IndexedDB or SQLite, and pair with virtual scrolling for on-demand rendering.</p>
+    </div>
+
+    <div class="subsection">
+      <h3 class="subsection-title">17.4 Integrated Query Persistence</h3>
+      <p><strong>Recommendation:</strong> Replace the custom IndexedDB wrapper with TanStack Query's official <code>PersistQueryClient</code> plugin backed by an IndexedDB persister. This eliminates the dual-cache layer and unifies invalidation logic.</p>
+    </div>
+
+    <div class="subsection">
+      <h3 class="subsection-title">17.5 Local AI Fallback for Offline Operation</h3>
+      <p><strong>Recommendation:</strong> Integrate a lightweight local LLM (via <code>Transformers.js</code>, Ollama, or <code>llama.cpp</code>) to enable offline capabilities: drafting customer replies, summarizing session history, or generating configuration suggestions. Actions taken offline would be queued and synced when connectivity is restored.</p>
+    </div>
+
+    <div class="subsection">
+      <h3 class="subsection-title">17.6 Multi-Operator Conflict Resolution</h3>
+      <p><strong>Recommendation:</strong> For collaborative resources, integrate a CRDT library such as Yjs or Automerge for true multiplayer editing. For simpler cases, server-side optimistic locking with version vectors (ETags) provides conflict detection.</p>
+    </div>
+
+    <div class="subsection">
+      <h3 class="subsection-title">17.7 Voice Streaming Optimization</h3>
+      <p><strong>Recommendation:</strong> Adopt WebSocket-based streaming for both STT and TTS. The STT stream can begin transcription while the operator is still speaking, and the TTS stream can begin playback as first tokens arrive &mdash; creating sub-second perceived latency.</p>
+    </div>
+  </section>
+
+
+  <!-- ═══════════════════════════════════════════════════════
+       SECTION 18: CONCLUSION
+       ═══════════════════════════════════════════════════════ -->
+  <section class="section" id="sec-18">
+    <div class="section-num">18</div>
+    <h2 class="section-title">Conclusion</h2>
+    <hr class="section-rule">
+
+    <p>StateSet Desktop demonstrates that desktop applications remain the right choice for operational tooling where reliability, security, and system integration are paramount. The architecture achieves its design goals through:</p>
+
+    <ul class="def-list">
+      <li><span class="def-term">Resilience</span> &mdash; A four-layer defense (deduplication &rarr; retry &rarr; circuit breaker &rarr; offline cache) ensures operators maintain visibility even during API degradation.</li>
+      <li><span class="def-term">Security</span> &mdash; Process isolation, CSP enforcement, IPC allowlisting, and OS-level credential encryption establish a zero-trust boundary between the network and the operator.</li>
+      <li><span class="def-term">Performance</span> &mdash; Lazy-loaded routes, virtual scrolling, request deduplication, and optimistic mutations keep the interface responsive under load.</li>
+      <li><span class="def-term">Observability</span> &mdash; Structured logging, percentile metrics, circuit breaker visibility, and audit trails make the system transparent to both operators and developers.</li>
+      <li><span class="def-term">Quality</span> &mdash; 78 test files, four E2E test projects, strict linting, and type checking enforce correctness across the codebase.</li>
+      <li><span class="def-term">Multimodal Interaction</span> &mdash; Text-based agent consoles, voice interfaces with STT/TTS, and a chat playground provide operators with multiple modalities for agent interaction.</li>
+    </ul>
+
+    <div class="pull-quote" style="margin-top: 3rem;">
+      <p>The application serves as infrastructure for autonomous agent operations &mdash; a control plane where reliability is not a feature but a requirement.</p>
+    </div>
+  </section>
+
+</main>
+
+
+<!-- ═══════════════════════════════════════════
+     FOOTER
+     ═══════════════════════════════════════════ -->
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="footer-brand">StateSet</div>
+    <div class="footer-links">
+      <a href="https://github.com/stateset/stateset-desktop">GitHub</a>
+      <a href="https://stateset.io">stateset.io</a>
+    </div>
+    <div class="footer-legal">
+      StateSet, Inc. &middot; MIT License &middot; Version 1.1.15 &middot; March 2026
+    </div>
+  </div>
+</footer>
+
+<script>
+// Reading progress bar
+const progressBar = document.getElementById('progress');
+window.addEventListener('scroll', () => {
+  const scrollTop = window.scrollY;
+  const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+  const progress = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+  progressBar.style.width = progress + '%';
+}, { passive: true });
+
+// Back to top button visibility
+const backToTop = document.getElementById('backToTop');
+window.addEventListener('scroll', () => {
+  if (window.scrollY > 600) {
+    backToTop.classList.add('visible');
+  } else {
+    backToTop.classList.remove('visible');
+  }
+}, { passive: true });
+
+// Smooth scroll for anchor links
+document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+  anchor.addEventListener('click', function (e) {
+    e.preventDefault();
+    const target = document.querySelector(this.getAttribute('href'));
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  });
+});
+</script>
+
+</body>
+</html>
