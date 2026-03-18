@@ -1,12 +1,12 @@
 # StateSet Desktop: Technical Whitepaper
 
-**Version 1.1.12 | March 2026**
+**Version 1.1.15 | March 2026**
 
 ---
 
 ## Abstract
 
-StateSet Desktop is a cross-platform Electron application that provides a native desktop interface for managing autonomous AI customer service agents. Built on a modern React/TypeScript stack with enterprise-grade resilience patterns, the application enables operators to deploy, monitor, and interact with AI agents in real time across customer support and e-commerce workflows. This paper details the system architecture, security model, data flow patterns, and engineering decisions that underpin the platform.
+StateSet Desktop is a cross-platform Electron application that provides a native desktop interface for managing autonomous AI customer service agents. Built on a modern React/TypeScript stack with enterprise-grade resilience patterns, the application enables operators to deploy, monitor, and interact with AI agents in real time across customer support and e-commerce workflows. This paper details the system architecture, security model, data flow patterns, real-time streaming infrastructure, voice interface, and engineering decisions that underpin the platform.
 
 ---
 
@@ -16,17 +16,20 @@ StateSet Desktop is a cross-platform Electron application that provides a native
 2. [System Architecture](#2-system-architecture)
 3. [Electron Main Process](#3-electron-main-process)
 4. [Renderer Application](#4-renderer-application)
-5. [API Client & Resilience Layer](#5-api-client--resilience-layer)
-6. [Real-Time Streaming](#6-real-time-streaming)
-7. [State Management](#7-state-management)
-8. [Security Architecture](#8-security-architecture)
-9. [Offline Resilience & Caching](#9-offline-resilience--caching)
-10. [Platform Integrations & OAuth](#10-platform-integrations--oauth)
-11. [Observability & Diagnostics](#11-observability--diagnostics)
-12. [Testing Strategy](#12-testing-strategy)
-13. [Build & Distribution](#13-build--distribution)
-14. [Future Architecture Considerations](#14-future-architecture-considerations)
-15. [Conclusion](#15-conclusion)
+5. [Data Model & Type System](#5-data-model--type-system)
+6. [API Client & Resilience Layer](#6-api-client--resilience-layer)
+7. [Real-Time Streaming](#7-real-time-streaming)
+8. [State Management](#8-state-management)
+9. [Security Architecture](#9-security-architecture)
+10. [Offline Resilience & Caching](#10-offline-resilience--caching)
+11. [Platform Integrations & OAuth](#11-platform-integrations--oauth)
+12. [Voice Interface](#12-voice-interface)
+13. [Agent Templates & Configuration](#13-agent-templates--configuration)
+14. [Observability & Diagnostics](#14-observability--diagnostics)
+15. [Testing Strategy](#15-testing-strategy)
+16. [Build & Distribution](#16-build--distribution)
+17. [Future Architecture Considerations](#17-future-architecture-considerations)
+18. [Conclusion](#18-conclusion)
 
 ---
 
@@ -41,6 +44,8 @@ Modern customer service operations require autonomous AI agents that can handle 
 - Offline-tolerant operation for unreliable network environments
 - Secure local credential storage via OS-level encryption
 - Background agent monitoring without a browser tab
+- Voice-based agent interaction via speech-to-text and text-to-speech
+- Reusable agent templates for rapid deployment across brands
 
 ### 1.2 Design Goals
 
@@ -67,8 +72,22 @@ StateSet Desktop was designed around five core principles:
 | Styling          | Tailwind CSS 3.4 + CSS Custom Properties      |
 | Validation       | Zod 4.3 (runtime schema enforcement)          |
 | Animation        | Framer Motion 10                              |
+| Voice            | ElevenLabs (STT/TTS)                          |
 | Error Tracking   | Sentry (main + renderer processes)            |
 | Testing          | Vitest 4 (unit) + Playwright 1.58 (E2E)       |
+
+### 1.4 Codebase Metrics
+
+| Metric               | Value                                                                                            |
+| -------------------- | ------------------------------------------------------------------------------------------------ |
+| Total TypeScript LOC | ~37,500                                                                                          |
+| Pages                | 12 (10 authenticated + login + register)                                                         |
+| Feature Modules      | 8 (agent-console, dashboard, connections, webhooks, templates, settings, chat-playground, voice) |
+| Shared Components    | 48                                                                                               |
+| Custom Hooks         | 27                                                                                               |
+| Zustand Stores       | 6                                                                                                |
+| Test Files           | 78                                                                                               |
+| E2E Test Projects    | 4                                                                                                |
 
 ---
 
@@ -90,8 +109,8 @@ StateSet Desktop was designed around five core principles:
 │  │  - OAuth servers │              │  │  - Zustand Stores│  │  │
 │  │  - Secure store  │              │  │  - React Query   │  │  │
 │  │  - CSP headers   │              │  │  - SSE Streaming │  │  │
-│  │  - Notifications │              │  └──────────────────┘  │  │
-│  └──────────────────┘              └────────────────────────┘  │
+│  │  - Notifications │              │  │  - Voice (STT/TTS│  │  │
+│  └──────────────────┘              │  └──────────────────┘  │  │
 │                                              │                 │
 └──────────────────────────────────────────────┼─────────────────┘
                                                │
@@ -106,7 +125,14 @@ StateSet Desktop was designed around five core principles:
                                │  - SSE event streaming    │
                                │  - Webhook delivery       │
                                │  - OAuth token exchange   │
-                               └───────────────────────────┘
+                               └───────────┬───────────────┘
+                                           │
+                          ┌────────────────┼────────────────┐
+                          ▼                ▼                ▼
+                   ┌──────────┐    ┌──────────┐    ┌──────────┐
+                   │ Shopify  │    │ Gorgias  │    │ Zendesk  │
+                   │ API      │    │ API      │    │ API      │
+                   └──────────┘    └──────────┘    └──────────┘
 ```
 
 ### 2.2 Process Isolation Model
@@ -122,29 +148,37 @@ Electron enforces strict process separation:
 The codebase follows a feature-based modular structure:
 
 ```
-src/
-├── pages/            # Route-level components (10 pages)
-├── features/         # Feature modules with co-located components, hooks, utils
-│   ├── agent-console/
-│   ├── dashboard/
-│   ├── connections/
-│   ├── chat-playground/
-│   ├── webhooks/
-│   ├── templates/
-│   └── settings/
-├── components/       # 48 shared UI components
-├── hooks/            # 27 shared React hooks
-├── stores/           # 6 Zustand state stores
-├── lib/              # Core utilities (API, schemas, metrics, cache, errors)
-├── config/           # Centralized configuration
-└── types/            # TypeScript type definitions
-
-electron/
-├── main.ts           # Main process (1,312 lines)
-├── preload.ts        # Secure IPC bridge
-├── url-security.ts   # URL allowlisting
-├── sanitization.ts   # Sentry data redaction
-└── oauth/            # Provider-specific OAuth flows
+stateset-desktop/
+├── electron/                 # Main process
+│   ├── main.ts              # Window/tray/auth/oauth/updates (1,359 lines)
+│   ├── preload.ts           # Secure IPC bridge (30+ methods)
+│   ├── url-security.ts      # Navigation/popup URL validation
+│   ├── sanitization.ts      # Sentry data redaction
+│   └── oauth/               # Provider-specific OAuth flows
+│       ├── shopify.ts       # Shopify OAuth + HMAC verification
+│       ├── gorgias.ts       # Gorgias OAuth
+│       ├── zendesk.ts       # Zendesk OAuth
+│       └── utils.ts         # Shared OAuth server utilities
+├── src/                      # React renderer
+│   ├── pages/               # 12 route-level components
+│   ├── features/            # 8 feature modules with co-located code
+│   │   ├── agent-console/   # SSE streaming, message rendering, metrics
+│   │   ├── dashboard/       # Session list, stats, activity timeline
+│   │   ├── connections/     # OAuth integrations, MCP server config
+│   │   ├── chat-playground/ # Interactive agent chat testing
+│   │   ├── webhooks/        # Webhook CRUD and delivery tracking
+│   │   ├── templates/       # Agent template management
+│   │   └── settings/        # 7 settings subsections
+│   ├── components/          # 48 shared UI components
+│   ├── hooks/               # 27 shared React hooks
+│   ├── stores/              # 6 Zustand state stores
+│   ├── lib/                 # Core utilities (API, schemas, metrics, cache, errors)
+│   │   └── voice/           # ElevenLabs STT/TTS integration
+│   ├── config/              # Centralized configuration
+│   └── types/               # TypeScript type definitions
+├── e2e/                      # Playwright E2E tests (4 projects)
+├── docs/                     # Architecture, API alignment, auth spec
+└── package.json             # Dependencies, scripts, build config
 ```
 
 ---
@@ -201,6 +235,24 @@ Updates are managed via `electron-updater` with GitHub Releases as the provider:
 
 The updater checks on startup (after a 5-second delay) and then hourly. Updates auto-install on application quit. Desktop notifications alert the operator when an update is available or ready. The updater is disabled during E2E tests, in development, and on Linux without AppImage.
 
+### 3.5 IPC Handler Architecture
+
+The main process registers 22 validated IPC handlers organized by domain:
+
+| Domain            | Handlers                                             |
+| ----------------- | ---------------------------------------------------- |
+| **Store**         | `get`, `set`, `delete` (22-key allowlist)            |
+| **OAuth**         | Shopify, Gorgias, Zendesk authorization flows        |
+| **Auth**          | `setApiKey`, `getApiKey`, `hasApiKey`, `clearApiKey` |
+| **Secrets**       | Secure credential storage via `safeStorage`          |
+| **Window**        | Minimize, maximize, close, full-screen               |
+| **Notifications** | System notification dispatch                         |
+| **App**           | Version, platform info, dev tools                    |
+| **Background**    | Agent status reporting to tray                       |
+| **Updates**       | Check, download, install triggers                    |
+
+All store operations validate keys against a static allowlist. API key inputs are capped at 4,096 characters. Secret values are limited to 10MB with serialization verification.
+
 ---
 
 ## 4. Renderer Application
@@ -219,7 +271,7 @@ The application uses React Router v6 with lazy-loaded page components:
 | `/connections`      | Connections    | Platform OAuth integrations and MCP servers |
 | `/templates`        | Templates      | Reusable agent configuration templates      |
 | `/webhooks`         | Webhooks       | Webhook endpoint management                 |
-| `/settings`         | Settings       | Application preferences                     |
+| `/settings`         | Settings       | Application preferences (7 subsections)     |
 | `/audit-log`        | AuditLog       | System activity trail                       |
 | `/login`            | Login          | API key authentication                      |
 | `/register`         | Register       | Account registration                        |
@@ -260,8 +312,7 @@ The theming system uses CSS custom properties controlled by `data-*` attributes 
   --brand-950: ...;
 }
 :root[data-accent='purple'] {
-  --brand-50: ...;
-  --brand-950: ...;
+  /* ... */
 }
 /* + green, amber, rose, cyan */
 :root[data-compact='true'] {
@@ -272,7 +323,7 @@ The theming system uses CSS custom properties controlled by `data-*` attributes 
 }
 ```
 
-Six accent colors and two base themes produce 12 visual combinations. The `data-reduce-motion` attribute respects accessibility preferences by collapsing all transitions. Tailwind utilities reference brand colors via CSS variable indirection (`text-brand-500`, `bg-brand-600`).
+Six accent colors and two base themes produce 12 visual combinations. The `data-reduce-motion` attribute respects accessibility preferences by collapsing all transitions. Tailwind utilities reference brand colors via CSS variable indirection (`text-brand-500`, `bg-brand-600`), using `color-mix()` for opacity modifiers since `@apply` with CSS variable-based color opacity (e.g., `bg-brand-600/20`) fails in Tailwind.
 
 ### 4.5 Accessibility
 
@@ -286,11 +337,136 @@ The application implements comprehensive accessibility support:
 - **Reduced motion** — Respects `prefers-reduced-motion` and user preference
 - **E2E testing** — Dedicated Playwright accessibility suite using axe-core
 
+### 4.6 Keyboard Shortcuts
+
+| Shortcut           | Action                          |
+| ------------------ | ------------------------------- |
+| `Cmd/Ctrl+K`       | Open command palette            |
+| `Cmd/Ctrl+F`       | Search messages (Agent Console) |
+| `Cmd/Ctrl+E`       | Export conversation             |
+| `Cmd/Ctrl+Shift+L` | Toggle logs panel               |
+| `Escape`           | Close modals, dismiss search    |
+| Arrow keys         | Navigate lists, command palette |
+| `Enter/Space`      | Activate selected item          |
+
 ---
 
-## 5. API Client & Resilience Layer
+## 5. Data Model & Type System
 
-### 5.1 Request Pipeline
+### 5.1 Core Domain Types
+
+The application is built around a strongly-typed domain model defined in `src/types/index.ts`:
+
+**Agent Session** — The primary entity representing a running AI agent:
+
+```typescript
+interface AgentSession {
+  id: string;
+  tenant_id: string;
+  brand_id: string;
+  agent_type: string;
+  name?: string | null;
+  tags?: string[] | null;
+  status: AgentSessionStatus; // starting | running | paused | stopping | stopped | failed
+  config: AgentSessionConfig;
+  metrics: AgentSessionMetrics;
+  created_at: string;
+  updated_at: string;
+  started_at?: string | null;
+  stopped_at?: string | null;
+}
+```
+
+**Agent Configuration** — Runtime parameters controlling agent behavior:
+
+```typescript
+interface AgentSessionConfig {
+  agent_type?: string;
+  loop_interval_ms: number; // Iteration frequency (≤100ms = manual mode)
+  max_iterations: number; // Safety cap on loop count
+  iteration_timeout_secs: number; // Per-iteration timeout
+  pause_on_error: boolean; // Auto-pause on failure
+  custom_instructions?: string; // Operator-defined system prompt
+  mcp_servers: string[] | null; // Model Context Protocol servers
+  model: string; // LLM model identifier
+  temperature: number; // Sampling temperature
+  sandbox_api_key?: string; // Isolated execution key
+}
+```
+
+**Session Metrics** — Real-time performance counters:
+
+```typescript
+interface AgentSessionMetrics {
+  loop_count: number;
+  tokens_used: number;
+  tool_calls: number;
+  errors: number;
+  messages_sent: number;
+  uptime_seconds: number;
+  estimated_cost_cents?: number;
+  input_tokens?: number;
+  output_tokens?: number;
+}
+```
+
+### 5.2 Multi-Tenant Hierarchy
+
+```
+Tenant (organization)
+  └── Brand (customer-facing entity)
+        ├── Agent Sessions (running AI agents)
+        ├── Platform Connections (Shopify, Gorgias, Zendesk, ...)
+        └── Webhooks (event subscriptions)
+```
+
+Each tenant contains one or more brands. Brands isolate agent sessions, platform credentials, and webhook configurations. Operators switch brands via a sidebar dropdown, and the selection is persisted to preferences.
+
+### 5.3 Event Types (SSE)
+
+The streaming protocol defines nine event types:
+
+| Event            | Key Fields                                                  | Purpose                    |
+| ---------------- | ----------------------------------------------------------- | -------------------------- |
+| `status_changed` | `status`, `message`                                         | Agent state transitions    |
+| `thinking`       | `content`                                                   | Agent reasoning visibility |
+| `message`        | `id`, `role`, `content`                                     | User/assistant messages    |
+| `tool_call`      | `id`, `tool_name`, `arguments`                              | Tool invocation            |
+| `tool_result`    | `tool_call_id`, `result`, `success`, `duration_ms`          | Tool execution output      |
+| `log`            | `level`, `message`, `metadata`                              | Operational logging        |
+| `error`          | `code`, `message`, `recoverable`                            | Error reporting            |
+| `metrics`        | `loop_count`, `tokens_used`, `tool_calls`, `uptime_seconds` | Performance counters       |
+| `heartbeat`      | `timestamp`                                                 | Connection keepalive       |
+
+### 5.4 Schema Validation
+
+All API responses are validated at the boundary using Zod schemas (`src/lib/schemas.ts`) before entering the application:
+
+```typescript
+const session = validateResponse(AgentSessionSchema, rawData);
+```
+
+Schemas use `.passthrough()` for forward compatibility — unknown fields from newer API versions are preserved, not rejected. Built-in transforms handle data normalization (e.g., computing webhook delivery `success` from `response_status`, stringifying nested payloads). The `unwrapDataEnvelope()` utility normalizes the engine's `{ok, data: T}` wrapper format.
+
+### 5.5 API Response Envelope
+
+All engine API responses follow a consistent envelope:
+
+```typescript
+interface ApiResponse<T> {
+  ok: boolean;
+  data?: T;
+  error?: string;
+}
+```
+
+The API client unwraps this envelope automatically, surfacing the inner `data` value to callers and converting `error` strings to structured error objects.
+
+---
+
+## 6. API Client & Resilience Layer
+
+### 6.1 Request Pipeline
 
 Every API call flows through a multi-stage pipeline implemented in `src/lib/api.ts`:
 
@@ -308,7 +484,7 @@ Caller → apiRequest<T>()
            │
            ├─ Retry Loop (up to 3 attempts)
            │    ├─ fetch() with AbortController timeout (15s)
-           │    ├─ Exponential backoff: 1s × 2^attempt + jitter
+           │    ├─ Exponential backoff: 1s × 2^attempt + jitter (25%)
            │    ├─ Re-check circuit breaker before retry
            │    └─ Only retry on: 429, 500, 502, 503, 504
            │
@@ -322,7 +498,32 @@ Caller → apiRequest<T>()
                 └─ Status, duration, retries, cache hit
 ```
 
-### 5.2 Circuit Breaker
+### 6.2 Configuration
+
+All API behavior is governed by a centralized configuration (`src/config/api.config.ts`):
+
+```typescript
+const API_CONFIG = {
+  baseUrl: 'https://engine.stateset.cloud.stateset.app',
+  timeout: 15000,
+  maxRetries: 3,
+  retryableStatusCodes: [429, 500, 502, 503, 504],
+  circuitBreaker: {
+    maxFailures: 5,
+    halfOpenTimeout: 30000,
+    resetTimeout: 60000,
+  },
+  stream: {
+    maxEvents: 500,
+    maxMessages: 500,
+    maxReconnectAttempts: 12,
+    reconnectBaseDelay: 1000,
+    reconnectMaxDelay: 30000,
+  },
+};
+```
+
+### 6.3 Circuit Breaker
 
 The circuit breaker protects against cascading failures from a degraded backend:
 
@@ -339,13 +540,13 @@ CLOSED ────────────────────────�
                        └──────────► OPEN
 ```
 
-Configuration: 5 failures to open, 30-second half-open timeout, 60-second failure count reset. State changes are observable via callbacks for UI integration (the `ApiHealthIndicator` component reflects circuit state).
+Configuration: 5 failures to open, 30-second half-open timeout, 60-second failure count reset. State changes are observable via callbacks for UI integration (the `ApiHealthIndicator` component renders a colored dot reflecting circuit state).
 
-### 5.3 Request Deduplication
+### 6.4 Request Deduplication
 
 Concurrent identical GET requests share a single in-flight promise. The deduplicator uses a `method:path:params` cache key with a 100ms TTL and a maximum of 100 entries. This prevents redundant network calls during rapid component remounting or React Query background refetches.
 
-### 5.4 Fallback Endpoint Resolution
+### 6.5 Fallback Endpoint Resolution
 
 For API endpoints undergoing versioning or path migration, the client supports multi-path fallback:
 
@@ -359,39 +560,49 @@ fetchWithFallbackPaths([
 
 Each path is attempted in order. The first successful response is used. This provides forward compatibility during API evolution without client-side coordination.
 
-### 5.5 Schema Validation
+### 6.6 Auth Header Strategy
 
-All API responses are validated at the boundary using Zod schemas before entering the application:
+The API client supports multiple authentication header formats to accommodate different backend configurations:
 
-```typescript
-const session = validateResponse(AgentSessionSchema, rawData);
-```
+1. **ApiKey** — `Authorization: ApiKey <key>` (primary)
+2. **Bearer** — `Authorization: Bearer <key>` (fallback)
+3. **X-API-Key** — Custom header (legacy support)
 
-Schemas use `.passthrough()` for forward compatibility — unknown fields from newer API versions are preserved, not rejected. Built-in transforms handle data normalization (e.g., computing webhook delivery `success` from `response_status`, stringifying nested payloads). The `unwrapDataEnvelope()` utility normalizes the engine's `{ok, data: T}` wrapper format.
+The format is selected based on server requirements, with the client cycling through candidates until one succeeds.
 
 ---
 
-## 6. Real-Time Streaming
+## 7. Real-Time Streaming
 
-### 6.1 SSE Architecture
+### 7.1 SSE Architecture
 
 Agent sessions emit real-time events via Server-Sent Events. The `useAgentStream()` hook manages the full lifecycle:
 
-**Event Types:**
+```
+Agent Console mounts
+  │
+  ├─ useAgentStream(sessionId) initializes
+  │    ├─ Selects auth method (stream token → API key header → query param)
+  │    ├─ Opens EventSource to /api/v1/.../agents/:id/stream
+  │    └─ Registers event handlers for all 9 event types
+  │
+  ├─ Events arrive
+  │    ├─ Parsed → deduplicated by event ID
+  │    ├─ Status changes → update session status
+  │    ├─ Messages → append to message list (capped at 500)
+  │    ├─ Metrics → update counters (loop_count, tokens, cost)
+  │    ├─ Tool calls/results → render in message timeline
+  │    └─ Heartbeats → reset connection timeout
+  │
+  ├─ Connection lost
+  │    ├─ Exponential backoff: 1s × 2^attempt + 25% jitter
+  │    ├─ Max 12 reconnection attempts
+  │    └─ Immediate reconnect on navigator.onLine change
+  │
+  └─ Agent Console unmounts → close EventSource, clear timers
+```
 
-| Event            | Payload                 | Purpose                    |
-| ---------------- | ----------------------- | -------------------------- |
-| `status_changed` | `{ status, previous }`  | Agent state transitions    |
-| `thinking`       | `{ content }`           | Agent reasoning visibility |
-| `message`        | `{ id, role, content }` | User/assistant messages    |
-| `tool_call`      | `{ name, arguments }`   | Tool invocation            |
-| `tool_result`    | `{ name, result }`      | Tool execution output      |
-| `log`            | `{ level, message }`    | Operational logging        |
-| `error`          | `{ message, code }`     | Error reporting            |
-| `metrics`        | `{ tokens, cost, ... }` | Performance counters       |
-| `heartbeat`      | `{ timestamp }`         | Connection keepalive       |
-
-### 6.2 Connection Management
+### 7.2 Connection Management
 
 The streaming client implements robust reconnection:
 
@@ -399,25 +610,39 @@ The streaming client implements robust reconnection:
 - **Exponential backoff** — 1s base, 2x multiplier, 30s ceiling, 25% jitter
 - **Max reconnects** — 12 attempts before giving up
 - **Online detection** — Triggers immediate reconnect on `navigator.onLine` change
-- **Buffer management** — Events capped at 5,000, messages at 100 to bound memory
+- **Buffer management** — Events capped at 500, messages at 500 to bound memory
 - **Typing indicator** — Auto-cleared after 30 seconds of inactivity
+- **Deduplication** — Events deduplicated by ID to handle reconnection replays
 
-### 6.3 Agent Console UI
+### 7.3 Manual vs. Autonomous Mode
+
+Agent sessions support two interaction modes based on `loop_interval_ms`:
+
+- **Autonomous mode** (`loop_interval_ms > 100`) — Agent iterates automatically at the configured interval. The console displays a continuous stream of events.
+- **Manual mode** (`loop_interval_ms ≤ 100`) — Agent pauses after each iteration, waiting for operator input. The message input shows a "Send" button, and the operator drives the conversation turn-by-turn.
+
+The threshold is defined as `MANUAL_LOOP_INTERVAL_THRESHOLD_MS = 100` in the agent console constants.
+
+### 7.4 Agent Console UI
 
 The `AgentConsole` page provides a rich interface for agent interaction:
 
-- **Message stream** — Scrollable message list with auto-scroll (120px threshold) and manual scroll lock
+- **Message stream** — Scrollable message list with auto-scroll (500px threshold) and manual scroll lock
+- **Message search** — `Cmd/Ctrl+F` to search within the message history
 - **Tool call visualization** — Expandable tool call/result pairs with syntax highlighting
 - **Metrics panel** — Live counters for tokens, tool calls, loop iterations, cost, and uptime
 - **Configuration modal** — Runtime agent parameter adjustment (model, temperature, instructions, MCP servers)
-- **Export** — Conversation export to JSON or plain text
+- **Agent toolbar** — Status badge, start/pause/stop controls, export, clone, log replay
+- **Export** — Conversation export to Markdown format
 - **Approval dialog** — Human-in-the-loop approval for sensitive agent actions
+- **Session cloning** — Duplicate an agent session with its current configuration
+- **Log replay** — IndexedDB-backed log cache for replaying past session events
 
 ---
 
-## 7. State Management
+## 8. State Management
 
-### 7.1 Dual-Layer Architecture
+### 8.1 Dual-Layer Architecture
 
 State is partitioned into two layers based on data ownership:
 
@@ -431,14 +656,36 @@ State is partitioned into two layers based on data ownership:
 
 **Client State (Zustand):**
 
-- Authentication and credentials (`auth.ts`)
-- UI preferences and theming (`preferences.ts`)
-- Command palette state (`ui.ts`)
-- Notification queue (`notifications.ts`)
-- Audit trail (`auditLog.ts`)
-- Custom templates (`templates.ts`)
+| Store              | Purpose                              | Persistence                 |
+| ------------------ | ------------------------------------ | --------------------------- |
+| `auth.ts`          | API keys, tenant, brand, auth state  | `safeStorage` (OS keychain) |
+| `preferences.ts`   | Theme, accent, compact, motion, etc. | `electron-store`            |
+| `ui.ts`            | Command palette state                | In-memory                   |
+| `notifications.ts` | Toast queue, notification inbox      | `electron-store`            |
+| `auditLog.ts`      | Operator action trail (500 cap)      | `electron-store`            |
+| `templates.ts`     | Custom agent templates               | `electron-store`            |
 
-### 7.2 Optimistic Mutations
+### 8.2 Preferences Model
+
+The preferences store exposes a comprehensive set of operator controls:
+
+```typescript
+{
+  theme: 'dark' | 'light',
+  accentColor: 'blue' | 'purple' | 'green' | 'amber' | 'rose' | 'cyan',
+  reduceMotion: boolean,
+  compactMode: boolean,
+  telemetryEnabled: boolean,
+  minimizeToTray: boolean,
+  autoStartAgentsOnLaunch: boolean,
+  desktopNotifications: boolean,
+  soundAlerts: boolean,
+  refreshInterval: 5000 | 10000 | 30000 | 60000,
+  pageSize: 10 | 25 | 50 | 100,
+}
+```
+
+### 8.3 Optimistic Mutations
 
 Session lifecycle operations (start, stop, pause, resume) use optimistic updates for immediate UI feedback:
 
@@ -453,7 +700,7 @@ Session lifecycle operations (start, stop, pause, resume) use optimistic updates
 
 This pattern is encapsulated in the `useOptimisticSessionMutation()` hook, which handles cancellation, snapshot, rollback, and cache invalidation as a single unit.
 
-### 7.3 Persistence Strategy
+### 8.4 Persistence Strategy
 
 | Store            | Backend                | Encryption                                |
 | ---------------- | ---------------------- | ----------------------------------------- |
@@ -462,15 +709,17 @@ This pattern is encapsulated in the `useOptimisticSessionMutation()` hook, which
 | Audit log        | `electron-store`       | Optional                                  |
 | Custom templates | `electron-store`       | Optional                                  |
 | Offline cache    | IndexedDB              | None (non-sensitive data)                 |
+| Chat history     | LocalStorage           | None                                      |
+| Voice settings   | LocalStorage           | None                                      |
 | Session UI state | In-memory              | N/A                                       |
 
 All Electron store operations are gated through a 22-key allowlist. Writes to unknown keys are rejected at the IPC handler level.
 
 ---
 
-## 8. Security Architecture
+## 9. Security Architecture
 
-### 8.1 Defense in Depth
+### 9.1 Defense in Depth
 
 Security is enforced at multiple layers:
 
@@ -484,7 +733,7 @@ Security is enforced at multiple layers:
 
 - Content Security Policy restricting script, connect, and frame sources
 - Security headers: `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Cross-Origin-Opener-Policy: same-origin`
-- URL allowlist for external navigation (only `*.stateset.dev`, `github.com`, configured API hosts)
+- URL allowlist for external navigation (only `*.stateset.dev`, `github.com`, `*.stateset.io`, configured API hosts)
 - Protocol blocking: `javascript:`, `data:`, `vbscript:`, `blob:` all denied
 
 **IPC Level:**
@@ -508,7 +757,7 @@ Security is enforced at multiple layers:
 - Multi-pass redaction with intermediate placeholders prevents partial exposure
 - Audit log records all significant operator actions
 
-### 8.2 Permission Model
+### 9.2 Permission Model
 
 Browser permissions are strictly controlled:
 
@@ -519,7 +768,7 @@ Browser permissions are strictly controlled:
 | `media` (audio)   | Allowed (self-origin only, no video) |
 | All others        | Denied                               |
 
-### 8.3 Content Security Policy
+### 9.3 Content Security Policy
 
 ```
 default-src 'self';
@@ -537,17 +786,22 @@ upgrade-insecure-requests;
 
 `unsafe-inline` for styles is a pragmatic concession for Tailwind CSS compatibility, mitigated by the absence of user-generated style content.
 
+### 9.4 CORS Header Injection
+
+The main process intercepts outbound API requests and injects CORS headers on responses. This allows the sandboxed renderer to communicate with the StateSet Engine API without requiring the server to handle browser CORS preflight for all endpoints. Origin validation ensures only expected hosts are whitelisted.
+
 ---
 
-## 9. Offline Resilience & Caching
+## 10. Offline Resilience & Caching
 
-### 9.1 Offline Cache (IndexedDB)
+### 10.1 Offline Cache (IndexedDB)
 
 The application maintains an IndexedDB cache (`src/lib/cache.ts`) for critical entity types:
 
 - **Sessions** — Agent session list for dashboard rendering
 - **Brands** — Brand configuration for multi-brand switching
 - **Connections** — Platform integration status
+- **Auth Context** — Cached tenant, brand, and credential data
 
 Each cache entry carries a TTL. The `useOfflineCache()` hook family provides transparent cache-then-network semantics:
 
@@ -557,7 +811,7 @@ Query fires → Network available?
   └─ No  → Return cached data, show offline banner
 ```
 
-### 9.2 Auth Resilience
+### 10.2 Auth Resilience
 
 The auth store handles network failures during initialization:
 
@@ -566,7 +820,7 @@ The auth store handles network failures during initialization:
 3. If 401/403 → Clear stored key, redirect to login
 4. If 5xx → Accept provided auth data as fallback
 
-### 9.3 Health Monitoring
+### 10.3 Health Monitoring
 
 The `useOnlineStatus()` hook provides multi-dimensional health assessment:
 
@@ -576,25 +830,31 @@ The `useOnlineStatus()` hook provides multi-dimensional health assessment:
 - **Circuit breaker state** — Both server-side and client-side circuit states
 - **Retry logic** — Exponential backoff for health checks (30s base, 2min ceiling)
 
-The `ApiHealthIndicator` component renders a colored dot reflecting the composite health state.
+The `ApiHealthIndicator` component renders a colored dot reflecting the composite health state, with tooltip details showing individual component statuses.
 
 ---
 
-## 10. Platform Integrations & OAuth
+## 11. Platform Integrations & OAuth
 
-### 10.1 Supported Platforms
+### 11.1 Supported Platforms
 
-StateSet Desktop supports OAuth-based integrations with three customer service and e-commerce platforms:
+StateSet Desktop supports integrations with 10 customer service and e-commerce platforms:
 
-| Platform    | OAuth Port | Key Capabilities                          |
-| ----------- | ---------- | ----------------------------------------- |
-| **Shopify** | 8234       | Orders, customers, products, fulfillments |
-| **Gorgias** | 8235       | Tickets, customers, account info          |
-| **Zendesk** | 8236       | Tickets, users, read/write access         |
+| Platform       | Auth Method | Key Capabilities                          |
+| -------------- | ----------- | ----------------------------------------- |
+| **Shopify**    | OAuth 2.0   | Orders, customers, products, fulfillments |
+| **Gorgias**    | OAuth 2.0   | Tickets, customers, account info          |
+| **Zendesk**    | OAuth 2.0   | Tickets, users, read/write access         |
+| **Recharge**   | API Key     | Subscription management                   |
+| **Klaviyo**    | API Key     | Email/SMS marketing automation            |
+| **Make**       | API Key     | Workflow automation                       |
+| **N8N**        | API Key     | Workflow automation                       |
+| **Zapier**     | API Key     | Integration automation                    |
+| **Custom MCP** | Manual      | Arbitrary Model Context Protocol servers  |
 
-### 10.2 OAuth Flow
+### 11.2 OAuth 2.0 Flow
 
-Each integration follows a secure OAuth 2.0 authorization code flow:
+Each OAuth integration follows a secure authorization code flow:
 
 ```
 1. User clicks "Connect" → main process starts local HTTP server on designated port
@@ -607,6 +867,14 @@ Each integration follows a secure OAuth 2.0 authorization code flow:
 8. OAuth window closes, renderer notified via IPC event
 ```
 
+**OAuth Port Assignments:**
+
+| Provider | Port |
+| -------- | ---- |
+| Shopify  | 8234 |
+| Gorgias  | 8235 |
+| Zendesk  | 8236 |
+
 **Security measures:**
 
 - State parameter validation prevents CSRF attacks
@@ -615,16 +883,133 @@ Each integration follows a secure OAuth 2.0 authorization code flow:
 - Timing-safe HMAC-SHA256 verification for Shopify callbacks
 - 5-minute timeout on the OAuth window
 - Client credentials auto-cleared from environment in production
+- Port scanning with fallback via `findAvailableOAuthPort()`
 
-### 10.3 MCP Server Support
+### 11.3 MCP Server Support
 
-Beyond OAuth integrations, the Connections page supports custom MCP (Model Context Protocol) server configuration, allowing agents to connect to arbitrary tool servers for extended capabilities.
+Beyond OAuth integrations, the Connections page supports custom MCP (Model Context Protocol) server configuration, allowing agents to connect to arbitrary tool servers for extended capabilities. MCP servers are configured per-brand and stored in the brand's `mcp_servers` array.
+
+### 11.4 Credential Storage Modes
+
+Platform credentials support two storage modes:
+
+- **Local** — Encrypted via `safeStorage` on the operator's machine. Credentials never leave the device.
+- **Vault** — Stored server-side via the StateSet Engine API's secrets endpoint. Enables credential sharing across multiple desktop instances.
 
 ---
 
-## 11. Observability & Diagnostics
+## 12. Voice Interface
 
-### 11.1 Structured Logging
+### 12.1 Architecture
+
+The Voice page (`src/pages/Voice.tsx`) provides a complete voice-based agent interaction interface built on ElevenLabs:
+
+```
+Operator speaks → Browser MediaRecorder API
+  → Audio blob → ElevenLabs STT API
+  → Transcription text → StateSet Engine API (agent chat)
+  → Agent response text → ElevenLabs TTS API
+  → Audio playback → Browser Audio API
+```
+
+### 12.2 Speech-to-Text (STT)
+
+- ElevenLabs Speech-to-Text API with configurable model selection
+- Browser `MediaRecorder` for audio capture
+- Visual recording indicator with waveform animation
+- Auto-send transcription to agent on recording stop
+
+### 12.3 Text-to-Speech (TTS)
+
+- ElevenLabs TTS API with configurable voice selection
+- Auto-speak toggle for hands-free operation
+- Barge-in support — operator can interrupt the assistant's speech by starting a new recording
+- Voice settings persisted to LocalStorage
+
+### 12.4 Conversation Focus
+
+The voice interface supports three operational focus modes that shape the agent's system prompt:
+
+| Focus          | Use Case                                    |
+| -------------- | ------------------------------------------- |
+| **Support**    | Customer service, ticket triage, escalation |
+| **Operations** | Order management, inventory, fulfillment    |
+| **Growth**     | Marketing, retention, customer engagement   |
+
+Each focus provides context-appropriate quick action prompts for rapid interaction.
+
+### 12.5 Response Depth
+
+Operators can control response verbosity:
+
+- **Concise** — Brief, actionable responses
+- **Balanced** — Standard detail level (default)
+- **Detailed** — Comprehensive analysis and explanation
+
+### 12.6 Conversation Memory
+
+The voice interface maintains the last 40 messages in memory, providing context continuity across turns without unbounded memory growth.
+
+---
+
+## 13. Agent Templates & Configuration
+
+### 13.1 Template System
+
+Agent templates provide reusable configurations for rapid deployment:
+
+```typescript
+interface AgentTemplate {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  color: string;
+  category: 'general' | 'support' | 'commerce' | 'automation' | 'custom';
+  agentType: string;
+  config: Partial<AgentSessionConfig>;
+  isCustom?: boolean;
+  createdAt?: string;
+}
+```
+
+### 13.2 Built-in Templates
+
+The application ships with pre-built templates for common use cases:
+
+- **Customer Support Agent** — Ticket triage, response drafting, escalation routing
+- **E-commerce Agent** — Order lookup, return processing, inventory queries
+- **Automation Agent** — Workflow execution, data synchronization, webhook handling
+
+### 13.3 Custom Templates
+
+Operators can create custom templates from any agent configuration:
+
+1. Configure an agent session (model, temperature, instructions, MCP servers)
+2. Save as template via the `SaveAsTemplateDialog`
+3. Template stored in the templates Zustand store, persisted to `electron-store`
+4. Available for future agent creation via the `TemplatePicker`
+
+Templates are organized by category with search and filtering support.
+
+### 13.4 Agent Creation Flow
+
+Creating a new agent session follows this flow:
+
+```
+Dashboard → "New Agent" button → CreateAgentDialog
+  ├─ Select template (or start from scratch)
+  ├─ Configure: name, model, temperature, instructions
+  ├─ Optional: attach MCP servers
+  ├─ Optional: set sandbox API key for isolated execution
+  └─ Submit → POST /api/v1/.../agents → New session created
+```
+
+---
+
+## 14. Observability & Diagnostics
+
+### 14.1 Structured Logging
 
 The logging system (`src/lib/logger.ts`) provides:
 
@@ -636,7 +1021,7 @@ The logging system (`src/lib/logger.ts`) provides:
 - **Buffer** — Last 1,000 entries retained for export and debugging
 - **Test suppression** — Logging disabled in test environment
 
-### 11.2 Request Metrics
+### 14.2 Request Metrics
 
 The metrics module (`src/lib/metrics.ts`) maintains a rolling window of the last 500 API calls and computes:
 
@@ -646,9 +1031,26 @@ The metrics module (`src/lib/metrics.ts`) maintains a rolling window of the last
 - **Total retries** — Aggregate retry count across all calls
 - **Circuit breaker trips** — Count of CLOSED→OPEN transitions
 
-These metrics feed into the Analytics page and the `MetricsPanel` component in the Agent Console.
+These metrics feed into the Analytics page (with charts for token usage over time, tool calls by agent, status distribution, and token type breakdown) and the `MetricsPanel` component in the Agent Console.
 
-### 11.3 Audit Trail
+### 14.3 Analytics Dashboard
+
+The Analytics page (`src/pages/Analytics.tsx`) provides eight key metric cards and four visualization charts:
+
+| Metric Card          | Description                  |
+| -------------------- | ---------------------------- |
+| Total Agents         | Count of all agent sessions  |
+| Running Agents       | Currently active sessions    |
+| Total Tokens         | Aggregate token consumption  |
+| Total Tool Calls     | Aggregate tool invocations   |
+| Total Loops          | Aggregate iteration count    |
+| Total Errors         | Aggregate error count        |
+| Avg Tokens/Agent     | Mean token usage per session |
+| Avg Tool Calls/Agent | Mean tool calls per session  |
+
+Charts support a configurable date range (default: last 7 days) with an agent performance summary table.
+
+### 14.4 Audit Trail
 
 The audit log store records operator actions with structured metadata:
 
@@ -658,9 +1060,9 @@ The audit log store records operator actions with structured metadata:
 - Configuration changes
 - OAuth connection events
 
-Entries are capped at 500, persisted to Electron store, and viewable in the Audit Log page with filtering and search.
+Entries are capped at 500, persisted to Electron store, and viewable in the Audit Log page with filtering, search, and pagination.
 
-### 11.4 Error Tracking
+### 14.5 Error Tracking
 
 Sentry integration spans both processes:
 
@@ -668,7 +1070,7 @@ Sentry integration spans both processes:
 - **Renderer process** — Captures React errors, API failures, and stream disconnections
 - **Sanitization** — All events pass through a multi-pattern redactor before transmission, removing API keys, tokens, JWTs, emails, and cloud credentials
 
-### 11.5 Error Classification
+### 14.6 Error Classification
 
 The error utility (`src/lib/errors.ts`) categorizes all errors into actionable types:
 
@@ -686,9 +1088,9 @@ The `useErrorHandler()` hook deduplicates error toasts (preventing repeated disp
 
 ---
 
-## 12. Testing Strategy
+## 15. Testing Strategy
 
-### 12.1 Test Pyramid
+### 15.1 Test Pyramid
 
 ```
           ┌─────────┐
@@ -705,18 +1107,26 @@ The `useErrorHandler()` hook deduplicates error toasts (preventing repeated disp
        └──────────────────-┘
 ```
 
-### 12.2 Unit & Component Testing
+### 15.2 Unit & Component Testing
 
 **Framework:** Vitest 4.0 with happy-dom (jsdom avoided due to webidl-conversions crash)
 
 **Coverage:** 78 test files across all application layers:
 
-- Libraries: 21 files (API client, schemas, circuit breaker, metrics, cache, errors)
-- Components: 15 files (Modal, Button, Dropdown, Pagination, ErrorBoundary)
-- Pages: 11 files (Login, Dashboard, AgentConsole, Settings, Analytics)
-- Hooks: 10 files (useErrorHandler, useOptimisticSessionMutation, useAgentStream)
-- Stores: 6 files (auth, preferences, notifications, auditLog, ui, templates)
-- Features: 8 files (agent-console, webhooks, chat-playground, connections)
+| Layer      | Files | Scope                                                         |
+| ---------- | ----- | ------------------------------------------------------------- |
+| Libraries  | 21    | API client, schemas, circuit breaker, metrics, cache, errors  |
+| Components | 15    | Modal, Button, Dropdown, Pagination, ErrorBoundary            |
+| Pages      | 11    | Login, Dashboard, AgentConsole, Settings, Analytics           |
+| Hooks      | 10    | useErrorHandler, useOptimisticSessionMutation, useAgentStream |
+| Stores     | 6     | auth, preferences, notifications, auditLog, ui, templates     |
+| Features   | 8     | agent-console, webhooks, chat-playground, connections         |
+
+**Test Environment:**
+
+- Component and page tests require `/** @vitest-environment happy-dom */` directive
+- Store tests (auditLog, notifications) run in node environment using `mockElectronStore()` pattern
+- Settings.tsx uses named imports for sub-components — mocks must match
 
 **Test Utilities:**
 
@@ -724,7 +1134,7 @@ The `useErrorHandler()` hook deduplicates error toasts (preventing repeated disp
 - `mockElectronAPI()` — Type-safe mock of the Electron preload bridge
 - Custom mock patterns for Zustand stores and React Query
 
-### 12.3 End-to-End Testing
+### 15.3 End-to-End Testing
 
 **Framework:** Playwright 1.58 with four test projects:
 
@@ -737,7 +1147,7 @@ The `useErrorHandler()` hook deduplicates error toasts (preventing repeated disp
 
 Configuration: 60-second test timeout, 2 retries in CI, single worker for visual consistency, video/trace capture on failure.
 
-### 12.4 Code Quality Gates
+### 15.4 Code Quality Gates
 
 - **ESLint** — Zero-warning policy with TypeScript and React hooks rules
 - **Prettier** — Consistent formatting (single quotes, trailing commas, 100-char width)
@@ -747,9 +1157,9 @@ Configuration: 60-second test timeout, 2 retries in CI, single worker for visual
 
 ---
 
-## 13. Build & Distribution
+## 16. Build & Distribution
 
-### 13.1 Build Pipeline
+### 16.1 Build Pipeline
 
 The CI/CD pipeline (GitHub Actions) executes in stages:
 
@@ -766,21 +1176,21 @@ The CI/CD pipeline (GitHub Actions) executes in stages:
                               └────────────────────┘
 ```
 
-### 13.2 Platform Artifacts
+### 16.2 Platform Artifacts
 
 | Platform                      | Formats                  | Code Signing                   |
 | ----------------------------- | ------------------------ | ------------------------------ |
 | macOS (Intel + Apple Silicon) | DMG, ZIP                 | Hardened runtime, team signing |
-| Windows (x64)                 | NSIS installer, portable | SHA-256 certificate            |
+| Windows (x64, arm64)          | NSIS installer, portable | SHA-256 certificate            |
 | Linux (x64)                   | AppImage, .deb           | N/A                            |
 
-### 13.3 Auto-Update Distribution
+### 16.3 Auto-Update Distribution
 
 - **macOS & Windows** — `electron-updater` checks GitHub Releases for `latest-mac.yml` / `latest.yml` manifests
 - **Linux** — Auto-update supported only for AppImage format
 - **Blockmap files** — Differential updates reduce download size for incremental releases
 
-### 13.4 Vite Code Splitting
+### 16.4 Vite Code Splitting
 
 The Vite build produces optimized chunks via manual splitting:
 
@@ -788,55 +1198,72 @@ The Vite build produces optimized chunks via manual splitting:
 | -------------- | ------------------------------ |
 | `react-vendor` | React, React DOM, React Router |
 | `ui-vendor`    | Framer Motion, Lucide icons    |
-| `data-vendor`  | React Query, Zustand, Zod      |
+| `data-vendor`  | React Query, Zustand, date-fns |
 
 This ensures vendor code is cached independently from application code, minimizing update payload for operators.
 
+### 16.5 Runtime Requirements
+
+| Requirement        | Value        |
+| ------------------ | ------------ |
+| Node.js            | ≥22.12.0     |
+| npm                | 10.9.3       |
+| Runtime deps       | 65           |
+| Dev deps           | 61           |
+| Electron           | 35.7.5       |
+| Chromium (bundled) | Per Electron |
+
 ---
 
-## 14. Future Architecture Considerations
+## 17. Future Architecture Considerations
 
 While the current architecture is production-hardened, several areas present opportunities for further improvement as the platform scales.
 
-### 14.1 Main-Process SSE Streaming
+### 17.1 Main-Process SSE Streaming
 
 **Problem:** The SSE streaming connection (`useAgentStream`) lives in the Renderer process. Chromium aggressively throttles background renderers — timers, network streams, and `requestAnimationFrame` are deprioritized when a window is hidden or minimized to the system tray. This directly conflicts with the goal of background agent monitoring (Section 1.1).
 
 **Recommendation:** Migrate the SSE connection layer to the Node.js Main Process, which is never subject to Chromium's background throttling. The main process would maintain persistent SSE connections, buffer events, and forward rate-limited updates to the renderer via IPC when the window is active. When the window is hidden, the main process triggers native OS notifications directly. This also enables a future where agents continue operating with full visibility even when the renderer is suspended.
 
-### 14.2 Custom Protocol Handler for OAuth
+### 17.2 Custom Protocol Handler for OAuth
 
-**Problem:** OAuth flows rely on fixed local HTTP servers bound to ports 8234–8236 (Section 10.2). In enterprise environments, these ports may be blocked by corporate firewalls, VPN clients (e.g., Zscaler), or conflict with other developer tools — causing OAuth to fail silently.
+**Problem:** OAuth flows rely on fixed local HTTP servers bound to ports 8234–8236 (Section 11.2). In enterprise environments, these ports may be blocked by corporate firewalls, VPN clients (e.g., Zscaler), or conflict with other developer tools — causing OAuth to fail silently.
 
 **Recommendation:** Register a custom protocol handler via `app.setAsDefaultProtocolClient('stateset')` and use `stateset://oauth/callback` as the redirect URI. This eliminates port conflicts entirely, avoids firewall issues, and is the canonical Electron pattern for OAuth. The local HTTP servers can be retained as a fallback for providers that do not support custom schemes.
 
-### 14.3 Event Stream Memory Management
+### 17.3 Event Stream Memory Management
 
-**Problem:** The SSE event buffer is capped at 5,000 events and 100 messages (Section 6.2). For long-running agent sessions, holding thousands of deeply nested JSON objects in the React component tree creates GC pressure and potential UI stutter during garbage collection pauses.
+**Problem:** The SSE event buffer is capped at 500 events and 500 messages (Section 7.2). For long-running agent sessions, holding hundreds of deeply nested JSON objects in the React component tree creates GC pressure and potential UI stutter during garbage collection pauses.
 
 **Recommendation:** Implement a tiered storage strategy: keep only the most recent N events (e.g., 200) in React state for rendering, and persist the full event history to IndexedDB or a local SQLite database (accessible via the main process). Pair this with virtual scrolling (`@tanstack/react-virtual`) in the Agent Console so that older events are paged into memory only when the operator scrolls upward. This bounds memory usage regardless of session duration.
 
-### 14.4 Integrated Query Persistence
+### 17.4 Integrated Query Persistence
 
-**Problem:** The offline cache (Section 9.1) is implemented as a custom IndexedDB wrapper (`useOfflineCache`) that operates alongside React Query. This creates two parallel caching layers with independent invalidation logic.
+**Problem:** The offline cache (Section 10.1) is implemented as a custom IndexedDB wrapper (`useOfflineCache`) that operates alongside React Query. This creates two parallel caching layers with independent invalidation logic.
 
 **Recommendation:** Replace the custom wrapper with TanStack Query's official `PersistQueryClient` plugin backed by an IndexedDB persister (e.g., `idb-keyval`). This automatically hydrates the React Query cache from disk on startup, eliminates the need for custom cache-then-network fallback logic, and ensures that cache invalidation is governed by a single, well-tested system.
 
-### 14.5 Local AI Fallback for Offline Operation
+### 17.5 Local AI Fallback for Offline Operation
 
 **Problem:** When the circuit breaker is OPEN or the network is unavailable, operators can view cached data but cannot take any actions — they are effectively locked out of agent interaction.
 
 **Recommendation:** Leverage the desktop runtime to integrate a lightweight local LLM (via `Transformers.js`, Ollama bindings, or `llama.cpp` via a Node.js addon). This would enable basic offline capabilities: drafting customer replies from cached context, summarizing agent session history, or generating configuration suggestions. Actions taken offline would be queued and synced to the backend when connectivity is restored. This transforms the offline experience from read-only to productive.
 
-### 14.6 Multi-Operator Conflict Resolution
+### 17.6 Multi-Operator Conflict Resolution
 
-**Problem:** Optimistic mutations (Section 7.2) assume a single-operator model. If two operators manage the same agent session or modify the same template concurrently, the last write wins — potentially overwriting another operator's changes without warning.
+**Problem:** Optimistic mutations (Section 8.3) assume a single-operator model. If two operators manage the same agent session or modify the same template concurrently, the last write wins — potentially overwriting another operator's changes without warning.
 
 **Recommendation:** For collaborative resources (templates, agent configurations, webhook settings), consider integrating a CRDT (Conflict-free Replicated Data Type) library such as Yjs or Automerge. CRDTs enable true multiplayer editing by merging concurrent changes deterministically without a central coordinator. For simpler cases, server-side optimistic locking with version vectors (ETags) provides conflict detection without the complexity of full CRDT integration.
 
+### 17.7 Voice Streaming Optimization
+
+**Problem:** The current voice pipeline (Section 12) uses a request-response pattern — the full audio recording is sent to ElevenLabs STT, then the full response is sent to TTS. This introduces perceptible latency between the operator finishing speech and hearing the agent's response.
+
+**Recommendation:** Adopt streaming for both STT and TTS. ElevenLabs supports WebSocket-based streaming for both services. The STT stream can begin transcription while the operator is still speaking, and the TTS stream can begin audio playback as soon as the first response tokens are available. Combined with the SSE agent stream, this creates a fully pipelined voice interaction with sub-second perceived latency.
+
 ---
 
-## 15. Conclusion
+## 18. Conclusion
 
 StateSet Desktop demonstrates that desktop applications remain the right choice for operational tooling where reliability, security, and system integration are paramount. The architecture achieves its design goals through:
 
@@ -845,6 +1272,7 @@ StateSet Desktop demonstrates that desktop applications remain the right choice 
 - **Performance** — Lazy-loaded routes, virtual scrolling, request deduplication, and optimistic mutations keep the interface responsive under load.
 - **Observability** — Structured logging, percentile metrics, circuit breaker visibility, and audit trails make the system transparent to both operators and developers.
 - **Quality** — 78 test files, four E2E test projects, strict linting, and type checking enforce correctness across the codebase.
+- **Multimodal Interaction** — Text-based agent consoles, voice interfaces with STT/TTS, and a chat playground provide operators with multiple modalities for agent interaction.
 
 The application serves as infrastructure for autonomous agent operations — a control plane where reliability is not a feature but a requirement.
 
