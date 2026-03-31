@@ -164,8 +164,8 @@ export function TemplateDetailPanel({
 function ConfigItem({ label, value }: { label: string; value: string }) {
   return (
     <div className="bg-gray-800 rounded-lg p-2.5">
-      <p className="text-[10px] uppercase tracking-wider text-gray-500">{label}</p>
-      <p className="text-sm font-medium mt-0.5 truncate">{value}</p>
+      <p className="text-xs uppercase tracking-wider text-gray-500">{label}</p>
+      <p className="text-sm font-semibold mt-0.5 truncate">{value}</p>
     </div>
   );
 }

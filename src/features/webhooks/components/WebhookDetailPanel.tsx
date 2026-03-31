@@ -16,7 +16,7 @@ export function WebhookDetailPanel({ webhook, onClose }: WebhookDetailPanelProps
     <div className="fixed inset-0 z-50 flex justify-end bg-black/40">
       <div className="w-full max-w-xl bg-gray-900 border-l border-gray-800 flex flex-col h-full shadow-xl">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800 sticky top-0 bg-gray-900 z-10">
           <div className="min-w-0">
             <h2 className="text-lg font-semibold truncate">{webhook.name}</h2>
             <p className="text-xs text-gray-500 truncate mt-0.5">{webhook.url}</p>

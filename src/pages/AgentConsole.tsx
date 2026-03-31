@@ -29,7 +29,7 @@ import {
 import { requireTenantId, requireBrandId, requireSessionId } from '../lib/auth-guards';
 import { SaveAsTemplateDialog } from '../features/templates';
 import type { AgentSessionConfig } from '../types';
-import { PlayCircle, Loader2, AlertCircle, Search, X } from 'lucide-react';
+import { PlayCircle, Loader2, AlertCircle, Search, X, ChevronUp, ChevronDown } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { usePageTitle } from '../hooks/usePageTitle';
 
@@ -60,6 +60,7 @@ export default function AgentConsole() {
   const [showSearch, setShowSearch] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearch = useDebounce(searchTerm, 300);
+  const [activeMatchIndex, setActiveMatchIndex] = useState(0);
   const [isCloning, setIsCloning] = useState(false);
   const [showLogs, setShowLogs] = useState(false);
   const [showSaveTemplate, setShowSaveTemplate] = useState(false);
@@ -229,6 +230,11 @@ export default function AgentConsole() {
       }
     });
   }, [messages, debouncedSearch]);
+
+  // Reset active match when search results change
+  useEffect(() => {
+    setActiveMatchIndex(0);
+  }, [debouncedSearch]);
 
   const showEmptyState = showIdleState && filteredMessages.length === 0;
 
@@ -642,14 +648,53 @@ export default function AgentConsole() {
                     type="text"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && filteredMessages.length > 0) {
+                        e.preventDefault();
+                        if (e.shiftKey) {
+                          setActiveMatchIndex((i) =>
+                            i <= 0 ? filteredMessages.length - 1 : i - 1
+                          );
+                        } else {
+                          setActiveMatchIndex((i) =>
+                            i >= filteredMessages.length - 1 ? 0 : i + 1
+                          );
+                        }
+                      }
+                    }}
                     placeholder="Search messages, tools, logs..."
                     aria-label="Search messages, tools, logs"
                     className="flex-1 bg-transparent outline-none text-sm placeholder-slate-500 focus-glow rounded"
                   />
-                  {searchTerm && (
-                    <span className="text-xs text-slate-500">
-                      {filteredMessages.length} result{filteredMessages.length !== 1 ? 's' : ''}
-                    </span>
+                  {debouncedSearch && filteredMessages.length > 0 && (
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs text-slate-500 tabular-nums min-w-[4ch] text-right">
+                        {activeMatchIndex + 1}/{filteredMessages.length}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setActiveMatchIndex((i) => (i <= 0 ? filteredMessages.length - 1 : i - 1))
+                        }
+                        className="p-0.5 rounded hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
+                        aria-label="Previous match"
+                      >
+                        <ChevronUp className="w-3.5 h-3.5 text-slate-400" aria-hidden="true" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setActiveMatchIndex((i) => (i >= filteredMessages.length - 1 ? 0 : i + 1))
+                        }
+                        className="p-0.5 rounded hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
+                        aria-label="Next match"
+                      >
+                        <ChevronDown className="w-3.5 h-3.5 text-slate-400" aria-hidden="true" />
+                      </button>
+                    </div>
+                  )}
+                  {debouncedSearch && filteredMessages.length === 0 && (
+                    <span className="text-xs text-slate-500">No results</span>
                   )}
                   <button
                     type="button"
@@ -743,6 +788,7 @@ export default function AgentConsole() {
                       event={event}
                       isExpanded={expandedTools.has(event._id)}
                       onToggle={toggleToolExpand}
+                      highlightTerm={debouncedSearch || undefined}
                     />
                   ))}
                 </AnimatePresence>

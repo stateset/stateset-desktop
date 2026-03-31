@@ -1,5 +1,6 @@
 import { Bot, User, AlertCircle } from 'lucide-react';
 import clsx from 'clsx';
+import { Markdown } from '../../../components/Markdown';
 import type { ChatMessage } from '../../../types';
 
 interface ChatMessageBubbleProps {
@@ -43,10 +44,14 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
               : 'message-assistant'
         )}
       >
-        <p className="text-sm whitespace-pre-wrap leading-relaxed">{message.content}</p>
+        {isUser || isSystem ? (
+          <p className="text-sm whitespace-pre-wrap leading-relaxed">{message.content}</p>
+        ) : (
+          <Markdown content={message.content} className="text-sm" />
+        )}
         <div className="flex items-center gap-2 mt-1.5">
           <span className="text-[10px] text-gray-500 font-medium">{senderLabel}</span>
-          <span className="text-[10px] text-gray-500">•</span>
+          <span className="text-[10px] text-gray-500">&bull;</span>
           <span className="text-[10px] text-gray-600">{timestamp}</span>
           {message.durationMs !== undefined && (
             <span className="text-[10px] text-gray-600">{message.durationMs}ms</span>

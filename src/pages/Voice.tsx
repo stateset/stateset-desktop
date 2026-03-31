@@ -1,13 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import {
-  Loader2,
-  Mic,
-  RotateCcw,
-  Send,
-  Settings2,
-  Sparkles,
-} from 'lucide-react';
+import { Loader2, Mic, RotateCcw, Send, Settings2, Sparkles } from 'lucide-react';
 import clsx from 'clsx';
 import { useAuthStore } from '../stores/auth';
 import { usePageTitle } from '../hooks/usePageTitle';
@@ -221,7 +214,8 @@ export default function Voice() {
     return mapped.slice(-40);
   }, [messages]);
 
-  const canRecord = Boolean(apiKey.trim()) && !isProvisioningSession && !isSending && !isTranscribing;
+  const canRecord =
+    Boolean(apiKey.trim()) && !isProvisioningSession && !isSending && !isTranscribing;
 
   const streamStatusLabel = useMemo(() => {
     if (isTranscribing) return 'Transcribing voice';
@@ -231,7 +225,15 @@ export default function Voice() {
     if (isConnected) return 'Live';
     if (sessionId) return 'Ready';
     return 'Offline';
-  }, [isConnected, isConnecting, isProvisioningSession, isRecording, isSpeaking, isTranscribing, sessionId]);
+  }, [
+    isConnected,
+    isConnecting,
+    isProvisioningSession,
+    isRecording,
+    isSpeaking,
+    isTranscribing,
+    sessionId,
+  ]);
 
   const quickActionPrompts = useMemo(() => {
     if (assistantFocus === 'operations') {
@@ -353,7 +355,16 @@ export default function Voice() {
         setIsSending(false);
       }
     },
-    [connect, currentBrand, ensureSession, isConnected, sessionId, showToast, tenant, triggerBargeIn]
+    [
+      connect,
+      currentBrand,
+      ensureSession,
+      isConnected,
+      sessionId,
+      showToast,
+      tenant,
+      triggerBargeIn,
+    ]
   );
 
   const handleRecordingStop = useCallback(async () => {
@@ -609,7 +620,7 @@ export default function Voice() {
               type="button"
               onClick={() => setShowSettings((v) => !v)}
               className={clsx(
-                'rounded-lg p-1.5 transition-colors',
+                'relative rounded-lg p-1.5 transition-colors',
                 showSettings
                   ? 'bg-slate-700/60 text-brand-300'
                   : 'text-slate-400 hover:text-gray-200 hover:bg-slate-800/60'
@@ -617,6 +628,9 @@ export default function Voice() {
               aria-label="Toggle settings"
             >
               <Settings2 className="w-4 h-4" aria-hidden="true" />
+              {!apiKey.trim() && (
+                <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-amber-400 rounded-full border border-slate-900" />
+              )}
             </button>
             <button
               type="button"
@@ -741,9 +755,7 @@ export default function Voice() {
                     Auto-speak {autoSpeak ? 'on' : 'off'}
                   </button>
 
-                  <p className="text-[11px] text-slate-500">
-                    API keys are kept in-memory only.
-                  </p>
+                  <p className="text-[11px] text-slate-500">API keys are kept in-memory only.</p>
                 </div>
               </div>
             </motion.div>
@@ -767,7 +779,11 @@ export default function Voice() {
                           ? 'scale-[1.15] opacity-[0.18]'
                           : 'scale-110 opacity-[0.12]'
                     )}
-                    style={reduceMotion ? undefined : { animation: 'ping 6s cubic-bezier(0,0,0.2,1) infinite' }}
+                    style={
+                      reduceMotion
+                        ? undefined
+                        : { animation: 'ping 6s cubic-bezier(0,0,0.2,1) infinite' }
+                    }
                   />
 
                   {/* Middle glow ring — pulse */}
@@ -780,7 +796,11 @@ export default function Voice() {
                           ? 'scale-110 opacity-[0.22]'
                           : 'scale-105 opacity-[0.16]'
                     )}
-                    style={reduceMotion ? undefined : { animation: 'pulse 5s cubic-bezier(0.4,0,0.6,1) infinite' }}
+                    style={
+                      reduceMotion
+                        ? undefined
+                        : { animation: 'pulse 5s cubic-bezier(0.4,0,0.6,1) infinite' }
+                    }
                   />
 
                   {/* Main globe */}
@@ -793,18 +813,33 @@ export default function Voice() {
                           ? 'shadow-emerald-500/25'
                           : 'shadow-slate-500/20'
                     )}
-                    style={reduceMotion ? undefined : { animation: 'pulse 4s cubic-bezier(0.4,0,0.6,1) infinite' }}
+                    style={
+                      reduceMotion
+                        ? undefined
+                        : { animation: 'pulse 4s cubic-bezier(0.4,0,0.6,1) infinite' }
+                    }
                   >
                     {/* Animated gradient overlay */}
                     <div
                       className="absolute inset-0 bg-gradient-to-br from-transparent via-white/25 to-transparent"
-                      style={reduceMotion ? undefined : { animation: 'pulse 6s cubic-bezier(0.4,0,0.6,1) infinite' }}
+                      style={
+                        reduceMotion
+                          ? undefined
+                          : { animation: 'pulse 6s cubic-bezier(0.4,0,0.6,1) infinite' }
+                      }
                     />
 
                     {/* Depth gradient */}
                     <div
                       className="absolute inset-0 bg-gradient-to-tr from-purple-600/40 via-transparent to-cyan-300/40"
-                      style={reduceMotion ? undefined : { animation: 'pulse 7s cubic-bezier(0.4,0,0.6,1) infinite', animationDelay: '1s' }}
+                      style={
+                        reduceMotion
+                          ? undefined
+                          : {
+                              animation: 'pulse 7s cubic-bezier(0.4,0,0.6,1) infinite',
+                              animationDelay: '1s',
+                            }
+                      }
                     />
 
                     {/* Inner rotating ring */}
@@ -817,7 +852,11 @@ export default function Voice() {
                             ? 'border-white/35'
                             : 'border-white/15'
                       )}
-                      style={reduceMotion ? undefined : { animation: `spin ${isRecording ? '8s' : '30s'} linear infinite` }}
+                      style={
+                        reduceMotion
+                          ? undefined
+                          : { animation: `spin ${isRecording ? '8s' : '30s'} linear infinite` }
+                      }
                     />
 
                     {/* Voice recording indicator */}
@@ -825,7 +864,9 @@ export default function Voice() {
                       <div className="absolute inset-0 flex items-center justify-center">
                         <div
                           className="w-20 h-20 border-[3px] border-yellow-300 rounded-full border-t-transparent"
-                          style={reduceMotion ? undefined : { animation: 'spin 3s linear infinite' }}
+                          style={
+                            reduceMotion ? undefined : { animation: 'spin 3s linear infinite' }
+                          }
                         />
                       </div>
                     )}
@@ -837,7 +878,10 @@ export default function Voice() {
                       ) : isRecording ? (
                         <Mic className="w-10 h-10 text-white drop-shadow-lg" aria-hidden="true" />
                       ) : (
-                        <Sparkles className="w-10 h-10 text-white/80 drop-shadow-lg" aria-hidden="true" />
+                        <Sparkles
+                          className="w-10 h-10 text-white/80 drop-shadow-lg"
+                          aria-hidden="true"
+                        />
                       )}
                     </div>
                   </div>
@@ -852,11 +896,34 @@ export default function Voice() {
                           ? 'bg-emerald-400'
                           : 'bg-slate-400'
                     )}
-                    style={isRecording && !reduceMotion ? { animation: 'pulse 2s cubic-bezier(0.4,0,0.6,1) infinite' } : undefined}
+                    style={
+                      isRecording && !reduceMotion
+                        ? { animation: 'pulse 2s cubic-bezier(0.4,0,0.6,1) infinite' }
+                        : undefined
+                    }
                   />
                 </div>
 
-                <p className="text-sm text-slate-400">How can I help you today?</p>
+                {!apiKey.trim() ? (
+                  <div className="text-center space-y-2">
+                    <p className="text-sm font-medium text-amber-300">
+                      ElevenLabs API key required
+                    </p>
+                    <p className="text-xs text-slate-400 max-w-xs">
+                      Add your API key in settings to enable voice recording and speech synthesis.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setShowSettings(true)}
+                      className="inline-flex items-center gap-1.5 mt-1 px-3 py-1.5 text-xs font-medium bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/50"
+                    >
+                      <Settings2 className="w-3.5 h-3.5" aria-hidden="true" />
+                      Open Settings
+                    </button>
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-400">How can I help you today?</p>
+                )}
 
                 {/* Quick action chips */}
                 <div className="flex flex-wrap justify-center gap-2 max-w-xl">
@@ -904,7 +971,9 @@ export default function Voice() {
                       <p
                         className={clsx(
                           'mt-1.5 text-[10px]',
-                          message.role === 'user' ? 'text-brand-300/50 text-right' : 'text-slate-500'
+                          message.role === 'user'
+                            ? 'text-brand-300/50 text-right'
+                            : 'text-slate-500'
                         )}
                       >
                         {formatEventTime(message.timestamp)}
@@ -945,7 +1014,11 @@ export default function Voice() {
                       ? 'bg-gradient-to-r from-purple-400/40 to-cyan-400/40 opacity-100'
                       : 'bg-gradient-to-r from-purple-400/15 to-cyan-400/15 opacity-0 group-hover:opacity-100'
                   )}
-                  style={isRecording ? { animation: 'ping 3s cubic-bezier(0,0,0.2,1) infinite' } : undefined}
+                  style={
+                    isRecording
+                      ? { animation: 'ping 3s cubic-bezier(0,0,0.2,1) infinite' }
+                      : undefined
+                  }
                 />
               )}
               {isRecording && !reduceMotion && (

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Send } from 'lucide-react';
+import clsx from 'clsx';
 
 interface MessageInputProps {
   input: string;
@@ -21,6 +22,12 @@ export function MessageInput({
   onSend,
 }: MessageInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const MAX_LENGTH = 8000;
+  const charCount = input.length;
+  const charRatio = charCount / MAX_LENGTH;
+  const showCounter = charRatio > 0.7;
+  const isNearLimit = charRatio > 0.85;
+  const isAtLimit = charRatio >= 1;
   const hasText = input.trim().length > 0;
   const canSubmit = canSend && hasText;
   const composerHint = canSend
@@ -55,7 +62,16 @@ export function MessageInput({
   return (
     <div className="px-4 py-3 border-t border-slate-700/45 bg-slate-900/20">
       <div className="flex items-end gap-3">
-        <div className="flex-1 min-w-0 bg-slate-900/50 rounded-2xl border border-slate-700/50 focus-within:border-brand-500 focus-within:shadow-lg focus-within:shadow-brand-500/10 transition-all">
+        <div
+          className={clsx(
+            'flex-1 min-w-0 bg-slate-900/50 rounded-2xl border transition-all',
+            isAtLimit
+              ? 'border-rose-500/60 shadow-lg shadow-rose-500/10'
+              : isNearLimit
+                ? 'border-amber-500/50 shadow-lg shadow-amber-500/10'
+                : 'border-slate-700/50 focus-within:border-brand-500 focus-within:shadow-lg focus-within:shadow-brand-500/10'
+          )}
+        >
           <textarea
             ref={textareaRef}
             value={input}
@@ -67,7 +83,7 @@ export function MessageInput({
             rows={1}
             aria-label="Message to agent"
             aria-describedby="agent-message-hint"
-            maxLength={8000}
+            maxLength={MAX_LENGTH}
             className="w-full px-4 py-3 bg-transparent resize-none focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900 disabled:opacity-50 text-sm min-h-[3rem] max-h-44 leading-6 overflow-y-auto"
           />
         </div>
@@ -76,14 +92,39 @@ export function MessageInput({
           onClick={onSend}
           disabled={!canSubmit}
           className="p-3 bg-brand-600 hover:bg-brand-500 disabled:bg-slate-700 disabled:text-gray-500 rounded-xl border border-brand-600/50 transition-all shadow-sm shadow-brand-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900 disabled:focus-visible:ring-0 disabled:focus-visible:ring-offset-0"
-          aria-label={canSubmit ? 'Send message' : 'Cannot send message'}
+          title={
+            canSubmit
+              ? 'Send message (Enter)'
+              : !canSend
+                ? 'Start the agent first'
+                : 'Type a message to send'
+          }
+          aria-label={
+            canSubmit
+              ? 'Send message'
+              : !canSend
+                ? 'Start the agent first'
+                : 'Type a message to send'
+          }
         >
           <Send className="w-5 h-5" aria-hidden="true" />
         </button>
       </div>
-      <p id="agent-message-hint" className="mt-2 text-[11px] text-slate-500">
-        {composerHint}
-      </p>
+      <div className="mt-2 flex items-center justify-between">
+        <p id="agent-message-hint" className="text-[11px] text-slate-500">
+          {composerHint}
+        </p>
+        {showCounter && (
+          <span
+            className={clsx(
+              'text-[11px] tabular-nums font-medium transition-colors',
+              isAtLimit ? 'text-rose-400' : isNearLimit ? 'text-amber-400' : 'text-slate-500'
+            )}
+          >
+            {charCount.toLocaleString()}/{MAX_LENGTH.toLocaleString()}
+          </span>
+        )}
+      </div>
     </div>
   );
 }

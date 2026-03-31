@@ -124,7 +124,15 @@ export const MetricsPanel = memo(function MetricsPanel({
               ? `$${(currentMetrics.estimated_cost_cents / 100).toFixed(4)}`
               : '—'
           }
-          color="green"
+          color={
+            currentMetrics?.estimated_cost_cents != null &&
+            currentMetrics.estimated_cost_cents > 100
+              ? 'red'
+              : currentMetrics?.estimated_cost_cents != null &&
+                  currentMetrics.estimated_cost_cents > 10
+                ? 'amber'
+                : 'green'
+          }
         />
         <MetricCard
           icon={ArrowDownCircle}

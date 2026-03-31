@@ -38,6 +38,9 @@ export function UpdateSettings({ appVersion }: { appVersion: string }) {
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>('idle');
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [downloadProgress, setDownloadProgress] = useState(0);
+  const [downloadSpeed, setDownloadSpeed] = useState(0);
+  const [downloadTotal, setDownloadTotal] = useState(0);
+  const [downloadTransferred, setDownloadTransferred] = useState(0);
   const [updateError, setUpdateError] = useState<string | null>(null);
 
   const applyUpdateStatusSnapshot = useCallback((snapshot: UpdateStatusSnapshot) => {
@@ -64,8 +67,8 @@ export function UpdateSettings({ appVersion }: { appVersion: string }) {
   useEffect(() => {
     if (!isElectronAvailable()) return;
 
-    void window.electronAPI!.app
-      .getUpdateStatus()
+    void window
+      .electronAPI!.app.getUpdateStatus()
       .then((snapshot) => {
         applyUpdateStatusSnapshot(snapshot);
       })
@@ -88,6 +91,9 @@ export function UpdateSettings({ appVersion }: { appVersion: string }) {
       window.electronAPI!.app.onUpdateProgress((progress: UpdateProgress) => {
         setUpdateStatus('downloading');
         setDownloadProgress(progress.percent);
+        setDownloadSpeed(progress.bytesPerSecond);
+        setDownloadTotal(progress.total);
+        setDownloadTransferred(progress.transferred);
       }),
       window.electronAPI!.app.onUpdateDownloaded((info: UpdateInfo) => {
         setUpdateStatus('ready');
@@ -152,6 +158,11 @@ export function UpdateSettings({ appVersion }: { appVersion: string }) {
           <span className="flex items-center gap-2 text-blue-400">
             <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
             Downloading... {downloadProgress.toFixed(0)}%
+            {downloadSpeed > 0 && (
+              <span className="text-blue-300/70 text-xs ml-1">
+                ({(downloadSpeed / (1024 * 1024)).toFixed(1)} MB/s)
+              </span>
+            )}
           </span>
         );
       case 'ready':
@@ -223,14 +234,22 @@ export function UpdateSettings({ appVersion }: { appVersion: string }) {
         <div className="pt-2 border-t border-gray-800" role="status" aria-live="polite">
           {getUpdateStatusDisplay()}
           {updateStatus === 'downloading' && (
-            <div className="mt-2 w-full bg-gray-800 rounded-full h-2 overflow-hidden">
-              <div
-                className="bg-gradient-to-r from-brand-600 to-brand-400 h-2 rounded-full transition-all duration-300 relative"
-                style={{ width: `${downloadProgress}%` }}
-              >
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-[shimmer_2s_infinite]" />
+            <>
+              <div className="mt-2 w-full bg-gray-800 rounded-full h-2 overflow-hidden">
+                <div
+                  className="bg-gradient-to-r from-brand-600 to-brand-400 h-2 rounded-full transition-all duration-300 relative"
+                  style={{ width: `${downloadProgress}%` }}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-[shimmer_2s_infinite]" />
+                </div>
               </div>
-            </div>
+              {downloadTotal > 0 && (
+                <p className="text-[11px] text-gray-500 mt-1 tabular-nums">
+                  {(downloadTransferred / (1024 * 1024)).toFixed(1)} /{' '}
+                  {(downloadTotal / (1024 * 1024)).toFixed(1)} MB
+                </p>
+              )}
+            </>
           )}
           {updateError && <p className="text-sm text-red-400 mt-1">{updateError}</p>}
         </div>

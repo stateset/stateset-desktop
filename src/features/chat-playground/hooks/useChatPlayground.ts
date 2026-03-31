@@ -41,6 +41,10 @@ export function useChatPlayground(options: UseChatPlaygroundOptions = {}) {
     return session.id;
   }, [activeSessionId, tenant, currentBrand, selectedModel, selectedTemperature]);
 
+  const appendMessage = useCallback((msg: ChatMessage) => {
+    setMessages((prev) => [...prev, msg]);
+  }, []);
+
   const sendMessage = useCallback(
     async (content: string) => {
       if (!content.trim()) return;
@@ -54,25 +58,12 @@ export function useChatPlayground(options: UseChatPlaygroundOptions = {}) {
       setMessages((prev) => [...prev, userMsg]);
       setIsLoading(true);
 
-      const start = performance.now();
       try {
         const sessionId = await ensureSession();
         const tid = requireTenantId(tenant);
         const bid = requireBrandId(currentBrand);
 
         await agentApi.sendMessage(tid, bid, sessionId, content.trim());
-
-        // The response comes through SSE in a real setup.
-        // For the playground, we add a placeholder that gets replaced by stream events.
-        const durationMs = Math.round(performance.now() - start);
-        const assistantMsg: ChatMessage = {
-          id: `assistant-${Date.now()}`,
-          role: 'assistant',
-          content: 'Message sent to agent. Responses will appear in the Agent Console.',
-          timestamp: Date.now(),
-          durationMs,
-        };
-        setMessages((prev) => [...prev, assistantMsg]);
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : 'Failed to send message';
         options.onError?.(errorMsg);
@@ -84,7 +75,6 @@ export function useChatPlayground(options: UseChatPlaygroundOptions = {}) {
           timestamp: Date.now(),
         };
         setMessages((prev) => [...prev, errorChatMsg]);
-      } finally {
         setIsLoading(false);
       }
     },
@@ -112,8 +102,10 @@ export function useChatPlayground(options: UseChatPlaygroundOptions = {}) {
   return {
     messages,
     isLoading,
+    setIsLoading,
     activeSessionId,
     sendMessage,
+    appendMessage,
     loadConversation,
     startNewChat,
     currentConversation,

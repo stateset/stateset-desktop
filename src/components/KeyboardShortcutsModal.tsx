@@ -29,6 +29,7 @@ export function KeyboardShortcutsModal({ isOpen, onClose }: KeyboardShortcutsMod
           { keys: [MOD_KEY, 'K'], description: 'Open command palette' },
           { keys: [MOD_KEY, 'N'], description: 'Create new agent' },
           { keys: [MOD_KEY, 'R'], description: 'Refresh data' },
+          { keys: [MOD_KEY, 'B'], description: 'Toggle sidebar' },
           { keys: ['?'], description: 'Show keyboard shortcuts' },
         ],
       },
@@ -59,11 +60,11 @@ export function KeyboardShortcutsModal({ isOpen, onClose }: KeyboardShortcutsMod
       groups.push({
         title: 'Agent Console',
         shortcuts: [
-          { keys: ['Enter'], description: 'Send message' },
-          { keys: ['Shift', 'Enter'], description: 'New line in message' },
           { keys: [MOD_KEY, 'F'], description: 'Search in conversation' },
           { keys: [MOD_KEY, 'E'], description: 'Export conversation' },
           { keys: [MOD_KEY, 'Shift', 'L'], description: 'Toggle logs panel' },
+          { keys: ['Enter'], description: 'Next search match (in search)' },
+          { keys: ['Shift', 'Enter'], description: 'Previous search match (in search)' },
           { keys: ['Esc'], description: 'Close search/logs panels' },
         ],
       });

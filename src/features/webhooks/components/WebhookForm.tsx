@@ -23,6 +23,10 @@ export function WebhookForm({ isOpen, onClose, onSubmit, isLoading, initial }: W
 
   if (!isOpen) return null;
 
+  const urlTouched = url.length > 0;
+  const urlValid = urlTouched && /^https?:\/\/.+/.test(url);
+  const urlError = urlTouched && !urlValid;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     await onSubmit({ name, url, events, direction });
@@ -80,8 +84,11 @@ export function WebhookForm({ isOpen, onClose, onSubmit, isLoading, initial }: W
               onChange={(e) => setUrl(e.target.value)}
               placeholder="https://example.com/webhook"
               required
-              className="input-base hover:border-gray-600 focus-visible:border-brand-500 transition-all focus-glow"
+              className={`input-base hover:border-gray-600 transition-all focus-glow ${urlError ? 'border-rose-500/60 focus-visible:border-rose-500' : 'focus-visible:border-brand-500'}`}
             />
+            {urlError && (
+              <p className="mt-1 text-xs text-rose-400">URL must start with http:// or https://</p>
+            )}
           </div>
 
           <div>

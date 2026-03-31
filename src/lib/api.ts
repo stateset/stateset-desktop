@@ -710,7 +710,8 @@ export const agentApi = {
     tenantId: string,
     brandId: string,
     agentType: string,
-    config?: Partial<AgentSessionConfig>
+    config?: Partial<AgentSessionConfig>,
+    name?: string
   ): Promise<AgentSession> => {
     const resolvedBrandId = getRequiredBrandId(brandId);
     const storedSandboxApiKey = useAuthStore.getState().sandboxApiKey;
@@ -722,15 +723,37 @@ export const agentApi = {
           }
         : undefined;
 
+    const body: Record<string, unknown> = { agent_type: agentType, config: enrichedConfig };
+    if (name?.trim()) {
+      body.name = name.trim();
+    }
+
     const raw = await apiRequest<unknown>(
       buildPath('tenants', tenantId, 'brands', resolvedBrandId, 'agents'),
       {
         method: 'POST',
-        body: JSON.stringify({ agent_type: agentType, config: enrichedConfig }),
+        body: JSON.stringify(body),
       }
     );
     const response = validateResponse(SessionResponseSchema, raw);
     return response.session;
+  },
+
+  // Rename a session
+  renameSession: async (
+    tenantId: string,
+    brandId: string,
+    sessionId: string,
+    name: string
+  ): Promise<void> => {
+    const resolvedBrandId = getRequiredBrandId(brandId);
+    await apiRequest(
+      buildPath('tenants', tenantId, 'brands', resolvedBrandId, 'agents', sessionId),
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ name }),
+      }
+    );
   },
 
   // Start a session

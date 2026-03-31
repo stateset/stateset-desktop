@@ -63,89 +63,102 @@ export default function Templates() {
         animate={reduceMotion ? undefined : 'visible'}
         className="space-y-6"
       >
-      {/* Header */}
-      <motion.div variants={reduceMotion ? undefined : pageSectionVariants} className="flex items-center justify-between">
-        <div>
-          <h1 className="page-title">Templates</h1>
-          <p className="page-subtitle">Browse and manage agent templates for quick deployment</p>
-        </div>
-        <button
-          type="button"
-          onClick={() => setShowCreateDialog(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-brand-600 hover:bg-brand-500 rounded-lg font-medium border border-brand-600/40 transition-all shadow-md shadow-brand-500/20 hover:shadow-lg hover:shadow-brand-500/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
-          aria-label="Create template"
+        {/* Header */}
+        <motion.div
+          variants={reduceMotion ? undefined : pageSectionVariants}
+          className="flex items-center justify-between"
         >
-          <Plus className="w-4 h-4" aria-hidden="true" />
-          Create Template
-        </button>
-      </motion.div>
-
-      {/* Search */}
-      <motion.div variants={reduceMotion ? undefined : pageSectionVariants} className="relative">
-        <Search
-          className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500"
-          aria-hidden="true"
-        />
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search templates..."
-          aria-label="Search templates"
-          className="w-full pl-10 pr-4 py-2 bg-gray-900/90 border border-gray-800 rounded-lg hover:border-gray-600 focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 transition-all focus-glow text-sm"
-        />
-      </motion.div>
-
-      {/* Category Tabs */}
-      <motion.div variants={reduceMotion ? undefined : pageSectionVariants} className="flex gap-1 overflow-x-auto pb-1">
-        {TEMPLATE_CATEGORIES.map((category) => (
+          <div>
+            <h1 className="page-title">Templates</h1>
+            <p className="page-subtitle">Browse and manage agent templates for quick deployment</p>
+          </div>
           <button
             type="button"
-            key={category.id}
-            onClick={() => setSelectedCategory(category.id)}
-            className={clsx(
-              'px-3 py-1.5 text-sm rounded-lg whitespace-nowrap transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1',
-              selectedCategory === category.id
-                ? 'bg-brand-600/20 text-brand-400 shadow-sm border border-brand-500/20'
-                : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/60 border border-transparent'
-            )}
-            aria-pressed={selectedCategory === category.id}
+            onClick={() => setShowCreateDialog(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-brand-600 hover:bg-brand-500 rounded-lg font-medium border border-brand-600/40 transition-all shadow-md shadow-brand-500/20 hover:shadow-lg hover:shadow-brand-500/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+            aria-label="Create template"
           >
-            {category.label}
+            <Plus className="w-4 h-4" aria-hidden="true" />
+            Create Template
           </button>
-        ))}
-      </motion.div>
+        </motion.div>
 
-      {/* Template Grid */}
-      <motion.div variants={reduceMotion ? undefined : pageSectionVariants}>
-      {filteredTemplates.length > 0 ? (
+        {/* Search */}
+        <motion.div variants={reduceMotion ? undefined : pageSectionVariants} className="relative">
+          <Search
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500"
+            aria-hidden="true"
+          />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search templates..."
+            aria-label="Search templates"
+            autoComplete="off"
+            className="w-full pl-10 pr-4 py-2 bg-gray-900/90 border border-gray-800 rounded-lg hover:border-gray-600 focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 transition-all focus-glow text-sm"
+          />
+        </motion.div>
+
+        {/* Category Tabs */}
         <motion.div
-          className="grid grid-cols-1 md:grid-cols-2 gap-3"
-          variants={reduceMotion ? undefined : listContainerVariants}
-          initial={reduceMotion ? undefined : 'hidden'}
-          animate={reduceMotion ? undefined : 'visible'}
+          variants={reduceMotion ? undefined : pageSectionVariants}
+          className="flex gap-1 overflow-x-auto pb-1"
         >
-          {filteredTemplates.map((template) => (
-            <motion.div key={template.id} variants={reduceMotion ? undefined : listItemVariants}>
-            <TemplateCard
-              key={template.id}
-              template={template}
-              isSelected={selectedTemplate?.id === template.id}
-              onSelect={() => setSelectedTemplate(template)}
-              onDelete={template.isCustom ? () => removeCustomTemplate(template.id) : undefined}
-            />
-            </motion.div>
+          {TEMPLATE_CATEGORIES.map((category) => (
+            <button
+              type="button"
+              key={category.id}
+              onClick={() => setSelectedCategory(category.id)}
+              className={clsx(
+                'px-3 py-1.5 text-sm rounded-lg whitespace-nowrap transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1',
+                selectedCategory === category.id
+                  ? 'bg-brand-600/20 text-brand-400 shadow-sm border border-brand-500/20'
+                  : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/60 border border-transparent'
+              )}
+              aria-pressed={selectedCategory === category.id}
+            >
+              {category.label}
+            </button>
           ))}
         </motion.div>
-      ) : (
-        <div className="flex flex-col items-center justify-center py-16 text-gray-500">
-          <p className="text-sm">
-            {searchQuery ? `No templates match "${searchQuery}"` : 'No templates in this category'}
-          </p>
-        </div>
-      )}
-      </motion.div>
 
+        {/* Template Grid */}
+        <motion.div variants={reduceMotion ? undefined : pageSectionVariants}>
+          {filteredTemplates.length > 0 ? (
+            <motion.div
+              className="grid grid-cols-1 md:grid-cols-2 gap-3"
+              variants={reduceMotion ? undefined : listContainerVariants}
+              initial={reduceMotion ? undefined : 'hidden'}
+              animate={reduceMotion ? undefined : 'visible'}
+            >
+              {filteredTemplates.map((template) => (
+                <motion.div
+                  key={template.id}
+                  variants={reduceMotion ? undefined : listItemVariants}
+                >
+                  <TemplateCard
+                    key={template.id}
+                    template={template}
+                    isSelected={selectedTemplate?.id === template.id}
+                    onSelect={() => setSelectedTemplate(template)}
+                    onDelete={
+                      template.isCustom ? () => removeCustomTemplate(template.id) : undefined
+                    }
+                  />
+                </motion.div>
+              ))}
+            </motion.div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-16 text-gray-500">
+              <p className="text-sm">
+                {searchQuery
+                  ? `No templates match "${searchQuery}"`
+                  : 'No templates in this category'}
+              </p>
+            </div>
+          )}
+        </motion.div>
       </motion.div>
 
       {/* Detail Panel */}

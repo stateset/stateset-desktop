@@ -42,15 +42,28 @@ export function AppearanceSettings() {
             <p className="font-medium">Theme</p>
             <p className="text-sm text-gray-400">Choose your preferred theme</p>
           </div>
-          <select
-            value={theme}
-            onChange={(e) => setTheme(e.target.value as 'dark' | 'light')}
-            aria-label="Theme"
-            className="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg hover:border-gray-600 focus-visible:outline-none focus-visible:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 transition-all focus-glow"
-          >
-            <option value="dark">Dark</option>
-            <option value="light">Light</option>
-          </select>
+          <div className="flex items-center gap-2">
+            <div className="flex gap-1 p-0.5 bg-gray-800/60 rounded-lg border border-gray-700/50">
+              <button
+                type="button"
+                onClick={() => setTheme('dark')}
+                className={`px-3 py-1.5 text-sm rounded-md transition-all duration-200 ${theme === 'dark' ? 'bg-gray-700 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200'}`}
+                aria-label="Dark theme"
+                aria-pressed={theme === 'dark'}
+              >
+                Dark
+              </button>
+              <button
+                type="button"
+                onClick={() => setTheme('light')}
+                className={`px-3 py-1.5 text-sm rounded-md transition-all duration-200 ${theme === 'light' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-400 hover:text-gray-200'}`}
+                aria-label="Light theme"
+                aria-pressed={theme === 'light'}
+              >
+                Light
+              </button>
+            </div>
+          </div>
         </div>
         <div className="flex items-center justify-between">
           <div>

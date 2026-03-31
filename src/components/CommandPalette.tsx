@@ -16,6 +16,9 @@ import {
   Webhook,
   BookTemplate,
   ClipboardList,
+  Mic,
+  PlayCircle,
+  AlertCircle,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
@@ -176,6 +179,17 @@ export function CommandPalette({
       },
       category: 'navigation',
     },
+    {
+      id: 'voice',
+      label: 'Go to Voice',
+      description: 'Voice agent with speech I/O',
+      icon: Mic,
+      action: () => {
+        navigate('/voice');
+        onClose();
+      },
+      category: 'navigation',
+    },
     ...(onCreateAgent
       ? [
           {
@@ -202,6 +216,36 @@ export function CommandPalette({
             shortcut: 'Ctrl/Cmd+R',
             action: () => {
               onRefresh();
+              onClose();
+            },
+            category: 'actions' as const,
+          },
+        ]
+      : []),
+    ...(sortedAgents.some((a) => a.status === 'running' || a.status === 'paused')
+      ? [
+          {
+            id: 'view-running',
+            label: 'View Running Agents',
+            description: `${sortedAgents.filter((a) => a.status === 'running' || a.status === 'paused').length} active`,
+            icon: PlayCircle,
+            action: () => {
+              navigate('/?status=running');
+              onClose();
+            },
+            category: 'actions' as const,
+          },
+        ]
+      : []),
+    ...(sortedAgents.some((a) => a.status === 'failed')
+      ? [
+          {
+            id: 'view-failed',
+            label: 'View Failed Agents',
+            description: `${sortedAgents.filter((a) => a.status === 'failed').length} failed`,
+            icon: AlertCircle,
+            action: () => {
+              navigate('/?status=failed');
               onClose();
             },
             category: 'actions' as const,

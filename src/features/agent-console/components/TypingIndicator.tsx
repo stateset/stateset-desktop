@@ -16,7 +16,7 @@ export function TypingIndicator() {
         <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-500/25 to-brand-600/10 border border-brand-400/20 flex items-center justify-center">
           <Bot className="w-4 h-4 text-brand-300" />
         </div>
-        <span className="absolute -inset-0.5 rounded-lg bg-brand-500/30 animate-ping opacity-40 pointer-events-none" />
+        <span className="absolute -inset-1 rounded-lg bg-brand-500/30 animate-ping opacity-60 pointer-events-none" />
       </div>
       <div className="flex flex-col gap-1">
         <p className="text-sm text-slate-300">Agent is thinking</p>

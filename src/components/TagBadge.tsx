@@ -103,9 +103,9 @@ export function TagFilter({ allTags, selectedTags, onToggleTag }: TagFilterProps
             type="button"
             onClick={() => onToggleTag(tag)}
             className={clsx(
-              'px-2.5 py-1 text-xs font-medium rounded-lg border transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 backdrop-blur-sm',
+              'px-2.5 py-1 text-xs font-medium rounded-lg border transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 backdrop-blur-sm active:scale-[0.97]',
               isSelected
-                ? `${color.bg} ${color.text} ${color.border} ${color.shadow} shadow-sm scale-[1.03]`
+                ? `${color.bg} ${color.text} ${color.border} ${color.shadow} shadow-sm scale-[1.02] ring-1 ${color.border}`
                 : 'bg-slate-800/40 text-gray-400 border-slate-700/50 hover:bg-slate-800/60 hover:text-gray-200 hover:scale-[1.02] shadow-sm'
             )}
           >

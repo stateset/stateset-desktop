@@ -21,6 +21,8 @@ import {
   Webhook,
   BookTemplate,
   ClipboardList,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState, useCallback, useMemo } from 'react';
 import clsx from 'clsx';
@@ -70,6 +72,8 @@ export default function Layout({ children }: LayoutProps) {
   const openCommandPalette = useUiStore((state) => state.openCommandPalette);
   const closeCommandPalette = useUiStore((state) => state.closeCommandPalette);
   const setCommandPaletteAgents = useUiStore((state) => state.setCommandPaletteAgents);
+  const sidebarCollapsed = useUiStore((state) => state.sidebarCollapsed);
+  const toggleSidebar = useUiStore((state) => state.toggleSidebar);
   const brandDropdownRef = useRef<HTMLDivElement>(null);
   const mainContentRef = useRef<HTMLDivElement>(null);
 
@@ -207,6 +211,13 @@ export default function Layout({ children }: LayoutProps) {
         return;
       }
 
+      // Ctrl/Cmd+B toggles sidebar
+      if ((e.ctrlKey || e.metaKey) && key === 'b') {
+        e.preventDefault();
+        toggleSidebar();
+        return;
+      }
+
       // Ctrl/Cmd+R refreshes app data (avoid full reload)
       if ((e.ctrlKey || e.metaKey) && key === 'r') {
         e.preventDefault();
@@ -220,7 +231,14 @@ export default function Layout({ children }: LayoutProps) {
         setShowShortcutsModal(true);
       }
     },
-    [commandPaletteOpen, closeCommandPalette, handleRefreshData, navigate, openCommandPalette]
+    [
+      commandPaletteOpen,
+      closeCommandPalette,
+      handleRefreshData,
+      navigate,
+      openCommandPalette,
+      toggleSidebar,
+    ]
   );
 
   useEffect(() => {
@@ -302,7 +320,12 @@ export default function Layout({ children }: LayoutProps) {
       />
 
       {/* Sidebar */}
-      <aside className="layout-sidebar w-64 flex flex-col z-20 backdrop-blur-xl">
+      <aside
+        className={clsx(
+          'layout-sidebar flex flex-col z-20 backdrop-blur-xl transition-[width] duration-300 ease-out',
+          sidebarCollapsed ? 'w-[68px]' : 'w-64'
+        )}
+      >
         {/* Logo & Drag Region */}
         <div className="h-14 flex items-center px-5 border-b border-gray-800/60 drag-region">
           <div className="flex items-center gap-2.5 no-drag">
@@ -312,125 +335,141 @@ export default function Layout({ children }: LayoutProps) {
                 <Bot className="w-5 h-5 text-white" aria-hidden="true" />
               </div>
             </div>
-            <span className="font-extrabold text-lg tracking-tight bg-clip-text text-transparent bg-gradient-to-b from-white to-gray-400">
-              StateSet
-            </span>
-          </div>
-        </div>
-
-        {/* Brand Selector */}
-        <div className="p-4 border-b border-gray-800/60">
-          <div className="relative" ref={brandDropdownRef}>
-            <button
-              type="button"
-              onClick={() => setShowBrandDropdown(!showBrandDropdown)}
-              aria-label={`Select brand. Current: ${currentBrand?.name || 'None selected'}`}
-              aria-expanded={showBrandDropdown}
-              aria-haspopup="listbox"
-              className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-slate-800/40 hover:bg-slate-800/60 border border-gray-700/50 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
-            >
-              <div className="flex flex-col items-start gap-0.5">
-                <span className="text-[10px] uppercase tracking-wider font-bold text-gray-500 leading-none">
-                  {tenant?.name}
-                </span>
-                <span className="text-sm font-semibold text-gray-200">
-                  {currentBrand?.name || (hasEnabledBrands ? 'Select Brand' : 'No Active Brands')}
-                </span>
-              </div>
-              <ChevronDown
-                className={clsx(
-                  'w-4 h-4 text-gray-500 transition-transform duration-200',
-                  showBrandDropdown && 'rotate-180'
-                )}
-                aria-hidden="true"
-              />
-            </button>
-
-            {showBrandDropdown && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95, y: -4 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                role="listbox"
-                aria-label="Available brands"
-                className="absolute top-full left-0 right-0 mt-2 py-1.5 bg-slate-900/95 border border-gray-800 rounded-xl shadow-2xl backdrop-blur-md z-50 overflow-hidden"
-              >
-                {brands.length === 0 && (
-                  <div className="px-4 py-2.5 text-sm text-gray-500">No brands available</div>
-                )}
-
-                {!hasEnabledBrands && brands.length > 0 && (
-                  <div className="px-4 py-2 text-xs text-amber-300/90 border-b border-amber-500/20 bg-amber-500/5">
-                    No active brands available for agent actions.
-                  </div>
-                )}
-
-                {enabledBrands.map((brand) => (
-                  <button
-                    type="button"
-                    key={brand.id}
-                    role="option"
-                    aria-selected={currentBrand?.id === brand.id}
-                    className={clsx(
-                      'w-full px-4 py-2.5 text-left text-sm transition-all duration-150 focus-visible:outline-none',
-                      currentBrand?.id === brand.id
-                        ? 'bg-brand-500/10 text-brand-400 font-medium border-l-[3px] border-l-brand-400 pl-3.5'
-                        : 'text-gray-400 hover:bg-slate-800 hover:text-gray-200 border-l-[3px] border-l-transparent'
-                    )}
-                    onClick={() => {
-                      setShowBrandDropdown(false);
-                      if (currentBrand?.id === brand.id) {
-                        return;
-                      }
-
-                      setCurrentBrand(brand);
-                      useAuditLogStore
-                        .getState()
-                        .log('brand.switched', `Switched to brand "${brand.name}"`, {
-                          brandId: brand.id,
-                        });
-                    }}
-                  >
-                    {brand.name}
-                  </button>
-                ))}
-
-                {disabledBrands.length > 0 && (
-                  <>
-                    <div className="my-1 border-t border-gray-800/80" />
-                    <div className="px-4 py-1 text-[10px] uppercase tracking-[0.2em] text-gray-500 font-semibold">
-                      Disabled
-                    </div>
-                    {disabledBrands.map((brand) => (
-                      <button
-                        type="button"
-                        key={brand.id}
-                        role="option"
-                        aria-selected={false}
-                        disabled
-                        className="w-full px-4 py-2 text-left text-sm text-gray-500/80 cursor-not-allowed opacity-80 flex items-center justify-between"
-                      >
-                        <span className="truncate">{brand.name}</span>
-                        <span className="ml-2 rounded-md border border-gray-700 px-1.5 py-0.5 text-[10px] uppercase tracking-wide">
-                          Disabled
-                        </span>
-                      </button>
-                    ))}
-                  </>
-                )}
-              </motion.div>
+            {!sidebarCollapsed && (
+              <span className="font-extrabold text-lg tracking-tight bg-clip-text text-transparent bg-gradient-to-b from-white to-gray-400">
+                StateSet
+              </span>
             )}
           </div>
         </div>
 
+        {/* Brand Selector */}
+        <div className={clsx('border-b border-gray-800/60', sidebarCollapsed ? 'p-2' : 'p-4')}>
+          {sidebarCollapsed ? (
+            <div
+              className="w-10 h-10 mx-auto rounded-xl bg-slate-800/40 border border-gray-700/50 flex items-center justify-center text-[10px] font-bold text-brand-300 uppercase"
+              title={currentBrand?.name || 'Select Brand'}
+            >
+              {(currentBrand?.name || '?').charAt(0)}
+            </div>
+          ) : (
+            <div className="relative" ref={brandDropdownRef}>
+              <button
+                type="button"
+                onClick={() => setShowBrandDropdown(!showBrandDropdown)}
+                aria-label={`Select brand. Current: ${currentBrand?.name || 'None selected'}`}
+                aria-expanded={showBrandDropdown}
+                aria-haspopup="listbox"
+                className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-slate-800/40 hover:bg-slate-800/60 border border-gray-700/50 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
+              >
+                <div className="flex flex-col items-start gap-0.5">
+                  <span className="text-[10px] uppercase tracking-wider font-bold text-gray-500 leading-none">
+                    {tenant?.name}
+                  </span>
+                  <span className="text-sm font-semibold text-gray-200">
+                    {currentBrand?.name || (hasEnabledBrands ? 'Select Brand' : 'No Active Brands')}
+                  </span>
+                </div>
+                <ChevronDown
+                  className={clsx(
+                    'w-4 h-4 text-gray-500 transition-transform duration-200',
+                    showBrandDropdown && 'rotate-180'
+                  )}
+                  aria-hidden="true"
+                />
+              </button>
+
+              {showBrandDropdown && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95, y: -4 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  role="listbox"
+                  aria-label="Available brands"
+                  className="absolute top-full left-0 right-0 mt-2 py-1.5 bg-slate-900/95 border border-gray-800 rounded-xl shadow-2xl backdrop-blur-md z-50 overflow-hidden"
+                >
+                  {brands.length === 0 && (
+                    <div className="px-4 py-2.5 text-sm text-gray-500">No brands available</div>
+                  )}
+
+                  {!hasEnabledBrands && brands.length > 0 && (
+                    <div className="px-4 py-2 text-xs text-amber-300/90 border-b border-amber-500/20 bg-amber-500/5">
+                      No active brands available for agent actions.
+                    </div>
+                  )}
+
+                  {enabledBrands.map((brand) => (
+                    <button
+                      type="button"
+                      key={brand.id}
+                      role="option"
+                      aria-selected={currentBrand?.id === brand.id}
+                      className={clsx(
+                        'w-full px-4 py-2.5 text-left text-sm transition-all duration-150 focus-visible:outline-none',
+                        currentBrand?.id === brand.id
+                          ? 'bg-brand-500/10 text-brand-400 font-medium border-l-[3px] border-l-brand-400 pl-3.5'
+                          : 'text-gray-400 hover:bg-slate-800 hover:text-gray-200 border-l-[3px] border-l-transparent'
+                      )}
+                      onClick={() => {
+                        setShowBrandDropdown(false);
+                        if (currentBrand?.id === brand.id) {
+                          return;
+                        }
+
+                        setCurrentBrand(brand);
+                        useAuditLogStore
+                          .getState()
+                          .log('brand.switched', `Switched to brand "${brand.name}"`, {
+                            brandId: brand.id,
+                          });
+                      }}
+                    >
+                      {brand.name}
+                    </button>
+                  ))}
+
+                  {disabledBrands.length > 0 && (
+                    <>
+                      <div className="my-1 border-t border-gray-800/80" />
+                      <div className="px-4 py-1 text-[10px] uppercase tracking-[0.2em] text-gray-500 font-semibold">
+                        Disabled
+                      </div>
+                      {disabledBrands.map((brand) => (
+                        <button
+                          type="button"
+                          key={brand.id}
+                          role="option"
+                          aria-selected={false}
+                          disabled
+                          className="w-full px-4 py-2 text-left text-sm text-gray-500/80 cursor-not-allowed opacity-80 flex items-center justify-between"
+                        >
+                          <span className="truncate">{brand.name}</span>
+                          <span className="ml-2 rounded-md border border-gray-700 px-1.5 py-0.5 text-[10px] uppercase tracking-wide">
+                            Disabled
+                          </span>
+                        </button>
+                      ))}
+                    </>
+                  )}
+                </motion.div>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* Navigation */}
-        <nav aria-label="Main navigation" className="flex-1 p-4 space-y-1">
+        <nav
+          aria-label="Main navigation"
+          className={clsx('flex-1 space-y-1', sidebarCollapsed ? 'p-2' : 'p-4')}
+        >
           {navItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
+              title={sidebarCollapsed ? item.label : undefined}
               className={({ isActive }) =>
                 clsx(
-                  'group flex items-center gap-3 px-3.5 py-2.5 rounded-xl layout-nav-item transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40',
+                  'group flex items-center rounded-xl layout-nav-item transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40',
+                  sidebarCollapsed ? 'justify-center px-2.5 py-2.5' : 'gap-3 px-3.5 py-2.5',
                   isActive
                     ? 'bg-brand-500/15 text-brand-300 border border-brand-500/20 shadow-sm shadow-brand-500/5 border-l-[3px] border-l-brand-400'
                     : 'text-gray-400 hover:text-gray-200 hover:bg-slate-800/50 border-l-[3px] border-l-transparent'
@@ -438,26 +477,55 @@ export default function Layout({ children }: LayoutProps) {
               }
             >
               <item.icon
-                className="w-[18px] h-[18px] transition-transform duration-200 group-hover:scale-110 group-active:scale-95"
+                className="w-[18px] h-[18px] transition-transform duration-200 group-hover:scale-110 group-active:scale-95 flex-shrink-0"
                 aria-hidden="true"
               />
-              <span className="font-medium">{item.label}</span>
+              {!sidebarCollapsed && <span className="font-medium">{item.label}</span>}
             </NavLink>
           ))}
         </nav>
 
         {/* User Section */}
-        <div className="p-4 border-t border-gray-800/60 space-y-3">
+        <div
+          className={clsx(
+            'border-t border-gray-800/60 space-y-2',
+            sidebarCollapsed ? 'p-2' : 'p-4'
+          )}
+        >
+          {/* Collapse toggle */}
+          <button
+            type="button"
+            onClick={toggleSidebar}
+            title={sidebarCollapsed ? 'Expand sidebar (Ctrl+B)' : 'Collapse sidebar (Ctrl+B)'}
+            aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            className={clsx(
+              'w-full flex items-center rounded-xl text-gray-500 hover:text-gray-300 hover:bg-slate-800/50 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40',
+              sidebarCollapsed ? 'justify-center px-2.5 py-2' : 'gap-3 px-3.5 py-2'
+            )}
+          >
+            {sidebarCollapsed ? (
+              <PanelLeftOpen className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
+            ) : (
+              <>
+                <PanelLeftClose className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
+                <span className="text-sm font-medium">Collapse</span>
+              </>
+            )}
+          </button>
           <button
             type="button"
             onClick={handleLogout}
             aria-label="Logout from StateSet"
-            className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-gray-400 hover:text-rose-400 hover:bg-rose-500/10 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/40"
+            title={sidebarCollapsed ? 'Logout' : undefined}
+            className={clsx(
+              'w-full flex items-center rounded-xl text-gray-400 hover:text-rose-400 hover:bg-rose-500/10 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/40',
+              sidebarCollapsed ? 'justify-center px-2.5 py-2.5' : 'gap-3 px-3.5 py-2.5'
+            )}
           >
-            <LogOut className="w-5 h-5" aria-hidden="true" />
-            <span className="font-medium">Logout</span>
+            <LogOut className="w-5 h-5 flex-shrink-0" aria-hidden="true" />
+            {!sidebarCollapsed && <span className="font-medium">Logout</span>}
           </button>
-          {appVersion && (
+          {!sidebarCollapsed && appVersion && (
             <div className="px-3 py-1 text-[10px] uppercase tracking-widest font-bold text-gray-600 text-center">
               v{appVersion}
             </div>

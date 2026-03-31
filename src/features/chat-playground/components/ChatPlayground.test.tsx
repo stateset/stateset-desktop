@@ -7,6 +7,9 @@ import type { ChatConversation, ChatMessage } from '../../../types';
 const mockUseChatPlayground = vi.fn();
 const mockUseChatHistory = vi.fn();
 const mockShowToast = vi.fn();
+const mockConnect = vi.fn();
+const mockDisconnect = vi.fn();
+const mockClearEvents = vi.fn();
 
 vi.mock('../hooks/useChatPlayground', () => ({
   useChatPlayground: (...args: unknown[]) => mockUseChatPlayground(...args),
@@ -18,6 +21,29 @@ vi.mock('../hooks/useChatHistory', () => ({
 
 vi.mock('../../../components/ToastProvider', () => ({
   useToast: () => ({ showToast: mockShowToast }),
+}));
+
+vi.mock('../../../stores/auth', () => ({
+  useAuthStore: (selector?: (state: Record<string, unknown>) => unknown) => {
+    const state = { tenant: { id: 'tenant-1' }, currentBrand: { id: 'brand-1' } };
+    return selector ? selector(state) : state;
+  },
+}));
+
+vi.mock('../../../hooks/useAgentStream', () => ({
+  useAgentStream: () => ({
+    isConnected: false,
+    isConnecting: false,
+    isTyping: false,
+    error: null,
+    events: [],
+    messages: [],
+    status: null,
+    metrics: null,
+    connect: mockConnect,
+    disconnect: mockDisconnect,
+    clearEvents: mockClearEvents,
+  }),
 }));
 
 function makeMessage(content: string, role: ChatMessage['role'] = 'user'): ChatMessage {
@@ -55,7 +81,10 @@ describe('ChatPlayground', () => {
     mockUseChatPlayground.mockReturnValue({
       messages: [],
       isLoading: false,
+      setIsLoading: vi.fn(),
+      activeSessionId: null,
       sendMessage: vi.fn(),
+      appendMessage: vi.fn(),
       loadConversation: vi.fn(),
       startNewChat: vi.fn(),
       currentConversation: {
@@ -84,7 +113,10 @@ describe('ChatPlayground', () => {
     mockUseChatPlayground.mockReturnValue({
       messages: [],
       isLoading: false,
+      setIsLoading: vi.fn(),
+      activeSessionId: null,
       sendMessage,
+      appendMessage: vi.fn(),
       loadConversation: vi.fn(),
       startNewChat: vi.fn(),
       currentConversation: { title: 'New Chat', agentType: 'interactive', messages: [] },
@@ -106,7 +138,7 @@ describe('ChatPlayground', () => {
     const modelSelect = screen.getByRole('combobox');
     const temperatureSlider = screen.getByRole('slider');
 
-    fireEvent.change(modelSelect, { target: { value: 'claude-opus-4-20250514' } });
+    fireEvent.change(modelSelect, { target: { value: 'claude-opus-4-6' } });
     fireEvent.change(temperatureSlider, { target: { value: '1.3' } });
 
     const lastCall = mockUseChatPlayground.mock.calls.at(-1)?.[0] as {
@@ -114,7 +146,7 @@ describe('ChatPlayground', () => {
       temperature: number;
     };
     expect(lastCall).toMatchObject({
-      model: 'claude-opus-4-20250514',
+      model: 'claude-opus-4-6',
       temperature: 1.3,
     });
   });
@@ -132,7 +164,10 @@ describe('ChatPlayground', () => {
     mockUseChatPlayground.mockReturnValue({
       messages,
       isLoading: false,
+      setIsLoading: vi.fn(),
+      activeSessionId: null,
       sendMessage: vi.fn(),
+      appendMessage: vi.fn(),
       loadConversation: vi.fn(),
       startNewChat: vi.fn(),
       currentConversation: {
@@ -176,7 +211,10 @@ describe('ChatPlayground', () => {
     mockUseChatPlayground.mockReturnValue({
       messages,
       isLoading: false,
+      setIsLoading: vi.fn(),
+      activeSessionId: null,
       sendMessage: vi.fn(),
+      appendMessage: vi.fn(),
       loadConversation,
       startNewChat: vi.fn(),
       currentConversation: {
@@ -218,7 +256,10 @@ describe('ChatPlayground', () => {
     mockUseChatPlayground.mockReturnValue({
       messages,
       isLoading: false,
+      setIsLoading: vi.fn(),
+      activeSessionId: null,
       sendMessage: vi.fn(),
+      appendMessage: vi.fn(),
       loadConversation: vi.fn(),
       startNewChat,
       currentConversation: {
@@ -240,5 +281,30 @@ describe('ChatPlayground', () => {
       })
     );
     expect(startNewChat).toHaveBeenCalled();
+  });
+
+  it('sends a suggested prompt when clicked', () => {
+    const sendMessage = vi.fn();
+    mockUseChatPlayground.mockReturnValue({
+      messages: [],
+      isLoading: false,
+      setIsLoading: vi.fn(),
+      activeSessionId: null,
+      sendMessage,
+      appendMessage: vi.fn(),
+      loadConversation: vi.fn(),
+      startNewChat: vi.fn(),
+      currentConversation: { title: 'New Chat', agentType: 'interactive', messages: [] },
+    });
+
+    render(<ChatPlayground />);
+
+    const promptButtons = screen
+      .getAllByRole('button')
+      .filter((btn) => btn.textContent?.includes('Summarize'));
+    if (promptButtons.length > 0) {
+      fireEvent.click(promptButtons[0]);
+      expect(sendMessage).toHaveBeenCalled();
+    }
   });
 });

@@ -1,3 +1,4 @@
+import { useState, useRef, useEffect } from 'react';
 import {
   ArrowLeft,
   Play,
@@ -11,6 +12,7 @@ import {
   Search,
   FileText,
   Save,
+  MoreHorizontal,
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -67,13 +69,33 @@ export function AgentToolbar({
   onPause,
   onStop,
 }: AgentToolbarProps) {
+  const [showMore, setShowMore] = useState(false);
+  const moreRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showMore) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (moreRef.current && !moreRef.current.contains(e.target as Node)) {
+        setShowMore(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showMore]);
+
+  const iconBtn =
+    'p-2 rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900';
+  const secondaryBtn = `${iconBtn} bg-slate-800/80 hover:bg-slate-700/80`;
+  const disabledBtn =
+    'disabled:opacity-50 disabled:focus-visible:ring-0 disabled:focus-visible:ring-offset-0';
+
   return (
     <div className="glass-header flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-700/45">
       <div className="min-w-0 flex items-center gap-4">
         <button
           type="button"
           onClick={onBack}
-          className="p-2 rounded-lg hover:bg-slate-800/70 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900"
+          className={`${iconBtn} hover:bg-slate-800/70`}
           aria-label="Back to dashboard"
         >
           <ArrowLeft className="w-5 h-5" aria-hidden="true" />
@@ -108,13 +130,14 @@ export function AgentToolbar({
         </div>
       </div>
 
-      <div className="flex items-center gap-2 flex-wrap justify-end">
+      <div className="flex items-center gap-2">
+        {/* Always visible: Search + Logs */}
         <button
           type="button"
           onClick={onToggleSearch}
           aria-pressed={showSearch}
           className={clsx(
-            'p-2 rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900',
+            iconBtn,
             showSearch ? 'bg-brand-600 text-white' : 'bg-slate-800 hover:bg-slate-700'
           )}
           title="Search in conversation (Ctrl/Cmd+F)"
@@ -124,43 +147,10 @@ export function AgentToolbar({
         </button>
         <button
           type="button"
-          onClick={onExport}
-          className="p-2 bg-slate-800/80 hover:bg-slate-700/80 rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900"
-          title="Export conversation (Ctrl/Cmd+E)"
-          aria-label="Export conversation"
-        >
-          <Download className="w-4 h-4" aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          onClick={onClone}
-          disabled={isCloning || !session.config}
-          className="p-2 bg-slate-800/80 hover:bg-slate-700/80 disabled:opacity-50 rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900 disabled:focus-visible:ring-0 disabled:focus-visible:ring-offset-0"
-          title="Clone agent"
-          aria-label="Clone agent"
-        >
-          {isCloning ? (
-            <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
-          ) : (
-            <Copy className="w-4 h-4" aria-hidden="true" />
-          )}
-        </button>
-        <button
-          type="button"
-          onClick={onSaveTemplate}
-          disabled={!session.config}
-          className="p-2 bg-slate-800/80 hover:bg-slate-700/80 disabled:opacity-50 rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900 disabled:focus-visible:ring-0 disabled:focus-visible:ring-offset-0"
-          title="Save as template"
-          aria-label="Save as template"
-        >
-          <Save className="w-4 h-4" aria-hidden="true" />
-        </button>
-        <button
-          type="button"
           onClick={onToggleLogs}
           aria-pressed={showLogs}
           className={clsx(
-            'p-2 rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900',
+            iconBtn,
             showLogs ? 'bg-brand-600 text-white' : 'bg-gray-800 hover:bg-gray-700'
           )}
           title="Toggle logs panel (Ctrl/Cmd+Shift+L)"
@@ -168,15 +158,108 @@ export function AgentToolbar({
         >
           <FileText className="w-4 h-4" aria-hidden="true" />
         </button>
+
+        {/* Desktop: individual buttons. Mobile: overflow menu */}
+        <div className="hidden md:flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onExport}
+            className={secondaryBtn}
+            title="Export conversation (Ctrl/Cmd+E)"
+            aria-label="Export conversation"
+          >
+            <Download className="w-4 h-4" aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            onClick={onClone}
+            disabled={isCloning || !session.config}
+            className={`${secondaryBtn} ${disabledBtn}`}
+            title="Clone agent"
+            aria-label="Clone agent"
+          >
+            {isCloning ? (
+              <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+            ) : (
+              <Copy className="w-4 h-4" aria-hidden="true" />
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={onSaveTemplate}
+            disabled={!session.config}
+            className={`${secondaryBtn} ${disabledBtn}`}
+            title="Save as template"
+            aria-label="Save as template"
+          >
+            <Save className="w-4 h-4" aria-hidden="true" />
+          </button>
+        </div>
+
+        {/* Mobile: "More" overflow menu */}
+        <div className="relative md:hidden" ref={moreRef}>
+          <button
+            type="button"
+            onClick={() => setShowMore(!showMore)}
+            className={secondaryBtn}
+            aria-label="More actions"
+            aria-expanded={showMore}
+          >
+            <MoreHorizontal className="w-4 h-4" aria-hidden="true" />
+          </button>
+          {showMore && (
+            <div className="absolute right-0 top-full mt-1.5 w-48 bg-slate-900/95 border border-slate-700/60 rounded-xl shadow-2xl backdrop-blur-xl z-30 py-1 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => {
+                  onExport();
+                  setShowMore(false);
+                }}
+                className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-gray-300 hover:bg-slate-800/60 hover:text-white transition-colors text-left"
+              >
+                <Download className="w-4 h-4 text-gray-500" aria-hidden="true" />
+                Export
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onClone();
+                  setShowMore(false);
+                }}
+                disabled={isCloning || !session.config}
+                className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-gray-300 hover:bg-slate-800/60 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-left"
+              >
+                <Copy className="w-4 h-4 text-gray-500" aria-hidden="true" />
+                Clone Agent
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onSaveTemplate();
+                  setShowMore(false);
+                }}
+                disabled={!session.config}
+                className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-gray-300 hover:bg-slate-800/60 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-left"
+              >
+                <Save className="w-4 h-4 text-gray-500" aria-hidden="true" />
+                Save as Template
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Settings */}
         <button
           type="button"
           onClick={onOpenConfig}
-          className="flex items-center gap-2 px-3 py-1.5 bg-slate-800/80 hover:bg-slate-700/80 rounded-lg text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900"
+          className={`flex items-center gap-2 px-3 py-1.5 ${secondaryBtn} text-sm font-medium`}
           aria-label="Open settings"
         >
           <Settings className="w-4 h-4" aria-hidden="true" />
           <span className="hidden sm:inline">Settings</span>
         </button>
+
+        {/* Agent controls */}
         {showStartStreamCta && (
           <button
             type="button"

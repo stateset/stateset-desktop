@@ -238,6 +238,7 @@ export function SandboxSettings({ secureStorageAvailable }: { secureStorageAvail
                 value={sandboxKeyInput}
                 onChange={(e) => setSandboxKeyInput(e.target.value)}
                 placeholder="sk_test_..."
+                autoComplete="off"
                 className="flex-1 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg hover:border-gray-600 focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 font-mono text-sm transition-all focus-glow"
               />
               <button

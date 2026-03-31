@@ -1108,6 +1108,87 @@ button:active {
   color: #0f172a;
 }
 
+/* --- Slate text color overrides (many components use text-slate-* instead of text-gray-*) --- */
+:root[data-theme='light'] .text-slate-100 {
+  color: #0f172a !important;
+}
+:root[data-theme='light'] .text-slate-200 {
+  color: #1e293b !important;
+}
+:root[data-theme='light'] .text-slate-300 {
+  color: #334155 !important;
+}
+:root[data-theme='light'] .text-slate-400 {
+  color: #475569 !important;
+}
+:root[data-theme='light'] .text-slate-500 {
+  color: #64748b !important;
+}
+:root[data-theme='light'] .hover\:text-slate-200:hover {
+  color: #1e293b !important;
+}
+:root[data-theme='light'] .hover\:text-slate-300:hover {
+  color: #334155 !important;
+}
+:root[data-theme='light'] .placeholder-slate-500::placeholder {
+  color: #94a3b8 !important;
+}
+
+/* --- App shell background --- */
+:root[data-theme='light'] .bg-slate-950\/30 {
+  background-color: rgba(248, 250, 252, 0.5) !important;
+}
+:root[data-theme='light'] .bg-slate-950 {
+  background-color: #f8fafc !important;
+}
+
+/* --- Divider overrides for slate-800 --- */
+:root[data-theme='light'] .divide-slate-800\/80 > :not([hidden]) ~ :not([hidden]) {
+  border-color: rgba(226, 232, 240, 0.7) !important;
+}
+:root[data-theme='light'] .border-slate-800 {
+  border-color: #e2e8f0 !important;
+}
+:root[data-theme='light'] .border-slate-800\/80 {
+  border-color: rgba(226, 232, 240, 0.65) !important;
+}
+:root[data-theme='light'] .border-slate-800\/60 {
+  border-color: rgba(226, 232, 240, 0.5) !important;
+}
+
+/* --- Skeleton shimmer for light theme --- */
+:root[data-theme='light'] .bg-slate-800\/60 {
+  background-color: rgba(226, 232, 240, 0.5) !important;
+}
+:root[data-theme='light'] .bg-slate-800\/40 {
+  background-color: rgba(241, 245, 249, 0.6) !important;
+}
+
+/* --- Modal / dialog surfaces --- */
+:root[data-theme='light'] .bg-slate-900 {
+  background-color: #ffffff !important;
+}
+:root[data-theme='light'] .bg-slate-700\/80 {
+  background-color: rgba(203, 213, 225, 0.7) !important;
+}
+:root[data-theme='light'] .bg-slate-700 {
+  background-color: #e2e8f0 !important;
+}
+:root[data-theme='light'] .hover\:bg-slate-700:hover {
+  background-color: #e2e8f0 !important;
+}
+:root[data-theme='light'] .hover\:bg-slate-700\/60:hover {
+  background-color: rgba(226, 232, 240, 0.55) !important;
+}
+:root[data-theme='light'] .hover\:bg-slate-700\/50:hover {
+  background-color: rgba(226, 232, 240, 0.45) !important;
+}
+
+/* --- Border white/5 for message cards in light --- */
+:root[data-theme='light'] .border-white\/5 {
+  border-color: rgba(0, 0, 0, 0.06) !important;
+}
+
 /* --- Reduced motion (OS-level) --- */
 @media (prefers-reduced-motion: reduce) {
   *,

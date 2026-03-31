@@ -42,7 +42,8 @@ export function WebhookCard({
               <span
                 className={clsx(
                   'w-2 h-2 rounded-full',
-                  statusColors[webhook.status] || 'bg-gray-500'
+                  statusColors[webhook.status] || 'bg-gray-500',
+                  webhook.status === 'failed' && 'animate-pulse'
                 )}
               />
               <span className="text-xs text-gray-500 capitalize">{webhook.status}</span>

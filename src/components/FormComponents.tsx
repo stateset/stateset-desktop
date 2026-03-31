@@ -92,9 +92,10 @@ export const ToggleSetting = memo(function ToggleSetting({
         >
           <div
             className={clsx(
-              'absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-200 ease-out',
+              'absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-200',
               checked && 'translate-x-5'
             )}
+            style={{ transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)' }}
           />
         </div>
       </div>
@@ -258,7 +259,11 @@ export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(function T
 
   return (
     <div className={clsx('space-y-1.5', className)}>
-      {label && <label htmlFor={id} className="block text-sm font-medium text-gray-300 ml-1">{label}</label>}
+      {label && (
+        <label htmlFor={id} className="block text-sm font-medium text-gray-300 ml-1">
+          {label}
+        </label>
+      )}
       <input
         ref={ref}
         id={id}
@@ -273,7 +278,11 @@ export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(function T
         )}
         {...props}
       />
-      {error && <p id={errorId} className="text-sm font-medium text-rose-400 ml-1 mt-1">{error}</p>}
+      {error && (
+        <p id={errorId} className="text-sm font-medium text-rose-400 ml-1 mt-1">
+          {error}
+        </p>
+      )}
     </div>
   );
 });
@@ -303,7 +312,11 @@ export const TextArea = forwardRef<HTMLTextAreaElement, TextAreaProps>(function 
 
   return (
     <div className={clsx('space-y-1.5', className)}>
-      {label && <label htmlFor={id} className="block text-sm font-medium text-gray-300 ml-1">{label}</label>}
+      {label && (
+        <label htmlFor={id} className="block text-sm font-medium text-gray-300 ml-1">
+          {label}
+        </label>
+      )}
       <textarea
         ref={ref}
         id={id}
@@ -318,7 +331,11 @@ export const TextArea = forwardRef<HTMLTextAreaElement, TextAreaProps>(function 
         )}
         {...props}
       />
-      {error && <p id={errorId} className="text-sm font-medium text-rose-400 ml-1 mt-1">{error}</p>}
+      {error && (
+        <p id={errorId} className="text-sm font-medium text-rose-400 ml-1 mt-1">
+          {error}
+        </p>
+      )}
     </div>
   );
 });

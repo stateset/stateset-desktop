@@ -21,8 +21,8 @@ export function QuickConfigBar({
           className="px-2 py-1.5 bg-slate-800/80 border border-slate-700/60 rounded-lg text-gray-200 text-sm focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
         >
           <option value="claude-sonnet-4-6">Sonnet 4.6</option>
-          <option value="claude-opus-4-20250514">Opus 4</option>
-          <option value="claude-3-5-sonnet-20241022">Sonnet 3.5</option>
+          <option value="claude-opus-4-6">Opus 4.6</option>
+          <option value="claude-haiku-4-5-20251001">Haiku 4.5</option>
         </select>
       </label>
 

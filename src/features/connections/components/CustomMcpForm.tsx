@@ -89,8 +89,12 @@ export function CustomMcpForm({ isStoring, onAdd, onCancel }: CustomMcpFormProps
             value={authToken}
             placeholder="Optional API key or token"
             onChange={(e) => setAuthToken(e.target.value)}
+            autoComplete="off"
             className="input-base"
           />
+          <span className="text-[11px] text-gray-500">
+            Stored securely. Never sent to StateSet servers.
+          </span>
         </label>
       </div>
       <div className="mt-4 flex items-center gap-2">

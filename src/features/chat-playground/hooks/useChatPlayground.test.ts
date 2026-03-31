@@ -83,15 +83,13 @@ describe('useChatPlayground', () => {
     expect(mockStartSession).toHaveBeenCalledWith('tenant-1', 'brand-1', 'session-1');
     expect(mockSendMessage).toHaveBeenCalledWith('tenant-1', 'brand-1', 'session-1', 'hello world');
 
-    expect(result.current.messages).toHaveLength(2);
+    expect(result.current.messages).toHaveLength(1);
     expect(result.current.messages[0]).toMatchObject({
       role: 'user',
       content: 'hello world',
     });
-    expect(result.current.messages[1]).toMatchObject({
-      role: 'assistant',
-    });
     expect(result.current.activeSessionId).toBe('session-1');
+    expect(result.current.isLoading).toBe(true);
   });
 
   it('reuses existing session on subsequent messages', async () => {
@@ -107,7 +105,7 @@ describe('useChatPlayground', () => {
     expect(mockCreateSession).toHaveBeenCalledTimes(1);
     expect(mockStartSession).toHaveBeenCalledTimes(1);
     expect(mockSendMessage).toHaveBeenCalledTimes(2);
-    expect(result.current.messages).toHaveLength(4);
+    expect(result.current.messages).toHaveLength(2);
   });
 
   it('ignores blank messages', async () => {

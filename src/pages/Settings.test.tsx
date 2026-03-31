@@ -1,6 +1,6 @@
 /** @vitest-environment happy-dom */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, fireEvent } from '@testing-library/react';
 import { renderWithProviders, mockElectronAPI } from '../test-utils';
 
 vi.mock('../hooks/usePageTitle', () => ({
@@ -53,14 +53,27 @@ describe('Settings page', () => {
     });
   });
 
-  it('renders all settings sections', async () => {
+  it('renders Account tab by default and switches tabs on click', async () => {
     const Settings = await loadSettings();
     renderWithProviders(<Settings />);
 
+    // Account is the default active tab
     expect(screen.getByTestId('account-settings')).toBeInTheDocument();
+
+    // All tab buttons should be visible
+    expect(screen.getByRole('button', { name: /Account/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Appearance/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Notifications/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /About/i })).toBeInTheDocument();
+
+    // Click Appearance tab
+    fireEvent.click(screen.getByRole('button', { name: /Appearance/i }));
     expect(screen.getByTestId('appearance-settings')).toBeInTheDocument();
-    expect(screen.getByTestId('notification-settings')).toBeInTheDocument();
+
+    // Click About tab
+    fireEvent.click(screen.getByRole('button', { name: /About/i }));
     expect(screen.getByTestId('about-settings')).toBeInTheDocument();
+
     await waitFor(() => expect(window.electronAPI!.app.getVersion).toHaveBeenCalled());
   });
 });

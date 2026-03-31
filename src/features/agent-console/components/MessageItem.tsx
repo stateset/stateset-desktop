@@ -22,11 +22,31 @@ import {
   TOOL_PAYLOAD_PREVIEW_OPTIONS,
 } from '../utils';
 
+function HighlightedText({ text, term }: { text: string; term: string }) {
+  if (!term) return <>{text}</>;
+  const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const parts = text.split(new RegExp(`(${escaped})`, 'gi'));
+  return (
+    <>
+      {parts.map((part, i) =>
+        part.toLowerCase() === term.toLowerCase() ? (
+          <mark key={i} className="bg-amber-400/30 text-inherit rounded-sm px-0.5">
+            {part}
+          </mark>
+        ) : (
+          part
+        )
+      )}
+    </>
+  );
+}
+
 interface MessageItemProps {
   event: StreamEvent;
   isExpanded: boolean;
   onToggle: (id: string) => void;
   onCopy?: (text: string) => void;
+  highlightTerm?: string;
 }
 
 type CopyTarget = 'message' | 'tool' | 'error';
@@ -36,6 +56,7 @@ export const MessageItem = memo(function MessageItem({
   isExpanded,
   onToggle,
   onCopy,
+  highlightTerm,
 }: MessageItemProps) {
   const [copied, setCopied] = useState(false);
   const [copyTarget, setCopyTarget] = useState<CopyTarget | null>(null);
@@ -101,7 +122,14 @@ export const MessageItem = memo(function MessageItem({
     switch (event.type) {
       case 'message':
         return (
-          <div className="relative rounded-2xl border border-white/5 p-4 group/message">
+          <div
+            className={clsx(
+              'relative rounded-2xl border p-4 group/message',
+              highlightTerm && event.role === 'assistant'
+                ? 'border-amber-500/30 ring-1 ring-amber-400/20'
+                : 'border-white/5'
+            )}
+          >
             <div
               className={clsx(
                 'absolute inset-0 pointer-events-none',
@@ -141,7 +169,13 @@ export const MessageItem = memo(function MessageItem({
                   {event.role === 'assistant' ? (
                     <Markdown content={event.content} />
                   ) : (
-                    <p className="whitespace-pre-wrap text-slate-200">{event.content}</p>
+                    <p className="whitespace-pre-wrap text-slate-200">
+                      {highlightTerm ? (
+                        <HighlightedText text={event.content} term={highlightTerm} />
+                      ) : (
+                        event.content
+                      )}
+                    </p>
                   )}
                 </div>
               </div>
@@ -294,7 +328,13 @@ export const MessageItem = memo(function MessageItem({
                 <p className="text-sm font-medium text-slate-300 mb-1">
                   Agent {event.level === 'debug' && <span className="text-slate-500">(debug)</span>}
                 </p>
-                <p className="whitespace-pre-wrap text-slate-300 break-words">{event.message}</p>
+                <p className="whitespace-pre-wrap text-slate-300 break-words">
+                  {highlightTerm ? (
+                    <HighlightedText text={event.message} term={highlightTerm} />
+                  ) : (
+                    event.message
+                  )}
+                </p>
               </div>
             </div>
           </div>
@@ -311,7 +351,13 @@ export const MessageItem = memo(function MessageItem({
               <AlertCircle className="w-5 h-5 text-rose-400 flex-shrink-0" aria-hidden="true" />
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-rose-300">{event.code}</p>
-                <p className="text-sm text-rose-200">{event.message}</p>
+                <p className="text-sm text-rose-200">
+                  {highlightTerm ? (
+                    <HighlightedText text={event.message} term={highlightTerm} />
+                  ) : (
+                    event.message
+                  )}
+                </p>
               </div>
               <button
                 type="button"

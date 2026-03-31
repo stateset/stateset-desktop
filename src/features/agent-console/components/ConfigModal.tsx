@@ -33,7 +33,7 @@ export function ConfigModal({
       <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <label className="space-y-1">
-            <span className="text-sm text-slate-400">Loop Interval (ms)</span>
+            <span className="text-sm text-gray-300">Loop Interval (ms)</span>
             <input
               type="number"
               min={100}
@@ -45,7 +45,7 @@ export function ConfigModal({
             />
           </label>
           <label className="space-y-1">
-            <span className="text-sm text-slate-400">Max Iterations</span>
+            <span className="text-sm text-gray-300">Max Iterations</span>
             <input
               type="number"
               min={1}
@@ -57,7 +57,7 @@ export function ConfigModal({
             />
           </label>
           <label className="space-y-1">
-            <span className="text-sm text-slate-400">Iteration Timeout (s)</span>
+            <span className="text-sm text-gray-300">Iteration Timeout (s)</span>
             <input
               type="number"
               min={1}
@@ -69,7 +69,7 @@ export function ConfigModal({
             />
           </label>
           <label className="space-y-1">
-            <span className="text-sm text-slate-400">Temperature</span>
+            <span className="text-sm text-gray-300">Temperature</span>
             <input
               type="number"
               min={0}
@@ -83,7 +83,7 @@ export function ConfigModal({
             />
           </label>
           <label className="space-y-1 md:col-span-2">
-            <span className="text-sm text-slate-400">Model</span>
+            <span className="text-sm text-gray-300">Model</span>
             <input
               type="text"
               value={configDraft?.model ?? ''}
@@ -94,7 +94,7 @@ export function ConfigModal({
         </div>
 
         <label className="space-y-1 block">
-          <span className="text-sm text-slate-400">MCP Servers (comma or newline separated)</span>
+          <span className="text-sm text-gray-300">MCP Servers (comma or newline separated)</span>
           <textarea
             rows={3}
             value={(configDraft?.mcp_servers || []).join('\n')}
@@ -111,7 +111,7 @@ export function ConfigModal({
         </label>
 
         <label className="space-y-1 block">
-          <span className="text-sm text-slate-400">Custom Instructions</span>
+          <span className="text-sm text-gray-300">Custom Instructions</span>
           <textarea
             rows={4}
             value={configDraft?.custom_instructions ?? ''}
@@ -123,7 +123,7 @@ export function ConfigModal({
         <label className="flex items-center justify-between gap-4">
           <div>
             <p className="font-medium">Pause on Error</p>
-            <p className="text-sm text-slate-400">
+            <p className="text-sm text-gray-300">
               Stop the agent if an unrecoverable error occurs.
             </p>
           </div>

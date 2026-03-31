@@ -76,11 +76,19 @@ export function SaveAsTemplateDialog({
           />
         </div>
 
-        <div className="p-3 bg-gray-800/50 rounded-lg text-xs text-gray-400 space-y-1">
-          <p>Config snapshot:</p>
-          <p>Model: {config.model}</p>
-          <p>Temperature: {config.temperature}</p>
-          <p>MCP: {config.mcp_servers?.join(', ') || 'None'}</p>
+        <div className="p-3 bg-gray-800/50 rounded-lg text-xs text-gray-400 space-y-1.5">
+          <p className="font-semibold text-gray-300">Config snapshot</p>
+          <div className="font-mono space-y-0.5">
+            <p>
+              Model: <span className="text-gray-300">{config.model}</span>
+            </p>
+            <p>
+              Temperature: <span className="text-gray-300">{config.temperature}</span>
+            </p>
+            <p>
+              MCP: <span className="text-gray-300">{config.mcp_servers?.join(', ') || 'None'}</span>
+            </p>
+          </div>
         </div>
       </div>
 

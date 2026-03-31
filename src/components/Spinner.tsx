@@ -5,6 +5,8 @@ interface SpinnerProps {
   className?: string;
   /** Color class for the visible arc, e.g. "border-t-emerald-400" */
   color?: string;
+  /** When true, the spinner stops animating */
+  paused?: boolean;
 }
 
 const sizeMap = {
@@ -13,19 +15,25 @@ const sizeMap = {
   lg: 'w-6 h-6 border-[2.5px]',
 };
 
-export function Spinner({ size = 'md', color = 'border-t-white', className }: SpinnerProps) {
+export function Spinner({
+  size = 'md',
+  color = 'border-t-white',
+  className,
+  paused,
+}: SpinnerProps) {
   return (
     <div
       className={clsx(
-        'rounded-full animate-spin border-current/30',
+        'rounded-full border-current/30',
+        !paused && 'animate-spin',
         color,
         sizeMap[size],
         className
       )}
       role="status"
-      aria-label="Loading"
+      aria-label={paused ? 'Paused' : 'Loading'}
     >
-      <span className="sr-only">Loading...</span>
+      <span className="sr-only">{paused ? 'Paused' : 'Loading...'}</span>
     </div>
   );
 }

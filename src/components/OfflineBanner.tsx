@@ -87,6 +87,11 @@ export default function OfflineBanner() {
               <span className={`text-sm ${isError ? 'text-red-200' : 'text-amber-200'}`}>
                 {healthDescription}
               </span>
+              {consecutiveFailures > 2 && (
+                <span className={`text-xs ${isError ? 'text-red-400/60' : 'text-amber-400/60'}`}>
+                  ({consecutiveFailures} failures)
+                </span>
+              )}
               {latencyMs !== null && isApiReachable && (
                 <span className="text-xs text-gray-500">({latencyMs}ms)</span>
               )}

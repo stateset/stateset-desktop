@@ -42,13 +42,20 @@ export function Modal({
   useEffect(() => {
     if (!isOpen) return;
 
+    // Lock body scroll while modal is open
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && !preventClose) {
         onClose();
       }
     };
     document.addEventListener('keydown', handleEscape);
-    return () => document.removeEventListener('keydown', handleEscape);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.removeEventListener('keydown', handleEscape);
+    };
   }, [isOpen, onClose, preventClose]);
 
   return (

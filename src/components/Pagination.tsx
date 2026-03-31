@@ -9,6 +9,8 @@ interface PaginationProps {
   totalItems?: number;
   itemsPerPage?: number;
   showItemCount?: boolean;
+  onPageSizeChange?: (size: number) => void;
+  pageSizeOptions?: number[];
 }
 
 export const Pagination = memo(function Pagination({
@@ -18,6 +20,8 @@ export const Pagination = memo(function Pagination({
   totalItems,
   itemsPerPage = 10,
   showItemCount = true,
+  onPageSizeChange,
+  pageSizeOptions = [10, 25, 50, 100],
 }: PaginationProps) {
   if (totalPages <= 1) return null;
 
@@ -62,12 +66,28 @@ export const Pagination = memo(function Pagination({
 
   return (
     <div className="flex items-center justify-between py-4 px-5 border-t border-slate-700/60">
-      {/* Item count */}
-      {showItemCount && totalItems !== undefined && (
-        <div className="text-sm font-medium text-gray-400">
-          Showing {startItem}-{endItem} of {totalItems}
-        </div>
-      )}
+      {/* Item count + page size */}
+      <div className="flex items-center gap-3">
+        {showItemCount && totalItems !== undefined && (
+          <span className="text-sm font-medium text-gray-400">
+            Showing {startItem}-{endItem} of {totalItems}
+          </span>
+        )}
+        {onPageSizeChange && (
+          <select
+            value={itemsPerPage}
+            onChange={(e) => onPageSizeChange(Number(e.target.value))}
+            className="px-2 py-1 text-xs bg-slate-800/60 border border-slate-700/50 rounded-lg text-gray-400 focus:outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40"
+            aria-label="Items per page"
+          >
+            {pageSizeOptions.map((size) => (
+              <option key={size} value={size}>
+                {size} / page
+              </option>
+            ))}
+          </select>
+        )}
+      </div>
 
       {/* Page controls */}
       <nav className="flex items-center gap-1" role="navigation" aria-label="Pagination">

@@ -207,6 +207,7 @@ export const DashboardStats = memo(function DashboardStats({
       glow: runningCount > 0,
       clickFilter: 'running',
       ring: { value: runningCount, max: sessions.length },
+      tooltip: 'Active agent sessions currently running or paused. Click to filter.',
     },
     {
       key: 'loops',
@@ -221,6 +222,7 @@ export const DashboardStats = memo(function DashboardStats({
       glow: false,
       clickFilter: null as string | null,
       ring: null as { value: number; max: number } | null,
+      tooltip: 'Total agent iteration cycles across all sessions.',
     },
     {
       key: 'tools',
@@ -235,6 +237,7 @@ export const DashboardStats = memo(function DashboardStats({
       glow: false,
       clickFilter: null as string | null,
       ring: null as { value: number; max: number } | null,
+      tooltip: 'Total external API and tool calls made by agents.',
     },
     {
       key: 'tokens',
@@ -249,6 +252,7 @@ export const DashboardStats = memo(function DashboardStats({
       glow: false,
       clickFilter: null as string | null,
       ring: null as { value: number; max: number } | null,
+      tooltip: 'Total LLM token consumption across all agent sessions.',
     },
   ];
 
@@ -265,6 +269,7 @@ export const DashboardStats = memo(function DashboardStats({
             key={card.key}
             role={isClickable ? 'button' : undefined}
             tabIndex={isClickable ? 0 : undefined}
+            title={card.tooltip}
             onClick={isClickable ? () => onStatClick(card.clickFilter!) : undefined}
             onKeyDown={
               isClickable
@@ -361,7 +366,7 @@ export const DashboardStats = memo(function DashboardStats({
 
             {/* Full-width sparkline */}
             {card.sparkline && card.sparkline.data.length > 1 && (
-              <div className="mt-3 -mx-5 -mb-5 px-3 pt-1 pb-0 opacity-40 group-hover:opacity-80 transition-opacity duration-300">
+              <div className="mt-3 -mx-5 -mb-5 px-3 pt-1 pb-0 opacity-60 group-hover:opacity-90 transition-opacity duration-300">
                 {card.sparkline.type === 'line' ? (
                   <Sparkline
                     data={card.sparkline.data}

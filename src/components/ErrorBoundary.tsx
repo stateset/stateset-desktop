@@ -195,12 +195,21 @@ export default class ErrorBoundary extends React.Component<ErrorBoundaryProps, E
             </div>
 
             {/* Action Buttons */}
-            <div className="flex gap-3 justify-center">
+            <div className="flex flex-wrap gap-3 justify-center">
               <button
                 onClick={this.handleReset}
                 className="inline-flex items-center justify-center rounded-lg bg-gray-800 border border-gray-700/50 px-4 py-2 text-sm font-medium hover:bg-gray-700 hover:scale-[1.02] transition-all duration-200 shadow-sm hover:shadow-md"
               >
                 Try again
+              </button>
+              <button
+                onClick={() => {
+                  window.location.hash = '#/';
+                  this.handleReset();
+                }}
+                className="inline-flex items-center justify-center rounded-lg bg-gray-800 border border-gray-700/50 px-4 py-2 text-sm font-medium hover:bg-gray-700 hover:scale-[1.02] transition-all duration-200 shadow-sm hover:shadow-md"
+              >
+                Go to Dashboard
               </button>
               <button
                 onClick={this.handleReload}

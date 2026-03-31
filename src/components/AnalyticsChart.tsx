@@ -1,9 +1,29 @@
-import { memo, useMemo } from 'react';
+import { memo, useMemo, useState, useRef } from 'react';
 import clsx from 'clsx';
 
 interface DataPoint {
   label: string;
   value: number;
+}
+
+interface ChartTooltipState {
+  x: number;
+  y: number;
+  label: string;
+  value: string;
+}
+
+function ChartTooltip({ tooltip }: { tooltip: ChartTooltipState | null }) {
+  if (!tooltip) return null;
+  return (
+    <div
+      className="absolute z-20 pointer-events-none px-2.5 py-1.5 bg-gray-900/95 border border-gray-700/60 rounded-lg shadow-xl text-xs backdrop-blur-sm whitespace-nowrap"
+      style={{ left: `${tooltip.x}%`, top: tooltip.y, transform: 'translate(-50%, -100%)' }}
+    >
+      <p className="text-gray-400 text-[10px]">{tooltip.label}</p>
+      <p className="text-gray-100 font-semibold">{tooltip.value}</p>
+    </div>
+  );
 }
 
 interface LineChartProps {
@@ -25,6 +45,9 @@ export const LineChart = memo(function LineChart({
   showArea = true,
   className,
 }: LineChartProps) {
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
   const { path, areaPath, points, maxValue, minValue } = useMemo(() => {
     if (data.length === 0) return { path: '', areaPath: '', points: [], maxValue: 0, minValue: 0 };
 
@@ -51,6 +74,12 @@ export const LineChart = memo(function LineChart({
     return { path: linePath, areaPath: area, points: pts, maxValue: max, minValue: min };
   }, [data, height, showLabels]);
 
+  const tooltip = useMemo<ChartTooltipState | null>(() => {
+    if (hoveredIndex === null || !points[hoveredIndex]) return null;
+    const pt = points[hoveredIndex];
+    return { x: pt.x, y: pt.y - 8, label: pt.label, value: pt.value.toLocaleString() };
+  }, [hoveredIndex, points]);
+
   if (data.length === 0) {
     return (
       <div
@@ -63,7 +92,8 @@ export const LineChart = memo(function LineChart({
   }
 
   return (
-    <div className={className}>
+    <div className={clsx('relative', className)} ref={containerRef}>
+      <ChartTooltip tooltip={tooltip} />
       <svg viewBox={`0 0 100 ${height}`} className="w-full" preserveAspectRatio="none">
         {/* Grid lines */}
         {showGrid && (
@@ -118,12 +148,14 @@ export const LineChart = memo(function LineChart({
             key={i}
             cx={point.x}
             cy={point.y}
-            r="2"
-            fill={color}
-            className="hover:r-3 transition-all"
-          >
-            <title>{`${point.label}: ${point.value.toLocaleString()}`}</title>
-          </circle>
+            r={hoveredIndex === i ? 3.5 : 2}
+            fill={hoveredIndex === i ? 'white' : color}
+            stroke={hoveredIndex === i ? color : 'none'}
+            strokeWidth={hoveredIndex === i ? 1.5 : 0}
+            className="transition-all duration-150 cursor-pointer"
+            onMouseEnter={() => setHoveredIndex(i)}
+            onMouseLeave={() => setHoveredIndex(null)}
+          />
         ))}
 
         {/* Labels */}
@@ -169,6 +201,8 @@ export const BarChart = memo(function BarChart({
   showLabels = true,
   className,
 }: BarChartProps) {
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+
   const { bars, maxValue } = useMemo(() => {
     if (data.length === 0) return { bars: [], maxValue: 0 };
 
@@ -193,6 +227,17 @@ export const BarChart = memo(function BarChart({
     return { bars: computed, maxValue: max };
   }, [data, height, showLabels]);
 
+  const tooltip = useMemo<ChartTooltipState | null>(() => {
+    if (hoveredIndex === null || !bars[hoveredIndex]) return null;
+    const bar = bars[hoveredIndex];
+    return {
+      x: bar.x + bar.width / 2,
+      y: bar.y - 8,
+      label: bar.label,
+      value: bar.value.toLocaleString(),
+    };
+  }, [hoveredIndex, bars]);
+
   if (data.length === 0) {
     return (
       <div
@@ -205,7 +250,8 @@ export const BarChart = memo(function BarChart({
   }
 
   return (
-    <div className={className}>
+    <div className={clsx('relative', className)}>
+      <ChartTooltip tooltip={tooltip} />
       <svg viewBox={`0 0 100 ${height}`} className="w-full" preserveAspectRatio="none">
         {/* Bars */}
         {bars.map((bar, i) => (
@@ -216,14 +262,14 @@ export const BarChart = memo(function BarChart({
               width={bar.width}
               height={bar.height}
               fill={color}
-              fillOpacity="0.8"
+              fillOpacity={hoveredIndex === i ? 1 : 0.8}
               rx="1"
-              className="hover:fill-opacity-100 transition-all"
-            >
-              <title>{`${bar.label}: ${bar.value.toLocaleString()}`}</title>
-            </rect>
+              className="transition-all duration-150 cursor-pointer"
+              onMouseEnter={() => setHoveredIndex(i)}
+              onMouseLeave={() => setHoveredIndex(null)}
+            />
 
-            {/* Value label on hover position */}
+            {/* Value label inside bar */}
             {bar.height > 15 && (
               <text
                 x={bar.x + bar.width / 2}
@@ -231,6 +277,7 @@ export const BarChart = memo(function BarChart({
                 fill="white"
                 fontSize="3"
                 textAnchor="middle"
+                className="pointer-events-none"
               >
                 {bar.value.toLocaleString()}
               </text>
@@ -282,6 +329,8 @@ export const DonutChart = memo(function DonutChart({
   showLegend = true,
   className,
 }: DonutChartProps) {
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+
   const { segments, total } = useMemo(() => {
     const sum = data.reduce((acc, d) => acc + d.value, 0);
     if (sum === 0) return { segments: [], total: 0 };
@@ -345,12 +394,14 @@ export const DonutChart = memo(function DonutChart({
             r={radius}
             fill="none"
             stroke={segment.color}
-            strokeWidth={thickness}
+            strokeWidth={hoveredIndex === i ? thickness + 4 : thickness}
             strokeDasharray={segment.dashArray}
             strokeDashoffset={segment.offset}
             strokeLinecap="round"
             transform={`rotate(-90 ${center} ${center})`}
-            className="transition-all"
+            className="transition-all duration-200 cursor-pointer"
+            onMouseEnter={() => setHoveredIndex(i)}
+            onMouseLeave={() => setHoveredIndex(null)}
           >
             <title>{`${segment.label}: ${segment.value.toLocaleString()} (${(segment.percentage * 100).toFixed(1)}%)`}</title>
           </circle>
@@ -359,14 +410,28 @@ export const DonutChart = memo(function DonutChart({
         {/* Center text */}
         <text
           x={center}
-          y={center}
+          y={hoveredIndex !== null ? center - 6 : center}
           textAnchor="middle"
           dominantBaseline="middle"
-          className="text-gray-200 font-semibold"
+          className="text-gray-200 font-semibold transition-all"
           fontSize="14"
         >
-          {total.toLocaleString()}
+          {hoveredIndex !== null
+            ? segments[hoveredIndex]?.value.toLocaleString()
+            : total.toLocaleString()}
         </text>
+        {hoveredIndex !== null && segments[hoveredIndex] && (
+          <text
+            x={center}
+            y={center + 8}
+            textAnchor="middle"
+            dominantBaseline="middle"
+            className="text-gray-400"
+            fontSize="8"
+          >
+            {segments[hoveredIndex].label}
+          </text>
+        )}
       </svg>
 
       {/* Legend */}
@@ -375,10 +440,18 @@ export const DonutChart = memo(function DonutChart({
           {segments.map((segment, i) => (
             <div
               key={i}
-              className="flex items-center gap-2 text-sm hover:bg-slate-800/40 rounded-lg px-2 py-1 -mx-2 transition-colors duration-150"
+              className={clsx(
+                'flex items-center gap-2 text-sm rounded-lg px-2 py-1 -mx-2 transition-all duration-150 cursor-pointer',
+                hoveredIndex === i ? 'bg-slate-800/60 scale-[1.02]' : 'hover:bg-slate-800/40'
+              )}
+              onMouseEnter={() => setHoveredIndex(i)}
+              onMouseLeave={() => setHoveredIndex(null)}
             >
               <div
-                className="w-3 h-3 rounded-full shadow-sm"
+                className={clsx(
+                  'w-3 h-3 rounded-full shadow-sm transition-transform',
+                  hoveredIndex === i && 'scale-125'
+                )}
                 style={{ backgroundColor: segment.color }}
               />
               <span className="text-gray-400">{segment.label}</span>

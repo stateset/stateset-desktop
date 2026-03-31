@@ -66,15 +66,15 @@ export function SkeletonCard() {
   return (
     <div className="bg-slate-900/40 border border-slate-700/50 rounded-2xl p-5 backdrop-blur-sm shadow-sm">
       <div className="flex items-start gap-4">
-        <Skeleton variant="circular" width={48} height={48} />
+        <Skeleton variant="circular" width={48} height={48} shimmer />
         <div className="flex-1 space-y-2.5">
-          <Skeleton width="60%" height={20} />
-          <Skeleton width="40%" height={16} />
+          <Skeleton width="60%" height={20} shimmer />
+          <Skeleton width="40%" height={16} shimmer />
         </div>
       </div>
       <div className="mt-5 flex gap-3">
-        <Skeleton width={80} height={36} variant="rectangular" />
-        <Skeleton width={80} height={36} variant="rectangular" />
+        <Skeleton width={80} height={36} variant="rectangular" shimmer />
+        <Skeleton width={80} height={36} variant="rectangular" shimmer />
       </div>
     </div>
   );
@@ -89,12 +89,12 @@ export function SkeletonTable({ rows = 5 }: { rows?: number }) {
           className="flex items-center gap-4 p-4 bg-slate-900/40 border border-slate-700/30 rounded-xl backdrop-blur-sm animate-fade-in"
           style={{ animationDelay: `${i * 50}ms`, animationFillMode: 'backwards' }}
         >
-          <Skeleton variant="circular" width={32} height={32} />
-          <Skeleton width="30%" height={16} />
-          <Skeleton width="20%" height={16} />
-          <Skeleton width="15%" height={16} />
+          <Skeleton variant="circular" width={32} height={32} shimmer />
+          <Skeleton width="30%" height={16} shimmer />
+          <Skeleton width="20%" height={16} shimmer />
+          <Skeleton width="15%" height={16} shimmer />
           <div className="ml-auto">
-            <Skeleton width={60} height={24} variant="rectangular" />
+            <Skeleton width={60} height={24} variant="rectangular" shimmer />
           </div>
         </div>
       ))}
@@ -106,10 +106,10 @@ export function SkeletonMetric() {
   return (
     <div className="bg-slate-800/40 border border-slate-700/50 rounded-2xl p-5 backdrop-blur-sm shadow-sm">
       <div className="flex items-center gap-4">
-        <Skeleton variant="rectangular" width={48} height={48} />
+        <Skeleton variant="rectangular" width={48} height={48} shimmer />
         <div className="space-y-2.5">
-          <Skeleton width={60} height={24} />
-          <Skeleton width={80} height={14} />
+          <Skeleton width={60} height={24} shimmer />
+          <Skeleton width={80} height={14} shimmer />
         </div>
       </div>
     </div>

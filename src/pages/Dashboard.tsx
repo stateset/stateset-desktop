@@ -102,9 +102,11 @@ export default function Dashboard() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const searchInputRef = useRef<HTMLInputElement>(null);
   const exportMenuRef = useRef<HTMLDivElement>(null);
   const pageSize = usePreferencesStore((s) => s.pageSize);
+  const setPageSize = usePreferencesStore((s) => s.setPageSize);
   const refreshInterval = usePreferencesStore((s) => s.refreshInterval);
   const { handleMutationError, handleQueryError, clearLastError } = useErrorHandler();
 
@@ -253,9 +255,10 @@ export default function Dashboard() {
   const { totalPages, getPageItems, itemsPerPage } = usePagination(filteredSessions, pageSize);
   const paginatedSessions = useMemo(() => getPageItems(currentPage), [getPageItems, currentPage]);
 
-  // Reset to page 1 when filters change
+  // Reset to page 1 and clear selection when filters change
   useEffect(() => {
     setCurrentPage(1);
+    setSelectedIds(new Set());
   }, [debouncedSearch, statusFilter, pageSize]);
 
   // Clamp current page when the total page count shrinks
@@ -269,15 +272,17 @@ export default function Dashboard() {
   type CreateAgentRequest = {
     agentType: string;
     config: Partial<AgentSessionConfig>;
+    name?: string;
   };
 
   const createSession = useMutation({
-    mutationFn: ({ agentType, config }: CreateAgentRequest) =>
+    mutationFn: ({ agentType, config, name }: CreateAgentRequest) =>
       agentApi.createSession(
         requireTenantId(tenant),
         requireBrandId(currentBrand),
         agentType,
-        config
+        config,
+        name
       ),
     onSuccess: (session) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.sessions.all });
@@ -341,10 +346,14 @@ export default function Dashboard() {
     );
   }, [currentBrand, location.pathname, location.search, navigate]);
 
-  const handleCreateAgent = async (agentType: string, config: Partial<AgentSessionConfig>) => {
+  const handleCreateAgent = async (
+    agentType: string,
+    config: Partial<AgentSessionConfig>,
+    name?: string
+  ) => {
     setIsCreating(true);
     try {
-      await createSession.mutateAsync({ agentType, config });
+      await createSession.mutateAsync({ agentType, config, name });
     } finally {
       setIsCreating(false);
     }
@@ -501,6 +510,88 @@ export default function Dashboard() {
   const handleRowExportSummary = useCallback(
     (session: AgentSession) => handleExportRunSummary(session),
     [handleExportRunSummary]
+  );
+  const handleToggleSelect = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const handleSelectAll = useCallback(() => {
+    if (selectedIds.size === paginatedSessions.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(paginatedSessions.map((s) => s.id)));
+    }
+  }, [paginatedSessions, selectedIds.size]);
+
+  const handleBulkStart = useCallback(async () => {
+    const toStart = sessions.filter(
+      (s) => selectedIds.has(s.id) && (s.status === 'stopped' || s.status === 'failed')
+    );
+    for (const s of toStart) {
+      try {
+        await agentApi.startSession(requireTenantId(tenant), requireBrandId(currentBrand), s.id);
+      } catch {
+        /* continue */
+      }
+    }
+    queryClient.invalidateQueries({ queryKey: queryKeys.sessions.all });
+    setSelectedIds(new Set());
+    showToast({
+      variant: 'success',
+      title: 'Started',
+      message: `${toStart.length} agent(s) started.`,
+    });
+  }, [selectedIds, sessions, tenant, currentBrand, queryClient, showToast]);
+
+  const handleBulkStop = useCallback(async () => {
+    const toStop = sessions.filter(
+      (s) => selectedIds.has(s.id) && (s.status === 'running' || s.status === 'paused')
+    );
+    for (const s of toStop) {
+      try {
+        await agentApi.stopSession(requireTenantId(tenant), requireBrandId(currentBrand), s.id);
+      } catch {
+        /* continue */
+      }
+    }
+    queryClient.invalidateQueries({ queryKey: queryKeys.sessions.all });
+    setSelectedIds(new Set());
+    showToast({
+      variant: 'success',
+      title: 'Stopped',
+      message: `${toStop.length} agent(s) stopped.`,
+    });
+  }, [selectedIds, sessions, tenant, currentBrand, queryClient, showToast]);
+
+  const handleRowRename = useCallback(
+    async (id: string, name: string) => {
+      try {
+        await agentApi.renameSession(
+          requireTenantId(tenant),
+          requireBrandId(currentBrand),
+          id,
+          name
+        );
+        queryClient.invalidateQueries({ queryKey: queryKeys.sessions.all });
+        showToast({
+          variant: 'success',
+          title: 'Renamed',
+          message: `Session renamed to "${name}".`,
+        });
+      } catch (error) {
+        showToast({
+          variant: 'error',
+          title: 'Failed to rename',
+          message: error instanceof Error ? error.message : 'Unknown error',
+        });
+      }
+    },
+    [tenant, currentBrand, queryClient, showToast]
   );
 
   // Stats
@@ -856,6 +947,63 @@ export default function Dashboard() {
                   </div>
                 </div>
 
+                {/* Bulk selection toolbar */}
+                {selectedIds.size > 0 && (
+                  <div className="px-5 py-2.5 border-b border-slate-700/40 bg-brand-500/5 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.size === paginatedSessions.length}
+                        onChange={handleSelectAll}
+                        className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-brand-500 focus:ring-brand-500/40 cursor-pointer"
+                        aria-label="Select all visible agents"
+                      />
+                      <span className="text-sm font-medium text-brand-300">
+                        {selectedIds.size} selected
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedIds(new Set())}
+                        className="text-xs text-gray-400 hover:text-gray-200 transition-colors"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleBulkStart}
+                        disabled={
+                          !sessions.some(
+                            (s) =>
+                              selectedIds.has(s.id) &&
+                              (s.status === 'stopped' || s.status === 'failed')
+                          )
+                        }
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg border border-emerald-500/20 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/50"
+                      >
+                        <PlayCircle className="w-3.5 h-3.5" aria-hidden="true" />
+                        Start Selected
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleBulkStop}
+                        disabled={
+                          !sessions.some(
+                            (s) =>
+                              selectedIds.has(s.id) &&
+                              (s.status === 'running' || s.status === 'paused')
+                          )
+                        }
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-rose-500/15 hover:bg-rose-500/25 text-rose-400 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg border border-rose-500/20 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/50"
+                      >
+                        <StopCircle className="w-3.5 h-3.5" aria-hidden="true" />
+                        Stop Selected
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 {/* Sessions list */}
                 {isLoading ? (
                   <div className="p-4 space-y-3">
@@ -905,6 +1053,9 @@ export default function Dashboard() {
                             onClick={handleRowClick}
                             onCopy={handleRowCopy}
                             onExportSummary={handleRowExportSummary}
+                            onRename={handleRowRename}
+                            isSelected={selectedIds.has(session.id)}
+                            onToggleSelect={handleToggleSelect}
                           />
                         </motion.div>
                       ))}
@@ -915,6 +1066,7 @@ export default function Dashboard() {
                       totalItems={filteredSessions.length}
                       itemsPerPage={itemsPerPage}
                       onPageChange={setCurrentPage}
+                      onPageSizeChange={(size) => setPageSize(size as 10 | 25 | 50 | 100)}
                     />
                   </>
                 )}

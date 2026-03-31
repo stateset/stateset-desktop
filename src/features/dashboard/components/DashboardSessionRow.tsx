@@ -1,5 +1,5 @@
 import type { AgentSession, AgentSessionStatus } from '../../../types';
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useState, useRef, useEffect } from 'react';
 import {
   Bot,
   Play,
@@ -12,6 +12,7 @@ import {
   Hash,
   Wrench,
   Coins,
+  Pencil,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { formatDistanceToNow } from 'date-fns';
@@ -25,6 +26,9 @@ interface DashboardSessionRowProps {
   onClick: (id: string) => void;
   onCopy: (session: AgentSession) => void;
   onExportSummary: (session: AgentSession) => void;
+  onRename?: (id: string, name: string) => void;
+  isSelected?: boolean;
+  onToggleSelect?: (id: string) => void;
 }
 
 const statusConfig: Record<
@@ -98,6 +102,9 @@ export const DashboardSessionRow = memo(function DashboardSessionRow({
   onClick,
   onCopy,
   onExportSummary,
+  onRename,
+  isSelected,
+  onToggleSelect,
 }: DashboardSessionRowProps) {
   const isRunning = session.status === 'running';
   const isPaused = session.status === 'paused';
@@ -106,6 +113,35 @@ export const DashboardSessionRow = memo(function DashboardSessionRow({
   const agentTypeLabel = session.agent_type.charAt(0).toUpperCase() + session.agent_type.slice(1);
   const sessionTitle = session.name?.trim() ? session.name : `${agentTypeLabel} Agent`;
   const config = statusConfig[session.status];
+
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState(sessionTitle);
+  const renameInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isRenaming) {
+      renameInputRef.current?.focus();
+      renameInputRef.current?.select();
+    }
+  }, [isRenaming]);
+
+  const commitRename = () => {
+    const trimmed = renameValue.trim();
+    if (trimmed && trimmed !== sessionTitle && onRename) {
+      onRename(session.id, trimmed);
+    }
+    setIsRenaming(false);
+  };
+
+  const cancelRename = () => {
+    setRenameValue(sessionTitle);
+    setIsRenaming(false);
+  };
+
+  const startRename = () => {
+    setRenameValue(sessionTitle);
+    setIsRenaming(true);
+  };
 
   // Loop progress: show if max_iterations is set and reasonable
   const maxIter = session.config.max_iterations;
@@ -125,6 +161,7 @@ export const DashboardSessionRow = memo(function DashboardSessionRow({
 
   const contextMenuItems = [
     { id: 'view', label: 'View Details', icon: ChevronRight, onClick: handleClick },
+    ...(onRename ? [{ id: 'rename', label: 'Rename', icon: Pencil, onClick: startRename }] : []),
     ...(canStart ? [{ id: 'start', label: 'Start Agent', icon: Play, onClick: handleStart }] : []),
     ...(canStop
       ? [{ id: 'stop', label: 'Stop Agent', icon: Square, onClick: handleStop, danger: true }]
@@ -138,16 +175,35 @@ export const DashboardSessionRow = memo(function DashboardSessionRow({
       <div
         className={clsx(
           'relative group border-l-[3px] transition-all duration-200',
-          'hover:bg-slate-800/20',
+          isSelected ? 'bg-brand-500/10' : 'hover:bg-slate-800/20',
           config.border
         )}
       >
         <button
           type="button"
-          className="w-full flex items-center gap-4 px-5 py-3.5 pr-36 text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-inset"
+          className={clsx(
+            'w-full flex items-center gap-4 py-3.5 pr-36 text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-inset',
+            onToggleSelect ? 'pl-2' : 'px-5'
+          )}
           onClick={handleClick}
           aria-label={`${sessionTitle}, status: ${config.label}, ${session.metrics.loop_count} loops, ${session.metrics.tokens_used} tokens`}
         >
+          {/* Selection checkbox */}
+          {onToggleSelect && (
+            <div
+              className="flex-shrink-0 flex items-center justify-center w-8"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <input
+                type="checkbox"
+                checked={!!isSelected}
+                onChange={() => onToggleSelect(session.id)}
+                className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-brand-500 focus:ring-brand-500/40 focus:ring-offset-0 cursor-pointer"
+                aria-label={`Select ${sessionTitle}`}
+              />
+            </div>
+          )}
+
           {/* Agent icon with status color */}
           <div className="relative flex-shrink-0">
             <div
@@ -195,7 +251,42 @@ export const DashboardSessionRow = memo(function DashboardSessionRow({
           {/* Info */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2.5 mb-1">
-              <span className="font-bold text-sm text-gray-200 truncate">{sessionTitle}</span>
+              {isRenaming ? (
+                <input
+                  ref={renameInputRef}
+                  type="text"
+                  value={renameValue}
+                  onChange={(e) => setRenameValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      commitRename();
+                    }
+                    if (e.key === 'Escape') {
+                      e.preventDefault();
+                      cancelRename();
+                    }
+                    e.stopPropagation();
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                  onBlur={commitRename}
+                  maxLength={80}
+                  className="font-bold text-sm text-gray-200 bg-slate-800/80 border border-brand-500/50 rounded-lg px-2 py-0.5 outline-none focus:ring-2 focus:ring-brand-500/40 w-48"
+                  aria-label="Rename session"
+                />
+              ) : (
+                <span
+                  className="font-bold text-sm text-gray-200 truncate"
+                  onDoubleClick={(e) => {
+                    if (onRename) {
+                      e.stopPropagation();
+                      startRename();
+                    }
+                  }}
+                >
+                  {sessionTitle}
+                </span>
+              )}
               <span
                 className={clsx(
                   'inline-flex items-center gap-1 px-2 py-0.5 text-[10px] uppercase tracking-widest font-bold rounded-md border backdrop-blur-sm',

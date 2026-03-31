@@ -437,7 +437,10 @@ export default function Login() {
                             title="Dismiss"
                             aria-label="Dismiss login error"
                           >
-                            <RefreshCw className="w-3.5 h-3.5 text-gray-400" aria-hidden="true" />
+                            <RefreshCw
+                              className="w-3.5 h-3.5 text-gray-300 hover:text-white"
+                              aria-hidden="true"
+                            />
                           </button>
                         )}
                       </div>

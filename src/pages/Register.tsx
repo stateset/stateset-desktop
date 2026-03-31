@@ -161,7 +161,12 @@ export default function Register() {
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Name */}
               <div>
-                <label htmlFor="register-name" className="block text-sm font-medium text-gray-300 mb-2">Full Name</label>
+                <label
+                  htmlFor="register-name"
+                  className="block text-sm font-medium text-gray-300 mb-2"
+                >
+                  Full Name
+                </label>
                 <div className="relative">
                   <User
                     className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500"
@@ -182,7 +187,10 @@ export default function Register() {
 
               {/* Email */}
               <div>
-                <label htmlFor="register-email" className="block text-sm font-medium text-gray-300 mb-2">
+                <label
+                  htmlFor="register-email"
+                  className="block text-sm font-medium text-gray-300 mb-2"
+                >
                   Email Address
                 </label>
                 <div className="relative">
@@ -204,7 +212,12 @@ export default function Register() {
 
               {/* Password */}
               <div>
-                <label htmlFor="register-password" className="block text-sm font-medium text-gray-300 mb-2">Password</label>
+                <label
+                  htmlFor="register-password"
+                  className="block text-sm font-medium text-gray-300 mb-2"
+                >
+                  Password
+                </label>
                 <div className="relative">
                   <Lock
                     className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500"
@@ -222,7 +235,7 @@ export default function Register() {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 rounded"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 hover:scale-110 active:scale-95 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 rounded"
                     aria-label={showPassword ? 'Hide password' : 'Show password'}
                   >
                     {showPassword ? (
@@ -261,7 +274,10 @@ export default function Register() {
 
               {/* Company (optional) */}
               <div>
-                <label htmlFor="register-company" className="block text-sm font-medium text-gray-300 mb-2">
+                <label
+                  htmlFor="register-company"
+                  className="block text-sm font-medium text-gray-300 mb-2"
+                >
                   Company <span className="text-gray-500">(optional)</span>
                 </label>
                 <div className="relative">

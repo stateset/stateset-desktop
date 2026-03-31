@@ -22,7 +22,7 @@ export function Tooltip({ content, shortcut, position = 'top', children }: Toolt
   const timeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
   const show = useCallback(() => {
-    timeoutRef.current = setTimeout(() => setVisible(true), 400);
+    timeoutRef.current = setTimeout(() => setVisible(true), 200);
   }, []);
 
   const hide = useCallback(() => {

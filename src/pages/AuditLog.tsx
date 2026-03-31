@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { formatDistanceToNow } from 'date-fns';
-import { Search, Trash2, AlertTriangle } from 'lucide-react';
+import { Search, Trash2, AlertTriangle, Download, ClipboardList, X } from 'lucide-react';
 import { useDebounce } from '../hooks/useDebounce';
 import clsx from 'clsx';
 import { usePageTitle } from '../hooks/usePageTitle';
@@ -78,6 +78,26 @@ export default function AuditLog() {
     setShowClearConfirm(false);
   };
 
+  const handleExportCSV = () => {
+    const rows = [
+      ['Timestamp', 'Action', 'Description'].join(','),
+      ...filtered.map((e) =>
+        [
+          new Date(e.timestamp).toISOString(),
+          `"${e.action}"`,
+          `"${e.description.replace(/"/g, '""')}"`,
+        ].join(',')
+      ),
+    ].join('\n');
+    const blob = new Blob([rows], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `audit-log-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="page-shell max-w-5xl mx-auto space-y-6">
       <motion.div
@@ -86,106 +106,149 @@ export default function AuditLog() {
         animate={reduceMotion ? undefined : 'visible'}
         className="space-y-6"
       >
-      {/* Header */}
-      <motion.div variants={reduceMotion ? undefined : pageSectionVariants} className="flex items-center justify-between">
-        <div>
-          <h1 className="page-title">Audit Log</h1>
-          <p className="page-subtitle">Track all actions performed in the application</p>
-        </div>
-        {entries.length > 0 && (
-          <button
-            type="button"
-            onClick={() => setShowClearConfirm(true)}
-            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-400 hover:text-red-400 hover:bg-red-900/20 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900"
-            aria-label="Clear all audit log entries"
-          >
-            <Trash2 className="w-4 h-4" aria-hidden="true" />
-            Clear All
-          </button>
-        )}
-      </motion.div>
-
-      {/* Filters */}
-      <motion.div variants={reduceMotion ? undefined : pageSectionVariants} className="flex gap-3">
-        <div className="relative flex-1">
-          <Search
-            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500"
-            aria-hidden="true"
-          />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search audit log..."
-            aria-label="Search audit log"
-            className="w-full pl-10 pr-4 py-2 bg-gray-900 border border-gray-800 rounded-lg text-sm hover:border-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900 transition-all focus-glow disabled:opacity-50"
-          />
-        </div>
-        <select
-          value={actionFilter}
-          onChange={(e) => setActionFilter(e.target.value)}
-          aria-label="Filter audit log actions"
-          className="px-3 py-2 bg-gray-900 border border-gray-800 rounded-lg text-sm hover:border-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900 transition-all focus-glow"
+        {/* Header */}
+        <motion.div
+          variants={reduceMotion ? undefined : pageSectionVariants}
+          className="flex items-center justify-between"
         >
-          {ACTION_FILTER_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-      </motion.div>
+          <div>
+            <h1 className="page-title">Audit Log</h1>
+            <p className="page-subtitle">Track all actions performed in the application</p>
+          </div>
+          {entries.length > 0 && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleExportCSV}
+                disabled={filtered.length === 0}
+                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-400 hover:text-gray-200 hover:bg-slate-800/60 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
+                aria-label="Export audit log as CSV"
+              >
+                <Download className="w-4 h-4" aria-hidden="true" />
+                Export CSV
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowClearConfirm(true)}
+                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-400 hover:text-red-400 hover:bg-red-900/20 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900"
+                aria-label="Clear all audit log entries"
+              >
+                <Trash2 className="w-4 h-4" aria-hidden="true" />
+                Clear All
+              </button>
+            </div>
+          )}
+        </motion.div>
 
-      {/* Table */}
-      <motion.div variants={reduceMotion ? undefined : pageSectionVariants}>
-      {filtered.length > 0 ? (
-        <div className="bg-slate-900/40 border border-slate-700/50 rounded-2xl overflow-hidden backdrop-blur-sm shadow-sm">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-700/50 text-left text-gray-500 text-xs uppercase tracking-wider bg-slate-900/60">
-                <th className="px-4 py-3">Action</th>
-                <th className="px-4 py-3">Description</th>
-                <th className="px-4 py-3 text-right">When</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/50">
-              {paginatedEntries.map((entry) => (
-                <tr key={entry.id} className="hover:bg-slate-800/30 transition-colors duration-150">
-                  <td className="px-4 py-3">
-                    <span
-                      className={clsx(
-                        'inline-block px-2 py-0.5 text-xs font-medium rounded border',
-                        AUDIT_ACTION_COLORS[entry.action as AuditAction]
-                      )}
+        {/* Filters */}
+        <motion.div
+          variants={reduceMotion ? undefined : pageSectionVariants}
+          className="flex gap-3"
+        >
+          <div className="relative flex-1">
+            <Search
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500"
+              aria-hidden="true"
+            />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search audit log..."
+              aria-label="Search audit log"
+              className="w-full pl-10 pr-4 py-2 bg-gray-900 border border-gray-800 rounded-lg text-sm hover:border-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900 transition-all focus-glow disabled:opacity-50"
+            />
+          </div>
+          <select
+            value={actionFilter}
+            onChange={(e) => setActionFilter(e.target.value)}
+            aria-label="Filter audit log actions"
+            className="px-3 py-2 bg-gray-900 border border-gray-800 rounded-lg text-sm hover:border-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900 transition-all focus-glow"
+          >
+            {ACTION_FILTER_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </motion.div>
+
+        {/* Table */}
+        <motion.div variants={reduceMotion ? undefined : pageSectionVariants}>
+          {filtered.length > 0 ? (
+            <div className="bg-slate-900/40 border border-slate-700/50 rounded-2xl overflow-hidden backdrop-blur-sm shadow-sm">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-700/50 text-left text-gray-500 text-xs uppercase tracking-wider bg-slate-900/60">
+                    <th className="px-4 py-3">Action</th>
+                    <th className="px-4 py-3">Description</th>
+                    <th className="px-4 py-3 text-right">When</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/50">
+                  {paginatedEntries.map((entry) => (
+                    <tr
+                      key={entry.id}
+                      className="hover:bg-slate-800/50 transition-colors duration-150 group"
                     >
-                      {AUDIT_ACTION_LABELS[entry.action as AuditAction] || entry.action}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-gray-300">{entry.description}</td>
-                  <td className="px-4 py-3 text-right text-gray-500 whitespace-nowrap">
-                    {formatDistanceToNow(entry.timestamp, { addSuffix: true })}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <Pagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            totalItems={filtered.length}
-            itemsPerPage={itemsPerPage}
-            onPageChange={setCurrentPage}
-          />
-        </div>
-      ) : (
-        <div className="flex flex-col items-center justify-center py-16 text-gray-500">
-          <p className="text-sm">
-            {searchQuery || actionFilter !== 'all'
-              ? 'No entries match your filters'
-              : 'No audit log entries yet'}
-          </p>
-        </div>
-      )}
-      </motion.div>
+                      <td className="px-4 py-3">
+                        <span
+                          className={clsx(
+                            'inline-block px-2 py-0.5 text-xs font-medium rounded border',
+                            AUDIT_ACTION_COLORS[entry.action as AuditAction]
+                          )}
+                        >
+                          {AUDIT_ACTION_LABELS[entry.action as AuditAction] || entry.action}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-gray-300">{entry.description}</td>
+                      <td className="px-4 py-3 text-right text-gray-500 whitespace-nowrap">
+                        {formatDistanceToNow(entry.timestamp, { addSuffix: true })}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={filtered.length}
+                itemsPerPage={itemsPerPage}
+                onPageChange={setCurrentPage}
+              />
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-16 gap-3">
+              <div className="w-12 h-12 rounded-xl bg-slate-800/60 border border-slate-700/40 flex items-center justify-center mb-1">
+                <ClipboardList className="w-6 h-6 text-slate-500" aria-hidden="true" />
+              </div>
+              <p className="text-sm font-medium text-gray-400">
+                {searchQuery || actionFilter !== 'all'
+                  ? 'No entries match your filters'
+                  : 'No audit log entries yet'}
+              </p>
+              {(searchQuery || actionFilter !== 'all') && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchQuery('');
+                    setActionFilter('all');
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-gray-400 hover:text-gray-200 bg-slate-800/40 hover:bg-slate-800/60 border border-slate-700/40 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
+                >
+                  <X className="w-3 h-3" aria-hidden="true" />
+                  Clear filters
+                </button>
+              )}
+              {!searchQuery && actionFilter === 'all' && (
+                <p className="text-xs text-gray-500">
+                  Actions like creating agents, changing settings, and switching brands will appear
+                  here.
+                </p>
+              )}
+            </div>
+          )}
+        </motion.div>
       </motion.div>
 
       {/* Clear Confirm Dialog */}

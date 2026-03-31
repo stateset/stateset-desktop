@@ -44,10 +44,10 @@ export function TemplatePicker({ selectedId, onSelect }: TemplatePickerProps) {
               key={cat.id}
               onClick={() => setCategoryFilter(cat.id)}
               className={clsx(
-                'px-3 py-1 text-xs rounded-lg transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1',
+                'px-3 py-1 text-xs rounded-lg transition-all duration-200 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1',
                 categoryFilter === cat.id
-                  ? 'bg-brand-600 text-white'
-                  : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                  ? 'bg-brand-600 text-white shadow-sm shadow-brand-500/25'
+                  : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-200'
               )}
               aria-pressed={categoryFilter === cat.id}
             >

@@ -63,10 +63,10 @@ export function AccountSettings({ secureStorageAvailable }: { secureStorageAvail
               type="button"
               onClick={copyApiKey}
               className={clsx(
-                'p-2 rounded-lg transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1',
+                'p-2 rounded-lg transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 active:scale-95',
                 copied
                   ? 'bg-green-900/30 text-green-400 shadow-sm shadow-green-500/10'
-                  : 'bg-gray-800 hover:bg-gray-700 hover:scale-105'
+                  : 'bg-gray-800 hover:bg-gray-700 hover:scale-110'
               )}
               title="Copy API Key"
               aria-label="Copy API key"

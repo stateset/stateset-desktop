@@ -8,7 +8,7 @@ import type { AgentSessionConfig, AgentTemplate } from '../types';
 interface CreateAgentDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onCreateAgent: (agentType: string, config: Partial<AgentSessionConfig>) => void;
+  onCreateAgent: (agentType: string, config: Partial<AgentSessionConfig>, name?: string) => void;
   isCreating: boolean;
 }
 
@@ -21,6 +21,7 @@ export function CreateAgentDialog({
   const [selectedTemplate, setSelectedTemplate] = useState<AgentTemplate>(BUILT_IN_TEMPLATES[0]);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [customConfig, setCustomConfig] = useState<Partial<AgentSessionConfig>>({});
+  const [sessionName, setSessionName] = useState('');
 
   // Reset state when dialog opens
   useEffect(() => {
@@ -28,13 +29,14 @@ export function CreateAgentDialog({
       setSelectedTemplate(BUILT_IN_TEMPLATES[0]);
       setShowAdvanced(false);
       setCustomConfig({});
+      setSessionName('');
     }
   }, [isOpen]);
 
   const finalConfig = { ...selectedTemplate.config, ...customConfig };
 
   const handleCreate = () => {
-    onCreateAgent(selectedTemplate.agentType, finalConfig);
+    onCreateAgent(selectedTemplate.agentType, finalConfig, sessionName || undefined);
   };
 
   const handleSelectTemplate = (template: AgentTemplate) => {
@@ -84,6 +86,27 @@ export function CreateAgentDialog({
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-5">
+          {/* Session Name */}
+          <div className="mb-5">
+            <label className="space-y-1.5 block">
+              <span className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+                Session Name
+              </span>
+              <input
+                type="text"
+                value={sessionName}
+                onChange={(e) => setSessionName(e.target.value)}
+                placeholder="e.g. Support Agent - Q2 Campaign"
+                maxLength={80}
+                className="input-base bg-gray-800/90 hover:border-gray-600 transition-all focus-glow"
+                aria-label="Session name"
+              />
+              <p className="text-xs text-gray-500">
+                Optional. Helps identify this agent on the dashboard.
+              </p>
+            </label>
+          </div>
+
           {/* Template Picker */}
           <div className="mb-6">
             <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
@@ -123,8 +146,8 @@ export function CreateAgentDialog({
                     className="input-base bg-gray-800/90 hover:border-gray-600 transition-all focus-glow"
                   >
                     <option value="claude-sonnet-4-6">Claude Sonnet 4.6 (Recommended)</option>
-                    <option value="claude-opus-4-20250514">Claude Opus 4</option>
-                    <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
+                    <option value="claude-opus-4-6">Claude Opus 4.6</option>
+                    <option value="claude-haiku-4-5-20251001">Claude Haiku 4.5</option>
                   </select>
                 </label>
 
