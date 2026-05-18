@@ -65,6 +65,13 @@ export default defineConfig({
         'electron/**/*.ts',
       ],
       exclude: ['**/*.test.*', '**/*.spec.*', '**/*.stories.*'],
+      // Regression floor. Bump these up as coverage grows — never down.
+      thresholds: {
+        lines: 60,
+        functions: 60,
+        branches: 50,
+        statements: 60,
+      },
     },
   },
 });

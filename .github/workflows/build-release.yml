@@ -41,8 +41,8 @@ jobs:
       - name: Run type check
         run: npm run typecheck
 
-      - name: Run unit tests
-        run: npm run test
+      - name: Run unit tests with coverage
+        run: npm run test:coverage
 
       - name: Build Electron (tsc)
         run: npm run build:electron
