@@ -577,6 +577,12 @@ function getAutoUpdaterStatus(): { enabled: boolean; reason?: string } {
 function setupAutoUpdater() {
   const updaterStatus = getAutoUpdaterStatus();
   if (!updaterStatus.enabled) {
+    // Surface this loudly. A silently-disabled updater is the kind of thing
+    // that leaves users stranded on old versions without anyone noticing.
+    console.warn(
+      `[auto-updater] DISABLED — ${updaterStatus.reason || 'unknown reason'}. ` +
+        `App will not check for or install updates.`
+    );
     setUpdateStatusSnapshot({
       status: 'disabled',
       checking: false,
@@ -588,6 +594,8 @@ function setupAutoUpdater() {
     });
     return;
   }
+
+  console.log('[auto-updater] enabled — will check on startup and hourly.');
 
   setUpdateStatusSnapshot({
     status: 'idle',
