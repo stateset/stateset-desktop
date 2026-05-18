@@ -261,6 +261,14 @@ if (!storeEncryptionKey && app.isPackaged) {
       'A 32+ character encryption key is required in production to protect stored configuration.'
   );
 }
+if (!storeEncryptionKey && !app.isPackaged) {
+  // Production hard-fails on a missing key, but dev silently falls through.
+  // Warn loudly so it's obvious this path is unencrypted at rest.
+  console.warn(
+    '[store] STORE_ENCRYPTION_KEY is not set — config will be stored UNENCRYPTED. ' +
+      'Acceptable for local dev only. Set STORE_ENCRYPTION_KEY in .env to match prod behavior.'
+  );
+}
 const store = new Store({
   name: 'stateset-config',
   ...(storeEncryptionKey ? { encryptionKey: storeEncryptionKey } : {}),
