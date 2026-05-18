@@ -36,14 +36,20 @@ const electronEnv = {
   E2E_TEST: 'true',
 };
 
-async function setTestDefaults(page: Page) {
-  await page.evaluate(async () => {
-    const api = (window as any).electronAPI;
-    if (!api?.store) {
-      return;
-    }
-    await Promise.all([api.store.set('onboardingCompleted', true), api.store.set('theme', 'dark')]);
-  });
+async function setTestDefaults(page: Page, theme: 'dark' | 'light' = 'dark') {
+  await page.evaluate(
+    async ({ theme }) => {
+      const api = (window as any).electronAPI;
+      if (!api?.store) {
+        return;
+      }
+      await Promise.all([
+        api.store.set('onboardingCompleted', true),
+        api.store.set('theme', theme),
+      ]);
+    },
+    { theme }
+  );
 }
 
 async function ensureElectronAvailable() {
@@ -583,6 +589,97 @@ test.describe('Color Contrast Analysis', () => {
     } finally {
       await electronApp.close();
     }
+  });
+});
+
+test.describe('Light Theme Accessibility', () => {
+  // Smoke-tests the same primary surfaces under the light theme so we catch
+  // theme-specific regressions (focus rings, hidden text, missing borders).
+  // Color-contrast is reported separately below — different palette, different review.
+  test.describe.configure({ mode: 'serial' });
+
+  let electronApp: ElectronApplication;
+  let page: Page;
+
+  test.beforeAll(async () => {
+    const result = await launchWithMocks();
+    electronApp = result.electronApp;
+    page = result.page;
+    await setTestDefaults(page, 'light');
+    await page.reload();
+  });
+
+  test.afterAll(async () => {
+    await electronApp.close();
+  });
+
+  test('Login page (light) should have no accessibility violations', async () => {
+    await page.waitForFunction(() => (window as any).electronAPI !== undefined);
+    await page.evaluate(async () => {
+      const api = (window as any).electronAPI;
+      await api.auth.clearApiKey();
+    });
+    await page.reload();
+    await expect(page.getByText('Welcome back')).toBeVisible();
+
+    const results = await checkAccessibility(page, {
+      disableRules: ['color-contrast'],
+    });
+    expect(results.violations).toHaveLength(0);
+  });
+
+  test('Dashboard (light) should have no accessibility violations', async () => {
+    await page.evaluate(
+      ({ tenant, brand }) => {
+        (window as any).__E2E_AUTH__ = { tenant, brands: [brand] };
+      },
+      { tenant: mockTenant, brand: mockBrand }
+    );
+    await page.getByRole('button', { name: 'API Key', exact: true }).click({ force: true });
+    await page.getByLabel('API Key').fill('sk-test-light');
+    await page.getByRole('button', { name: 'Sign In' }).click({ force: true });
+    await expect(page.getByRole('heading', { name: 'Agent Sessions' })).toBeVisible();
+    await page.waitForTimeout(1000);
+
+    const results = await checkAccessibility(page, {
+      disableRules: ['color-contrast'],
+    });
+    expect(results.violations).toHaveLength(0);
+  });
+
+  test('Settings (light) should have no accessibility violations', async () => {
+    await page.getByRole('link', { name: 'Settings' }).click({ force: true });
+    await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
+    await page.waitForTimeout(500);
+
+    const results = await checkAccessibility(page, {
+      disableRules: ['color-contrast'],
+    });
+    expect(results.violations).toHaveLength(0);
+  });
+
+  test('Report light-mode color contrast issues', async () => {
+    const results = await new AxeBuilder({ page })
+      .setLegacyMode()
+      .withTags(['wcag2aa'])
+      .options({ runOnly: ['color-contrast'] })
+      .analyze();
+
+    if (results.violations.length > 0) {
+      console.log('\n=== Light Theme Color Contrast Issues ===');
+      results.violations.forEach((violation) => {
+        console.log(`\nIssue: ${violation.help}`);
+        console.log(`Impact: ${violation.impact}`);
+        violation.nodes.forEach((node) => {
+          console.log(`  Element: ${node.html.substring(0, 100)}...`);
+          console.log(`  Fix: ${node.failureSummary}`);
+        });
+      });
+      console.log('\n==========================================\n');
+    }
+
+    // Report-only — design review territory, not a hard fail.
+    expect(true).toBe(true);
   });
 });
 
