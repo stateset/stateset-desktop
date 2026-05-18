@@ -31,6 +31,7 @@ import {
   sanitizeQueryParams,
 } from './sanitization';
 import { resolveTrayIconPath } from './runtime-assets';
+import { createRateLimiter } from './ipc-rate-limit';
 
 const isMac = process.platform === 'darwin';
 const isWindows = process.platform === 'win32';
@@ -525,6 +526,21 @@ function assertStoreKey(key: string) {
   }
 }
 
+// Guard against a runaway renderer flooding the main process. 500 calls/sec
+// per sender is well above any legitimate UI need and well below the rate at
+// which we'd start blocking the main thread on disk I/O.
+const ipcRateLimiter = createRateLimiter({ limit: 500, windowMs: 1000 });
+
+function assertIpcRate(event: Electron.IpcMainInvokeEvent, channel: string): void {
+  const senderId = event.sender?.id;
+  if (typeof senderId !== 'number') {
+    return;
+  }
+  if (!ipcRateLimiter.check(senderId)) {
+    throw new Error(`IPC rate limit exceeded for ${channel}`);
+  }
+}
+
 function assertBoolean(value: unknown, field: string): asserts value is boolean {
   if (typeof value !== 'boolean') {
     throw new Error(`${field} must be a boolean`);
@@ -1008,6 +1024,10 @@ app.on('web-contents-created', (_event, contents) => {
     event.preventDefault();
   });
 
+  contents.on('destroyed', () => {
+    ipcRateLimiter.forget(contents.id);
+  });
+
   contents.session.setPermissionRequestHandler((_webContents, permission, callback, details) => {
     if (!ALLOWED_PERMISSION_TYPES.has(permission)) {
       callback(false);
@@ -1055,7 +1075,8 @@ app.on('window-all-closed', () => {
 // IPC Handlers - Auth & Config
 // ============================================
 
-ipcMain.handle('store:get', (_event, key: string) => {
+ipcMain.handle('store:get', (event, key: string) => {
+  assertIpcRate(event, 'store:get');
   if (typeof key !== 'string') {
     throw new Error('Store key must be a string');
   }
@@ -1063,7 +1084,8 @@ ipcMain.handle('store:get', (_event, key: string) => {
   return store.get(key);
 });
 
-ipcMain.handle('store:set', (_event, key: string, value: unknown) => {
+ipcMain.handle('store:set', (event, key: string, value: unknown) => {
+  assertIpcRate(event, 'store:set');
   if (typeof key !== 'string') {
     throw new Error('Store key must be a string');
   }
@@ -1089,7 +1111,8 @@ ipcMain.handle('store:set', (_event, key: string, value: unknown) => {
   return true;
 });
 
-ipcMain.handle('store:delete', (_event, key: string) => {
+ipcMain.handle('store:delete', (event, key: string) => {
+  assertIpcRate(event, 'store:delete');
   if (typeof key !== 'string') {
     throw new Error('Store key must be a string');
   }
@@ -1196,7 +1219,8 @@ ipcMain.handle('secrets:setLocal', (_event, payload: string) => {
   return setSecureValue(payload, LOCAL_SECRETS_STORAGE);
 });
 
-ipcMain.handle('secrets:getLocal', () => {
+ipcMain.handle('secrets:getLocal', (event) => {
+  assertIpcRate(event, 'secrets:getLocal');
   return getSecureValue(LOCAL_SECRETS_STORAGE);
 });
 
@@ -1303,7 +1327,8 @@ ipcMain.handle('app:installUpdate', () => {
   return true;
 });
 
-ipcMain.handle('app:getUpdateStatus', () => {
+ipcMain.handle('app:getUpdateStatus', (event) => {
+  assertIpcRate(event, 'app:getUpdateStatus');
   return updateStatusSnapshot;
 });
 
