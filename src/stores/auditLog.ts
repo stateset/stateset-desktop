@@ -1,5 +1,8 @@
 import { create } from 'zustand';
 import type { AuditAction, AuditEntry } from '../lib/auditLog';
+import { log as appLog } from '../lib/logger';
+
+const auditLogger = appLog.child('AuditLog');
 
 interface AuditLogState {
   entries: AuditEntry[];
@@ -46,7 +49,7 @@ export const useAuditLogStore = create<AuditLogState>((set, get) => ({
       try {
         if (typeof window !== 'undefined' && window.electronAPI?.store?.set) {
           Promise.resolve(window.electronAPI.store.set('auditLog', entries)).catch((err) => {
-            console.warn('[AuditLog] Failed to persist:', err);
+            auditLogger.warn('Failed to persist', { error: String(err) });
           });
         }
       } catch {

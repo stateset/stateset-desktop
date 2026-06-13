@@ -131,6 +131,7 @@
   "build": {
     "appId": "io.stateset.desktop",
     "productName": "StateSet",
+    "asar": true,
     "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
     "directories": {
       "output": "release",
@@ -177,8 +178,7 @@
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
       "entitlements": "assets/entitlements.mac.plist",
-      "entitlementsInherit": "assets/entitlements.mac.plist",
-      "notarize": false
+      "entitlementsInherit": "assets/entitlements.mac.plist"
     },
     "dmg": {
       "contents": [

@@ -5,6 +5,10 @@
  * All telemetry is opt-in and respects user privacy.
  */
 
+import { log } from './logger';
+
+const telemetryLogger = log.child('Telemetry');
+
 type TelemetryEvent =
   | 'app.started'
   | 'app.failed'
@@ -342,8 +346,10 @@ class TelemetryCollector {
    * Sanitize properties to remove sensitive data
    */
   private sanitizeProperties(properties: TelemetryProperties): TelemetryProperties {
+    // NOTE: these are matched against a lowercased key, so they must be lowercase
+    // themselves — otherwise the match silently never fires (e.g. 'apiKey' vs 'apikey').
     const sensitiveKeys = [
-      'apiKey',
+      'apikey',
       'token',
       'password',
       'secret',
@@ -404,7 +410,7 @@ class TelemetryCollector {
     if (!this.config.endpoint) {
       // If no endpoint is configured, just log events
       if (import.meta.env.DEV) {
-        console.debug('Telemetry:', events);
+        telemetryLogger.debug('Events flushed without endpoint', { count: events.length });
       }
       return;
     }

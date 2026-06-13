@@ -241,7 +241,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {children}
       <div
         className="fixed right-0 top-4 z-50 flex w-full max-w-sm flex-col gap-2 pointer-events-none px-4 sm:right-4 sm:px-0"
-        aria-live="assertive"
+        aria-live="polite"
         role="region"
         aria-label="Notifications"
       >
@@ -258,6 +258,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                 onMouseEnter={() => pauseToast(toast.id)}
                 onMouseLeave={() => resumeToast(toast.id)}
+                role={toast.variant === 'error' ? 'alert' : 'status'}
+                aria-atomic="true"
                 className={clsx(
                   'pointer-events-auto flex flex-col overflow-hidden rounded-2xl border shadow-2xl backdrop-blur-xl',
                   VARIANT_STYLES[toast.variant]
@@ -301,7 +303,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                   </button>
                 </div>
                 {/* Progress bar */}
-                <div className="h-1 w-full bg-black/20">
+                <div className="h-1 w-full bg-black/20" aria-hidden="true">
                   <motion.div
                     className={clsx('h-full', PROGRESS_COLORS[toast.variant])}
                     initial={{ width: '100%' }}

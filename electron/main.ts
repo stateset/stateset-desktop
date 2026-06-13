@@ -11,6 +11,8 @@ import {
   type NativeImage,
 } from 'electron';
 import * as path from 'path';
+import * as fs from 'fs';
+import * as crypto from 'crypto';
 import Store from 'electron-store';
 import { autoUpdater } from 'electron-updater';
 import * as Sentry from '@sentry/electron/main';
@@ -262,17 +264,39 @@ if (!storeEncryptionKey && app.isPackaged) {
       'A 32+ character encryption key is required in production to protect stored configuration.'
   );
 }
-if (!storeEncryptionKey && !app.isPackaged) {
-  // Production hard-fails on a missing key, but dev silently falls through.
-  // Warn loudly so it's obvious this path is unencrypted at rest.
+/**
+ * Dev fallback: when STORE_ENCRYPTION_KEY is unset, derive a per-install key
+ * persisted with owner-only permissions so the dev store is never plaintext
+ * at rest. Production still hard-fails above rather than auto-generating, so
+ * packaged builds can't silently ship with an unmanaged key.
+ */
+function getDevStoreEncryptionKey(): string {
+  const keyPath = path.join(app.getPath('userData'), '.store-key');
+  try {
+    const existing = fs.readFileSync(keyPath, 'utf8').trim();
+    if (existing.length >= 32) {
+      return existing;
+    }
+  } catch {
+    // fall through to generate
+  }
+  const key = crypto.randomBytes(32).toString('hex');
+  fs.mkdirSync(path.dirname(keyPath), { recursive: true });
+  fs.writeFileSync(keyPath, key, { mode: 0o600 });
+  return key;
+}
+
+let effectiveStoreEncryptionKey = storeEncryptionKey;
+if (!effectiveStoreEncryptionKey && !app.isPackaged) {
+  effectiveStoreEncryptionKey = getDevStoreEncryptionKey();
   console.warn(
-    '[store] STORE_ENCRYPTION_KEY is not set — config will be stored UNENCRYPTED. ' +
-      'Acceptable for local dev only. Set STORE_ENCRYPTION_KEY in .env to match prod behavior.'
+    '[store] STORE_ENCRYPTION_KEY is not set — using a locally generated dev key ' +
+      '(userData/.store-key). Set STORE_ENCRYPTION_KEY in .env to match prod behavior.'
   );
 }
 const store = new Store({
   name: 'stateset-config',
-  ...(storeEncryptionKey ? { encryptionKey: storeEncryptionKey } : {}),
+  ...(effectiveStoreEncryptionKey ? { encryptionKey: effectiveStoreEncryptionKey } : {}),
 });
 
 let mainWindow: BrowserWindow | null = null;

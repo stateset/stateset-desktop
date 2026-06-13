@@ -7,6 +7,9 @@
  */
 
 import { z } from 'zod';
+import { log } from './logger';
+
+const schemaLogger = log.child('Schema');
 
 // ── Agent Sessions ────────────────────────────────────────────────────
 
@@ -304,6 +307,9 @@ export function validateResponse<T extends z.ZodTypeAny>(schema: T, data: unknow
   if (result.success) {
     return result.data;
   }
-  console.error('[Schema] Validation failed:', result.error.issues, '\nReceived data:', data);
+  schemaLogger.error('Validation failed', result.error, {
+    issues: result.error.issues,
+    received: data,
+  });
   throw result.error;
 }

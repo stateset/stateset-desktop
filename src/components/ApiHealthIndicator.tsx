@@ -80,6 +80,8 @@ export function ApiHealthIndicator() {
 
   return (
     <div
+      role="status"
+      aria-live="polite"
       className={clsx(
         'flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs no-drag cursor-default',
         config.bg
@@ -87,6 +89,7 @@ export function ApiHealthIndicator() {
       title={config.description}
     >
       <span
+        aria-hidden="true"
         className={clsx(
           'w-2 h-2 rounded-full flex-shrink-0',
           config.dot,

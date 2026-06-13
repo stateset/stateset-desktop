@@ -33,6 +33,18 @@ vi.mock('./logger', () => ({
     warn: vi.fn(),
     error: vi.fn(),
   },
+  log: {
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    child: vi.fn(() => ({
+      debug: vi.fn(),
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+    })),
+  },
 }));
 
 // Mock request deduplication (pass-through)

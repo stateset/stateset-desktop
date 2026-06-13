@@ -76,7 +76,7 @@ export const SessionTimeline = memo(function SessionTimeline({
   if (events.length === 0) {
     return (
       <div className={clsx('p-8 text-center text-gray-500', className)}>
-        <Clock className="w-10 h-10 mx-auto mb-2 opacity-50" />
+        <Clock className="w-10 h-10 mx-auto mb-2 opacity-50" aria-hidden="true" />
         <p>No events yet</p>
       </div>
     );
@@ -85,10 +85,13 @@ export const SessionTimeline = memo(function SessionTimeline({
   return (
     <div className={clsx('relative', className)}>
       {/* Timeline line */}
-      <div className="absolute left-4 top-0 bottom-0 w-px bg-gradient-to-b from-brand-500/40 via-slate-700/50 to-transparent" />
+      <div
+        className="absolute left-4 top-0 bottom-0 w-px bg-gradient-to-b from-brand-500/40 via-slate-700/50 to-transparent"
+        aria-hidden="true"
+      />
 
       {/* Events */}
-      <div className="space-y-4">
+      <div className="space-y-4" role="list" aria-label="Session timeline">
         <AnimatePresence initial={false}>
           {visibleEvents.map((event, index) => (
             <TimelineItem
@@ -132,6 +135,7 @@ const TimelineItem = memo(function TimelineItem({
       exit={{ opacity: 0, x: -10 }}
       transition={{ duration: 0.2 }}
       className="relative pl-12"
+      role="listitem"
     >
       {/* Icon */}
       <div
@@ -140,6 +144,7 @@ const TimelineItem = memo(function TimelineItem({
           config.bg,
           isFirst && 'ring-2 ring-offset-2 ring-offset-slate-900 ring-brand-500/50'
         )}
+        aria-hidden="true"
       >
         <Icon className={clsx('w-4 h-4', config.color)} />
       </div>
@@ -202,7 +207,7 @@ export const CompactTimeline = memo(function CompactTimeline({
   }
 
   return (
-    <div className={clsx('space-y-1.5', className)}>
+    <div className={clsx('space-y-1.5', className)} role="list" aria-label="Recent events">
       {visibleEvents.map((event) => {
         const config = eventConfig[event.type] || eventConfig.started;
         const Icon = config.icon;
@@ -211,8 +216,9 @@ export const CompactTimeline = memo(function CompactTimeline({
           <div
             key={event.id}
             className="flex items-center gap-2.5 text-xs p-1.5 rounded-lg hover:bg-slate-800/40 transition-colors"
+            role="listitem"
           >
-            <div className={clsx('p-1 rounded-md', config.bg)}>
+            <div className={clsx('p-1 rounded-md', config.bg)} aria-hidden="true">
               <Icon className={clsx('w-3.5 h-3.5 flex-shrink-0', config.color)} />
             </div>
             <span className="text-gray-300 font-medium truncate flex-1">{event.title}</span>

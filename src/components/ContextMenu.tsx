@@ -178,6 +178,7 @@ export const ContextMenu = memo(function ContextMenu({
             className="fixed z-50 min-w-[180px] p-1.5 bg-slate-900/80 border border-slate-700/60 rounded-xl shadow-2xl backdrop-blur-xl animate-scale-in outline-none"
             style={{ left: position.x, top: position.y }}
             role="menu"
+            aria-label="Context menu"
             aria-orientation="vertical"
             aria-activedescendant={focusedItemId}
           >
@@ -207,7 +208,7 @@ export const ContextMenu = memo(function ContextMenu({
                   )}
                   role="menuitem"
                 >
-                  {item.icon && <item.icon className="w-4 h-4" />}
+                  {item.icon && <item.icon className="w-4 h-4" aria-hidden="true" />}
                   <span className="font-medium">{item.label}</span>
                 </button>
               </div>

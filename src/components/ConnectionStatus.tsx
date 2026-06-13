@@ -93,7 +93,12 @@ export const ConnectionStatus = memo(function ConnectionStatus({
 
   if (compact) {
     return (
-      <div className={clsx('flex items-center gap-1.5', className)} title={displayMessage}>
+      <div
+        role="status"
+        aria-live="polite"
+        className={clsx('flex items-center gap-1.5', className)}
+        title={displayMessage}
+      >
         <span className="relative flex h-2 w-2" aria-hidden="true">
           {(state === 'connected' || state === 'connecting' || state === 'reconnecting') && (
             <span
@@ -124,6 +129,8 @@ export const ConnectionStatus = memo(function ConnectionStatus({
     <AnimatePresence mode="wait">
       <motion.div
         key={state}
+        role="status"
+        aria-live="polite"
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 10 }}
@@ -134,7 +141,10 @@ export const ConnectionStatus = memo(function ConnectionStatus({
           className
         )}
       >
-        <Icon className={clsx('h-4 w-4', config.color, config.animate && 'animate-spin')} />
+        <Icon
+          aria-hidden="true"
+          className={clsx('h-4 w-4', config.color, config.animate && 'animate-spin')}
+        />
         <span className={clsx('text-sm font-medium', config.color)}>{displayMessage}</span>
       </motion.div>
     </AnimatePresence>
@@ -171,6 +181,8 @@ export const ConnectionDot = memo(function ConnectionDot({
 
   return (
     <span
+      role="status"
+      aria-label={STATE_CONFIG[state].label}
       className={clsx('relative flex', sizeClasses[size], className)}
       title={STATE_CONFIG[state].label}
     >

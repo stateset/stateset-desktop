@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useAuthStore } from '../../../stores/auth';
 import type { LogEntry } from '../../../components/LogsViewer';
 import { LOG_CACHE_LIMIT, LOG_CACHE_PREFIX, LOG_CACHE_TTL_MS, LOG_STORE_KEY } from '../constants';
@@ -103,6 +103,7 @@ export function useLogCache({ sessionId }: UseLogCacheOptions) {
   const { tenant, currentBrand } = useAuthStore();
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [hasCachedLogs, setHasCachedLogs] = useState(false);
+  const hasPersistedRef = useRef(false);
 
   const logCacheKey =
     tenant?.id && currentBrand?.id && sessionId
@@ -309,6 +310,10 @@ export function useLogCache({ sessionId }: UseLogCacheOptions) {
   useEffect(() => {
     if (!logCacheKey) return;
     const trimmed = logs.slice(-LOG_CACHE_LIMIT);
+    // Skip the initial empty state so mounting does not wipe a previously
+    // cached session log before the user has a chance to restore it.
+    if (!hasPersistedRef.current && trimmed.length === 0) return;
+    hasPersistedRef.current = true;
     setHasCachedLogs(trimmed.length > 0);
     void (async () => {
       try {

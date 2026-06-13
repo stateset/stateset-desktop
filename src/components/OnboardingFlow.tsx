@@ -107,9 +107,20 @@ export const OnboardingFlow = memo(function OnboardingFlow({
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
         className="w-full max-w-lg bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl overflow-hidden"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="onboarding-flow-title"
       >
         {/* Progress bar */}
-        <div className="h-1 bg-gray-800">
+        <div
+          className="h-1 bg-gray-800"
+          role="progressbar"
+          aria-label="Onboarding progress"
+          aria-valuemin={1}
+          aria-valuemax={ONBOARDING_STEPS.length}
+          aria-valuenow={currentStep + 1}
+          aria-valuetext={`Step ${currentStep + 1} of ${ONBOARDING_STEPS.length}`}
+        >
           <motion.div
             className="h-full bg-brand-500"
             initial={{ width: 0 }}
@@ -136,7 +147,9 @@ export const OnboardingFlow = memo(function OnboardingFlow({
               </div>
 
               {/* Title & Description */}
-              <h2 className="text-2xl font-bold text-center mb-3">{step.title}</h2>
+              <h2 id="onboarding-flow-title" className="text-2xl font-bold text-center mb-3">
+                {step.title}
+              </h2>
               <p className="text-gray-400 text-center mb-6">{step.description}</p>
 
               {/* Tips */}
@@ -253,6 +266,7 @@ export const FeatureHighlight = memo(function FeatureHighlight({
         </div>
         <p className="text-sm text-white/90">{description}</p>
         <div
+          aria-hidden="true"
           className={clsx(
             'absolute w-3 h-3 bg-brand-600 rotate-45',
             position === 'bottom' && 'top-0 left-1/2 -translate-x-1/2 -translate-y-1/2',

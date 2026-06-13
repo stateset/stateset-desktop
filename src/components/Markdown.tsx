@@ -239,9 +239,11 @@ function CodeBlock({
 
   return (
     <div className="relative group my-3">
-      <div className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-all duration-200 z-10">
+      <div className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-all duration-200 z-10">
         <button
+          type="button"
           onClick={handleCopy}
+          aria-label={copied ? 'Copied' : 'Copy code'}
           className={clsx(
             'p-1.5 rounded transition-all duration-200',
             copied
@@ -250,7 +252,11 @@ function CodeBlock({
           )}
           title="Copy code"
         >
-          {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+          {copied ? (
+            <Check className="w-4 h-4" aria-hidden="true" />
+          ) : (
+            <Copy className="w-4 h-4" aria-hidden="true" />
+          )}
         </button>
       </div>
       {language && (
