@@ -38,6 +38,9 @@ interface PreloadApi {
     setSandboxApiKey: (apiKey: string) => Promise<boolean>;
     getSandboxApiKey: () => Promise<string | undefined>;
     clearSandboxApiKey: () => Promise<boolean>;
+    setDurableEngineApiKey: (apiKey: string) => Promise<boolean>;
+    getDurableEngineApiKey: () => Promise<string | undefined>;
+    clearDurableEngineApiKey: () => Promise<boolean>;
     isSecureStorageAvailable: () => Promise<boolean>;
   };
   secrets: {
@@ -136,6 +139,9 @@ describe('preload', () => {
     await api.auth.setSandboxApiKey('sandbox-key');
     await api.auth.getSandboxApiKey();
     await api.auth.clearSandboxApiKey();
+    await api.auth.setDurableEngineApiKey('durable-key');
+    await api.auth.getDurableEngineApiKey();
+    await api.auth.clearDurableEngineApiKey();
     await api.auth.isSecureStorageAvailable();
 
     await api.secrets.getLocal();
@@ -165,6 +171,9 @@ describe('preload', () => {
     expect(mockInvoke).toHaveBeenCalledWith('auth:setSandboxApiKey', 'sandbox-key');
     expect(mockInvoke).toHaveBeenCalledWith('auth:getSandboxApiKey');
     expect(mockInvoke).toHaveBeenCalledWith('auth:clearSandboxApiKey');
+    expect(mockInvoke).toHaveBeenCalledWith('auth:setDurableEngineApiKey', 'durable-key');
+    expect(mockInvoke).toHaveBeenCalledWith('auth:getDurableEngineApiKey');
+    expect(mockInvoke).toHaveBeenCalledWith('auth:clearDurableEngineApiKey');
     expect(mockInvoke).toHaveBeenCalledWith('auth:isSecureStorageAvailable');
     expect(mockInvoke).toHaveBeenCalledWith('secrets:getLocal');
     expect(mockInvoke).toHaveBeenCalledWith('secrets:setLocal', 'encrypted-payload');

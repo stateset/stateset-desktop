@@ -20,6 +20,7 @@ if (typeof globalThis.crypto === 'undefined' && nodeCrypto.webcrypto) {
 // These can still be overridden via `.env` or the environment.
 process.env.VITE_API_URL ??= 'https://engine.stateset.cloud.stateset.app';
 process.env.VITE_SANDBOX_API_URL ??= 'https://api.sandbox.stateset.app';
+process.env.VITE_DURABLE_ENGINE_URL ??= 'https://api.workstream.stateset.com';
 process.env.VITE_CSP_CONNECT_SRC ??= '';
 
 export default defineConfig({

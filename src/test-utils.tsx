@@ -50,6 +50,9 @@ export function mockElectronAPI() {
       getSandboxApiKey: vi.fn().mockResolvedValue(null),
       setSandboxApiKey: vi.fn().mockResolvedValue(undefined),
       clearSandboxApiKey: vi.fn().mockResolvedValue(undefined),
+      getDurableEngineApiKey: vi.fn().mockResolvedValue(null),
+      setDurableEngineApiKey: vi.fn().mockResolvedValue(undefined),
+      clearDurableEngineApiKey: vi.fn().mockResolvedValue(undefined),
       isSecureStorageAvailable: vi.fn().mockResolvedValue(true),
     },
     store: {

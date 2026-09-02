@@ -10,6 +10,8 @@ import { RouteErrorBoundary } from './components/RouteErrorBoundary';
 import { useBackgroundAgents } from './hooks/useBackgroundAgents';
 import { useAuditLogStore } from './stores/auditLog';
 import { MotionConfig } from 'framer-motion';
+import { useDurableWorkflowMonitor } from './hooks/useDurableWorkflowMonitor';
+import { useDurableWorkflowScheduler } from './hooks/useDurableWorkflowScheduler';
 
 // Lazy load pages for better initial load performance
 const Login = lazy(() => import('./pages/Login'));
@@ -24,6 +26,7 @@ const Voice = lazy(() => import('./pages/Voice'));
 const Webhooks = lazy(() => import('./pages/Webhooks'));
 const Templates = lazy(() => import('./pages/Templates'));
 const AuditLog = lazy(() => import('./pages/AuditLog'));
+const Workflows = lazy(() => import('./pages/Workflows'));
 const Onboarding = lazy(() => import('./components/Onboarding'));
 const OfflineBanner = lazy(() => import('./components/OfflineBanner'));
 
@@ -70,6 +73,8 @@ function AuthenticatedApp() {
   const [hasCheckedOnboarding, setHasCheckedOnboarding] = useState(false);
   const autoStartAgentsOnLaunch = usePreferencesStore((s) => s.autoStartAgentsOnLaunch);
   const initializeAuditLog = useAuditLogStore((s) => s.initialize);
+  useDurableWorkflowMonitor();
+  useDurableWorkflowScheduler();
 
   useEffect(() => {
     initializeAuditLog();
@@ -193,6 +198,14 @@ function AuthenticatedApp() {
             element={
               <RouteErrorBoundary>
                 <Templates />
+              </RouteErrorBoundary>
+            }
+          />
+          <Route
+            path="/workflows"
+            element={
+              <RouteErrorBoundary>
+                <Workflows />
               </RouteErrorBoundary>
             }
           />

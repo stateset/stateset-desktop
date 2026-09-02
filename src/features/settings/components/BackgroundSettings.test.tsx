@@ -9,6 +9,7 @@ import {
 } from '../../../test-utils';
 import { usePreferencesStore } from '../../../stores/preferences';
 import { BackgroundSettings } from './BackgroundSettings';
+import { useDurableWorkflowsStore } from '../../../stores/durableWorkflows';
 
 describe('BackgroundSettings', () => {
   let electronAPI: ReturnType<typeof mockElectronAPI> & {
@@ -25,6 +26,12 @@ describe('BackgroundSettings', () => {
     usePreferencesStore.setState({
       minimizeToTray: true,
       autoStartAgentsOnLaunch: true,
+    });
+    useDurableWorkflowsStore.setState({
+      initialized: true,
+      engineUrl: 'https://api.workstream.stateset.com',
+      apiKey: null,
+      workflows: [],
     });
   });
 
