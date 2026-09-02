@@ -184,3 +184,164 @@ describe('Layout brand selector', () => {
     expect(screen.getByText('No active brands available for agent actions.')).toBeInTheDocument();
   });
 });
+
+describe('Layout keyboard shortcuts', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockListSessions.mockResolvedValue([]);
+
+    Object.defineProperty(window, 'electronAPI', {
+      configurable: true,
+      writable: true,
+      value: { app: {} },
+    });
+
+    useUiStore.setState({
+      commandPaletteOpen: false,
+      commandPaletteAgents: [],
+      sidebarCollapsed: false,
+    });
+
+    useAuthStore.setState({
+      isAuthenticated: true,
+      isLoading: false,
+      apiKey: 'engine-key',
+      sandboxApiKey: null,
+      tenant,
+      currentBrand: enabledBrandOne,
+      brands: [enabledBrandOne, enabledBrandTwo, disabledBrand],
+      error: null,
+      initAttempts: 0,
+    });
+  });
+
+  it('opens the command palette on Ctrl+K', () => {
+    renderLayout();
+
+    fireEvent.keyDown(document, { key: 'k', ctrlKey: true });
+    expect(useUiStore.getState().commandPaletteOpen).toBe(true);
+  });
+
+  it('closes the command palette on Escape', () => {
+    useUiStore.setState({ commandPaletteOpen: true });
+    renderLayout();
+
+    fireEvent.keyDown(document.body, { key: 'Escape' });
+    expect(useUiStore.getState().commandPaletteOpen).toBe(false);
+  });
+
+  it('ignores Escape while typing in an input when the palette is open', () => {
+    useUiStore.setState({ commandPaletteOpen: true });
+    renderLayout();
+
+    const input = document.createElement('input');
+    document.body.appendChild(input);
+    fireEvent.keyDown(input, { key: 'Escape' });
+    input.remove();
+
+    expect(useUiStore.getState().commandPaletteOpen).toBe(true);
+  });
+
+  it('toggles the sidebar on Ctrl+B', () => {
+    renderLayout();
+
+    fireEvent.keyDown(document, { key: 'b', ctrlKey: true });
+    expect(useUiStore.getState().sidebarCollapsed).toBe(true);
+    expect(screen.getByRole('button', { name: 'Expand sidebar' })).toBeInTheDocument();
+
+    fireEvent.keyDown(document, { key: 'b', ctrlKey: true });
+    expect(useUiStore.getState().sidebarCollapsed).toBe(false);
+  });
+});
+
+describe('Layout chrome', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockListSessions.mockResolvedValue([]);
+
+    Object.defineProperty(window, 'electronAPI', {
+      configurable: true,
+      writable: true,
+      value: { app: {} },
+    });
+
+    useUiStore.setState({
+      commandPaletteOpen: false,
+      commandPaletteAgents: [],
+      sidebarCollapsed: false,
+    });
+
+    useAuthStore.setState({
+      isAuthenticated: true,
+      isLoading: false,
+      apiKey: 'engine-key',
+      sandboxApiKey: null,
+      tenant,
+      currentBrand: enabledBrandOne,
+      brands: [enabledBrandOne, enabledBrandTwo, disabledBrand],
+      error: null,
+      initAttempts: 0,
+    });
+  });
+
+  it('logs out from the sidebar', async () => {
+    const logout = vi.fn().mockResolvedValue(undefined);
+    useAuthStore.setState({ logout } as never);
+    renderLayout();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Logout from StateSet' }));
+    expect(logout).toHaveBeenCalledTimes(1);
+  });
+
+  function topbarTitle() {
+    // The nav also renders route labels, so scope to the topbar title element.
+    return document.querySelector('.layout-topbar p.truncate')?.textContent;
+  }
+
+  it('shows the page title for known, agent, and unknown routes', () => {
+    const { unmount } = renderWithProviders(
+      <Layout>
+        <div>Page Content</div>
+      </Layout>,
+      { route: '/settings' }
+    );
+    expect(topbarTitle()).toBe('Settings');
+    unmount();
+
+    renderWithProviders(
+      <Layout>
+        <div>Page Content</div>
+      </Layout>,
+      { route: '/agent/abc-123' }
+    );
+    expect(topbarTitle()).toBe('Agent Console');
+  });
+
+  it('falls back to the product name for unknown routes', () => {
+    renderWithProviders(
+      <Layout>
+        <div>Page Content</div>
+      </Layout>,
+      { route: '/no-such-page' }
+    );
+    expect(topbarTitle()).toBe('StateSet');
+  });
+
+  it('closes the brand dropdown on Escape', () => {
+    renderLayout();
+
+    fireEvent.click(screen.getByRole('button', { name: /select brand/i }));
+    expect(screen.getByRole('option', { name: 'Brand Two' })).toBeInTheDocument();
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('option', { name: 'Brand Two' })).not.toBeInTheDocument();
+  });
+
+  it('collapses the sidebar from the toggle button', () => {
+    renderLayout();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse sidebar' }));
+    expect(useUiStore.getState().sidebarCollapsed).toBe(true);
+    expect(screen.queryByRole('button', { name: /select brand/i })).not.toBeInTheDocument();
+  });
+});
