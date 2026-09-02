@@ -58,7 +58,7 @@ export const ToggleSetting = memo(function ToggleSetting({
   disabled = false,
   className,
 }: ToggleSettingProps) {
-  const id = `toggle-${label.toLowerCase().replace(/\s+/g, '-')}`;
+  const id = useId();
 
   return (
     <label
@@ -79,12 +79,15 @@ export const ToggleSetting = memo(function ToggleSetting({
         <input
           id={id}
           type="checkbox"
+          role="switch"
+          aria-checked={checked}
           checked={checked}
           onChange={(e) => onChange(e.target.checked)}
           disabled={disabled}
           className="sr-only"
         />
         <div
+          aria-hidden="true"
           className={clsx(
             'w-11 h-6 rounded-full transition-colors shadow-inner',
             checked ? 'bg-brand-500' : 'bg-slate-600'
@@ -132,7 +135,7 @@ export const SelectSetting = memo(function SelectSetting({
   disabled = false,
   className,
 }: SelectSettingProps) {
-  const id = `select-${label.toLowerCase().replace(/\s+/g, '-')}`;
+  const id = useId();
 
   return (
     <div
@@ -203,7 +206,7 @@ export const NumberSetting = memo(function NumberSetting({
   disabled = false,
   className,
 }: NumberSettingProps) {
-  const id = `number-${label.toLowerCase().replace(/\s+/g, '-')}`;
+  const id = useId();
 
   return (
     <div
@@ -279,7 +282,7 @@ export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(function T
         {...props}
       />
       {error && (
-        <p id={errorId} className="text-sm font-medium text-rose-400 ml-1 mt-1">
+        <p id={errorId} role="alert" className="text-sm font-medium text-rose-400 ml-1 mt-1">
           {error}
         </p>
       )}
@@ -332,7 +335,7 @@ export const TextArea = forwardRef<HTMLTextAreaElement, TextAreaProps>(function 
         {...props}
       />
       {error && (
-        <p id={errorId} className="text-sm font-medium text-rose-400 ml-1 mt-1">
+        <p id={errorId} role="alert" className="text-sm font-medium text-rose-400 ml-1 mt-1">
           {error}
         </p>
       )}

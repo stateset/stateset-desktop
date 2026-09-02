@@ -11,6 +11,8 @@ import {
   type NativeImage,
 } from 'electron';
 import * as path from 'path';
+import * as fs from 'fs';
+import * as crypto from 'crypto';
 import Store from 'electron-store';
 import { autoUpdater } from 'electron-updater';
 import * as Sentry from '@sentry/electron/main';
@@ -152,17 +154,30 @@ const SANDBOX_API_URL = (() => {
     return new URL('https://api.sandbox.stateset.app');
   }
 })();
+const CONFIGURED_DURABLE_ENGINE_URL =
+  process.env.VITE_DURABLE_ENGINE_URL ||
+  process.env.DURABLE_ENGINE_URL ||
+  'https://api.workstream.stateset.com';
+const DURABLE_ENGINE_URL = (() => {
+  try {
+    return new URL(CONFIGURED_DURABLE_ENGINE_URL);
+  } catch {
+    return new URL('https://api.workstream.stateset.com');
+  }
+})();
 const CORS_ORIGIN_URLS = [
   `${CONFIGURED_API_URL.protocol}//${CONFIGURED_API_URL.host}/*`,
   `${SANDBOX_API_URL.protocol}//${SANDBOX_API_URL.host}/*`,
+  `${DURABLE_ENGINE_URL.protocol}//${DURABLE_ENGINE_URL.host}/*`,
 ];
 const API_REQUEST_URL_PATTERNS = Array.from(new Set(CORS_ORIGIN_URLS));
 const CONFIGURED_API_WS_SCHEME = CONFIGURED_API_URL.protocol === 'https:' ? 'wss:' : 'ws:';
 const ELEVENLABS_API_ORIGIN = 'https://api.elevenlabs.io';
 const ELEVENLABS_WS_ORIGIN = 'wss://api.elevenlabs.io';
+const DURABLE_ENGINE_ORIGIN = DURABLE_ENGINE_URL.origin;
 const CSP_CONNECT_HOSTS = app.isPackaged
-  ? `${CONFIGURED_API_URL.origin} ${CONFIGURED_API_WS_SCHEME}//${CONFIGURED_API_URL.host} ${ELEVENLABS_API_ORIGIN} ${ELEVENLABS_WS_ORIGIN}`
-  : `${CONFIGURED_API_URL.origin} ${CONFIGURED_API_WS_SCHEME}//${CONFIGURED_API_URL.host} ${ELEVENLABS_API_ORIGIN} ${ELEVENLABS_WS_ORIGIN} ws://localhost:* http://localhost:* ws://127.0.0.1:* http://127.0.0.1:* ws://[::1]:* http://[::1]:*`;
+  ? `${CONFIGURED_API_URL.origin} ${CONFIGURED_API_WS_SCHEME}//${CONFIGURED_API_URL.host} ${DURABLE_ENGINE_ORIGIN} ${ELEVENLABS_API_ORIGIN} ${ELEVENLABS_WS_ORIGIN}`
+  : `${CONFIGURED_API_URL.origin} ${CONFIGURED_API_WS_SCHEME}//${CONFIGURED_API_URL.host} ${DURABLE_ENGINE_ORIGIN} ${ELEVENLABS_API_ORIGIN} ${ELEVENLABS_WS_ORIGIN} ws://localhost:* http://localhost:* ws://127.0.0.1:* http://127.0.0.1:* ws://[::1]:* http://[::1]:*`;
 const CSP_HEADER =
   "default-src 'self'; " +
   "base-uri 'none'; " +
@@ -262,17 +277,39 @@ if (!storeEncryptionKey && app.isPackaged) {
       'A 32+ character encryption key is required in production to protect stored configuration.'
   );
 }
-if (!storeEncryptionKey && !app.isPackaged) {
-  // Production hard-fails on a missing key, but dev silently falls through.
-  // Warn loudly so it's obvious this path is unencrypted at rest.
+/**
+ * Dev fallback: when STORE_ENCRYPTION_KEY is unset, derive a per-install key
+ * persisted with owner-only permissions so the dev store is never plaintext
+ * at rest. Production still hard-fails above rather than auto-generating, so
+ * packaged builds can't silently ship with an unmanaged key.
+ */
+function getDevStoreEncryptionKey(): string {
+  const keyPath = path.join(app.getPath('userData'), '.store-key');
+  try {
+    const existing = fs.readFileSync(keyPath, 'utf8').trim();
+    if (existing.length >= 32) {
+      return existing;
+    }
+  } catch {
+    // fall through to generate
+  }
+  const key = crypto.randomBytes(32).toString('hex');
+  fs.mkdirSync(path.dirname(keyPath), { recursive: true });
+  fs.writeFileSync(keyPath, key, { mode: 0o600 });
+  return key;
+}
+
+let effectiveStoreEncryptionKey = storeEncryptionKey;
+if (!effectiveStoreEncryptionKey && !app.isPackaged) {
+  effectiveStoreEncryptionKey = getDevStoreEncryptionKey();
   console.warn(
-    '[store] STORE_ENCRYPTION_KEY is not set — config will be stored UNENCRYPTED. ' +
-      'Acceptable for local dev only. Set STORE_ENCRYPTION_KEY in .env to match prod behavior.'
+    '[store] STORE_ENCRYPTION_KEY is not set — using a locally generated dev key ' +
+      '(userData/.store-key). Set STORE_ENCRYPTION_KEY in .env to match prod behavior.'
   );
 }
 const store = new Store({
   name: 'stateset-config',
-  ...(storeEncryptionKey ? { encryptionKey: storeEncryptionKey } : {}),
+  ...(effectiveStoreEncryptionKey ? { encryptionKey: effectiveStoreEncryptionKey } : {}),
 });
 
 let mainWindow: BrowserWindow | null = null;
@@ -440,6 +477,11 @@ const API_KEY_STORAGE: SecureStorageOptions = {
 const SANDBOX_KEY_STORAGE: SecureStorageOptions = {
   storeKey: 'sandboxApiKeyEncrypted',
   inMemoryKey: 'sandboxApiKey',
+};
+
+const DURABLE_ENGINE_KEY_STORAGE: SecureStorageOptions = {
+  storeKey: 'durableEngineApiKeyEncrypted',
+  inMemoryKey: 'durableEngineApiKey',
 };
 
 const LOCAL_SECRETS_STORAGE: SecureStorageOptions = {
@@ -888,7 +930,7 @@ function createWindow() {
       const allowedOrigin = resolveCorsOrigin(details);
       headers['access-control-allow-origin'] = [allowedOrigin];
       headers['access-control-allow-headers'] = [
-        'Authorization, Content-Type, X-Requested-With, X-API-Key',
+        'Authorization, Content-Type, X-Requested-With, X-API-Key, X-Tenant-ID',
       ];
       headers['access-control-allow-methods'] = ['GET, POST, PUT, DELETE, OPTIONS'];
       headers['access-control-allow-credentials'] = ['true'];
@@ -1208,6 +1250,23 @@ ipcMain.handle('auth:getSandboxApiKey', () => {
 
 ipcMain.handle('auth:clearSandboxApiKey', () => {
   return clearSecureValue(SANDBOX_KEY_STORAGE);
+});
+
+// ============================================
+// IPC Handlers - Durable workflow engine key management
+// ============================================
+
+ipcMain.handle('auth:setDurableEngineApiKey', (_event, apiKey: string) => {
+  assertNonEmptyString(apiKey, 'apiKey', 4096);
+  return setSecureValue(apiKey, DURABLE_ENGINE_KEY_STORAGE);
+});
+
+ipcMain.handle('auth:getDurableEngineApiKey', () => {
+  return getSecureValue(DURABLE_ENGINE_KEY_STORAGE);
+});
+
+ipcMain.handle('auth:clearDurableEngineApiKey', () => {
+  return clearSecureValue(DURABLE_ENGINE_KEY_STORAGE);
 });
 
 // ============================================

@@ -64,7 +64,10 @@ export function SkeletonLoader({
 
 export function SkeletonCard() {
   return (
-    <div className="bg-slate-900/40 border border-slate-700/50 rounded-2xl p-5 backdrop-blur-sm shadow-sm">
+    <div
+      className="bg-slate-900/40 border border-slate-700/50 rounded-2xl p-5 backdrop-blur-sm shadow-sm"
+      aria-hidden="true"
+    >
       <div className="flex items-start gap-4">
         <Skeleton variant="circular" width={48} height={48} shimmer />
         <div className="flex-1 space-y-2.5">
@@ -82,7 +85,7 @@ export function SkeletonCard() {
 
 export function SkeletonTable({ rows = 5 }: { rows?: number }) {
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" aria-hidden="true">
       {Array.from({ length: rows }).map((_, i) => (
         <div
           key={i}
@@ -104,7 +107,10 @@ export function SkeletonTable({ rows = 5 }: { rows?: number }) {
 
 export function SkeletonMetric() {
   return (
-    <div className="bg-slate-800/40 border border-slate-700/50 rounded-2xl p-5 backdrop-blur-sm shadow-sm">
+    <div
+      className="bg-slate-800/40 border border-slate-700/50 rounded-2xl p-5 backdrop-blur-sm shadow-sm"
+      aria-hidden="true"
+    >
       <div className="flex items-center gap-4">
         <Skeleton variant="rectangular" width={48} height={48} shimmer />
         <div className="space-y-2.5">

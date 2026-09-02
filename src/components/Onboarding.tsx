@@ -168,9 +168,22 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-950 flex flex-col">
+    <div
+      className="fixed inset-0 bg-gray-950 flex flex-col"
+      role="dialog"
+      aria-modal="true"
+      aria-label="StateSet onboarding"
+    >
       {/* Progress bar */}
-      <div className="h-1 bg-gray-800">
+      <div
+        className="h-1 bg-gray-800"
+        role="progressbar"
+        aria-label="Onboarding progress"
+        aria-valuemin={1}
+        aria-valuemax={steps.length}
+        aria-valuenow={currentStep + 1}
+        aria-valuetext={`Step ${currentStep + 1} of ${steps.length}`}
+      >
         <motion.div
           className="h-full bg-brand-500"
           initial={{ width: 0 }}

@@ -3,6 +3,32 @@
 @tailwind utilities;
 
 @layer components {
+  .minimal-input {
+    @apply rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2 text-slate-200 outline-none transition-colors placeholder:text-slate-700 focus:border-slate-600 disabled:opacity-50;
+  }
+
+  .minimal-number-input {
+    @apply mx-1 w-14 rounded-md border border-slate-800 bg-slate-950/60 px-2 py-1 text-center text-xs text-slate-300 outline-none focus:border-slate-600;
+  }
+
+  .minimal-primary-button {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-slate-100 px-3.5 py-2 text-sm font-medium text-slate-950 transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-40;
+  }
+
+  .minimal-secondary-button {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-slate-800 bg-transparent px-3 py-1.5 text-xs font-medium text-slate-400 transition-colors hover:border-slate-700 hover:bg-white/[0.03] hover:text-slate-200 disabled:cursor-not-allowed disabled:opacity-40;
+  }
+
+  .minimal-icon-button {
+    @apply inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-800 text-slate-500 transition-colors hover:border-slate-700 hover:text-slate-200 disabled:opacity-40;
+  }
+
+  .minimal-action {
+    @apply inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs text-slate-500 transition-colors hover:bg-white/[0.04] hover:text-slate-200 disabled:opacity-40;
+  }
+}
+
+@layer components {
   .input-base {
     @apply w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg
       focus:outline-none focus:border-brand-500

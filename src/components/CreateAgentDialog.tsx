@@ -33,6 +33,16 @@ export function CreateAgentDialog({
     }
   }, [isOpen]);
 
+  // Close on Escape
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   const finalConfig = { ...selectedTemplate.config, ...customConfig };
 
   const handleCreate = () => {
@@ -119,9 +129,13 @@ export function CreateAgentDialog({
           <button
             onClick={() => setShowAdvanced(!showAdvanced)}
             type="button"
+            aria-expanded={showAdvanced}
             className="flex items-center gap-2 text-sm text-gray-400 hover:text-gray-300 mb-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 rounded"
           >
-            <span className={clsx('transition-transform', showAdvanced && 'rotate-90')}>
+            <span
+              className={clsx('transition-transform', showAdvanced && 'rotate-90')}
+              aria-hidden="true"
+            >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path
                   strokeLinecap="round"

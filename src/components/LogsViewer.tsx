@@ -163,6 +163,16 @@ export const LogsViewer = memo(function LogsViewer({
 
   const [showExportMenu, setShowExportMenu] = useState(false);
 
+  // Close export menu on Escape
+  useEffect(() => {
+    if (!showExportMenu) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowExportMenu(false);
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [showExportMenu]);
+
   const downloadBlob = (content: string, filename: string, mimeType: string) => {
     const blob = new Blob([content], { type: mimeType });
     const url = URL.createObjectURL(blob);
@@ -241,6 +251,7 @@ export const LogsViewer = memo(function LogsViewer({
             type="button"
             onClick={() => setShowFilters(!showFilters)}
             aria-label={showFilters ? 'Hide log filters' : 'Show log filters'}
+            aria-expanded={showFilters}
             className={clsx(
               'p-2 rounded-xl transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40',
               showFilters
@@ -256,6 +267,8 @@ export const LogsViewer = memo(function LogsViewer({
               type="button"
               onClick={handleExport}
               aria-label={showExportMenu ? 'Hide export options' : 'Show export options'}
+              aria-haspopup="menu"
+              aria-expanded={showExportMenu}
               className={clsx(
                 'p-2 rounded-xl transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40',
                 showExportMenu
@@ -267,9 +280,14 @@ export const LogsViewer = memo(function LogsViewer({
               <Download className="w-4 h-4" aria-hidden="true" />
             </button>
             {showExportMenu && (
-              <div className="absolute right-0 top-full mt-2 w-44 bg-slate-900/90 border border-slate-700/60 rounded-xl shadow-2xl z-10 py-1.5 backdrop-blur-xl">
+              <div
+                role="menu"
+                aria-label="Export format"
+                className="absolute right-0 top-full mt-2 w-44 bg-slate-900/90 border border-slate-700/60 rounded-xl shadow-2xl z-10 py-1.5 backdrop-blur-xl"
+              >
                 <button
                   type="button"
+                  role="menuitem"
                   onClick={handleExportTxt}
                   className="flex items-center gap-3 w-full px-4 py-2 text-sm font-medium text-gray-300 hover:bg-slate-800/80 hover:text-gray-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
                 >
@@ -278,6 +296,7 @@ export const LogsViewer = memo(function LogsViewer({
                 </button>
                 <button
                   type="button"
+                  role="menuitem"
                   onClick={handleExportJson}
                   className="flex items-center gap-3 w-full px-4 py-2 text-sm font-medium text-gray-300 hover:bg-slate-800/80 hover:text-gray-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
                 >
@@ -286,6 +305,7 @@ export const LogsViewer = memo(function LogsViewer({
                 </button>
                 <button
                   type="button"
+                  role="menuitem"
                   onClick={handleExportCsv}
                   className="flex items-center gap-3 w-full px-4 py-2 text-sm font-medium text-gray-300 hover:bg-slate-800/80 hover:text-gray-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
                 >
@@ -355,6 +375,8 @@ export const LogsViewer = memo(function LogsViewer({
                       key={level}
                       type="button"
                       onClick={() => toggleLevel(level)}
+                      aria-pressed={selectedLevels.has(level)}
+                      aria-label={`Toggle ${level} logs`}
                       className={clsx(
                         'px-2.5 py-1 text-[11px] font-bold tracking-wider rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40',
                         selectedLevels.has(level)
@@ -375,6 +397,8 @@ export const LogsViewer = memo(function LogsViewer({
       {/* Log entries */}
       <div
         ref={containerRef}
+        role="log"
+        aria-label={title}
         className="overflow-y-auto font-mono text-[11px] font-medium"
         style={{ maxHeight }}
       >
@@ -400,6 +424,15 @@ export const LogsViewer = memo(function LogsViewer({
                     hasDetails ? 'cursor-pointer hover:bg-slate-800/40' : 'hover:bg-slate-800/20'
                   )}
                   onClick={() => hasDetails && toggleExpanded(log.id)}
+                  onKeyDown={(e) => {
+                    if (hasDetails && (e.key === 'Enter' || e.key === ' ')) {
+                      e.preventDefault();
+                      toggleExpanded(log.id);
+                    }
+                  }}
+                  role={hasDetails ? 'button' : undefined}
+                  tabIndex={hasDetails ? 0 : undefined}
+                  aria-expanded={hasDetails ? isExpanded : undefined}
                 >
                   <div className="flex items-start gap-2">
                     <Icon

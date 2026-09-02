@@ -23,6 +23,7 @@ import {
   ClipboardList,
   PanelLeftClose,
   PanelLeftOpen,
+  Workflow,
 } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState, useCallback, useMemo } from 'react';
 import clsx from 'clsx';
@@ -255,6 +256,7 @@ export default function Layout({ children }: LayoutProps) {
       { to: '/analytics', icon: BarChart3, label: 'Analytics' },
       { to: '/connections', icon: Plug, label: 'Connections' },
       { to: '/webhooks', icon: Webhook, label: 'Webhooks' },
+      { to: '/workflows', icon: Workflow, label: 'Workflows' },
       { to: '/audit-log', icon: ClipboardList, label: 'Audit Log' },
       { to: '/settings', icon: Settings, label: 'Settings' },
     ],

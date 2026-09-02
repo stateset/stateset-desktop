@@ -5,6 +5,7 @@ import type { Tenant, Brand } from './types';
 interface ImportMetaEnv {
   readonly VITE_API_URL: string;
   readonly VITE_SANDBOX_API_URL?: string;
+  readonly VITE_DURABLE_ENGINE_URL?: string;
   readonly VITE_ALLOW_STREAM_API_KEY?: string;
 }
 
@@ -46,6 +47,9 @@ interface ElectronAPI {
     setSandboxApiKey: (apiKey: string) => Promise<boolean>;
     getSandboxApiKey: () => Promise<string | undefined>;
     clearSandboxApiKey: () => Promise<boolean>;
+    setDurableEngineApiKey: (apiKey: string) => Promise<boolean>;
+    getDurableEngineApiKey: () => Promise<string | undefined>;
+    clearDurableEngineApiKey: () => Promise<boolean>;
   };
   secrets: {
     getLocal: () => Promise<string | undefined>;

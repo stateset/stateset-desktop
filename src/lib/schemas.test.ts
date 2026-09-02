@@ -18,6 +18,7 @@ import {
   WebhookTestResponseSchema,
 } from './schemas';
 import { ZodError } from 'zod';
+import { getLogBuffer, clearLogBuffer } from './logger';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -267,18 +268,25 @@ describe('validateResponse', () => {
     expect(result.sessions[0].id).toBe('sess-1');
   });
 
-  it('throws ZodError on invalid data', () => {
-    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+  it('throws ZodError on invalid data and logs the failure', () => {
+    clearLogBuffer();
     expect(() =>
       validateResponse(SessionsListResponseSchema, { ok: true, sessions: 'bad' })
     ).toThrow(ZodError);
-    expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
+    const errors = getLogBuffer().filter(
+      (entry) => entry.level === 'error' && entry.context === 'Schema'
+    );
+    expect(errors).toHaveLength(1);
+    expect(errors[0].message).toBe('Validation failed');
   });
 
-  it('throws ZodError on null input', () => {
-    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+  it('throws ZodError on null input and logs the failure', () => {
+    clearLogBuffer();
     expect(() => validateResponse(SessionResponseSchema, null)).toThrow(ZodError);
-    expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
+    const errors = getLogBuffer().filter(
+      (entry) => entry.level === 'error' && entry.context === 'Schema'
+    );
+    expect(errors).toHaveLength(1);
   });
 });
 

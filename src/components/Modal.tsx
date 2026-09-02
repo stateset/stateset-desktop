@@ -84,11 +84,11 @@ export function Modal({
             exit={{ opacity: 0, scale: 0.96, y: -16 }}
             transition={{ duration: dur, ease: [0.16, 1, 0.3, 1] }}
             className={clsx(
-              'w-full bg-slate-900/80 border border-slate-700/60 rounded-2xl shadow-2xl backdrop-blur-xl flex flex-col',
+              'max-h-[calc(100vh-3rem)] w-full bg-slate-900/80 border border-slate-700/60 rounded-2xl shadow-2xl backdrop-blur-xl flex flex-col overflow-hidden',
               sizeStyles[size]
             )}
           >
-            <div className="flex items-center justify-between px-6 pt-6 pb-2">
+            <div className="flex shrink-0 items-center justify-between px-6 pt-6 pb-2">
               <div>
                 <h2
                   id={titleId}
@@ -116,7 +116,7 @@ export function Modal({
                 </button>
               )}
             </div>
-            <div className="p-6">{children}</div>
+            <div className="overflow-y-auto p-6">{children}</div>
           </motion.div>
         </motion.div>
       ) : null}

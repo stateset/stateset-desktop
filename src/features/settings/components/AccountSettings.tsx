@@ -50,7 +50,7 @@ export function AccountSettings({ secureStorageAvailable }: { secureStorageAvail
               tenant?.tier === 'free' && 'bg-gray-800 text-gray-400 border-gray-700/50'
             )}
           >
-            {tenant?.tier?.charAt(0).toUpperCase() + (tenant?.tier?.slice(1) || '')}
+            {(tenant?.tier?.charAt(0).toUpperCase() || '') + (tenant?.tier?.slice(1) || '')}
           </span>
         </div>
         <div>

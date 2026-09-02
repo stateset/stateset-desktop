@@ -1,4 +1,5 @@
 import type { AgentEvent, AgentSessionStatus } from '../types';
+import { streamLogger } from './logger';
 
 export const STREAM_EVENT_TYPES = new Set([
   'status',
@@ -199,7 +200,7 @@ export function parseEventType(rawEventName: string, rawData: string): AgentEven
 
     return null;
   } catch (err) {
-    console.error('Failed to parse SSE event payload:', err);
+    streamLogger.error('Failed to parse SSE event payload', err);
     return null;
   }
 }

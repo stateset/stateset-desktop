@@ -4,6 +4,7 @@ import { API_CONFIG } from '../config/api.config';
 import { useAuditLogStore } from './auditLog';
 import { isElectronAvailable } from '../lib/electron';
 import { authContextCache, clearAllCaches } from '../lib/cache';
+import { authLogger } from '../lib/logger';
 
 const INVALID_SANDBOX_API_KEY_VALUES = new Set([
   'sandbox_key_pending',
@@ -71,7 +72,7 @@ async function getStoredPreferredBrandId(): Promise<string | null> {
     const normalizedValue = rawValue.trim();
     return normalizedValue.length > 0 ? normalizedValue : null;
   } catch (error) {
-    console.warn('Failed to read preferred brand ID:', error);
+    authLogger.warn('Failed to read preferred brand ID', { error: String(error) });
     return null;
   }
 }
@@ -89,7 +90,7 @@ async function persistPreferredBrandId(brandId: string | null): Promise<void> {
 
     await window.electronAPI.store.delete(PREFERRED_BRAND_ID_KEY);
   } catch (error) {
-    console.warn('Failed to persist preferred brand ID:', error);
+    authLogger.warn('Failed to persist preferred brand ID', { error: String(error) });
   }
 }
 
@@ -113,7 +114,7 @@ async function getCachedAuthContext(): Promise<{ tenant: Tenant; brands: Brand[]
   try {
     return await authContextCache.get();
   } catch (error) {
-    console.warn('Failed to read cached auth context:', error);
+    authLogger.warn('Failed to read cached auth context', { error: String(error) });
     return null;
   }
 }
@@ -126,7 +127,7 @@ async function persistCachedAuthContext(tenant: Tenant | null, brands: Brand[]):
   try {
     await authContextCache.set({ tenant, brands });
   } catch (error) {
-    console.warn('Failed to persist cached auth context:', error);
+    authLogger.warn('Failed to persist cached auth context', { error: String(error) });
   }
 }
 
@@ -312,7 +313,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         if (!isCurrentAuthOperation(operationId)) {
           return;
         }
-        console.error('Failed to read credentials from storage:', storageError);
+        authLogger.error('Failed to read credentials from storage', storageError);
         set({
           isLoading: false,
           error: {
@@ -399,10 +400,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             if (!isCurrentAuthOperation(operationId)) {
               return;
             }
-            console.warn('Stored API key is invalid, clearing...');
+            authLogger.warn('Stored API key is invalid, clearing...');
             await window.electronAPI.auth.clearApiKey();
             await clearAllCaches().catch((error) => {
-              console.warn('Failed to clear local caches after auth expiry:', error);
+              authLogger.warn('Failed to clear local caches after auth expiry', {
+                error: String(error),
+              });
             });
             set({
               isLoading: false,
@@ -417,7 +420,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           }
 
           if (response.status >= 500 || response.status === 429) {
-            console.warn(`Auth validation returned ${response.status}, using cached credentials.`);
+            authLogger.warn('Auth validation failed, using cached credentials', {
+              status: response.status,
+            });
             const restored = await restoreCachedAuthState(
               'SERVER_ERROR',
               storedKey,
@@ -446,9 +451,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           clearTimeout(timeoutId);
           // On network error during init, don't clear the key - user might be offline
           if (fetchError instanceof Error && fetchError.name === 'AbortError') {
-            console.warn('Auth validation timed out');
+            authLogger.warn('Auth validation timed out');
           } else {
-            console.warn('Failed to validate stored key:', fetchError);
+            authLogger.warn('Failed to validate stored key', { error: String(fetchError) });
           }
           const restored = await restoreCachedAuthState(
             'NETWORK_ERROR',
@@ -475,7 +480,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (!isCurrentAuthOperation(operationId)) {
         return;
       }
-      console.error('Failed to initialize auth:', error);
+      authLogger.error('Failed to initialize auth', error);
       set({
         isLoading: false,
         error: parseNetworkError(error),
@@ -561,7 +566,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
               await window.electronAPI.auth.setApiKey(apiKey);
             }
           } catch (storageError) {
-            console.error('Failed to store API key:', storageError);
+            authLogger.error('Failed to store API key', storageError);
           }
           if (!isCurrentAuthOperation(operationId)) {
             return;
@@ -611,7 +616,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         try {
           await window.electronAPI.auth.setApiKey(apiKey);
         } catch (storageError) {
-          console.error('Failed to store API key:', storageError);
+          authLogger.error('Failed to store API key', storageError);
           // Continue anyway - the key will work for this session
         }
       }
@@ -662,7 +667,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       ]);
     }
     await clearAllCaches().catch((error) => {
-      console.warn('Failed to clear local caches during logout:', error);
+      authLogger.warn('Failed to clear local caches during logout', { error: String(error) });
     });
     set({
       isAuthenticated: false,

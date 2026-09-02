@@ -91,6 +91,7 @@ export const Sparkline = memo(function Sparkline({
         viewBox={responsive ? `0 0 ${width} ${height}` : undefined}
         preserveAspectRatio={responsive ? 'none' : undefined}
         className={clsx(responsive ? 'block' : 'inline-block', className)}
+        role="img"
         aria-label="No data available"
       >
         <line
@@ -117,6 +118,7 @@ export const Sparkline = memo(function Sparkline({
       viewBox={responsive ? `0 0 ${width} ${height}` : undefined}
       preserveAspectRatio={responsive ? 'none' : undefined}
       className={clsx(responsive ? 'block' : 'inline-block', className)}
+      role="img"
       aria-label={`Sparkline chart with ${data.length} data points`}
     >
       {showFill && (
@@ -208,6 +210,7 @@ export const SparklineBar = memo(function SparklineBar({
         viewBox={responsive ? `0 0 ${width} ${height}` : undefined}
         preserveAspectRatio={responsive ? 'none' : undefined}
         className={clsx(responsive ? 'block' : 'inline-block', className)}
+        role="img"
         aria-label="No data available"
       />
     );
@@ -220,6 +223,7 @@ export const SparklineBar = memo(function SparklineBar({
       viewBox={responsive ? `0 0 ${width} ${height}` : undefined}
       preserveAspectRatio={responsive ? 'none' : undefined}
       className={clsx(responsive ? 'block' : 'inline-block', className)}
+      role="img"
       aria-label={`Bar chart with ${data.length} data points`}
     >
       {bars.map((bar, index) => (

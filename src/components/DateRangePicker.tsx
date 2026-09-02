@@ -68,6 +68,7 @@ export function DateRangePicker({ value, onChange }: DateRangePickerProps) {
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-2 px-3 py-1.5 bg-gray-800/90 border border-gray-700/80 rounded-lg hover:bg-gray-700/90 transition-all text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
         aria-expanded={isOpen}
+        aria-haspopup="listbox"
         aria-label="Open date range picker"
       >
         <Calendar className="w-4 h-4 text-gray-400" aria-hidden="true" />
@@ -82,11 +83,14 @@ export function DateRangePicker({ value, onChange }: DateRangePickerProps) {
         <div
           className="absolute right-0 top-full mt-1 w-48 bg-slate-900/95 border border-slate-700/60 rounded-xl shadow-2xl backdrop-blur-xl z-50 py-1.5 animate-scale-in"
           role="listbox"
+          aria-label="Date range presets"
         >
           {PRESETS.map((preset) => (
             <button
               key={preset.days}
               type="button"
+              role="option"
+              aria-selected={activePreset?.days === preset.days}
               onClick={() => selectPreset(preset.days)}
               className={clsx(
                 'w-full px-4 py-2 text-left text-sm mx-0 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1',

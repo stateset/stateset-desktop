@@ -64,6 +64,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     setSandboxApiKey: (apiKey: string) => ipcRenderer.invoke('auth:setSandboxApiKey', apiKey),
     getSandboxApiKey: () => ipcRenderer.invoke('auth:getSandboxApiKey'),
     clearSandboxApiKey: () => ipcRenderer.invoke('auth:clearSandboxApiKey'),
+    setDurableEngineApiKey: (apiKey: string) =>
+      ipcRenderer.invoke('auth:setDurableEngineApiKey', apiKey),
+    getDurableEngineApiKey: () => ipcRenderer.invoke('auth:getDurableEngineApiKey'),
+    clearDurableEngineApiKey: () => ipcRenderer.invoke('auth:clearDurableEngineApiKey'),
   },
 
   secrets: {
@@ -194,6 +198,9 @@ export interface ElectronAPI {
     setSandboxApiKey: (apiKey: string) => Promise<boolean>;
     getSandboxApiKey: () => Promise<string | undefined>;
     clearSandboxApiKey: () => Promise<boolean>;
+    setDurableEngineApiKey: (apiKey: string) => Promise<boolean>;
+    getDurableEngineApiKey: () => Promise<string | undefined>;
+    clearDurableEngineApiKey: () => Promise<boolean>;
   };
   secrets: {
     getLocal: () => Promise<string | undefined>;
