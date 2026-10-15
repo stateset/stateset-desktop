@@ -7,8 +7,8 @@ vi.mock('../hooks/usePageTitle', () => ({
   usePageTitle: vi.fn(),
 }));
 
-vi.mock('../features/chat-playground', () => ({
-  ChatPlayground: () => <div data-testid="chat-playground">Chat Playground View</div>,
+vi.mock('../features/computer-chat/DurableComputerChat', () => ({
+  DurableComputerChat: () => <div data-testid="chat-playground">Computer Chats View</div>,
 }));
 
 describe('ChatPlayground page', () => {

@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../../../stores/auth';
 import { secretsApi } from '../../../lib/api';
 import { localSecretsApi } from '../../../lib/localSecrets';
+import type { McpProbeResult } from '../../../vite-env';
 import { queryKeys } from '../../../lib/queryKeys';
 import { useToast } from '../../../components/ToastProvider';
 import { requireTenantId, requireBrandId } from '../../../lib/auth-guards';
@@ -38,7 +39,9 @@ export function useConnectionMutations(isLocalMode: boolean) {
     }
   };
 
-  const testConnectionFn = async (platform: string) => {
+  const testConnectionFn = async (
+    platform: string
+  ): Promise<{ success: boolean; message: string; tested?: boolean; probe?: McpProbeResult }> => {
     const tid = requireTenantId(tenant);
     const bid = requireBrandId(currentBrand);
     if (isLocalMode) {

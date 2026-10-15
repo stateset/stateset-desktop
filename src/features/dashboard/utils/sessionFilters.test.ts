@@ -6,6 +6,7 @@ import {
   filterSessions,
   collectAllTags,
   getSessionCounts,
+  getStatusBreakdown,
   getFleetInsights,
   getStartableSelection,
   getStoppableSelection,
@@ -84,8 +85,13 @@ describe('matchesSearch', () => {
     expect(matchesSearch(makeSession({ agent_type: 'support', tags: [] }), 'zzz')).toBe(false);
   });
 
-  it('does not match session name (search covers type/id/status/tags only)', () => {
-    expect(matchesSearch(makeSession({ name: 'My Custom Agent' }), 'custom')).toBe(false);
+  it('finds renamed agents case-insensitively and ignores surrounding whitespace', () => {
+    expect(matchesSearch(makeSession({ name: 'My Custom Agent' }), '  CUSTOM  ')).toBe(true);
+    expect(matchesSearch(makeSession({ name: null }), 'custom')).toBe(false);
+  });
+
+  it('treats whitespace-only search as no query', () => {
+    expect(matchesSearch(makeSession(), '   ')).toBe(true);
   });
 });
 
@@ -250,5 +256,26 @@ describe('getStartableSelection / getStoppableSelection', () => {
   it('returns empty arrays for empty selection', () => {
     expect(getStartableSelection(sessions, new Set())).toEqual([]);
     expect(getStoppableSelection(sessions, new Set())).toEqual([]);
+  });
+});
+
+describe('getStatusBreakdown', () => {
+  it('counts all six display statuses separately while preserving lifecycle groups', () => {
+    const statuses = ['running', 'paused', 'starting', 'stopping', 'stopped', 'failed'] as const;
+    const sessions = statuses.map((status) => makeSession({ status }));
+    expect(getStatusBreakdown(sessions)).toEqual({
+      running: 1,
+      paused: 1,
+      starting: 1,
+      stopping: 1,
+      stopped: 1,
+      failed: 1,
+    });
+    expect(getSessionCounts(sessions)).toEqual({
+      runningCount: 2,
+      stoppedCount: 2,
+      failedCount: 1,
+    });
+    expect(sessions.map((session) => session.status)).toEqual(statuses);
   });
 });

@@ -12,6 +12,44 @@ function makeProps(overrides: Partial<Parameters<typeof ChatInput>[0]> = {}) {
 }
 
 describe('ChatInput', () => {
+  it('retains a controlled draft until the owner clears the saved submission', () => {
+    const props = makeProps({ value: 'Recovered draft', onChange: vi.fn(), onBlur: vi.fn() });
+    const { rerender } = render(<ChatInput {...props} />);
+    const textarea = screen.getByLabelText('Chat message');
+    expect(props.onSend).not.toHaveBeenCalled();
+    fireEvent.change(textarea, { target: { value: 'Edited draft' } });
+    expect(props.onChange).toHaveBeenCalledWith('Edited draft');
+    fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
+    expect(props.onSend).toHaveBeenCalledWith('Recovered draft');
+    expect(textarea).toHaveValue('Recovered draft');
+    fireEvent.blur(textarea);
+    expect(props.onBlur).toHaveBeenCalled();
+    rerender(<ChatInput {...props} value="" />);
+    expect(textarea).toHaveValue('');
+  });
+
+  it('measures multibyte messages in UTF-8 bytes before sending', () => {
+    const props = makeProps({ maxBytes: 8 });
+    render(<ChatInput {...props} />);
+    const textarea = screen.getByLabelText('Chat message');
+    fireEvent.change(textarea, { target: { value: '🙂🙂🙂' } });
+    expect(screen.getByRole('alert')).toHaveTextContent('12 / 8 bytes');
+    expect(textarea).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByRole('button', { name: 'Send message' })).toBeDisabled();
+    fireEvent.keyDown(textarea, { key: 'Enter' });
+    expect(props.onSend).not.toHaveBeenCalled();
+    fireEvent.change(textarea, { target: { value: '🙂🙂' } });
+    fireEvent.keyDown(textarea, { key: 'Enter' });
+    expect(props.onSend).toHaveBeenCalledWith('🙂🙂');
+  });
+
+  it('does not submit Enter while composing text with an input method', () => {
+    const props = makeProps();
+    render(<ChatInput {...props} />);
+    fireEvent.change(screen.getByLabelText('Chat message'), { target: { value: '日本語' } });
+    fireEvent.keyDown(screen.getByLabelText('Chat message'), { key: 'Enter', isComposing: true });
+    expect(props.onSend).not.toHaveBeenCalled();
+  });
   it('renders the default placeholder', () => {
     render(<ChatInput {...makeProps()} />);
     expect(

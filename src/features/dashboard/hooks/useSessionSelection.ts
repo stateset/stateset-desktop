@@ -22,12 +22,21 @@ export function useSessionSelection() {
   /** Select every visible session; if all are already selected, clear instead. */
   const selectAllVisible = useCallback((visibleSessions: AgentSession[]) => {
     setSelectedIds((prev) => {
-      if (prev.size === visibleSessions.length) {
+      if (visibleSessions.length > 0 && visibleSessions.every((session) => prev.has(session.id))) {
         return new Set<string>();
       }
       return new Set(visibleSessions.map((s) => s.id));
     });
   }, []);
 
-  return { selectedIds, toggleSelect, clearSelection, selectAllVisible };
+  /** Drop selections that disappeared from the current page after paging or refresh. */
+  const retainVisible = useCallback((visibleSessions: AgentSession[]) => {
+    const visibleIds = new Set(visibleSessions.map((session) => session.id));
+    setSelectedIds((prev) => {
+      const next = new Set([...prev].filter((id) => visibleIds.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, []);
+
+  return { selectedIds, toggleSelect, clearSelection, selectAllVisible, retainVisible };
 }

@@ -4,6 +4,7 @@ import { API_CONFIG } from '../config/api.config';
 import { useAuditLogStore } from './auditLog';
 import { isElectronAvailable } from '../lib/electron';
 import { authContextCache, clearAllCaches } from '../lib/cache';
+import { useMcpVerificationsStore } from './mcpVerifications';
 import { authLogger } from '../lib/logger';
 
 const INVALID_SANDBOX_API_KEY_VALUES = new Set([
@@ -669,6 +670,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     await clearAllCaches().catch((error) => {
       authLogger.warn('Failed to clear local caches during logout', { error: String(error) });
     });
+    // Server names, versions and tool lists are account-scoped; the next user
+    // on this machine must not inherit them.
+    await useMcpVerificationsStore.getState().clear();
     set({
       isAuthenticated: false,
       isLoading: false,

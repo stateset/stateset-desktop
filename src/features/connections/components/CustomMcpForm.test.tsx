@@ -155,4 +155,46 @@ describe('CustomMcpForm', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(props.onCancel).toHaveBeenCalledTimes(1);
   });
+
+  it('offers a server test that unlocks once an endpoint is entered', () => {
+    render(<CustomMcpForm {...makeProps()} />);
+
+    const testButton = screen.getByRole('button', { name: 'Test server' });
+    expect(testButton).toBeDisabled();
+
+    fillForm({ serverId: 'my-mcp', endpoint: 'https://mcp.example.com/mcp' });
+    expect(screen.getByRole('button', { name: 'Test server' })).toBeEnabled();
+  });
+
+  it('keeps what was typed when the save fails', async () => {
+    const props = makeProps({ onAdd: vi.fn().mockRejectedValue(new Error('vault down')) });
+    render(<CustomMcpForm {...props} />);
+
+    fillForm({ serverId: 'my-mcp', endpoint: 'https://mcp.example.com/mcp' });
+    fireEvent.click(screen.getByRole('button', { name: 'Add server' }));
+
+    await waitFor(() => expect(props.onAdd).toHaveBeenCalled());
+    expect(screen.getByPlaceholderText('my-mcp-server')).toHaveValue('my-mcp');
+    expect(screen.getByPlaceholderText('https://... or custom command')).toHaveValue(
+      'https://mcp.example.com/mcp'
+    );
+    // No success toast for a save that did not happen.
+    expect(mockShowToast).not.toHaveBeenCalledWith(expect.objectContaining({ variant: 'success' }));
+  });
+
+  it('does not attribute an earlier handshake to a changed endpoint', async () => {
+    const onVerified = vi.fn();
+    const props = makeProps({ onVerified });
+    render(<CustomMcpForm {...props} />);
+
+    fillForm({ serverId: 'my-mcp', endpoint: 'https://a.example/mcp' });
+    // Simulate a successful probe for the first endpoint.
+    fireEvent.change(screen.getByPlaceholderText('https://... or custom command'), {
+      target: { value: 'https://b.example/mcp' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Add server' }));
+
+    await waitFor(() => expect(props.onAdd).toHaveBeenCalled());
+    expect(onVerified).not.toHaveBeenCalled();
+  });
 });

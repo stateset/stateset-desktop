@@ -101,7 +101,7 @@ export default function Settings() {
                 type="button"
                 onClick={() => handleTabChange(tab.id)}
                 className={clsx(
-                  'w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40',
+                  'settings-nav-item w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40',
                   isActive
                     ? 'bg-brand-500/15 text-brand-300 border border-brand-500/20'
                     : 'text-gray-400 hover:text-gray-200 hover:bg-slate-800/50 border border-transparent'

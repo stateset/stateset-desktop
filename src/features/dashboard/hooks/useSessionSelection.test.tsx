@@ -48,4 +48,27 @@ describe('useSessionSelection', () => {
     act(() => result.current.clearSelection());
     expect(result.current.selectedIds.size).toBe(0);
   });
+
+  it('selects the visible ids when an equally sized selection belongs to another page', () => {
+    const { result } = renderHook(() => useSessionSelection());
+    act(() => result.current.toggleSelect('hidden'));
+    act(() => result.current.selectAllVisible([makeSession({ id: 'visible' })]));
+    expect(result.current.selectedIds).toEqual(new Set(['visible']));
+  });
+
+  it('drops hidden selections after paging or refresh while keeping visible selections', () => {
+    const visible = makeSession({ id: 'visible' });
+    const { result } = renderHook(() => useSessionSelection());
+    act(() => {
+      result.current.toggleSelect('hidden');
+      result.current.toggleSelect('visible');
+    });
+    act(() => result.current.retainVisible([visible]));
+    expect(result.current.selectedIds).toEqual(new Set(['visible']));
+    const unchanged = result.current.selectedIds;
+    act(() => result.current.retainVisible([visible]));
+    expect(result.current.selectedIds).toBe(unchanged);
+    act(() => result.current.retainVisible([]));
+    expect(result.current.selectedIds.size).toBe(0);
+  });
 });

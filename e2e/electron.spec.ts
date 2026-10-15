@@ -1,16 +1,5 @@
-import { spawnSync } from 'child_process';
-import { test, expect, _electron as electron, Page } from '@playwright/test';
-
-const hasDisplay = (() => {
-  if (process.platform === 'darwin' || process.platform === 'win32') {
-    return true;
-  }
-  if (!process.env.DISPLAY && !process.env.WAYLAND_DISPLAY) {
-    return false;
-  }
-  const result = spawnSync('xdpyinfo', [], { stdio: 'ignore' });
-  return result.status === 0;
-})();
+import type { Page } from '@playwright/test';
+import { test, expect, requireDesktopDisplay, type DesktopHarness } from './desktop';
 
 const mockTenant = { id: 'tenant_1', name: 'Test Tenant', slug: 'test-tenant', tier: 'pro' };
 const mockBrand = {
@@ -20,21 +9,6 @@ const mockBrand = {
   tenant_id: 'tenant_1',
   enabled: true,
 };
-const electronArgs = ['.'];
-if (process.platform === 'linux') {
-  electronArgs.push(
-    '--no-sandbox',
-    '--disable-gpu',
-    '--disable-dev-shm-usage',
-    '--disable-software-rasterizer'
-  );
-}
-const electronEnv = {
-  ...process.env,
-  NODE_ENV: 'development',
-  E2E_TEST: 'true',
-};
-
 async function setTestDefaults(page: Page) {
   await page.evaluate(async () => {
     const api = (window as any).electronAPI;
@@ -45,24 +19,17 @@ async function setTestDefaults(page: Page) {
   });
 }
 
-async function ensureElectronAvailable() {
-  if (!hasDisplay) {
-    test.skip(true, 'Electron UI tests require a display (set DISPLAY or use Xvfb).');
+async function disablePreference(page: Page, label: string) {
+  const checkbox = page.getByLabel(label);
+  if (await checkbox.isChecked()) {
+    await checkbox.focus();
+    await page.keyboard.press('Space');
   }
-
-  try {
-    const electronApp = await electron.launch({ args: electronArgs, env: electronEnv });
-    await electronApp.close();
-  } catch (error) {
-    test.skip(true, 'Electron failed to launch in this environment.');
-  }
+  await expect(checkbox).not.toBeChecked();
 }
 
-async function launchWithMocks() {
-  const electronApp = await electron.launch({
-    args: electronArgs,
-    env: electronEnv,
-  });
+async function launchWithMocks(desktop: DesktopHarness) {
+  const electronApp = await desktop.launch();
 
   const page = await electronApp.firstWindow();
   await page.waitForURL('http://localhost:5173/**', { timeout: 120000 });
@@ -139,6 +106,12 @@ async function launchWithMocks() {
     },
     { tenant: mockTenant, brand: mockBrand }
   );
+  await page.context().addInitScript(
+    ({ tenant, brand }) => {
+      window.__E2E_AUTH__ = { tenant, brands: [brand] } as any;
+    },
+    { tenant: mockTenant, brand: mockBrand }
+  );
 
   await page.getByRole('button', { name: 'API Key', exact: true }).click({ force: true });
   await page.getByLabel('API Key').fill('sk-test-token');
@@ -149,60 +122,50 @@ async function launchWithMocks() {
     throw new Error(`Login failed: ${await loginError.textContent()}`);
   }
 
-  await expect(page.getByRole('heading', { name: 'Agent Sessions' })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { level: 1, name: /Good (morning|afternoon|evening)/ })
+  ).toBeVisible();
 
   return { electronApp, page };
 }
 
 test.describe('Electron UI', () => {
   test.beforeAll(async () => {
-    await ensureElectronAvailable();
+    requireDesktopDisplay();
   });
 
-  test('login reaches the dashboard', async () => {
-    const { electronApp, page } = await launchWithMocks();
+  test('login reaches the dashboard', async ({ desktop }) => {
+    const { electronApp, page } = await launchWithMocks(desktop);
 
     try {
-      await expect(page.getByRole('heading', { name: 'Agent Sessions' })).toBeVisible();
+      await expect(
+        page.getByRole('heading', { level: 1, name: /Good (morning|afternoon|evening)/ })
+      ).toBeVisible();
     } finally {
-      await electronApp.close();
+      await electronApp?.close();
     }
   });
 
-  test('settings toggles persist', async () => {
-    const { electronApp, page } = await launchWithMocks();
+  test('settings toggles persist', async ({ desktop }) => {
+    const { electronApp, page } = await launchWithMocks(desktop);
 
     try {
       await page.getByRole('link', { name: 'Settings' }).click({ force: true });
       await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
 
-      const minimizeToggle = page.getByLabel('Minimize to System Tray');
-      const desktopToggle = page.getByLabel('Desktop Notifications');
-      const soundToggle = page.getByLabel('Sound Alerts');
-
-      if (await minimizeToggle.isChecked()) {
-        await minimizeToggle.focus();
-        await page.keyboard.press('Space');
-      }
-      if (await desktopToggle.isChecked()) {
-        await desktopToggle.focus();
-        await page.keyboard.press('Space');
-      }
-      if (await soundToggle.isChecked()) {
-        await soundToggle.focus();
-        await page.keyboard.press('Space');
-      }
-
-      await expect(minimizeToggle).not.toBeChecked();
-      await expect(desktopToggle).not.toBeChecked();
-      await expect(soundToggle).not.toBeChecked();
-
-      await page.getByLabel('Theme', { exact: true }).selectOption('light');
+      const sections = page.getByRole('navigation', { name: 'Settings sections' });
+      await sections.getByRole('button', { name: 'Background', exact: true }).click();
+      await disablePreference(page, 'Minimize to System Tray');
+      await sections.getByRole('button', { name: 'Notifications', exact: true }).click();
+      await disablePreference(page, 'Desktop Notifications');
+      await disablePreference(page, 'Sound Alerts');
+      await sections.getByRole('button', { name: 'Appearance', exact: true }).click();
+      await page.getByRole('button', { name: 'Light theme', exact: true }).click();
 
       await expect
-        .poll(async () => {
-          return page.evaluate(async () => {
-            const api = (window as any).electronAPI;
+        .poll(() =>
+          page.evaluate(async () => {
+            const api = window.electronAPI!;
             return {
               theme: await api.store.get('theme'),
               minimizeToTray: await api.store.get('minimizeToTray'),
@@ -210,8 +173,8 @@ test.describe('Electron UI', () => {
               soundAlerts: await api.store.get('soundAlerts'),
               appliedTheme: document.documentElement.dataset.theme,
             };
-          });
-        })
+          })
+        )
         .toMatchObject({
           theme: 'light',
           minimizeToTray: false,
@@ -219,45 +182,18 @@ test.describe('Electron UI', () => {
           soundAlerts: false,
           appliedTheme: 'light',
         });
-
-      // Restore defaults for subsequent tests that rely on persisted preferences.
-      await page.getByLabel('Theme', { exact: true }).selectOption('dark');
-
-      if (!(await minimizeToggle.isChecked())) {
-        await minimizeToggle.focus();
-        await page.keyboard.press('Space');
-      }
-      if (!(await desktopToggle.isChecked())) {
-        await desktopToggle.focus();
-        await page.keyboard.press('Space');
-      }
-      if (!(await soundToggle.isChecked())) {
-        await soundToggle.focus();
-        await page.keyboard.press('Space');
-      }
-
-      await expect
-        .poll(async () => {
-          return page.evaluate(async () => {
-            const api = (window as any).electronAPI;
-            return {
-              theme: await api.store.get('theme'),
-              minimizeToTray: await api.store.get('minimizeToTray'),
-              desktopNotifications: await api.store.get('desktopNotifications'),
-              soundAlerts: await api.store.get('soundAlerts'),
-              appliedTheme: document.documentElement.dataset.theme,
-            };
-          });
-        })
-        .toMatchObject({
-          theme: 'dark',
-          minimizeToTray: true,
-          desktopNotifications: true,
-          soundAlerts: true,
-          appliedTheme: 'dark',
-        });
+      await page.reload();
+      await expect(page.getByRole('button', { name: 'Light theme', exact: true })).toHaveAttribute(
+        'aria-pressed',
+        'true'
+      );
+      await sections.getByRole('button', { name: 'Background', exact: true }).click();
+      await expect(page.getByLabel('Minimize to System Tray')).not.toBeChecked();
+      await sections.getByRole('button', { name: 'Notifications', exact: true }).click();
+      await expect(page.getByLabel('Desktop Notifications')).not.toBeChecked();
+      await expect(page.getByLabel('Sound Alerts')).not.toBeChecked();
     } finally {
-      await electronApp.close();
+      await electronApp?.close();
     }
   });
 });

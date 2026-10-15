@@ -43,6 +43,9 @@ interface PreloadApi {
     clearDurableEngineApiKey: () => Promise<boolean>;
     isSecureStorageAvailable: () => Promise<boolean>;
   };
+  mcp: {
+    probe: (request: { endpoint: string; authToken?: string }) => Promise<unknown>;
+  };
   secrets: {
     getLocal: () => Promise<string | undefined>;
     setLocal: (payload: string) => Promise<boolean>;
@@ -144,6 +147,8 @@ describe('preload', () => {
     await api.auth.clearDurableEngineApiKey();
     await api.auth.isSecureStorageAvailable();
 
+    await api.mcp.probe({ endpoint: 'https://mcp.example.com/mcp', authToken: 'tok' });
+
     await api.secrets.getLocal();
     await api.secrets.setLocal('encrypted-payload');
     await api.secrets.clearLocal();
@@ -175,6 +180,10 @@ describe('preload', () => {
     expect(mockInvoke).toHaveBeenCalledWith('auth:getDurableEngineApiKey');
     expect(mockInvoke).toHaveBeenCalledWith('auth:clearDurableEngineApiKey');
     expect(mockInvoke).toHaveBeenCalledWith('auth:isSecureStorageAvailable');
+    expect(mockInvoke).toHaveBeenCalledWith('mcp:probe', {
+      endpoint: 'https://mcp.example.com/mcp',
+      authToken: 'tok',
+    });
     expect(mockInvoke).toHaveBeenCalledWith('secrets:getLocal');
     expect(mockInvoke).toHaveBeenCalledWith('secrets:setLocal', 'encrypted-payload');
     expect(mockInvoke).toHaveBeenCalledWith('secrets:clearLocal');

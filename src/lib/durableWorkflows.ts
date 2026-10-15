@@ -84,6 +84,7 @@ type RequestOptions = {
   method?: 'GET' | 'POST';
   tenantId: string;
   body?: unknown;
+  signal?: AbortSignal;
 };
 
 function configuredClient() {
@@ -94,7 +95,7 @@ function configuredClient() {
   return { baseUrl: engineUrl.trim().replace(/\/+$/, ''), apiKey: apiKey.trim() };
 }
 
-async function engineRequest<T>(path: string, options: RequestOptions): Promise<T> {
+export async function engineRequest<T>(path: string, options: RequestOptions): Promise<T> {
   const { baseUrl, apiKey } = configuredClient();
   const authSchemes = ['Bearer', 'ApiKey'] as const;
   let lastResponse: Response | null = null;
@@ -109,6 +110,7 @@ async function engineRequest<T>(path: string, options: RequestOptions): Promise<
         'x-tenant-id': options.tenantId,
       },
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      signal: options.signal,
     });
     lastResponse = response;
     if (response.status === 401 && scheme === 'Bearer') continue;
@@ -128,13 +130,14 @@ async function engineRequest<T>(path: string, options: RequestOptions): Promise<
         (typeof record.error === 'string' && record.error) ||
         (typeof payload === 'string' && payload) ||
         `Durable workflow engine returned ${response.status}`;
-      throw new Error(message);
+      throw Object.assign(new Error(message), { status: response.status });
     }
     return payload as T;
   }
 
-  throw new Error(
-    `Durable workflow engine authentication failed (${lastResponse?.status ?? 401}).`
+  throw Object.assign(
+    new Error(`Durable workflow engine authentication failed (${lastResponse?.status ?? 401}).`),
+    { status: lastResponse?.status ?? 401 }
   );
 }
 

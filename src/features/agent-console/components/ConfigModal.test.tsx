@@ -4,6 +4,34 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { ConfigModal } from './ConfigModal';
 import type { AgentSessionConfig } from '../../../types';
 
+vi.mock('../../connections/hooks/useMcpServerOptions', () => ({
+  useMcpServerOptions: () => [
+    {
+      id: 'stateset-response',
+      name: 'StateSet ResponseCX',
+      isLocalOnly: false,
+      isMcpServer: true,
+      connected: true,
+    },
+    { id: 'shopify', name: 'Shopify', isLocalOnly: false, isMcpServer: true, connected: true },
+    { id: 'gorgias', name: 'Gorgias', isLocalOnly: false, isMcpServer: true, connected: false },
+  ],
+  useMcpServerOptionsState: () => ({
+    options: [
+      {
+        id: 'stateset-response',
+        name: 'StateSet ResponseCX',
+        isLocalOnly: false,
+        isMcpServer: true,
+        connected: true,
+      },
+      { id: 'shopify', name: 'Shopify', isLocalOnly: false, isMcpServer: true, connected: true },
+      { id: 'gorgias', name: 'Gorgias', isLocalOnly: false, isMcpServer: true, connected: false },
+    ],
+    isLoading: false,
+  }),
+}));
+
 function makeConfig(overrides: Partial<AgentSessionConfig> = {}): AgentSessionConfig {
   return {
     loop_interval_ms: 2000,
@@ -45,7 +73,8 @@ describe('ConfigModal', () => {
     expect(getInputByLabel('Iteration Timeout')).toHaveValue(30);
     expect(getInputByLabel('Temperature')).toHaveValue(0.5);
     expect(getInputByLabel('Model')).toHaveValue('claude-sonnet-4-6');
-    expect(getInputByLabel('MCP Servers')).toHaveValue('shopify\ngorgias');
+    expect(screen.getByRole('button', { name: /Shopify/ })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: /Gorgias/ })).toHaveAttribute('aria-pressed', 'true');
     expect(getInputByLabel('Custom Instructions')).toHaveValue('Be helpful');
   });
 
@@ -93,15 +122,24 @@ describe('ConfigModal', () => {
     expect(props.onUpdate).toHaveBeenCalledWith({ model: 'claude-opus-4-6' });
   });
 
-  it('parses MCP servers separated by commas and newlines, dropping blanks', () => {
+  it('adds a StateSet MCP server when its toggle is selected', () => {
     const props = makeProps();
     render(<ConfigModal {...props} />);
 
-    fireEvent.change(getInputByLabel('MCP Servers'), {
-      target: { value: 'shopify, gorgias\nzendesk,\n ' },
-    });
+    fireEvent.click(screen.getByRole('button', { name: /StateSet ResponseCX/ }));
     expect(props.onUpdate).toHaveBeenCalledWith({
-      mcp_servers: ['shopify', 'gorgias', 'zendesk'],
+      mcp_servers: ['shopify', 'gorgias', 'stateset-response'],
+    });
+  });
+
+  it('adds a custom MCP server id', () => {
+    const props = makeProps();
+    render(<ConfigModal {...props} />);
+
+    fireEvent.change(screen.getByLabelText('Add server by id'), { target: { value: 'my-mcp' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+    expect(props.onUpdate).toHaveBeenCalledWith({
+      mcp_servers: ['shopify', 'gorgias', 'my-mcp'],
     });
   });
 

@@ -1,6 +1,6 @@
 /** @vitest-environment happy-dom */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import { createRef } from 'react';
 import { DashboardToolbar } from './DashboardToolbar';
 import type { StatusFilter } from '../utils/sessionFilters';
@@ -48,13 +48,19 @@ describe('DashboardToolbar', () => {
   });
 
   it('shows "x of y" when filters are active', () => {
-    renderToolbar({ sessionsCount: 5, filteredCount: 2, hasActiveFilters: true });
+    renderToolbar({
+      sessionsCount: 5,
+      filteredCount: 2,
+      hasActiveFilters: true,
+    });
     expect(screen.getByText('2 of 5')).toBeInTheDocument();
   });
 
   it('propagates search input changes', () => {
     const props = renderToolbar();
-    fireEvent.change(screen.getByLabelText('Search agents'), { target: { value: 'sup' } });
+    fireEvent.change(screen.getByLabelText('Search agents'), {
+      target: { value: 'sup' },
+    });
     expect(props.onSearchChange).toHaveBeenCalledWith('sup');
   });
 
@@ -66,7 +72,10 @@ describe('DashboardToolbar', () => {
 
   it('renders status filter pills and marks the active one', () => {
     const props = renderToolbar({ statusFilter: 'running' });
-    const runningPill = screen.getByRole('button', { name: 'Running', pressed: true });
+    const runningPill = screen.getByRole('button', {
+      name: 'Active',
+      pressed: true,
+    });
     expect(runningPill).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Failed' }));
@@ -136,6 +145,56 @@ describe('DashboardToolbar', () => {
 
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(exportButton).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('moves through export options with arrows, Home, End and type-to-find', () => {
+    renderToolbar();
+    const trigger = screen.getByRole('button', { name: /export/i });
+    fireEvent.keyDown(trigger, { key: 'ArrowDown' });
+    const json = screen.getByRole('menuitem', { name: 'JSON' });
+    const csv = screen.getByRole('menuitem', { name: 'CSV' });
+    const metrics = screen.getByRole('menuitem', { name: 'Metrics Summary' });
+    expect(json).toHaveFocus();
+    fireEvent.keyDown(json, { key: 'ArrowUp' });
+    expect(metrics).toHaveFocus();
+    fireEvent.keyDown(metrics, { key: 'ArrowDown' });
+    expect(json).toHaveFocus();
+    fireEvent.keyDown(json, { key: 'End' });
+    expect(metrics).toHaveFocus();
+    fireEvent.keyDown(metrics, { key: 'Home' });
+    expect(json).toHaveFocus();
+    fireEvent.keyDown(json, { key: 'c' });
+    expect(csv).toHaveFocus();
+    fireEvent.keyDown(csv, { key: 'Escape' });
+    expect(trigger).toHaveFocus();
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('returns focus to Export after an option is chosen', () => {
+    const props = renderToolbar();
+    const trigger = screen.getByRole('button', { name: /export/i });
+    fireEvent.keyDown(trigger, { key: 'ArrowUp' });
+    const metrics = screen.getByRole('menuitem', { name: 'Metrics Summary' });
+    expect(metrics).toHaveFocus();
+    fireEvent.click(metrics);
+    expect(props.onExportMetrics).toHaveBeenCalledOnce();
+    expect(trigger).toHaveFocus();
+  });
+
+  it('dismisses on outside interaction without stealing focus', () => {
+    renderToolbar();
+    const trigger = screen.getByRole('button', { name: /export/i });
+    fireEvent.click(trigger);
+    const search = screen.getByRole('textbox', { name: 'Search agents' });
+    fireEvent.pointerDown(search);
+    act(() => search.focus());
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    expect(search).toHaveFocus();
+    fireEvent.click(trigger);
+    fireEvent.blur(screen.getByRole('menuitem', { name: 'JSON' }), {
+      relatedTarget: search,
+    });
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
   });
 
   it('disables export when there are no sessions', () => {

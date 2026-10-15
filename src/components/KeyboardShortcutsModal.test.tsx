@@ -46,6 +46,15 @@ describe('KeyboardShortcutsModal', () => {
     expect(screen.queryByRole('heading', { name: 'Dashboard' })).not.toBeInTheDocument();
   });
 
+  it('shows conversation search shortcuts on the Chats route', () => {
+    renderWithProviders(<KeyboardShortcutsModal isOpen onClose={onClose} />, {
+      route: '/playground',
+    });
+    expect(screen.getByRole('heading', { name: 'Chats' })).toBeInTheDocument();
+    expect(screen.getByText('Search conversations')).toBeInTheDocument();
+    expect(screen.getByText('Go to Chats')).toBeInTheDocument();
+  });
+
   it('calls onClose when Escape is pressed', () => {
     renderWithProviders(<KeyboardShortcutsModal isOpen onClose={onClose} />);
     fireEvent.keyDown(document, { key: 'Escape' });

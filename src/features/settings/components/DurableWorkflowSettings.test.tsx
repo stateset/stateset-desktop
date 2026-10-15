@@ -9,6 +9,10 @@ const healthMock = vi.fn();
 const initializeMock = vi.fn();
 const setConfigurationMock = vi.fn();
 const clearApiKeyMock = vi.fn();
+const secureStorageMock = vi.fn();
+vi.mock('../../../hooks/useSecureStorageAvailability', () => ({
+  useSecureStorageAvailability: () => secureStorageMock(),
+}));
 
 vi.mock('../../../lib/durableWorkflows', () => ({
   durableWorkflowApi: {
@@ -34,6 +38,7 @@ function seedStore(overrides: Record<string, unknown> = {}) {
 describe('DurableWorkflowSettings', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    secureStorageMock.mockReturnValue(null);
     healthMock.mockResolvedValue({ ok: true });
     setConfigurationMock.mockResolvedValue(undefined);
     clearApiKeyMock.mockResolvedValue(undefined);
@@ -45,7 +50,7 @@ describe('DurableWorkflowSettings', () => {
 
     expect(screen.getByText('Durable Workflow Engine')).toBeInTheDocument();
     expect(screen.getByDisplayValue('https://engine.example.com')).toBeInTheDocument();
-    expect(screen.getByText('No key stored.')).toBeInTheDocument();
+    expect(screen.getByText('No key configured.')).toBeInTheDocument();
   });
 
   it('initializes the store on mount', () => {
@@ -118,10 +123,22 @@ describe('DurableWorkflowSettings', () => {
     renderWithProviders(<DurableWorkflowSettings />);
 
     expect(
-      screen.getByText('A key is stored in the operating system credential store.')
+      screen.getByText(/Credential storage availability could not be confirmed/)
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Remove key' }));
     await waitFor(() => expect(clearApiKeyMock).toHaveBeenCalledTimes(1));
+  });
+  it('explains when a configured key lasts only for the app session', () => {
+    secureStorageMock.mockReturnValue(false);
+    seedStore({ apiKey: 'session-key' });
+    renderWithProviders(<DurableWorkflowSettings />);
+    expect(screen.getByText(/Enter it again after restarting/)).toBeInTheDocument();
+  });
+  it('confirms operating system encryption only when available', () => {
+    secureStorageMock.mockReturnValue(true);
+    seedStore({ apiKey: 'stored-key' });
+    renderWithProviders(<DurableWorkflowSettings />);
+    expect(screen.getByText(/encrypted using operating system secure storage/)).toBeInTheDocument();
   });
 });

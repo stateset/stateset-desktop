@@ -1,6 +1,6 @@
 /** @vitest-environment happy-dom */
 import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { FleetOverview } from './FleetOverview';
 import { makeSession } from '../testing/fixtures';
 import type { AgentSessionMetrics } from '../../../types';
@@ -27,7 +27,8 @@ describe('FleetOverview', () => {
     render(<FleetOverview sessions={sessions} />);
     expect(screen.getByText('Fleet Overview')).toBeInTheDocument();
     expect(screen.getByText('Running')).toBeInTheDocument();
-    expect(screen.getByText('2')).toBeInTheDocument(); // running incl. paused
+    expect(screen.getByText('Paused')).toBeInTheDocument();
+    expect(screen.getAllByText('1')).toHaveLength(3);
     expect(screen.getByText('Stopped')).toBeInTheDocument();
     expect(screen.getByText('3 agents total')).toBeInTheDocument();
   });
@@ -81,5 +82,17 @@ describe('FleetOverview', () => {
     render(<FleetOverview sessions={[]} />);
     expect(screen.getByText('Fleet Overview')).toBeInTheDocument();
     expect(screen.queryByText(/agents total/)).not.toBeInTheDocument();
+  });
+
+  it('accounts for every status without grouping paused or transitioning agents as running', () => {
+    const statuses = ['running', 'paused', 'starting', 'stopping', 'stopped', 'failed'] as const;
+    render(<FleetOverview sessions={statuses.map((status) => makeSession({ status }))} />);
+    const counts = screen.getByLabelText('Agent status counts');
+    for (const status of statuses) {
+      const label = status.charAt(0).toUpperCase() + status.slice(1);
+      expect(within(screen.getByText(label).parentElement!).getByText('1')).toBeInTheDocument();
+    }
+    expect(counts).toBeInTheDocument();
+    expect(screen.getByText('6 agents total')).toBeInTheDocument();
   });
 });

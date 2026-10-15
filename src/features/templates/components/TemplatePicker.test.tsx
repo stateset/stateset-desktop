@@ -52,6 +52,7 @@ const TEMPLATES: AgentTemplate[] = [
 describe('TemplatePicker', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockRemoveCustomTemplate.mockReset();
     mockIsLoaded = true;
     mockGetAllTemplates.mockReturnValue(TEMPLATES);
   });
@@ -145,5 +146,30 @@ describe('TemplatePicker', () => {
     expect(
       screen.queryByRole('button', { name: 'Delete template Support Agent' })
     ).not.toBeInTheDocument();
+  });
+  it('moves focus to a neighboring template before deleting a card', () => {
+    const onSelect = vi.fn();
+    render(<TemplatePicker selectedId="tpl-custom" onSelect={onSelect} />);
+    const remove = screen.getByRole('button', { name: 'Delete template My Custom Agent' });
+    remove.focus();
+    fireEvent.click(remove);
+    expect(mockRemoveCustomTemplate).toHaveBeenCalledWith('tpl-custom');
+    expect(screen.getByRole('button', { name: /^Support Agent/ })).toHaveFocus();
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it('returns to All with focus when the last template in Custom is deleted', () => {
+    mockRemoveCustomTemplate.mockImplementation((id: string) => {
+      mockGetAllTemplates.mockReturnValue(TEMPLATES.filter((template) => template.id !== id));
+    });
+    render(<TemplatePicker selectedId="tpl-custom" onSelect={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'My Templates (1)' }));
+    const remove = screen.getByRole('button', { name: 'Delete template My Custom Agent' });
+    remove.focus();
+    fireEvent.click(remove);
+    expect(screen.getByRole('button', { name: 'All' })).toHaveFocus();
+    expect(screen.getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.queryByRole('button', { name: 'My Templates (1)' })).not.toBeInTheDocument();
+    expect(screen.getByText('General Agent')).toBeVisible();
   });
 });

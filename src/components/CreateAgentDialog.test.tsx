@@ -1,8 +1,40 @@
 /** @vitest-environment happy-dom */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render as rtlRender, screen, fireEvent } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { CreateAgentDialog } from './CreateAgentDialog';
+
+// The dialog renders the shared MCP notice, which links to the Connections page.
+const render = (ui: React.ReactElement) => rtlRender(<MemoryRouter>{ui}</MemoryRouter>);
 import { BUILT_IN_TEMPLATES } from '../lib/agentTemplates';
+
+vi.mock('../features/connections/hooks/useMcpServerOptions', () => ({
+  useMcpServerOptions: () => [
+    { id: 'shopify', name: 'Shopify', isLocalOnly: false, isMcpServer: true, connected: true },
+    { id: 'gorgias', name: 'Gorgias', isLocalOnly: false, isMcpServer: true, connected: false },
+    {
+      id: 'stateset-sync',
+      name: 'StateSet Sync',
+      isLocalOnly: false,
+      isMcpServer: true,
+      connected: true,
+    },
+  ],
+  useMcpServerOptionsState: () => ({
+    options: [
+      { id: 'shopify', name: 'Shopify', isLocalOnly: false, isMcpServer: true, connected: true },
+      { id: 'gorgias', name: 'Gorgias', isLocalOnly: false, isMcpServer: true, connected: false },
+      {
+        id: 'stateset-sync',
+        name: 'StateSet Sync',
+        isLocalOnly: false,
+        isMcpServer: true,
+        connected: true,
+      },
+    ],
+    isLoading: false,
+  }),
+}));
 
 // TemplatePicker depends on the templates store (electron-backed); replace it
 // with a simple list of buttons that call onSelect with real templates.
@@ -114,13 +146,38 @@ describe('CreateAgentDialog', () => {
     );
   });
 
-  it('warns when the selected template requires MCP servers', () => {
+  it('warns only about MCP servers that are not connected yet', () => {
     render(<CreateAgentDialog {...defaultProps} />);
-    expect(screen.queryByText(/uses MCP servers/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
 
+    // Customer Support uses gorgias, which the mocked options report as unconnected.
     fireEvent.click(screen.getByRole('button', { name: 'Customer Support' }));
-    expect(screen.getByText(/uses MCP servers/i)).toBeInTheDocument();
-    expect(screen.getByText(/gorgias/)).toBeInTheDocument();
+    const warning = screen.getByRole('alert');
+    expect(warning).toHaveTextContent('Gorgias');
+  });
+
+  it('flags an unknown server id and leaves connected ones out of the warning', () => {
+    render(<CreateAgentDialog {...defaultProps} />);
+
+    // Order Monitor uses shopify + shipstation; shopify is connected and
+    // shipstation is unknown to the options, so only shipstation is flagged.
+    fireEvent.click(screen.getByRole('button', { name: 'Order Monitor' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('shipstation');
+    expect(screen.getByRole('alert')).not.toHaveTextContent('Shopify');
+  });
+
+  it('edits the MCP server selection from advanced settings', () => {
+    render(<CreateAgentDialog {...defaultProps} />);
+    fireEvent.click(screen.getByRole('button', { name: /advanced settings/i }));
+
+    fireEvent.click(screen.getByRole('button', { name: /StateSet Sync/ }));
+    fireEvent.click(screen.getByRole('button', { name: /create agent/i }));
+
+    expect(onCreateAgent).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ mcp_servers: ['stateset-sync'] }),
+      undefined
+    );
   });
 
   it('toggles advanced settings with aria-expanded', () => {

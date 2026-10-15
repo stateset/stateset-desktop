@@ -9,8 +9,10 @@ AI Agent Desktop application for StateSet - manage autonomous customer service a
 ## Features
 
 - **Autonomous AI Agents**: Run AI agents in continuous loops that autonomously handle customer service tasks
+- **Computer Chats**: Give each chat a dedicated sandbox desktop, execute actions through durable workflows, and evaluate outputs with NSR — see [docs/COMPUTER_CHATS.md](docs/COMPUTER_CHATS.md)
 - **Real-time Streaming**: SSE-based live updates showing agent thinking, tool calls, and responses
 - **Platform Integrations**: OAuth connections for Shopify, Gorgias, Zendesk, and more
+- **MCP Servers**: Connect StateSet and custom MCP servers, verify them with a live handshake, and give agents their tools — see [docs/MCP_SERVERS.md](docs/MCP_SERVERS.md)
 - **Multi-brand Support**: Manage multiple brands with separate configurations
 - **Loop Control**: Pause, resume, and stop agents at any time
 - **Metrics Dashboard**: Track token usage, tool calls, and agent performance
@@ -145,6 +147,13 @@ npm run build
 ```
 
 This creates distributable packages in the `release/` directory.
+See [release verification](docs/RELEASE_VERIFICATION.md) for signing, updater
+integrity, packaged startup checks, and the separate live-service gate.
+
+Packaged apps generate a private configuration encryption key on first launch;
+users do not need environment variables to open the app. See
+[local data and bundle verification](docs/DESKTOP_STORAGE.md) for backups,
+managed keys, and testing the built Linux application without a Vite server.
 
 ## Project Structure
 

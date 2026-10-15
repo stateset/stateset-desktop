@@ -19,6 +19,7 @@ import {
   Mic,
   PlayCircle,
   AlertCircle,
+  Workflow,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
@@ -30,7 +31,14 @@ interface CommandItem {
   icon: React.ElementType;
   shortcut?: string;
   action: () => void;
-  category: 'navigation' | 'actions' | 'agents';
+  category: 'navigation' | 'actions' | 'chats' | 'agents';
+}
+
+export interface CommandPaletteChat {
+  id: string;
+  title: string;
+  status: string;
+  archived?: boolean;
 }
 
 interface CommandPaletteProps {
@@ -39,6 +47,7 @@ interface CommandPaletteProps {
   onCreateAgent?: () => void;
   onRefresh?: () => void;
   agents?: Array<{ id: string; agent_type: string; status: string; name?: string | null }>;
+  chats?: CommandPaletteChat[];
 }
 
 export function CommandPalette({
@@ -47,10 +56,12 @@ export function CommandPalette({
   onCreateAgent,
   onRefresh,
   agents = [],
+  chats = [],
 }: CommandPaletteProps) {
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const closeButton = useRef<HTMLButtonElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
   const isOpenRef = useRef(isOpen);
   const filteredCommandsRef = useRef<CommandItem[]>([]);
@@ -136,8 +147,8 @@ export function CommandPalette({
     },
     {
       id: 'playground',
-      label: 'Go to Playground',
-      description: 'Chat with agents directly',
+      label: 'Go to Chats',
+      description: 'Open a sandbox computer conversation',
       icon: MessageSquare,
       shortcut: 'Ctrl/Cmd+Shift+P',
       action: () => {
@@ -153,6 +164,17 @@ export function CommandPalette({
       icon: Webhook,
       action: () => {
         navigate('/webhooks');
+        onClose();
+      },
+      category: 'navigation',
+    },
+    {
+      id: 'workflows',
+      label: 'Go to Workflows',
+      description: 'Open durable workflow runs',
+      icon: Workflow,
+      action: () => {
+        navigate('/workflows');
         onClose();
       },
       category: 'navigation',
@@ -252,6 +274,17 @@ export function CommandPalette({
           },
         ]
       : []),
+    ...chats.map((chat) => ({
+      id: `chat-${chat.id}`,
+      label: chat.title,
+      description: `${chat.archived ? 'Archived conversation' : 'Computer chat'} · ${chat.status.replace(/_/g, ' ')}`,
+      icon: MessageSquare,
+      action: () => {
+        navigate(`/playground?chat=${encodeURIComponent(chat.id)}`);
+        onClose();
+      },
+      category: 'chats' as const,
+    })),
     ...sortedAgents.map((agent) => ({
       id: `agent-${agent.id}`,
       label: agent.name?.trim()
@@ -271,11 +304,13 @@ export function CommandPalette({
     })),
   ];
 
-  const filteredCommands = commands.filter(
-    (cmd) =>
-      cmd.label.toLowerCase().includes(query.toLowerCase()) ||
-      cmd.description?.toLowerCase().includes(query.toLowerCase())
-  );
+  const terms = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
+  let matchedChats = 0;
+  const filteredCommands = commands.filter((cmd) => {
+    const text = `${cmd.label} ${cmd.description ?? ''}`.toLocaleLowerCase();
+    if (!terms.every((term) => text.includes(term))) return false;
+    return cmd.category !== 'chats' || ++matchedChats <= 30;
+  });
 
   useEffect(() => {
     isOpenRef.current = isOpen;
@@ -310,7 +345,8 @@ export function CommandPalette({
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (!isOpenRef.current) return;
+      if (!isOpenRef.current || e.defaultPrevented || e.isComposing) return;
+      if (e.key !== 'Escape' && e.target !== inputRef.current) return;
 
       const currentCommands = filteredCommandsRef.current;
       if (currentCommands.length === 0) {
@@ -349,7 +385,7 @@ export function CommandPalette({
     if (isOpen) {
       setQuery('');
       setSelectedIndex(0);
-      setTimeout(() => inputRef.current?.focus(), 50);
+      inputRef.current?.focus();
     }
   }, [isOpen]);
 
@@ -381,10 +417,18 @@ export function CommandPalette({
   const groupedCommands = {
     navigation: filteredCommands.filter((c) => c.category === 'navigation'),
     actions: filteredCommands.filter((c) => c.category === 'actions'),
+    chats: filteredCommands.filter((c) => c.category === 'chats'),
     agents: filteredCommands.filter((c) => c.category === 'agents'),
   };
 
   const handleDialogKeyDownCapture = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.nativeEvent.isComposing) return;
+    if (event.key === 'Tab') {
+      event.preventDefault();
+      if (document.activeElement === inputRef.current) closeButton.current?.focus();
+      else inputRef.current?.focus();
+      return;
+    }
     if (event.key !== 'Escape') {
       return;
     }
@@ -407,14 +451,14 @@ export function CommandPalette({
           onClick={onClose}
         >
           <motion.div
-            initial={{ opacity: 0, scale: 0.96, y: -16 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.96, y: -16 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
             transition={{ duration: dur, ease: [0.16, 1, 0.3, 1] }}
             role="dialog"
             aria-modal="true"
             aria-labelledby="command-palette-title"
-            className="w-[min(92vw,36rem)] bg-slate-900/80 backdrop-blur-xl border border-slate-700/60 rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+            className="command-palette w-[min(92vw,36rem)] border border-slate-700/60 rounded-xl shadow-xl overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
             onKeyDownCapture={handleDialogKeyDownCapture}
           >
@@ -427,22 +471,28 @@ export function CommandPalette({
               <input
                 id="command-palette-search"
                 ref={inputRef}
-                role="searchbox"
+                role="combobox"
                 autoComplete="off"
                 spellCheck={false}
                 aria-autocomplete="list"
+                aria-expanded={isOpen}
+                aria-activedescendant={selectedId ? `command-option-${selectedId}` : undefined}
                 aria-controls="command-palette-results"
                 aria-label="Search commands"
                 type="text"
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setSelectedIndex(0);
+                }}
                 placeholder="Search commands..."
-                className="flex-1 bg-transparent text-gray-100 placeholder-gray-500 focus:outline-none text-lg font-medium"
+                className="min-w-0 flex-1 bg-transparent text-gray-100 placeholder-gray-500 focus:outline-none text-sm"
               />
               <kbd className="hidden sm:flex items-center gap-1 px-2 py-1 text-xs font-bold text-gray-500 bg-slate-800/80 border border-slate-700 rounded-md">
                 <Command className="w-3 h-3" aria-hidden="true" />K
               </kbd>
               <button
+                ref={closeButton}
                 type="button"
                 onClick={onClose}
                 aria-label="Close command palette"
@@ -460,6 +510,7 @@ export function CommandPalette({
             <div
               id="command-palette-results"
               role="listbox"
+              aria-label="Commands and conversations"
               aria-activedescendant={selectedId ? `command-option-${selectedId}` : undefined}
               className="max-h-[60vh] overflow-y-auto p-2 scroll-smooth"
             >
@@ -487,13 +538,28 @@ export function CommandPalette({
                       onHoverIndex={(nextIndex) => setSelectedIndex(nextIndex)}
                     />
                   )}
+                  {groupedCommands.chats.length > 0 && (
+                    <CommandGroup
+                      title={
+                        matchedChats > 30 ? 'Conversations · first 30 matches' : 'Conversations'
+                      }
+                      commands={groupedCommands.chats}
+                      selectedIndex={selectedIndex}
+                      startIndex={
+                        groupedCommands.navigation.length + groupedCommands.actions.length
+                      }
+                      onHoverIndex={setSelectedIndex}
+                    />
+                  )}
                   {groupedCommands.agents.length > 0 && (
                     <CommandGroup
                       title="Agents"
                       commands={groupedCommands.agents}
                       selectedIndex={selectedIndex}
                       startIndex={
-                        groupedCommands.navigation.length + groupedCommands.actions.length
+                        groupedCommands.navigation.length +
+                        groupedCommands.actions.length +
+                        groupedCommands.chats.length
                       }
                       onHoverIndex={(nextIndex) => setSelectedIndex(nextIndex)}
                     />
@@ -560,6 +626,7 @@ function CommandGroup({
           return (
             <button
               type="button"
+              tabIndex={-1}
               key={cmd.id}
               id={`command-option-${cmd.id}`}
               onClick={cmd.action}
@@ -571,14 +638,14 @@ function CommandGroup({
               className={clsx(
                 'w-full flex items-center gap-3.5 px-3 py-2.5 rounded-xl transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40',
                 isSelected
-                  ? 'bg-brand-500/15 text-brand-300 border border-brand-500/20 border-l-2 border-l-brand-400 shadow-sm shadow-brand-500/5'
+                  ? 'bg-slate-800/60 text-gray-100 border border-transparent'
                   : 'hover:bg-slate-800/60 text-gray-300 border border-transparent hover:border-slate-700/50'
               )}
             >
               <div
                 className={clsx(
                   'p-1.5 rounded-lg transition-colors',
-                  isSelected ? 'bg-brand-500/20 text-brand-400' : 'bg-slate-800/80 text-gray-400'
+                  isSelected ? 'text-gray-300' : 'text-gray-400'
                 )}
               >
                 <Icon className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
@@ -587,20 +654,13 @@ function CommandGroup({
                 <div
                   className={clsx(
                     'font-medium text-sm',
-                    isSelected ? 'text-white' : 'text-gray-200'
+                    isSelected ? 'text-gray-100' : 'text-gray-200'
                   )}
                 >
                   {cmd.label}
                 </div>
                 {cmd.description && (
-                  <div
-                    className={clsx(
-                      'text-xs mt-0.5',
-                      isSelected ? 'text-brand-200/80' : 'text-gray-500'
-                    )}
-                  >
-                    {cmd.description}
-                  </div>
+                  <div className={clsx('text-xs mt-0.5', 'text-gray-400')}>{cmd.description}</div>
                 )}
               </div>
               {cmd.shortcut && (
@@ -608,7 +668,7 @@ function CommandGroup({
                   className={clsx(
                     'px-2 py-1 text-[10px] font-bold rounded-md border',
                     isSelected
-                      ? 'bg-brand-500/20 text-brand-300 border-brand-500/30'
+                      ? 'bg-slate-800/80 text-gray-300 border-slate-700'
                       : 'bg-slate-800/80 text-gray-500 border-slate-700'
                   )}
                 >

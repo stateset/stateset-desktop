@@ -2,8 +2,27 @@ import { describe, it, expect } from 'vitest';
 import { BUILT_IN_TEMPLATES, TEMPLATE_ICON_MAP, TEMPLATE_CATEGORIES } from './agentTemplates';
 
 describe('BUILT_IN_TEMPLATES', () => {
-  it('has exactly 8 templates', () => {
-    expect(BUILT_IN_TEMPLATES).toHaveLength(8);
+  it('has exactly 11 templates', () => {
+    expect(BUILT_IN_TEMPLATES).toHaveLength(11);
+  });
+
+  it('ships a template for every hosted StateSet MCP server', () => {
+    const served = new Set(BUILT_IN_TEMPLATES.flatMap((t) => t.config.mcp_servers ?? []));
+
+    expect(served).toContain('stateset-sync');
+    expect(served).toContain('stateset-response');
+    expect(served).toContain('stateset-engine');
+  });
+
+  it('gives every StateSet template instructions for its agent', () => {
+    const statesetTemplates = BUILT_IN_TEMPLATES.filter((t) =>
+      (t.config.mcp_servers ?? []).some((server) => server.startsWith('stateset-'))
+    );
+
+    expect(statesetTemplates).toHaveLength(3);
+    for (const template of statesetTemplates) {
+      expect(template.config.custom_instructions).toBeTruthy();
+    }
   });
 
   it('all templates have required fields', () => {

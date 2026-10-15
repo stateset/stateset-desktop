@@ -7,6 +7,7 @@ import { agentApi } from '../lib/api';
 import { getErrorMessage } from '../lib/errors';
 import { exportRunSummary } from '../lib/export';
 import { normalizeAgentConfig } from '../lib/agentConfig';
+import { McpServerStatusNotice } from '../features/connections/components/McpServerStatusNotice';
 import { queryKeys } from '../lib/queryKeys';
 import { useToast } from '../components/ToastProvider';
 import { useAgentStream } from '../hooks/useAgentStream';
@@ -628,6 +629,8 @@ export default function AgentConsole() {
         onPause={() => pauseSessionMutate()}
         onStop={() => stopSessionMutate()}
       />
+
+      <McpServerStatusNotice servers={session?.config?.mcp_servers ?? []} />
 
       {/* Main content */}
       <div className="flex-1 flex overflow-hidden">

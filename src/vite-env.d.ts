@@ -6,6 +6,7 @@ interface ImportMetaEnv {
   readonly VITE_API_URL: string;
   readonly VITE_SANDBOX_API_URL?: string;
   readonly VITE_DURABLE_ENGINE_URL?: string;
+  readonly VITE_POLICY_API_URL?: string;
   readonly VITE_ALLOW_STREAM_API_KEY?: string;
 }
 
@@ -14,7 +15,31 @@ interface ImportMeta {
 }
 
 // Electron API types
+export type McpProbeResult =
+  | {
+      ok: true;
+      serverName: string;
+      serverVersion: string;
+      protocolVersion: string;
+      toolCount: number;
+      tools: string[];
+    }
+  | { ok: false; error: string; status?: number; unreachable?: boolean };
+
 interface ElectronAPI {
+  computerChat?: {
+    request: (request: {
+      path: string;
+      method: 'GET' | 'POST';
+      tenantId: string;
+      body?: unknown;
+    }) => Promise<{ ok: boolean; status: number; body: unknown }>;
+    saveArtifact: (request: {
+      filename: string;
+      contentBase64: string;
+      sha256: string;
+    }) => Promise<boolean>;
+  };
   store: {
     get: (key: string) => Promise<unknown>;
     set: (key: string, value: unknown) => Promise<boolean>;
@@ -50,6 +75,9 @@ interface ElectronAPI {
     setDurableEngineApiKey: (apiKey: string) => Promise<boolean>;
     getDurableEngineApiKey: () => Promise<string | undefined>;
     clearDurableEngineApiKey: () => Promise<boolean>;
+  };
+  mcp: {
+    probe: (request: { endpoint: string; authToken?: string }) => Promise<McpProbeResult>;
   };
   secrets: {
     getLocal: () => Promise<string | undefined>;

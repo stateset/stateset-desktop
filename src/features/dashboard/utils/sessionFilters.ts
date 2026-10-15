@@ -28,11 +28,12 @@ export function matchesTags(session: AgentSession, selectedTags: ReadonlySet<str
   return sessionTags.some((tag) => selectedTags.has(tag));
 }
 
-/** Whether a session matches a free-text search across type, id, status, and tags. */
+/** Whether a session matches a free-text search across name, type, id, status, and tags. */
 export function matchesSearch(session: AgentSession, search: string): boolean {
-  if (!search) return true;
-  const query = search.toLowerCase();
+  const query = search.trim().toLowerCase();
+  if (!query) return true;
   return (
+    (session.name?.toLowerCase().includes(query) ?? false) ||
     session.agent_type.toLowerCase().includes(query) ||
     session.id.toLowerCase().includes(query) ||
     session.status.toLowerCase().includes(query) ||
@@ -70,6 +71,15 @@ export interface SessionCounts {
   runningCount: number;
   stoppedCount: number;
   failedCount: number;
+}
+
+/** Exact display counts, separate from the lifecycle groups used by bulk actions. */
+export function getStatusBreakdown(
+  sessions: AgentSession[]
+): Record<AgentSession['status'], number> {
+  const counts = { running: 0, paused: 0, starting: 0, stopping: 0, stopped: 0, failed: 0 };
+  for (const session of sessions) counts[session.status] += 1;
+  return counts;
 }
 
 /**

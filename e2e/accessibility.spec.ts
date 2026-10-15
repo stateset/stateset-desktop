@@ -7,34 +7,11 @@
  * Run with: npm run test:e2e
  */
 
-import { spawnSync } from 'child_process';
-import { test, expect, _electron as electron, ElectronApplication, Page } from '@playwright/test';
+import type { ElectronApplication, Page } from '@playwright/test';
+import { test, expect, requireDesktopDisplay, type DesktopHarness } from './desktop';
 import AxeBuilder from '@axe-core/playwright';
-
-const hasDisplay = (() => {
-  if (process.platform === 'darwin' || process.platform === 'win32') {
-    return true;
-  }
-  if (!process.env.DISPLAY && !process.env.WAYLAND_DISPLAY) {
-    return false;
-  }
-  const result = spawnSync('xdpyinfo', [], { stdio: 'ignore' });
-  return result.status === 0;
-})();
-const electronArgs = ['.'];
-if (process.platform === 'linux') {
-  electronArgs.push(
-    '--no-sandbox',
-    '--disable-gpu',
-    '--disable-dev-shm-usage',
-    '--disable-software-rasterizer'
-  );
-}
-const electronEnv = {
-  ...process.env,
-  NODE_ENV: 'development',
-  E2E_TEST: 'true',
-};
+import { mkdir } from 'node:fs/promises';
+import { installDesktopApiFixture, setDesktopSessionResponse } from './api-fixture';
 
 async function setTestDefaults(page: Page, theme: 'dark' | 'light' = 'dark') {
   await page.evaluate(
@@ -52,21 +29,8 @@ async function setTestDefaults(page: Page, theme: 'dark' | 'light' = 'dark') {
   );
 }
 
-async function ensureElectronAvailable() {
-  if (!hasDisplay) {
-    test.skip(true, 'Electron accessibility tests require a display (set DISPLAY or use Xvfb).');
-  }
-
-  try {
-    const electronApp = await electron.launch({ args: electronArgs, env: electronEnv });
-    await electronApp.close();
-  } catch (error) {
-    test.skip(true, 'Electron failed to launch in this environment.');
-  }
-}
-
 test.beforeAll(async () => {
-  await ensureElectronAvailable();
+  requireDesktopDisplay();
 });
 
 const mockTenant = { id: 'tenant_1', name: 'Test Tenant', slug: 'test-tenant', tier: 'pro' };
@@ -134,77 +98,20 @@ const mockSessions = [
   },
 ];
 
-async function launchWithMocks(): Promise<{ electronApp: ElectronApplication; page: Page }> {
-  const electronApp = await electron.launch({
-    args: electronArgs,
-    env: electronEnv,
-  });
+async function launchWithMocks(
+  desktop: DesktopHarness,
+  fixtureSessions: unknown[] = mockSessions,
+  sessionsStatus = 200
+): Promise<{ electronApp: ElectronApplication; page: Page }> {
+  const electronApp = await desktop.launch();
 
   const page = await electronApp.firstWindow();
   await page.waitForURL('http://localhost:5173/**', { timeout: 120000 });
-
-  await page.route('**/health/detailed', async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        status: 'healthy',
-        version: 'test',
-        checks: {
-          database: { status: 'healthy' },
-          redis: { status: 'healthy' },
-          nats: { status: 'healthy' },
-        },
-        circuit_breakers: {
-          sandbox: 'closed',
-          webhook: 'closed',
-          database: 'closed',
-          external_api: 'closed',
-        },
-        resilience_healthy: true,
-      }),
-    });
-  });
-
-  // Set up API mocks
-  await page.route('**/api/v1/**', async (route) => {
-    const url = route.request().url();
-
-    if (url.endsWith('/auth/me')) {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          tenant: mockTenant,
-          brands: [mockBrand],
-        }),
-      });
-      return;
-    }
-
-    if (url.includes('/agents') && !url.includes('/stream')) {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ ok: true, sessions: mockSessions }),
-      });
-      return;
-    }
-
-    if (url.includes('/secrets')) {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ ok: true, platforms: ['shopify'] }),
-      });
-      return;
-    }
-
-    await route.fulfill({
-      status: 404,
-      contentType: 'application/json',
-      body: JSON.stringify({ error: 'Not mocked in a11y test' }),
-    });
+  await installDesktopApiFixture(electronApp, page, {
+    tenant: mockTenant,
+    brand: mockBrand,
+    sessions: fixtureSessions,
+    sessionsStatus,
   });
 
   await page.waitForFunction(() => (window as any).electronAPI !== undefined);
@@ -216,25 +123,10 @@ async function launchWithMocks(): Promise<{ electronApp: ElectronApplication; pa
 /**
  * Helper to run axe accessibility scan and format results
  */
-async function checkAccessibility(
-  page: Page,
-  options?: {
-    excludeRules?: string[];
-    includeRules?: string[];
-    disableRules?: string[];
-  }
-) {
-  let builder = new AxeBuilder({ page })
+async function checkAccessibility(page: Page) {
+  const builder = new AxeBuilder({ page })
     .setLegacyMode()
     .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']);
-
-  if (options?.excludeRules) {
-    builder = builder.exclude(options.excludeRules);
-  }
-
-  if (options?.disableRules) {
-    builder = builder.disableRules(options.disableRules);
-  }
 
   const results = await builder.analyze();
 
@@ -265,14 +157,14 @@ test.describe('Accessibility Tests', () => {
   let electronApp: ElectronApplication;
   let page: Page;
 
-  test.beforeAll(async () => {
-    const result = await launchWithMocks();
+  test.beforeAll(async ({ desktop }) => {
+    const result = await launchWithMocks(desktop);
     electronApp = result.electronApp;
     page = result.page;
   });
 
   test.afterAll(async () => {
-    await electronApp.close();
+    await electronApp?.close();
   });
 
   test('Login page should have no accessibility violations', async () => {
@@ -284,10 +176,7 @@ test.describe('Accessibility Tests', () => {
     await page.reload();
     await expect(page.getByText('Welcome back')).toBeVisible();
 
-    const results = await checkAccessibility(page, {
-      // Disable color-contrast for now as it may need design review
-      disableRules: ['color-contrast'],
-    });
+    const results = await checkAccessibility(page);
 
     expect(results.violations).toHaveLength(0);
   });
@@ -321,14 +210,14 @@ test.describe('Accessibility Tests', () => {
     await page.getByRole('button', { name: 'API Key', exact: true }).click({ force: true });
     await page.getByLabel('API Key').fill('sk-test-a11y');
     await page.getByRole('button', { name: 'Sign In' }).click({ force: true });
-    await expect(page.getByRole('heading', { name: 'Agent Sessions' })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { level: 1, name: /Good (morning|afternoon|evening)/ })
+    ).toBeVisible();
 
     // Wait for content to load
     await page.waitForTimeout(1000);
 
-    const results = await checkAccessibility(page, {
-      disableRules: ['color-contrast'],
-    });
+    const results = await checkAccessibility(page);
 
     expect(results.violations).toHaveLength(0);
   });
@@ -358,7 +247,7 @@ test.describe('Accessibility Tests', () => {
     // Test keyboard navigation to running filter
     await page.keyboard.press('Tab');
     // Button should be reachable via Tab (verify it exists)
-    await expect(page.getByRole('button', { name: 'Running', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Active', exact: true })).toBeVisible();
   });
 
   test('Agent list items should be interactive and have proper roles', async () => {
@@ -393,22 +282,24 @@ test.describe('Accessibility Tests', () => {
     await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
     await page.waitForTimeout(500);
 
-    const results = await checkAccessibility(page, {
-      disableRules: ['color-contrast'],
-    });
+    const results = await checkAccessibility(page);
 
     expect(results.violations).toHaveLength(0);
   });
 
   test('Settings form controls should have proper labels', async () => {
-    // Check theme select has label
-    const themeSelect = page.getByLabel('Theme', { exact: true });
-    await expect(themeSelect).toBeVisible();
-
-    // Check toggles have labels
+    const sections = page.getByRole('navigation', { name: 'Settings sections' });
+    await sections.getByRole('button', { name: 'Appearance', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Light theme', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Dark theme', exact: true })).toBeVisible();
+    await sections.getByRole('button', { name: 'Background', exact: true }).click();
     const minimizeToggle = page.getByLabel('Minimize to System Tray');
     await expect(minimizeToggle).toBeVisible();
 
+    await page
+      .getByRole('navigation', { name: 'Settings sections' })
+      .getByRole('button', { name: 'Notifications', exact: true })
+      .click();
     const desktopToggle = page.getByLabel('Desktop Notifications');
     await expect(desktopToggle).toBeVisible();
 
@@ -417,6 +308,10 @@ test.describe('Accessibility Tests', () => {
   });
 
   test('Settings toggles should be keyboard operable', async () => {
+    await page
+      .getByRole('navigation', { name: 'Settings sections' })
+      .getByRole('button', { name: 'Background', exact: true })
+      .click();
     const minimizeToggle = page.getByLabel('Minimize to System Tray');
 
     // Focus the toggle
@@ -441,9 +336,7 @@ test.describe('Accessibility Tests', () => {
     await expect(page.getByRole('heading', { name: 'Platform Connections' })).toBeVisible();
     await page.waitForTimeout(500);
 
-    const results = await checkAccessibility(page, {
-      disableRules: ['color-contrast'],
-    });
+    const results = await checkAccessibility(page);
 
     expect(results.violations).toHaveLength(0);
   });
@@ -456,7 +349,9 @@ test.describe('Accessibility Tests', () => {
 
     // Navigate with Enter
     await page.keyboard.press('Enter');
-    await expect(page.getByRole('heading', { name: 'Agent Sessions' })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { level: 1, name: /Good (morning|afternoon|evening)/ })
+    ).toBeVisible();
   });
 
   test('Command palette should be keyboard accessible', async () => {
@@ -488,9 +383,7 @@ test.describe('Accessibility Tests', () => {
     await expect(dialog).toBeVisible();
 
     // Run accessibility check on dialog
-    const results = await checkAccessibility(page, {
-      disableRules: ['color-contrast'],
-    });
+    const results = await checkAccessibility(page);
 
     expect(results.violations).toHaveLength(0);
 
@@ -539,8 +432,8 @@ test.describe('Accessibility Tests', () => {
 });
 
 test.describe('Color Contrast Analysis', () => {
-  test('Report color contrast issues for design review', async () => {
-    const { electronApp, page } = await launchWithMocks();
+  test('Dark theme dashboard should meet text contrast requirements', async ({ desktop }) => {
+    const { electronApp, page } = await launchWithMocks(desktop);
 
     try {
       await page.waitForFunction(() => (window as any).electronAPI !== undefined);
@@ -561,7 +454,9 @@ test.describe('Color Contrast Analysis', () => {
       await page.getByRole('button', { name: 'API Key', exact: true }).click({ force: true });
       await page.getByLabel('API Key').fill('sk-test-token');
       await page.getByRole('button', { name: 'Sign In' }).click({ force: true });
-      await expect(page.getByRole('heading', { name: 'Agent Sessions' })).toBeVisible();
+      await expect(
+        page.getByRole('heading', { level: 1, name: /Good (morning|afternoon|evening)/ })
+      ).toBeVisible();
 
       // Check color contrast specifically
       const results = await new AxeBuilder({ page })
@@ -570,7 +465,7 @@ test.describe('Color Contrast Analysis', () => {
         .options({ runOnly: ['color-contrast'] })
         .analyze();
 
-      // Log issues for design review (don't fail test)
+      // Keep actionable contrast details in the failure log.
       if (results.violations.length > 0) {
         console.log('\n=== Color Contrast Issues for Design Review ===');
         results.violations.forEach((violation) => {
@@ -584,10 +479,11 @@ test.describe('Color Contrast Analysis', () => {
         console.log('\n================================================\n');
       }
 
-      // This test passes but logs issues
-      expect(true).toBe(true);
+      expect(results.violations).toHaveLength(0);
+      await mkdir('dist/verification', { recursive: true });
+      await page.screenshot({ path: 'dist/verification/native-dashboard-dark.png' });
     } finally {
-      await electronApp.close();
+      await electronApp?.close();
     }
   });
 });
@@ -595,14 +491,14 @@ test.describe('Color Contrast Analysis', () => {
 test.describe('Light Theme Accessibility', () => {
   // Smoke-tests the same primary surfaces under the light theme so we catch
   // theme-specific regressions (focus rings, hidden text, missing borders).
-  // Color-contrast is reported separately below — different palette, different review.
+  // Include contrast on every primary surface in both themes.
   test.describe.configure({ mode: 'serial' });
 
   let electronApp: ElectronApplication;
   let page: Page;
 
-  test.beforeAll(async () => {
-    const result = await launchWithMocks();
+  test.beforeAll(async ({ desktop }) => {
+    const result = await launchWithMocks(desktop);
     electronApp = result.electronApp;
     page = result.page;
     await setTestDefaults(page, 'light');
@@ -610,7 +506,7 @@ test.describe('Light Theme Accessibility', () => {
   });
 
   test.afterAll(async () => {
-    await electronApp.close();
+    await electronApp?.close();
   });
 
   test('Login page (light) should have no accessibility violations', async () => {
@@ -622,9 +518,7 @@ test.describe('Light Theme Accessibility', () => {
     await page.reload();
     await expect(page.getByText('Welcome back')).toBeVisible();
 
-    const results = await checkAccessibility(page, {
-      disableRules: ['color-contrast'],
-    });
+    const results = await checkAccessibility(page);
     expect(results.violations).toHaveLength(0);
   });
 
@@ -638,12 +532,12 @@ test.describe('Light Theme Accessibility', () => {
     await page.getByRole('button', { name: 'API Key', exact: true }).click({ force: true });
     await page.getByLabel('API Key').fill('sk-test-light');
     await page.getByRole('button', { name: 'Sign In' }).click({ force: true });
-    await expect(page.getByRole('heading', { name: 'Agent Sessions' })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { level: 1, name: /Good (morning|afternoon|evening)/ })
+    ).toBeVisible();
     await page.waitForTimeout(1000);
 
-    const results = await checkAccessibility(page, {
-      disableRules: ['color-contrast'],
-    });
+    const results = await checkAccessibility(page);
     expect(results.violations).toHaveLength(0);
   });
 
@@ -652,13 +546,35 @@ test.describe('Light Theme Accessibility', () => {
     await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
     await page.waitForTimeout(500);
 
-    const results = await checkAccessibility(page, {
-      disableRules: ['color-contrast'],
-    });
+    const results = await checkAccessibility(page);
     expect(results.violations).toHaveLength(0);
+    const sections = page.getByRole('navigation', { name: 'Settings sections' });
+    for (const section of ['Background', 'Notifications', 'Appearance']) {
+      await sections.getByRole('button', { name: section, exact: true }).click();
+      expect((await checkAccessibility(page)).violations, `${section} in light theme`).toEqual([]);
+    }
+    await page.getByRole('button', { name: 'Dark theme', exact: true }).click();
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.dataset.theme))
+      .toBe('dark');
+    expect((await checkAccessibility(page)).violations, 'Appearance in dark theme').toEqual([]);
+    await page.getByRole('button', { name: 'Light theme', exact: true }).click();
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.dataset.theme))
+      .toBe('light');
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('checkbox', { name: 'Compact Mode', exact: true })).toBeFocused();
+    expect((await checkAccessibility(page)).violations, 'Appearance with keyboard focus').toEqual(
+      []
+    );
+    await mkdir('dist/verification', { recursive: true });
+    await page.screenshot({
+      path: 'dist/verification/native-appearance-light.png',
+      animations: 'disabled',
+    });
   });
 
-  test('Report light-mode color contrast issues', async () => {
+  test('Light theme settings should meet text contrast requirements', async () => {
     const results = await new AxeBuilder({ page })
       .setLegacyMode()
       .withTags(['wcag2aa'])
@@ -678,14 +594,43 @@ test.describe('Light Theme Accessibility', () => {
       console.log('\n==========================================\n');
     }
 
-    // Report-only — design review territory, not a hard fail.
-    expect(true).toBe(true);
+    expect(results.violations).toHaveLength(0);
+    await mkdir('dist/verification', { recursive: true });
+    await page.screenshot({ path: 'dist/verification/native-settings-light.png' });
+  });
+
+  test('Connections and credential forms (light) should have no accessibility violations', async () => {
+    await page.getByRole('link', { name: 'Connections', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Platform Connections' })).toBeVisible();
+    await page.getByRole('button', { name: 'Manual', exact: true }).first().click();
+    await expect(page.getByRole('button', { name: 'Save credentials', exact: true })).toBeVisible();
+    expect((await checkAccessibility(page)).violations).toEqual([]);
+    await page.getByRole('button', { name: 'Add custom MCP server', exact: true }).click();
+    await expect(
+      page.getByRole('heading', { name: 'Add custom MCP server', exact: true })
+    ).toBeVisible();
+    await page.getByLabel('Endpoint / Command', { exact: true }).fill('https://mcp.example.test');
+    await expect(page.getByRole('button', { name: 'Test server', exact: true })).toBeEnabled();
+    for (const accent of ['blue', 'purple', 'green', 'amber', 'rose', 'cyan']) {
+      await page.evaluate((accent) => {
+        document.documentElement.dataset.accent = accent;
+      }, accent);
+      expect(
+        (await checkAccessibility(page)).violations,
+        `${accent} custom server controls`
+      ).toEqual([]);
+    }
+    await mkdir('dist/verification', { recursive: true });
+    await page.screenshot({
+      path: 'dist/verification/native-connections-light.png',
+      animations: 'disabled',
+    });
   });
 });
 
 test.describe('Screen Reader Accessibility', () => {
-  test('Important content should have proper ARIA landmarks', async () => {
-    const { electronApp, page } = await launchWithMocks();
+  test('Important content should have proper ARIA landmarks', async ({ desktop }) => {
+    const { electronApp, page } = await launchWithMocks(desktop);
 
     try {
       await page.waitForFunction(() => (window as any).electronAPI !== undefined);
@@ -705,16 +650,18 @@ test.describe('Screen Reader Accessibility', () => {
       await page.getByRole('button', { name: 'API Key', exact: true }).click({ force: true });
       await page.getByLabel('API Key').fill('sk-test-token');
       await page.getByRole('button', { name: 'Sign In' }).click({ force: true });
-      await expect(page.getByRole('heading', { name: 'Agent Sessions' })).toBeVisible();
+      await expect(
+        page.getByRole('heading', { level: 1, name: /Good (morning|afternoon|evening)/ })
+      ).toBeVisible();
 
       // Check for main landmark
       const main = page.locator('main, [role="main"]');
       // Main content area should exist
-      expect(await main.count()).toBeGreaterThanOrEqual(0);
+      expect(await main.count()).toBeGreaterThanOrEqual(1);
 
       // Check for navigation landmark
       const nav = page.locator('nav, [role="navigation"]');
-      expect(await nav.count()).toBeGreaterThanOrEqual(0);
+      expect(await nav.count()).toBeGreaterThanOrEqual(1);
 
       // Status badges should have accessible text
       const statusBadges = page
@@ -728,7 +675,495 @@ test.describe('Screen Reader Accessibility', () => {
         expect(text?.length).toBeGreaterThan(0);
       }
     } finally {
-      await electronApp.close();
+      await electronApp?.close();
     }
   });
+});
+
+async function withMockDesktop(
+  desktop: DesktopHarness,
+  scenario: (page: Page) => Promise<void>,
+  fixtureSessions: unknown[] = mockSessions
+) {
+  const { electronApp, page } = await launchWithMocks(desktop, fixtureSessions);
+  try {
+    await scenario(page);
+  } catch (error) {
+    await desktop.captureFailure(test.info());
+    throw error;
+  } finally {
+    await electronApp.close();
+  }
+}
+
+test.describe('Sign-in, template and notification usability', () => {
+  for (const theme of ['dark', 'light'] as const) {
+    test(`Sign-in controls are readable and keyboard operable in ${theme} theme`, async ({
+      desktop,
+    }) => {
+      await withMockDesktop(desktop, async (page) => {
+        await setTestDefaults(page, theme);
+        await page.evaluate(() => window.electronAPI!.auth.clearApiKey());
+        await page.reload();
+        await expect(page.getByText('Welcome back')).toBeVisible();
+        const methods = page.getByRole('group', { name: 'Sign-in method' });
+        await expect(methods.getByRole('button', { name: 'Email' })).toHaveAttribute(
+          'aria-pressed',
+          'true'
+        );
+        expect((await checkAccessibility(page)).violations).toEqual([]);
+        const apiKey = methods.getByRole('button', { name: 'API Key' });
+        await apiKey.focus();
+        await page.keyboard.press('Space');
+        await expect(apiKey).toHaveAttribute('aria-pressed', 'true');
+        await expect(page.getByLabel('API Key')).toBeFocused();
+        await page.getByLabel('API Key').fill('sk-fixture-not-a-real-credential');
+        await expect(page.getByRole('button', { name: 'Sign In', exact: true })).toBeEnabled();
+        expect((await checkAccessibility(page)).violations).toEqual([]);
+        for (const accent of ['blue', 'purple', 'green', 'amber', 'rose', 'cyan']) {
+          await page.evaluate((accent) => {
+            document.documentElement.dataset.accent = accent;
+          }, accent);
+          const contrast = await new AxeBuilder({ page })
+            .setLegacyMode()
+            .include('.auth-submit')
+            .options({ runOnly: ['color-contrast'] })
+            .analyze();
+          expect(contrast.violations, `${theme} sign-in button with ${accent} accent`).toEqual([]);
+        }
+        await page.evaluate(() => {
+          document.documentElement.dataset.accent = 'blue';
+        });
+        await methods.getByRole('button', { name: 'Email' }).click();
+        await mkdir('dist/verification', { recursive: true });
+        await page.screenshot({
+          path: `dist/verification/native-login-${theme}.png`,
+          animations: 'disabled',
+        });
+      });
+    });
+
+    test(`Workspace and export popups support keyboard navigation in ${theme} theme`, async ({
+      desktop,
+    }) => {
+      await withMockDesktop(desktop, async (page) => {
+        await setTestDefaults(page, theme);
+        await page.evaluate(() => window.electronAPI!.auth.clearApiKey());
+        await page.reload();
+        await expect(page.getByText('Welcome back')).toBeVisible();
+        await page.evaluate(
+          ({ tenant, brand }) => {
+            (window as any).__E2E_AUTH__ = {
+              tenant,
+              brands: [
+                brand,
+                { ...brand, id: 'brand_2', name: 'Second Brand' },
+                { ...brand, id: 'brand_disabled', name: 'Disabled Brand', enabled: false },
+              ],
+            };
+          },
+          { tenant: mockTenant, brand: mockBrand }
+        );
+        await page.getByRole('button', { name: 'API Key', exact: true }).click();
+        await page.getByLabel('API Key').fill('sk-test-popup-navigation');
+        await page.getByRole('button', { name: 'Sign In', exact: true }).click();
+
+        const trigger = page.getByRole('button', { name: /^Select brand/ });
+        await trigger.focus();
+        await page.keyboard.press('Enter');
+        const first = page.getByRole('option', { name: 'Demo Brand', exact: true });
+        const second = page.getByRole('option', { name: 'Second Brand', exact: true });
+        await expect(first).toBeFocused();
+        await page.keyboard.press('ArrowUp');
+        await expect(second).toBeFocused();
+        await page.keyboard.press('ArrowDown');
+        await expect(first).toBeFocused();
+        expect((await checkAccessibility(page)).violations).toEqual([]);
+        await page.keyboard.press('Escape');
+        await expect(trigger).toBeFocused();
+
+        const exportButton = page.getByRole('button', { name: 'Export', exact: true });
+        await expect(exportButton).toBeEnabled();
+        await exportButton.focus();
+        await page.keyboard.press('ArrowUp');
+        await expect(page.getByRole('menuitem', { name: 'Metrics Summary' })).toBeFocused();
+        await page.keyboard.press('Home');
+        await expect(page.getByRole('menuitem', { name: 'JSON', exact: true })).toBeFocused();
+        await page.keyboard.press('c');
+        await expect(page.getByRole('menuitem', { name: 'CSV', exact: true })).toBeFocused();
+        expect((await checkAccessibility(page)).violations).toEqual([]);
+        await page.keyboard.press('Tab');
+        await expect(exportButton).toHaveAttribute('aria-expanded', 'false');
+        await expect(page.getByRole('menu', { name: 'Export options' })).toHaveCount(0);
+
+        await page.getByRole('button', { name: 'Collapse sidebar', exact: true }).click();
+        await expect(page.getByRole('link', { name: 'Chats', exact: true })).toHaveAccessibleName(
+          'Chats'
+        );
+        await trigger.focus();
+        await page.keyboard.press('Enter');
+        await page.keyboard.press('s');
+        await expect(second).toBeFocused();
+        expect((await checkAccessibility(page)).violations).toEqual([]);
+        await mkdir('dist/verification', { recursive: true });
+        await page.screenshot({
+          path: `dist/verification/native-workspace-popup-${theme}.png`,
+          animations: 'disabled',
+        });
+        await page.keyboard.press('Enter');
+        await expect(trigger).toHaveAccessibleName('Select brand. Current: Second Brand');
+        await expect(trigger).toBeFocused();
+        await page.getByRole('button', { name: 'Expand sidebar', exact: true }).click();
+        await expect(page.getByRole('link', { name: 'Chats', exact: true })).toBeVisible();
+      });
+    });
+
+    test(`Dashboard load failures recover without hiding saved data in ${theme} theme`, async ({
+      desktop,
+    }) => {
+      const statuses = ['running', 'paused', 'starting', 'stopping', 'stopped', 'failed'];
+      const fixtureSessions = statuses.map((status, index) => ({
+        ...mockSessions[0],
+        id: `recovery_${index}`,
+        name: `Recovery ${status}`,
+        status,
+      }));
+      const { electronApp, page } = await launchWithMocks(desktop, fixtureSessions, 400);
+      try {
+        await setTestDefaults(page, theme);
+        await page.evaluate(() => window.electronAPI!.auth.clearApiKey());
+        await page.reload();
+        await expect(page.getByText('Welcome back')).toBeVisible();
+        await page.evaluate(
+          ({ tenant, brand }) => {
+            (window as any).__E2E_AUTH__ = { tenant, brands: [brand] };
+          },
+          { tenant: mockTenant, brand: mockBrand }
+        );
+        await page.getByRole('button', { name: 'API Key', exact: true }).click();
+        await page.getByLabel('API Key').fill('sk-test-dashboard-recovery');
+        await page.getByRole('button', { name: 'Sign In', exact: true }).click();
+        const notice = page.getByRole('alert').filter({ hasText: 'Couldn’t load agents' });
+        await expect(notice).toBeVisible();
+        await expect(page.getByText('Launch your first agent')).toHaveCount(0);
+        await expect(page.getByText('Fleet Overview')).toHaveCount(0);
+        expect((await checkAccessibility(page)).violations).toEqual([]);
+        await mkdir('dist/verification', { recursive: true });
+        await page.screenshot({
+          path: `dist/verification/dashboard-unavailable-${theme}.png`,
+          animations: 'disabled',
+        });
+        await setDesktopSessionResponse(electronApp, 200);
+        await notice.getByRole('button', { name: 'Retry', exact: true }).focus();
+        await page.keyboard.press('Enter');
+        await expect(
+          page.getByRole('checkbox', { name: 'Select Recovery running', exact: true })
+        ).toBeVisible();
+        await expect(notice).toHaveCount(0);
+        await expect(page.getByRole('button', { name: /^Active: 2/ })).toBeVisible();
+        const counts = page.getByLabel('Agent status counts');
+        for (const status of statuses) {
+          await expect(
+            counts.getByText(status.charAt(0).toUpperCase() + status.slice(1), { exact: true })
+          ).toBeVisible();
+        }
+        await expect(page.locator('.page-subtitle')).toHaveText(/^1 agent running/);
+        await setDesktopSessionResponse(electronApp, 400);
+        await page.getByRole('button', { name: 'Refresh sessions' }).click();
+        const stale = page.getByRole('alert').filter({ hasText: 'Couldn’t refresh agents' });
+        await expect(stale).toBeVisible();
+        await expect(
+          page.getByRole('checkbox', { name: 'Select Recovery paused', exact: true })
+        ).toBeVisible();
+        expect((await checkAccessibility(page)).violations).toEqual([]);
+        await page.screenshot({
+          path: `dist/verification/dashboard-saved-${theme}.png`,
+          animations: 'disabled',
+        });
+        await setDesktopSessionResponse(electronApp, 200);
+        await stale.getByRole('button', { name: 'Retry', exact: true }).click();
+        await expect(stale).toHaveCount(0);
+      } catch (error) {
+        await desktop.captureFailure(test.info());
+        throw error;
+      } finally {
+        await electronApp.close();
+      }
+    });
+
+    test(`Bulk selection stays on the visible page in ${theme} theme`, async ({ desktop }) => {
+      const sessions = Array.from({ length: 15 }, (_, index) => ({
+        ...mockSessions[index % 2],
+        id: `bulk_${index}`,
+        name: `Agent ${String(index + 1).padStart(2, '0')}`,
+        created_at: new Date(Date.UTC(2026, 9, 15, 0, index)).toISOString(),
+      }));
+      await withMockDesktop(
+        desktop,
+        async (page) => {
+          await setTestDefaults(page, theme);
+          await page.evaluate(async () => {
+            await window.electronAPI!.auth.clearApiKey();
+            await window.electronAPI!.store.set('pageSize', 10);
+          });
+          await page.reload();
+          await expect(page.getByText('Welcome back')).toBeVisible();
+          await page.evaluate(
+            ({ tenant, brand }) => {
+              (window as any).__E2E_AUTH__ = { tenant, brands: [brand] };
+            },
+            { tenant: mockTenant, brand: mockBrand }
+          );
+          await page.getByRole('button', { name: 'API Key', exact: true }).click();
+          await page.getByLabel('API Key').fill('sk-test-page-selection');
+          await page.getByRole('button', { name: 'Sign In', exact: true }).click();
+          const first = page.getByRole('checkbox', { name: 'Select Agent 01', exact: true });
+          await expect(page.getByText(/^\d+%$/)).toHaveCount(0);
+          const comparisons = page
+            .getByRole('group', { name: /^Total Loops:/ })
+            .getByRole('list', { name: 'Total Loops by session, oldest first' });
+          await expect(comparisons.getByRole('listitem')).toHaveCount(10);
+          await first.focus();
+          await page.keyboard.press('Space');
+          const bar = page.getByRole('group', { name: 'Agent selection', exact: true });
+          await expect(bar.getByText('1 selected', { exact: true })).toBeVisible();
+          const all = bar.getByRole('checkbox', { name: 'Select all visible agents' });
+          await expect(all).toHaveJSProperty('indeterminate', true);
+          expect((await checkAccessibility(page)).violations).toEqual([]);
+          await all.focus();
+          await page.keyboard.press('Space');
+          await expect(all).toBeChecked();
+          await expect(bar.getByText('10 selected', { exact: true })).toBeVisible();
+          await mkdir('dist/verification', { recursive: true });
+          await page.screenshot({
+            path: `dist/verification/native-bulk-selection-${theme}.png`,
+            animations: 'disabled',
+          });
+          await page.getByRole('button', { name: 'Go to next page', exact: true }).click();
+          await expect(bar).toHaveCount(0);
+          const eleventh = page.getByRole('checkbox', { name: 'Select Agent 11', exact: true });
+          await expect(eleventh).not.toBeChecked();
+          await eleventh.focus();
+          await page.keyboard.press('Space');
+          await expect(bar.getByText('1 selected', { exact: true })).toBeVisible();
+          await page.getByRole('textbox', { name: 'Search agents' }).fill('  AGENT 11  ');
+          await expect(
+            page.getByRole('list', { name: 'Agent sessions' }).getByRole('listitem')
+          ).toHaveCount(1);
+          await expect(eleventh).not.toBeChecked();
+          await expect(bar).toHaveCount(0);
+        },
+        sessions
+      );
+    });
+
+    test(`Agent row selection and rename are independent keyboard actions in ${theme} theme`, async ({
+      desktop,
+    }) => {
+      await withMockDesktop(desktop, async (page) => {
+        await setTestDefaults(page, theme);
+        await page.evaluate(() => window.electronAPI!.auth.clearApiKey());
+        await page.reload();
+        await expect(page.getByText('Welcome back')).toBeVisible();
+        await page.evaluate(
+          ({ tenant, brand }) => {
+            (window as any).__E2E_AUTH__ = { tenant, brands: [brand] };
+          },
+          { tenant: mockTenant, brand: mockBrand }
+        );
+        await page.getByRole('button', { name: 'API Key', exact: true }).click();
+        await page.getByLabel('API Key').fill('sk-test-agent-actions');
+        await page.getByRole('button', { name: 'Sign In', exact: true }).click();
+        await expect(page.getByText('Cannot reach StateSet API', { exact: true })).toHaveCount(0);
+        const sessions = page.getByRole('list', { name: 'Agent sessions' });
+        const row = sessions.getByRole('button', { name: /^Response Agent, status: Running/ });
+        await expect(row.locator('button, input')).toHaveCount(0);
+        const checkbox = row
+          .locator('..')
+          .getByRole('checkbox', { name: 'Select Response Agent', exact: true })
+          .first();
+        await checkbox.focus();
+        await page.keyboard.press('Space');
+        await expect(checkbox).toBeChecked();
+        await expect(
+          page.getByRole('heading', { level: 1, name: /Good (morning|afternoon|evening)/ })
+        ).toBeVisible();
+        await page.keyboard.press('Space');
+        await expect(checkbox).not.toBeChecked();
+        const rename = row
+          .locator('..')
+          .getByRole('button', { name: 'Rename Response Agent', exact: true })
+          .first();
+        await rename.focus();
+        await expect(rename).toBeVisible();
+        await page.keyboard.press('Enter');
+        const input = page.getByRole('textbox', { name: 'Rename session', exact: true });
+        await expect(input).toBeFocused();
+        await input.fill('Discarded rename');
+        const scan = await new AxeBuilder({ page })
+          .setLegacyMode()
+          .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+          .analyze();
+        expect(scan.violations).toEqual([]);
+        await page.keyboard.press('Escape');
+        await expect(input).toHaveCount(0);
+        await expect(row).toBeFocused();
+        await mkdir('dist/verification', { recursive: true });
+        await page.screenshot({
+          path: `dist/verification/native-agent-actions-${theme}.png`,
+          animations: 'disabled',
+        });
+      });
+    });
+
+    test(`Custom template actions preserve keyboard focus in ${theme} theme`, async ({
+      desktop,
+    }) => {
+      await withMockDesktop(desktop, async (page) => {
+        await setTestDefaults(page, theme);
+        await page.evaluate(async () => {
+          await window.electronAPI!.auth.clearApiKey();
+          await window.electronAPI!.store.set(
+            'customAgentTemplates',
+            ['First', 'Second'].map((label) => ({
+              id: `custom-${label.toLowerCase()}`,
+              name: `${label} custom agent`,
+              description: 'Handles account questions',
+              icon: 'Bot',
+              color: 'bg-purple-600',
+              category: 'support',
+              agentType: 'interactive',
+              isCustom: true,
+              config: { mcp_servers: [], model: 'claude-sonnet-4-6', temperature: 0.5 },
+            }))
+          );
+        });
+        await page.reload();
+        await expect(page.getByText('Welcome back')).toBeVisible();
+        await page.evaluate(
+          ({ tenant, brand }) => {
+            (window as any).__E2E_AUTH__ = { tenant, brands: [brand] };
+          },
+          { tenant: mockTenant, brand: mockBrand }
+        );
+        await page.getByRole('button', { name: 'API Key', exact: true }).click();
+        await page.getByLabel('API Key').fill('sk-test-template');
+        await page.getByRole('button', { name: 'Sign In', exact: true }).click();
+        await page.getByRole('button', { name: 'Create new agent', exact: true }).click();
+        const dialog = page.getByRole('dialog');
+        await dialog.getByRole('button', { name: 'My Templates (2)', exact: true }).click();
+        const templates = dialog.getByRole('group', { name: 'Agent templates' });
+        await expect(templates.locator('button button')).toHaveCount(0);
+        const scan = await new AxeBuilder({ page })
+          .setLegacyMode()
+          .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+          .analyze();
+        expect(scan.violations).toEqual([]);
+        const first = templates.getByRole('button', { name: /^First custom agent/ });
+        await first.focus();
+        await page.keyboard.press('Enter');
+        await expect(first).toHaveAttribute('aria-pressed', 'true');
+        await page.keyboard.press('Tab');
+        const deleteFirst = templates.getByRole('button', {
+          name: 'Delete template First custom agent',
+          exact: true,
+        });
+        await expect(deleteFirst).toBeFocused();
+        await page.keyboard.press('Enter');
+        await expect(first).toHaveCount(0);
+        const second = templates.getByRole('button', { name: /^Second custom agent/ });
+        await expect(second).toBeFocused();
+        await expect(second).toHaveAttribute('aria-pressed', 'false');
+        await page.keyboard.press('Space');
+        await expect(second).toHaveAttribute('aria-pressed', 'true');
+        await mkdir('dist/verification', { recursive: true });
+        await page.screenshot({
+          path: `dist/verification/native-custom-templates-${theme}.png`,
+          animations: 'disabled',
+        });
+        await page.keyboard.press('Tab');
+        await page.keyboard.press('Enter');
+        await expect(dialog.getByRole('button', { name: 'All', exact: true })).toBeFocused();
+        await expect(dialog.getByRole('button', { name: 'All', exact: true })).toHaveAttribute(
+          'aria-pressed',
+          'true'
+        );
+        await expect
+          .poll(() => page.evaluate(() => window.electronAPI!.store.get('customAgentTemplates')))
+          .toEqual([]);
+      });
+    });
+
+    test(`Notifications stay readable while keyboard focused in ${theme} theme`, async ({
+      desktop,
+    }) => {
+      await withMockDesktop(desktop, async (page) => {
+        await setTestDefaults(page, theme);
+        await page.evaluate(() => window.electronAPI!.auth.clearApiKey());
+        await page.reload();
+        await expect(page.getByText('Welcome back')).toBeVisible();
+        await page.evaluate(
+          ({ tenant, brand }) => {
+            (window as any).__E2E_AUTH__ = { tenant, brands: [brand] };
+          },
+          { tenant: mockTenant, brand: mockBrand }
+        );
+        await page.getByRole('button', { name: 'API Key', exact: true }).click();
+        await page.getByLabel('API Key').fill('sk-test-notifications');
+        await page.getByRole('button', { name: 'Sign In', exact: true }).click();
+        await page.getByRole('link', { name: 'Connections', exact: true }).click();
+        await page.getByRole('button', { name: 'Manual', exact: true }).first().click();
+        const fixture = await page.evaluate(async () => {
+          const configModule = '/src/config/api.config.ts';
+          const { API_CONFIG } = await import(configModule);
+          const response = await fetch(`${API_CONFIG.baseUrl}/api/v1/brands/brand_1/secrets`);
+          return { status: response.status, ok: response.ok };
+        });
+        expect(fixture, 'The connected-screen fixture must deliver a usable API response').toEqual({
+          status: 200,
+          ok: true,
+        });
+        await page.getByRole('button', { name: 'Save credentials', exact: true }).click();
+        const notifications = page.getByRole('region', { name: 'Notifications' });
+        const error = notifications.getByRole('alert').filter({ hasText: 'Missing info' });
+        await expect(error).toBeVisible();
+        const dismiss = error.getByRole('button', { name: 'Dismiss notification' });
+        await dismiss.focus();
+        await page.waitForTimeout(5500);
+        await expect(dismiss).toBeFocused();
+        await expect(error).toBeVisible();
+        const scan = await new AxeBuilder({ page })
+          .setLegacyMode()
+          .include('[aria-label="Notifications"]')
+          .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+          .analyze();
+        expect(scan.violations).toEqual([]);
+        await mkdir('dist/verification', { recursive: true });
+        await page.screenshot({
+          path: `dist/verification/native-notifications-${theme}.png`,
+          animations: 'disabled',
+        });
+        await page.keyboard.press('Enter');
+        await expect(error).toBeHidden();
+        await page.getByRole('button', { name: 'Disconnect Shopify', exact: true }).click();
+        await page
+          .getByRole('alertdialog', { name: 'Disconnect Shopify?' })
+          .getByRole('button', { name: 'Disconnect', exact: true })
+          .click();
+        const success = notifications.getByRole('status').filter({ hasText: 'Disconnected' });
+        await expect(success).toBeVisible();
+        await success.getByRole('button', { name: 'Dismiss notification' }).focus();
+        await page.waitForTimeout(5500);
+        expect(
+          (
+            await new AxeBuilder({ page })
+              .setLegacyMode()
+              .include('[aria-label="Notifications"]')
+              .options({ runOnly: ['color-contrast'] })
+              .analyze()
+          ).violations
+        ).toEqual([]);
+      });
+    });
+  }
 });

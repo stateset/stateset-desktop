@@ -1,19 +1,33 @@
 /** @vitest-environment happy-dom */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { useState } from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { CommandPalette } from './CommandPalette';
 
+const navigate = vi.hoisted(() => vi.fn());
+
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom');
-  return { ...actual, useNavigate: () => vi.fn() };
+  return { ...actual, useNavigate: () => navigate };
 });
 
 // Mock framer-motion to render children without animation
 vi.mock('framer-motion', () => ({
   motion: {
-    div: ({ children, className, onClick }: React.PropsWithChildren<Record<string, unknown>>) => {
+    div: ({
+      children,
+      className,
+      onClick,
+      onKeyDownCapture,
+      role,
+    }: React.PropsWithChildren<Record<string, unknown>>) => {
       return (
-        <div className={className as string} onClick={onClick as React.MouseEventHandler}>
+        <div
+          className={className as string}
+          onClick={onClick as React.MouseEventHandler}
+          onKeyDownCapture={onKeyDownCapture as React.KeyboardEventHandler<HTMLDivElement>}
+          role={role as React.AriaRole}
+        >
           {children}
         </div>
       );
@@ -84,5 +98,101 @@ describe('CommandPalette', () => {
     const agents = [{ id: '1', agent_type: 'commerce', status: 'running', name: 'Sales Bot' }];
     render(<CommandPalette {...defaultProps} agents={agents} />);
     expect(screen.getByText('Sales Bot')).toBeInTheDocument();
+  });
+
+  it('opens a saved chat with its exact route identity and supports multiword search', () => {
+    render(
+      <CommandPalette
+        {...defaultProps}
+        chats={[
+          { id: 'first', title: 'October invoices', status: 'idle' },
+          { id: 'second', title: 'October report', status: 'paused', archived: true },
+        ]}
+      />
+    );
+    const input = screen.getByRole('combobox', { name: 'Search commands' });
+    fireEvent.change(input, { target: { value: 'OCTOBER archived' } });
+    expect(screen.queryByRole('option', { name: 'October invoices' })).not.toBeInTheDocument();
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(navigate).toHaveBeenCalledWith('/playground?chat=second');
+    expect(defaultProps.onClose).toHaveBeenCalledOnce();
+  });
+
+  it('bounds visible chat results and can still find a chat beyond the initial window', () => {
+    render(
+      <CommandPalette
+        {...defaultProps}
+        chats={Array.from({ length: 45 }, (_, i) => ({
+          id: String(i),
+          title: `Project ${i}`,
+          status: 'idle',
+        }))}
+      />
+    );
+    expect(
+      screen.getAllByRole('option').filter((item) => item.textContent?.includes('Project'))
+    ).toHaveLength(30);
+    const input = screen.getByRole('combobox');
+    fireEvent.change(input, { target: { value: 'Project 44' } });
+    expect(screen.getByRole('option', { name: 'Project 44' })).toBeInTheDocument();
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(navigate).toHaveBeenCalledWith('/playground?chat=44');
+  });
+
+  it('keeps keyboard selection aligned across conversation and agent groups', () => {
+    render(
+      <CommandPalette
+        {...defaultProps}
+        chats={[
+          { id: 'a', title: 'Invoice A', status: 'idle' },
+          { id: 'b', title: 'Invoice B', status: 'idle' },
+        ]}
+        agents={[{ id: 'agent', name: 'Invoice agent', agent_type: 'commerce', status: 'running' }]}
+      />
+    );
+    const input = screen.getByRole('combobox');
+    fireEvent.change(input, { target: { value: 'Invoice' } });
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    expect(input).toHaveAttribute('aria-activedescendant', 'command-option-chat-b');
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(navigate).toHaveBeenLastCalledWith('/playground?chat=b');
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(navigate).toHaveBeenLastCalledWith('/agent/agent');
+  });
+
+  it('ignores composition Enter and does not execute the selected command from the close button', () => {
+    render(<CommandPalette {...defaultProps} />);
+    const input = screen.getByRole('combobox');
+    fireEvent.keyDown(input, { key: 'Enter', isComposing: true });
+    expect(navigate).not.toHaveBeenCalled();
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Close command palette' }), {
+      key: 'Enter',
+    });
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it('traps Tab in the palette and restores focus to its trigger on close', () => {
+    function Harness() {
+      const [open, setOpen] = useState(false);
+      return (
+        <>
+          <button onClick={() => setOpen(true)}>Open palette</button>
+          <CommandPalette isOpen={open} onClose={() => setOpen(false)} />
+        </>
+      );
+    }
+    render(<Harness />);
+    const trigger = screen.getByRole('button', { name: 'Open palette' });
+    trigger.focus();
+    fireEvent.click(trigger);
+    const input = screen.getByRole('combobox');
+    expect(input).toHaveFocus();
+    fireEvent.keyDown(input, { key: 'Tab' });
+    expect(screen.getByRole('button', { name: 'Close command palette' })).toHaveFocus();
+    fireEvent.keyDown(document.activeElement!, { key: 'Tab' });
+    expect(input).toHaveFocus();
+    fireEvent.keyDown(input, { key: 'Escape' });
+    expect(trigger).toHaveFocus();
   });
 });

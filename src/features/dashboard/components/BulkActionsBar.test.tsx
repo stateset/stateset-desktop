@@ -14,9 +14,8 @@ function renderBar(
     makeSession({ id: 'stop-1', status: 'stopped' }),
   ];
   const props = {
-    sessions: defaultSessions,
+    visibleSessions: defaultSessions,
     selectedIds: new Set(['run-1', 'stop-1']),
-    visibleCount: 2,
     onSelectAll: vi.fn(),
     onClearSelection: vi.fn(),
     onBulkStart: vi.fn(),
@@ -68,16 +67,47 @@ describe('BulkActionsBar', () => {
   });
 
   it('disables Start Selected when only running sessions are selected', () => {
-    renderBar({ selectedIds: new Set(['run-1']), visibleCount: 2 });
+    renderBar({ selectedIds: new Set(['run-1']) });
     expect(screen.getByRole('button', { name: /start selected/i })).toBeDisabled();
     expect(screen.getByRole('button', { name: /stop selected/i })).toBeEnabled();
   });
 
   it('disables Stop Selected when only stopped sessions are selected', () => {
-    const props = renderBar({ selectedIds: new Set(['stop-1']), visibleCount: 2 });
+    const props = renderBar({ selectedIds: new Set(['stop-1']) });
     expect(screen.getByRole('button', { name: /stop selected/i })).toBeDisabled();
 
     fireEvent.click(screen.getByRole('button', { name: /start selected/i }));
     expect(props.onBulkStart).toHaveBeenCalled();
+  });
+
+  it('announces a partial selection through the native select-all checkbox', () => {
+    renderBar({ selectedIds: new Set(['run-1']) });
+    expect(
+      screen.getByRole('checkbox', { name: 'Select all visible agents' })
+    ).toBePartiallyChecked();
+  });
+
+  it('ignores off-page ids when counting selections and enabling actions', () => {
+    renderBar({ selectedIds: new Set(['run-1', 'off-page-stopped']) });
+    expect(screen.getByText('1 selected')).toBeInTheDocument();
+    expect(screen.getByLabelText('Select all visible agents')).toBePartiallyChecked();
+    expect(screen.getByRole('button', { name: 'Start Selected' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Stop Selected' })).toBeEnabled();
+  });
+
+  it('hides the bar if every selected id is off-page', () => {
+    renderBar({ selectedIds: new Set(['off-page']) });
+    expect(screen.queryByRole('group', { name: 'Agent selection' })).not.toBeInTheDocument();
+  });
+
+  it('disables bulk controls and announces progress while requests are pending', () => {
+    renderBar({ isBusy: true });
+    expect(screen.getByRole('group', { name: 'Agent selection' })).toHaveAttribute(
+      'aria-busy',
+      'true'
+    );
+    expect(screen.getByText('Updating 2 agents…')).toBeInTheDocument();
+    expect(screen.getByLabelText('Select all visible agents')).toBeDisabled();
+    for (const button of screen.getAllByRole('button')) expect(button).toBeDisabled();
   });
 });

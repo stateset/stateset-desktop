@@ -3,6 +3,12 @@ import { contextBridge, ipcRenderer } from 'electron';
 // Expose protected methods that allow the renderer process to use
 // the ipcRenderer without exposing the entire object
 contextBridge.exposeInMainWorld('electronAPI', {
+  computerChat: {
+    request: (request: import('./computer-chat-bridge').ComputerChatRequest) =>
+      ipcRenderer.invoke('computer-chat:request', request),
+    saveArtifact: (request: { filename: string; contentBase64: string; sha256: string }) =>
+      ipcRenderer.invoke('computer-chat:saveArtifact', request),
+  },
   // Store operations
   store: {
     get: (key: string) => ipcRenderer.invoke('store:get', key),
@@ -70,6 +76,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     clearDurableEngineApiKey: () => ipcRenderer.invoke('auth:clearDurableEngineApiKey'),
   },
 
+  mcp: {
+    probe: (request: { endpoint: string; authToken?: string }) =>
+      ipcRenderer.invoke('mcp:probe', request),
+  },
   secrets: {
     getLocal: () => ipcRenderer.invoke('secrets:getLocal'),
     setLocal: (payload: string) => ipcRenderer.invoke('secrets:setLocal', payload),
@@ -166,6 +176,16 @@ interface UpdateStatusSnapshot {
 
 // Type definitions for the exposed API
 export interface ElectronAPI {
+  computerChat: {
+    request: (
+      request: import('./computer-chat-bridge').ComputerChatRequest
+    ) => Promise<{ ok: boolean; status: number; body: unknown }>;
+    saveArtifact: (request: {
+      filename: string;
+      contentBase64: string;
+      sha256: string;
+    }) => Promise<boolean>;
+  };
   store: {
     get: (key: string) => Promise<unknown>;
     set: (key: string, value: unknown) => Promise<boolean>;
@@ -201,6 +221,12 @@ export interface ElectronAPI {
     setDurableEngineApiKey: (apiKey: string) => Promise<boolean>;
     getDurableEngineApiKey: () => Promise<string | undefined>;
     clearDurableEngineApiKey: () => Promise<boolean>;
+  };
+  mcp: {
+    probe: (request: {
+      endpoint: string;
+      authToken?: string;
+    }) => Promise<import('./mcp-probe').McpProbeResult>;
   };
   secrets: {
     getLocal: () => Promise<string | undefined>;

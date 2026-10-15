@@ -10,32 +10,6 @@ describe('Button', () => {
     expect(screen.getByRole('button', { name: 'Click me' })).toBeInTheDocument();
   });
 
-  it('renders primary variant by default', () => {
-    render(<Button>Primary</Button>);
-    const btn = screen.getByRole('button');
-    expect(btn.className).toContain('from-brand-500');
-    expect(btn.className).toContain('to-brand-600');
-  });
-
-  it('renders secondary variant', () => {
-    render(<Button variant="secondary">Secondary</Button>);
-    const btn = screen.getByRole('button');
-    expect(btn.className).toContain('bg-slate-800/80');
-  });
-
-  it('renders danger variant', () => {
-    render(<Button variant="danger">Delete</Button>);
-    const btn = screen.getByRole('button');
-    expect(btn.className).toContain('from-rose-500');
-    expect(btn.className).toContain('to-rose-600');
-  });
-
-  it('renders ghost variant', () => {
-    render(<Button variant="ghost">Ghost</Button>);
-    const btn = screen.getByRole('button');
-    expect(btn.className).toContain('bg-transparent');
-  });
-
   it('renders icon on the left by default', () => {
     render(<Button icon={Plus}>Add</Button>);
     const btn = screen.getByRole('button');

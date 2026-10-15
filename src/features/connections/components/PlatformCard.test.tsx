@@ -50,7 +50,6 @@ function makeProps(overrides: Partial<Parameters<typeof PlatformCard>[0]> = {}) 
     isStoring: false,
     isTesting: false,
     disableTest: false,
-    isLocalMode: false,
     onCredentialChange: vi.fn(),
     onOauthInputChange: vi.fn(),
     onSaveCredentials: vi.fn(),
@@ -114,7 +113,7 @@ describe('PlatformCard', () => {
       render(<PlatformCard {...props} />);
 
       expect(screen.getByText('API Key')).toBeInTheDocument();
-      const input = document.querySelector('input[type="password"]') as HTMLInputElement;
+      const input = screen.getByLabelText('API Key');
       fireEvent.change(input, { target: { value: 'secret' } });
       expect(props.onCredentialChange).toHaveBeenCalledWith('api_key', 'secret');
     });
@@ -149,7 +148,7 @@ describe('PlatformCard', () => {
       });
       render(<PlatformCard {...props} />);
 
-      const input = screen.getByPlaceholderText('mystore.myshopify.com');
+      const input = screen.getByRole('textbox', { name: 'Shop Domain' });
       fireEvent.change(input, { target: { value: 'shop.myshopify.com' } });
       expect(props.onOauthInputChange).toHaveBeenCalledWith('shop_domain', 'shop.myshopify.com');
     });
@@ -184,17 +183,126 @@ describe('PlatformCard', () => {
       expect(props.onDisconnect).toHaveBeenCalledTimes(1);
     });
 
-    it('disables the test button when disableTest is set and labels local mode', () => {
-      render(
-        <PlatformCard {...makeProps({ connected: true, disableTest: true, isLocalMode: true })} />
-      );
-      const testButton = screen.getByRole('button', { name: 'Test unavailable in local mode' });
-      expect(testButton).toBeDisabled();
+    it('disables the test button when disableTest is set', () => {
+      render(<PlatformCard {...makeProps({ connected: true, disableTest: true })} />);
+
+      expect(screen.getByRole('button', { name: 'Test connection' })).toBeDisabled();
     });
 
     it('disables disconnect while storing or testing', () => {
       render(<PlatformCard {...makeProps({ connected: true, isTesting: true })} />);
       expect(screen.getByRole('button', { name: 'Disconnect Klaviyo' })).toBeDisabled();
     });
+  });
+
+  it('renders formExtra inside the manual credential form only', () => {
+    const extra = <span data-testid="probe-slot">probe</span>;
+    const { rerender } = render(
+      <PlatformCard {...makeProps({ formExtra: extra, isConnecting: false })} />
+    );
+    expect(screen.queryByTestId('probe-slot')).not.toBeInTheDocument();
+
+    rerender(
+      <PlatformCard
+        {...makeProps({ formExtra: extra, isConnecting: true, connectMode: 'manual' })}
+      />
+    );
+    expect(screen.getByTestId('probe-slot')).toBeInTheDocument();
+  });
+
+  it('shows the last successful verification when there is one', () => {
+    const verifiedAt = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+    const { rerender } = render(<PlatformCard {...makeProps()} />);
+    expect(screen.queryByText(/verified/)).not.toBeInTheDocument();
+
+    rerender(
+      <PlatformCard
+        {...makeProps({
+          verification: {
+            serverName: 'stateset-sync',
+            serverVersion: '2.1.0',
+            toolCount: 3,
+            tools: ['list_orders'],
+            verifiedAt,
+          },
+        })}
+      />
+    );
+
+    expect(screen.getByText(/3 tools · verified 2h ago/)).toBeInTheDocument();
+  });
+
+  it('lists the verified tool names on demand', () => {
+    render(
+      <PlatformCard
+        {...makeProps({
+          verification: {
+            serverName: 'stateset-sync',
+            serverVersion: '2.1.0',
+            toolCount: 2,
+            tools: ['list_orders', 'get_order'],
+            verifiedAt: new Date().toISOString(),
+          },
+        })}
+      />
+    );
+
+    expect(screen.queryByText('list_orders')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show tools for Klaviyo' }));
+
+    expect(screen.getByText('list_orders')).toBeInTheDocument();
+    expect(screen.getByText('get_order')).toBeInTheDocument();
+  });
+
+  it('does not offer a tool list when no names were recorded', () => {
+    render(
+      <PlatformCard
+        {...makeProps({
+          verification: {
+            serverName: 'legacy',
+            serverVersion: '1.0.0',
+            toolCount: 4,
+            tools: [],
+            verifiedAt: new Date().toISOString(),
+          },
+        })}
+      />
+    );
+
+    expect(screen.queryByRole('button', { name: /Show tools/ })).not.toBeInTheDocument();
+    expect(screen.getByText(/4 tools · verified/)).toBeInTheDocument();
+  });
+
+  it('flags a verification older than a week', () => {
+    const { rerender } = render(
+      <PlatformCard
+        {...makeProps({
+          verification: {
+            serverName: 'sync',
+            serverVersion: '2.1.0',
+            toolCount: 3,
+            tools: [],
+            verifiedAt: new Date(Date.now() - 2 * 86_400_000).toISOString(),
+          },
+        })}
+      />
+    );
+    expect(screen.queryByText(/test again/)).not.toBeInTheDocument();
+
+    rerender(
+      <PlatformCard
+        {...makeProps({
+          verification: {
+            serverName: 'sync',
+            serverVersion: '2.1.0',
+            toolCount: 3,
+            tools: [],
+            verifiedAt: new Date(Date.now() - 30 * 86_400_000).toISOString(),
+          },
+        })}
+      />
+    );
+    expect(screen.getByText(/30d ago · test again/)).toBeInTheDocument();
   });
 });

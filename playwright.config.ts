@@ -44,7 +44,7 @@ export default defineConfig({
   projects: [
     {
       name: 'electron',
-      testMatch: /electron\.spec\.ts/,
+      testMatch: /(electron|computer-chat|startup)\.spec\.ts/,
     },
     {
       name: 'visual',

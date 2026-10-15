@@ -33,45 +33,39 @@ interface DashboardSessionRowProps {
 
 const statusConfig: Record<
   AgentSessionStatus,
-  { color: string; border: string; iconBg: string; dot: string; label: string }
+  { border: string; iconBg: string; dot: string; label: string }
 > = {
   running: {
-    color: 'text-emerald-300',
     border: 'border-l-emerald-500',
     iconBg: 'bg-emerald-500/10 border-emerald-500/20',
     dot: 'bg-emerald-500',
     label: 'Running',
   },
   paused: {
-    color: 'text-amber-300',
     border: 'border-l-amber-500',
     iconBg: 'bg-amber-500/10 border-amber-500/20',
     dot: 'bg-amber-500',
     label: 'Paused',
   },
   starting: {
-    color: 'text-blue-300',
     border: 'border-l-blue-500',
     iconBg: 'bg-blue-500/10 border-blue-500/20',
     dot: 'bg-blue-500',
     label: 'Starting',
   },
   stopping: {
-    color: 'text-blue-300',
     border: 'border-l-blue-500',
     iconBg: 'bg-blue-500/10 border-blue-500/20',
     dot: 'bg-blue-500',
     label: 'Stopping',
   },
   stopped: {
-    color: 'text-slate-400',
     border: 'border-l-slate-500',
     iconBg: 'bg-slate-500/10 border-slate-600/20',
     dot: 'bg-slate-500',
     label: 'Stopped',
   },
   failed: {
-    color: 'text-rose-300',
     border: 'border-l-rose-500',
     iconBg: 'bg-rose-500/10 border-rose-500/20',
     dot: 'bg-rose-500',
@@ -117,6 +111,8 @@ export const DashboardSessionRow = memo(function DashboardSessionRow({
   const [isRenaming, setIsRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState(sessionTitle);
   const renameInputRef = useRef<HTMLInputElement>(null);
+  const rowButtonRef = useRef<HTMLButtonElement>(null);
+  const renameActiveRef = useRef(false);
 
   useEffect(() => {
     if (isRenaming) {
@@ -125,20 +121,26 @@ export const DashboardSessionRow = memo(function DashboardSessionRow({
     }
   }, [isRenaming]);
 
-  const commitRename = () => {
+  const commitRename = (restoreFocus = false) => {
+    if (!renameActiveRef.current) return;
+    renameActiveRef.current = false;
     const trimmed = renameValue.trim();
     if (trimmed && trimmed !== sessionTitle && onRename) {
       onRename(session.id, trimmed);
     }
     setIsRenaming(false);
+    if (restoreFocus) rowButtonRef.current?.focus();
   };
 
   const cancelRename = () => {
+    renameActiveRef.current = false;
     setRenameValue(sessionTitle);
     setIsRenaming(false);
+    rowButtonRef.current?.focus();
   };
 
   const startRename = () => {
+    renameActiveRef.current = true;
     setRenameValue(sessionTitle);
     setIsRenaming(true);
   };
@@ -174,36 +176,34 @@ export const DashboardSessionRow = memo(function DashboardSessionRow({
     <ContextMenu items={contextMenuItems}>
       <div
         className={clsx(
-          'relative group border-l-[3px] transition-all duration-200',
+          'dashboard-session-row relative group border-l-[3px] transition-all duration-200',
           isSelected ? 'bg-brand-500/10' : 'hover:bg-slate-800/20',
           config.border
         )}
+        data-status={session.status}
       >
+        {onToggleSelect && (
+          <label className="absolute left-2 top-1/2 -translate-y-1/2 z-10 flex h-8 w-8 items-center justify-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={!!isSelected}
+              onChange={() => onToggleSelect(session.id)}
+              className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-brand-500 focus:ring-brand-500/40 focus:ring-offset-0 cursor-pointer"
+              aria-label={`Select ${sessionTitle}`}
+            />
+          </label>
+        )}
         <button
+          ref={rowButtonRef}
           type="button"
           className={clsx(
-            'w-full flex items-center gap-4 py-3.5 pr-36 text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-inset',
-            onToggleSelect ? 'pl-2' : 'px-5'
+            'w-full flex items-center gap-4 py-3.5 text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-inset',
+            onToggleSelect ? 'pl-14' : 'pl-5',
+            onRename ? 'pr-44' : 'pr-36'
           )}
           onClick={handleClick}
           aria-label={`${sessionTitle}, status: ${config.label}, ${session.metrics.loop_count} loops, ${session.metrics.tokens_used} tokens`}
         >
-          {/* Selection checkbox */}
-          {onToggleSelect && (
-            <div
-              className="flex-shrink-0 flex items-center justify-center w-8"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <input
-                type="checkbox"
-                checked={!!isSelected}
-                onChange={() => onToggleSelect(session.id)}
-                className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-brand-500 focus:ring-brand-500/40 focus:ring-offset-0 cursor-pointer"
-                aria-label={`Select ${sessionTitle}`}
-              />
-            </div>
-          )}
-
           {/* Agent icon with status color */}
           <div className="relative flex-shrink-0">
             <div
@@ -212,7 +212,7 @@ export const DashboardSessionRow = memo(function DashboardSessionRow({
                 config.iconBg
               )}
             >
-              <Bot className={clsx('w-5 h-5', config.color)} aria-hidden="true" />
+              <Bot className="session-status w-5 h-5" aria-hidden="true" />
             </div>
             {/* Loop progress ring (thin outline around icon) */}
             {loopProgress !== null && (isRunning || isPaused) && (
@@ -251,54 +251,25 @@ export const DashboardSessionRow = memo(function DashboardSessionRow({
           {/* Info */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2.5 mb-1">
-              {isRenaming ? (
-                <input
-                  ref={renameInputRef}
-                  type="text"
-                  value={renameValue}
-                  onChange={(e) => setRenameValue(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      commitRename();
-                    }
-                    if (e.key === 'Escape') {
-                      e.preventDefault();
-                      cancelRename();
-                    }
-                    e.stopPropagation();
-                  }}
-                  onClick={(e) => e.stopPropagation()}
-                  onBlur={commitRename}
-                  maxLength={80}
-                  className="font-bold text-sm text-gray-200 bg-slate-800/80 border border-brand-500/50 rounded-lg px-2 py-0.5 outline-none focus:ring-2 focus:ring-brand-500/40 w-48"
-                  aria-label="Rename session"
-                />
-              ) : (
-                <span
-                  className="font-bold text-sm text-gray-200 truncate"
-                  onDoubleClick={(e) => {
-                    if (onRename) {
-                      e.stopPropagation();
-                      startRename();
-                    }
-                  }}
-                >
-                  {sessionTitle}
-                </span>
-              )}
               <span
                 className={clsx(
-                  'inline-flex items-center gap-1 px-2 py-0.5 text-[10px] uppercase tracking-widest font-bold rounded-md border backdrop-blur-sm',
-                  session.status === 'running' &&
-                    'bg-emerald-500/10 text-emerald-300 border-emerald-500/25',
-                  session.status === 'paused' &&
-                    'bg-amber-500/10 text-amber-300 border-amber-500/25',
+                  'font-bold text-sm text-gray-200 truncate',
+                  isRenaming && 'invisible inline-block w-48'
+                )}
+                aria-hidden={isRenaming || undefined}
+              >
+                {sessionTitle}
+              </span>
+              <span
+                className={clsx(
+                  'session-status inline-flex items-center gap-1 px-2 py-0.5 text-[10px] uppercase tracking-widest font-bold rounded-md border backdrop-blur-sm',
+                  session.status === 'running' && 'bg-emerald-500/10 border-emerald-500/25',
+                  session.status === 'paused' && 'bg-amber-500/10 border-amber-500/25',
                   (session.status === 'stopped' ||
                     session.status === 'starting' ||
                     session.status === 'stopping') &&
-                    'bg-slate-800/60 text-slate-400 border-slate-700/50',
-                  session.status === 'failed' && 'bg-rose-500/10 text-rose-300 border-rose-500/25'
+                    'bg-slate-800/60 border-slate-700/50',
+                  session.status === 'failed' && 'bg-rose-500/10 border-rose-500/25'
                 )}
               >
                 <span
@@ -314,7 +285,7 @@ export const DashboardSessionRow = memo(function DashboardSessionRow({
                 <AlertTriangle className="w-3.5 h-3.5 text-rose-400" aria-hidden="true" />
               )}
               {session.metrics.errors > 0 && session.status !== 'failed' && (
-                <span className="flex items-center gap-0.5 text-[10px] font-bold text-amber-400">
+                <span className="flex items-center gap-0.5 session-error-count text-[10px] font-bold">
                   <AlertTriangle className="w-3 h-3" aria-hidden="true" />
                   {session.metrics.errors}
                 </span>
@@ -346,12 +317,12 @@ export const DashboardSessionRow = memo(function DashboardSessionRow({
                 )}
               {/* Uptime for running/paused agents */}
               {(isRunning || isPaused) && session.metrics.uptime_seconds > 0 ? (
-                <span className="inline-flex items-center gap-1 text-emerald-400/70">
+                <span className="session-uptime inline-flex items-center gap-1">
                   <Clock className="w-3 h-3" aria-hidden="true" />
                   {formatUptime(session.metrics.uptime_seconds)}
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1 text-gray-500/80">
+                <span className="inline-flex items-center gap-1">
                   <Clock className="w-3 h-3" aria-hidden="true" />
                   {session.started_at
                     ? formatDistanceToNow(new Date(session.started_at), { addSuffix: false })
@@ -362,9 +333,37 @@ export const DashboardSessionRow = memo(function DashboardSessionRow({
           </div>
         </button>
 
+        {isRenaming && (
+          <input
+            ref={renameInputRef}
+            type="text"
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                commitRename(true);
+              }
+              if (e.key === 'Escape') {
+                e.preventDefault();
+                cancelRename();
+              }
+              e.stopPropagation();
+            }}
+            onClick={(e) => e.stopPropagation()}
+            onBlur={() => commitRename()}
+            maxLength={80}
+            className={clsx(
+              onToggleSelect ? 'left-28' : 'left-[76px]',
+              'absolute top-3 z-20 font-bold text-sm text-gray-200 bg-slate-800/80 border border-brand-500/50 rounded-lg px-2 py-0.5 outline-none focus:ring-2 focus:ring-brand-500/40 w-48'
+            )}
+            aria-label="Rename session"
+          />
+        )}
+
         {/* Hover actions */}
         <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
-          <div className="flex items-center gap-1 opacity-0 translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200">
+          <div className="flex items-center gap-1 opacity-0 translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 group-focus-within:opacity-100 group-focus-within:translate-x-0 transition-all duration-200">
             {canStart && (
               <button
                 type="button"
@@ -385,6 +384,17 @@ export const DashboardSessionRow = memo(function DashboardSessionRow({
                 aria-label="Stop agent"
               >
                 <Square className="w-4 h-4" aria-hidden="true" />
+              </button>
+            )}
+            {onRename && (
+              <button
+                type="button"
+                onClick={startRename}
+                className="p-1.5 rounded-lg hover:bg-slate-700/60 text-gray-400 hover:text-gray-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
+                aria-label={`Rename ${sessionTitle}`}
+                title="Rename agent"
+              >
+                <Pencil className="w-4 h-4" aria-hidden="true" />
               </button>
             )}
             <button

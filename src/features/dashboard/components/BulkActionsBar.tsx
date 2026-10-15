@@ -1,11 +1,12 @@
 import { PlayCircle, StopCircle } from 'lucide-react';
+import { useEffect, useRef } from 'react';
 import { getStartableSelection, getStoppableSelection } from '../utils/sessionFilters';
 import type { AgentSession } from '../../../types';
 
 interface BulkActionsBarProps {
-  sessions: AgentSession[];
+  visibleSessions: AgentSession[];
   selectedIds: Set<string>;
-  visibleCount: number;
+  isBusy?: boolean;
   onSelectAll: () => void;
   onClearSelection: () => void;
   onBulkStart: () => void;
@@ -14,35 +15,53 @@ interface BulkActionsBarProps {
 
 /** Toolbar shown when sessions are selected: select-all, bulk start/stop. */
 export function BulkActionsBar({
-  sessions,
+  visibleSessions,
   selectedIds,
-  visibleCount,
+  isBusy = false,
   onSelectAll,
   onClearSelection,
   onBulkStart,
   onBulkStop,
 }: BulkActionsBarProps) {
-  if (selectedIds.size === 0) return null;
+  const checkboxRef = useRef<HTMLInputElement>(null);
+  const selectedCount = visibleSessions.filter((session) => selectedIds.has(session.id)).length;
+  const allSelected = selectedCount > 0 && selectedCount === visibleSessions.length;
+  const isMixed = selectedCount > 0 && !allSelected;
+  useEffect(() => {
+    if (checkboxRef.current) checkboxRef.current.indeterminate = isMixed;
+  }, [isMixed]);
 
-  const canStartSelected = getStartableSelection(sessions, selectedIds).length > 0;
-  const canStopSelected = getStoppableSelection(sessions, selectedIds).length > 0;
+  if (selectedCount === 0) return null;
+
+  const canStartSelected = getStartableSelection(visibleSessions, selectedIds).length > 0;
+  const canStopSelected = getStoppableSelection(visibleSessions, selectedIds).length > 0;
 
   return (
-    <div className="px-5 py-2.5 border-b border-slate-700/40 bg-brand-500/5 flex items-center justify-between">
+    <div
+      role="group"
+      aria-label="Agent selection"
+      aria-busy={isBusy}
+      className="px-5 py-2.5 border-b border-slate-700/40 bg-slate-800/40 flex flex-wrap gap-3 items-center justify-between"
+    >
       <div className="flex items-center gap-3">
         <input
           type="checkbox"
-          checked={selectedIds.size === visibleCount}
+          ref={checkboxRef}
+          checked={allSelected}
           onChange={onSelectAll}
+          disabled={isBusy}
           className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-brand-500 focus:ring-brand-500/40 cursor-pointer"
           aria-label="Select all visible agents"
         />
-        <span className="text-sm font-medium text-brand-300" role="status" aria-live="polite">
-          {selectedIds.size} selected
+        <span className="text-sm font-medium text-gray-300" role="status" aria-live="polite">
+          {isBusy
+            ? `Updating ${selectedCount} agent${selectedCount === 1 ? '' : 's'}…`
+            : `${selectedCount} selected`}
         </span>
         <button
           type="button"
           onClick={onClearSelection}
+          disabled={isBusy}
           className="text-xs text-gray-400 hover:text-gray-200 transition-colors"
           aria-label="Clear selection"
         >
@@ -53,19 +72,19 @@ export function BulkActionsBar({
         <button
           type="button"
           onClick={onBulkStart}
-          disabled={!canStartSelected}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg border border-emerald-500/20 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/50"
+          disabled={isBusy || !canStartSelected}
+          className="ui-button ui-button-secondary flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg"
         >
-          <PlayCircle className="w-3.5 h-3.5" aria-hidden="true" />
+          <PlayCircle className="w-3.5 h-3.5 ui-positive" aria-hidden="true" />
           Start Selected
         </button>
         <button
           type="button"
           onClick={onBulkStop}
-          disabled={!canStopSelected}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-rose-500/15 hover:bg-rose-500/25 text-rose-400 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg border border-rose-500/20 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/50"
+          disabled={isBusy || !canStopSelected}
+          className="ui-button ui-button-secondary flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg"
         >
-          <StopCircle className="w-3.5 h-3.5" aria-hidden="true" />
+          <StopCircle className="w-3.5 h-3.5 ui-negative" aria-hidden="true" />
           Stop Selected
         </button>
       </div>

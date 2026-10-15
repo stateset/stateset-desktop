@@ -2,18 +2,23 @@ import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '../../../components/ToastProvider';
 import { normalizeCustomPlatformId } from '../utils';
+import { McpProbeButton } from './McpProbeButton';
+import type { McpProbeResult } from '../../../vite-env';
 
 interface CustomMcpFormProps {
   isStoring: boolean;
   onAdd: (platformId: string, creds: Record<string, string>) => Promise<void>;
   onCancel: () => void;
+  /** Called with a pre-save handshake once the server it described is saved. */
+  onVerified?: (platformId: string, result: Extract<McpProbeResult, { ok: true }>) => void;
 }
 
-export function CustomMcpForm({ isStoring, onAdd, onCancel }: CustomMcpFormProps) {
+export function CustomMcpForm({ isStoring, onAdd, onCancel, onVerified }: CustomMcpFormProps) {
   const { showToast } = useToast();
   const [serverId, setServerId] = useState('');
   const [endpoint, setEndpoint] = useState('');
   const [authToken, setAuthToken] = useState('');
+  const [probed, setProbed] = useState<Extract<McpProbeResult, { ok: true }> | null>(null);
 
   const handleAdd = async () => {
     const platformId = normalizeCustomPlatformId(serverId);
@@ -47,7 +52,15 @@ export function CustomMcpForm({ isStoring, onAdd, onCancel }: CustomMcpFormProps
       creds.auth_token = authToken.trim();
     }
 
-    await onAdd(platformId, creds);
+    try {
+      await onAdd(platformId, creds);
+    } catch {
+      // Reported by the mutation that owns the save; keep what was typed.
+      return;
+    }
+    // The probe ran before the server had an id; attach it now.
+    if (probed) onVerified?.(platformId, probed);
+    setProbed(null);
     setServerId('');
     setEndpoint('');
     setAuthToken('');
@@ -78,7 +91,10 @@ export function CustomMcpForm({ isStoring, onAdd, onCancel }: CustomMcpFormProps
             type="text"
             value={endpoint}
             placeholder="https://... or custom command"
-            onChange={(e) => setEndpoint(e.target.value)}
+            onChange={(e) => {
+              setEndpoint(e.target.value);
+              setProbed(null);
+            }}
             className="input-base"
           />
         </label>
@@ -88,21 +104,27 @@ export function CustomMcpForm({ isStoring, onAdd, onCancel }: CustomMcpFormProps
             type="password"
             value={authToken}
             placeholder="Optional API key or token"
-            onChange={(e) => setAuthToken(e.target.value)}
+            onChange={(e) => {
+              setAuthToken(e.target.value);
+              setProbed(null);
+            }}
             autoComplete="off"
             className="input-base"
           />
           <span className="text-[11px] text-gray-500">
-            Stored securely. Never sent to StateSet servers.
+            Used to authenticate requests to this MCP server.
           </span>
         </label>
+      </div>
+      <div className="mt-4">
+        <McpProbeButton endpoint={endpoint} authToken={authToken} onVerified={setProbed} />
       </div>
       <div className="mt-4 flex items-center gap-2">
         <button
           onClick={handleAdd}
           disabled={isStoring}
           type="button"
-          className="px-3 py-2 bg-brand-600 hover:bg-brand-500 rounded-lg text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+          className="ui-button ui-button-primary px-3 py-2 rounded-lg text-sm"
         >
           {isStoring ? (
             <Loader2 className="w-4 h-4 animate-spin mx-auto" aria-hidden="true" />
@@ -113,7 +135,7 @@ export function CustomMcpForm({ isStoring, onAdd, onCancel }: CustomMcpFormProps
         <button
           onClick={onCancel}
           type="button"
-          className="px-3 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1"
+          className="ui-button ui-button-secondary px-3 py-2 rounded-lg text-sm"
         >
           Cancel
         </button>

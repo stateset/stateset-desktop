@@ -1,9 +1,13 @@
 import type { Platform } from './platforms';
 import { PLATFORMS } from './platforms';
 import { CUSTOM_MCP_FIELDS } from './types';
+import { STATESET_HTTP_MCP_SERVERS, getStatesetHttpMcpServer } from './statesetMcpServers';
 import { getErrorMessage } from '../../lib/errors';
 
-const BUILT_IN_PLATFORM_IDS = new Set(PLATFORMS.map((p) => p.id));
+const BUILT_IN_PLATFORM_IDS = new Set([
+  ...PLATFORMS.map((p) => p.id),
+  ...STATESET_HTTP_MCP_SERVERS.map((s) => s.id),
+]);
 
 export function isBuiltInPlatform(platformId: string): boolean {
   return BUILT_IN_PLATFORM_IDS.has(platformId);
@@ -87,6 +91,7 @@ export function createCustomPlatformConfig(platformId: string): Platform {
 export function getPlatformConfig(platformId: string): Platform {
   return (
     PLATFORMS.find((platform) => platform.id === platformId) ??
+    getStatesetHttpMcpServer(platformId) ??
     createCustomPlatformConfig(platformId)
   );
 }

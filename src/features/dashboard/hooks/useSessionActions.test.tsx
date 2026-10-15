@@ -1,6 +1,6 @@
 /** @vitest-environment happy-dom */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { renderHook, act, waitFor } from '@testing-library/react';
+import { renderHook, act, waitFor, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ToastProvider } from '../../../components/ToastProvider';
 import { useAuthStore } from '../../../stores/auth';
@@ -187,6 +187,81 @@ describe('useSessionActions', () => {
       'sess-1',
       'New Name'
     );
+  });
+
+  it.each(['start', 'stop'] as const)(
+    'reports partial bulk %s failures and audits only successful requests',
+    async (action) => {
+      const status = action === 'start' ? 'stopped' : 'running';
+      const sessions = [makeSession({ id: 'ok', status }), makeSession({ id: 'fail', status })];
+      if (action === 'start') {
+        vi.mocked(agentApi.startSession)
+          .mockResolvedValueOnce(sessions[0])
+          .mockRejectedValueOnce(new Error('Unavailable'));
+      } else {
+        vi.mocked(agentApi.stopSession)
+          .mockResolvedValueOnce(undefined)
+          .mockRejectedValueOnce(new Error('Unavailable'));
+      }
+      const { result } = renderActions(sessions, new Set(['ok', 'fail']));
+      await act(async () => {
+        await (action === 'start'
+          ? result.current.handleBulkStart()
+          : result.current.handleBulkStop());
+      });
+      expect(screen.getByText('Bulk action incomplete')).toBeInTheDocument();
+      expect(
+        screen.getByText(`1 ${action === 'start' ? 'started' : 'stopped'}; 1 failed to ${action}.`)
+      ).toBeInTheDocument();
+      const entries = useAuditLogStore.getState().entries;
+      expect(entries).toHaveLength(1);
+      expect(entries[0].metadata?.sessionId).toBe('ok');
+      expect(result.current.isBulkActing).toBe(false);
+    }
+  );
+
+  it('reports an entirely failed bulk request without a success message', async () => {
+    vi.mocked(agentApi.stopSession).mockRejectedValueOnce(new Error('Unavailable'));
+    const { result } = renderActions(
+      [makeSession({ id: 'fail', status: 'running' })],
+      new Set(['fail'])
+    );
+    await act(async () => {
+      await result.current.handleBulkStop();
+    });
+    expect(screen.getByText('0 stopped; 1 failed to stop.')).toBeInTheDocument();
+    expect(useAuditLogStore.getState().entries).toHaveLength(0);
+  });
+
+  it('prevents duplicate and competing submissions until the in-flight bulk action completes', async () => {
+    let finish!: () => void;
+    vi.mocked(agentApi.stopSession).mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        })
+    );
+    const { result } = renderActions(
+      [
+        makeSession({ id: 'running', status: 'running' }),
+        makeSession({ id: 'stopped', status: 'stopped' }),
+      ],
+      new Set(['running', 'stopped'])
+    );
+    let pending!: Promise<void>;
+    act(() => {
+      pending = result.current.handleBulkStop();
+      void result.current.handleBulkStop();
+      void result.current.handleBulkStart();
+    });
+    expect(result.current.isBulkActing).toBe(true);
+    expect(agentApi.stopSession).toHaveBeenCalledTimes(1);
+    expect(agentApi.startSession).not.toHaveBeenCalled();
+    await act(async () => {
+      finish();
+      await pending;
+    });
+    expect(result.current.isBulkActing).toBe(false);
   });
 
   it('exposes optimistic start/stop mutations', async () => {

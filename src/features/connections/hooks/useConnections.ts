@@ -10,8 +10,19 @@ import { requireTenantId, requireBrandId } from '../../../lib/auth-guards';
 import type { ConnectionsResult } from '../types';
 import { isVaultNotConfigured, getPlatformConfig, isBuiltInPlatform } from '../utils';
 import { PLATFORMS } from '../platforms';
+import { isStatesetHttpMcpServer } from '../statesetMcpServers';
 
-export function useConnections() {
+interface UseConnectionsOptions {
+  /**
+   * Whether a failed connections query should raise a toast. Only the page the
+   * user is looking at should: this hook is also mounted by the MCP server
+   * options on the dashboard, the agent console and in dialogs, and every
+   * consumer toasting would stack duplicates.
+   */
+  notifyOnError?: boolean;
+}
+
+export function useConnections({ notifyOnError = true }: UseConnectionsOptions = {}) {
   const { tenant, currentBrand } = useAuthStore();
   const { showToast } = useToast();
 
@@ -57,10 +68,10 @@ export function useConnections() {
   });
 
   useEffect(() => {
-    if (connectionsError) {
+    if (connectionsError && notifyOnError) {
       handleError('Failed to load connections')(connectionsError);
     }
-  }, [connectionsError, handleError]);
+  }, [connectionsError, handleError, notifyOnError]);
 
   const connections = connectionsData?.connections ?? [];
   const connectionsMode = connectionsData?.mode ?? 'remote';
@@ -71,6 +82,8 @@ export function useConnections() {
   const displayedPlatforms = Array.from(
     new Set([...PLATFORMS.map((p) => p.id), ...connectedPlatformIds])
   )
+    // StateSet MCP servers render in their own section on the Connections page
+    .filter((id) => !isStatesetHttpMcpServer(id))
     .map((id) => getPlatformConfig(id))
     .filter((p) => p.id)
     .sort((a, b) => {
@@ -87,6 +100,11 @@ export function useConnections() {
 
   return {
     isLoading,
+    // The query failed, so connection state is unknown rather than empty.
+    isError: Boolean(connectionsError),
+    // False while loading, while disabled (no tenant/brand yet) and on failure:
+    // in none of those cases do we know what is connected.
+    hasConnectionData: connectionsData !== undefined,
     isLocalMode,
     vaultError,
     displayedPlatforms,

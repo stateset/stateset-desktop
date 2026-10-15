@@ -157,6 +157,8 @@ export const Sparkline = memo(function Sparkline({
 interface SparklineBarProps {
   /** Data points to display */
   data: number[];
+  /** Optional per-bar descriptions shown on hover. */
+  labels?: string[];
   /** Width of the chart (used as viewBox width when responsive) */
   width?: number;
   /** Height of the chart */
@@ -177,6 +179,7 @@ interface SparklineBarProps {
  */
 export const SparklineBar = memo(function SparklineBar({
   data,
+  labels,
   width = 100,
   height = 32,
   color = '#8B5CF6',
@@ -236,7 +239,9 @@ export const SparklineBar = memo(function SparklineBar({
           fill={color}
           rx={1}
           opacity={0.8}
-        />
+        >
+          {labels?.[index] && <title>{labels[index]}</title>}
+        </rect>
       ))}
     </svg>
   );

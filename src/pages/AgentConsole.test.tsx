@@ -61,6 +61,20 @@ const mocks = vi.hoisted(() => {
 
 // --- Mocks ---
 
+vi.mock('../features/connections/hooks/useMcpServerOptions', () => ({
+  useMcpServerOptions: () => [
+    { id: 'shopify', name: 'Shopify', isLocalOnly: false, isMcpServer: true, connected: true },
+    { id: 'gorgias', name: 'Gorgias', isLocalOnly: false, isMcpServer: true, connected: false },
+  ],
+  useMcpServerOptionsState: () => ({
+    options: [
+      { id: 'shopify', name: 'Shopify', isLocalOnly: false, isMcpServer: true, connected: true },
+      { id: 'gorgias', name: 'Gorgias', isLocalOnly: false, isMcpServer: true, connected: false },
+    ],
+    isLoading: false,
+  }),
+}));
+
 vi.mock('../hooks/usePageTitle', () => ({
   usePageTitle: vi.fn(),
 }));
@@ -996,6 +1010,32 @@ describe('AgentConsole page', () => {
       renderWithProviders(<AgentConsole />);
 
       expect(screen.getByTestId('typing-indicator')).toBeInTheDocument();
+    });
+  });
+
+  describe('MCP server warning', () => {
+    it('warns when the session uses a server with no credentials', async () => {
+      mocks.sessionState.session = makeSession({
+        config: { ...makeSession().config, mcp_servers: ['shopify', 'gorgias'] },
+      });
+
+      const AgentConsole = await loadAgentConsole();
+      renderWithProviders(<AgentConsole />);
+
+      const alert = await screen.findByRole('alert');
+      expect(alert).toHaveTextContent('Gorgias');
+      expect(alert).not.toHaveTextContent('Shopify');
+    });
+
+    it('stays quiet when every server is connected', async () => {
+      mocks.sessionState.session = makeSession({
+        config: { ...makeSession().config, mcp_servers: ['shopify'] },
+      });
+
+      const AgentConsole = await loadAgentConsole();
+      renderWithProviders(<AgentConsole />);
+
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     });
   });
 });

@@ -4,6 +4,7 @@ import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createElement, type ReactNode } from 'react';
 import { useConnectionMutations } from './useConnectionMutations';
+import { buildStatesetMcpCredentials, getStatesetHttpMcpServer } from '../statesetMcpServers';
 
 // --- Mocks ---
 
@@ -286,5 +287,30 @@ describe('useConnectionMutations', () => {
         expect.objectContaining({ variant: 'error', title: 'Failed to disconnect' })
       );
     });
+  });
+
+  it('stores credentials built for a hosted StateSet server without re-validation failing', async () => {
+    mockStoreCredentials.mockResolvedValue(undefined);
+    const sync = getStatesetHttpMcpServer('stateset-sync')!;
+    const creds = buildStatesetMcpCredentials(sync, {
+      sync_tenant: 'acme-co',
+      auth_token: 'ss_sync_x',
+    });
+
+    const { result } = setup();
+
+    await result.current.storeCredentials.mutateAsync({ platform: 'stateset-sync', creds });
+
+    await waitFor(() =>
+      expect(mockStoreCredentials).toHaveBeenCalledWith(
+        'tenant-1',
+        'brand-1',
+        'stateset-sync',
+        expect.objectContaining({
+          endpoint: 'https://api.sync.stateset.com/v1/tenants/acme-co/mcp',
+          auth_token: 'ss_sync_x',
+        })
+      )
+    );
   });
 });

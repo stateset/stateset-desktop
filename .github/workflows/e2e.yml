@@ -24,10 +24,22 @@ jobs:
       - name: Install Playwright dependencies
         run: npx playwright install --with-deps
 
+      - name: Typecheck desktop tests
+        run: npm run typecheck:e2e
+
       - name: Run E2E tests
         run: xvfb-run -a npm run test:e2e
         env:
           CI: true
+
+      - name: Build Linux bundle
+        run: ./node_modules/.bin/electron-builder --dir --linux --publish never --config.directories.output=dist/packaged-smoke
+
+      - name: Verify Linux bundle startup
+        run: xvfb-run -a npm run test:e2e:bundle
+        env:
+          CI: true
+          STATESET_PACKAGED_EXECUTABLE: dist/packaged-smoke/linux-unpacked/stateset-desktop
 
       - name: Upload Playwright artifacts
         if: always()

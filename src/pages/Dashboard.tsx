@@ -15,6 +15,8 @@ import { uiLogger } from '../lib/logger';
 import { useAuditLogStore } from '../stores/auditLog';
 import { CreateAgentDialog } from '../components/CreateAgentDialog';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { SessionDataNotice } from '../features/dashboard/components/SessionDataNotice';
+import { getStatusBreakdown } from '../features/dashboard/utils/sessionFilters';
 import {
   DashboardStats,
   DashboardHeader,
@@ -22,6 +24,7 @@ import {
   BulkActionsBar,
   SessionList,
   FleetOverview,
+  McpServersOverview,
   ShortcutsHint,
   RecentActivityTimeline,
   useSessionFilters,
@@ -49,7 +52,7 @@ export default function Dashboard() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const refreshInterval = usePreferencesStore((s) => s.refreshInterval);
-  const { handleMutationError, handleQueryError, clearLastError } = useErrorHandler();
+  const { handleMutationError } = useErrorHandler();
 
   // Online status for offline-first behavior
   const isOnline = useOnlineStatus();
@@ -59,10 +62,11 @@ export default function Dashboard() {
 
   // Fetch sessions with offline cache fallback
   const {
-    data: sessions = [],
+    data: sessionData,
     isLoading,
     isFetching,
     error: sessionsError,
+    errorUpdatedAt,
     refetch,
   } = useQuery<AgentSession[]>({
     queryKey: queryKeys.sessions.list(tenant?.id, currentBrand?.id),
@@ -86,23 +90,28 @@ export default function Dashboard() {
     refetchInterval: isOnline ? refreshInterval : false,
   });
 
-  useEffect(() => {
-    if (sessionsError) {
-      handleQueryError('Failed to load sessions', 'dashboard:sessions')(sessionsError);
-      return;
-    }
-
-    if (!isFetching) {
-      clearLastError();
-    }
-  }, [sessionsError, isFetching, handleQueryError, clearLastError]);
+  const sessions = useMemo(() => sessionData ?? [], [sessionData]);
+  const hasSessionData = sessionData !== undefined;
+  // React Query clears an initial error while retrying; keep the recovery panel
+  // visible until data arrives instead of swapping back to an empty dashboard.
+  const showDataNotice = !!sessionsError || (!hasSessionData && errorUpdatedAt > 0) || !isOnline;
+  const dataUnavailable = !hasSessionData && showDataNotice;
 
   // Selection, filtering/search/pagination, lifecycle actions, exports
   const selection = useSessionSelection();
   const filters = useSessionFilters(sessions, { onFilterChange: selection.clearSelection });
+  // Bind actions to the rendered page immediately; prune stored selection after refresh.
+  const selectedIds = useMemo(() => {
+    const visibleIds = new Set(filters.paginatedSessions.map((session) => session.id));
+    return new Set([...selection.selectedIds].filter((id) => visibleIds.has(id)));
+  }, [filters.paginatedSessions, selection.selectedIds]);
+  const { retainVisible } = selection;
+  useEffect(() => {
+    retainVisible(filters.paginatedSessions);
+  }, [filters.paginatedSessions, retainVisible]);
   const actions = useSessionActions({
     sessions,
-    selectedIds: selection.selectedIds,
+    selectedIds,
     clearSelection: selection.clearSelection,
   });
   const exports = useSessionExports(sessions);
@@ -248,8 +257,9 @@ export default function Dashboard() {
         <DashboardHeader
           greeting={greeting}
           sessionsCount={sessions.length}
-          runningCount={runningCount}
+          runningCount={getStatusBreakdown(sessions).running}
           isLoading={isLoading}
+          isFetching={isFetching}
           isOnline={isOnline}
           isCreating={isCreating}
           canCreate={!!currentBrand}
@@ -258,96 +268,110 @@ export default function Dashboard() {
           onCreate={handleCreateSession}
         />
 
-        {/* Stats */}
-        <motion.div variants={reduceMotion ? undefined : pageSectionVariants}>
-          <DashboardStats
-            sessions={sessions}
-            isLoading={isLoading}
-            activeFilter={filters.statusFilter !== 'all' ? filters.statusFilter : null}
-            onStatClick={handleStatClick}
+        {showDataNotice && (
+          <SessionDataNotice
+            hasData={hasSessionData}
+            isOnline={isOnline}
+            isFetching={isFetching}
+            onRetry={() => refetch()}
           />
-        </motion.div>
+        )}
 
-        {/* Main content: 2-column grid */}
-        <motion.div variants={reduceMotion ? undefined : pageSectionVariants}>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Sessions panel - 2 columns */}
-            <div className="lg:col-span-2">
-              <div className="relative bg-slate-900/40 border border-slate-700/40 rounded-2xl overflow-hidden shadow-xl backdrop-blur-md">
-                {/* Top highlight */}
-                <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
+        {!dataUnavailable && (
+          <>
+            {/* Stats */}
+            <motion.div variants={reduceMotion ? undefined : pageSectionVariants}>
+              <DashboardStats
+                sessions={sessions}
+                isLoading={isLoading}
+                activeFilter={filters.statusFilter !== 'all' ? filters.statusFilter : null}
+                onStatClick={handleStatClick}
+              />
+            </motion.div>
 
-                {/* Card header with integrated toolbar */}
-                <DashboardToolbar
-                  searchQuery={filters.searchQuery}
-                  statusFilter={filters.statusFilter}
-                  allTags={filters.allTags}
-                  selectedTags={filters.selectedTags}
-                  runningCount={runningCount}
-                  stoppedCount={stoppedCount}
-                  sessionsCount={sessions.length}
-                  filteredCount={filters.filteredSessions.length}
-                  hasActiveFilters={filters.hasActiveFilters}
-                  isStartingAll={actions.isStartingAll}
-                  isStoppingAll={actions.isStoppingAll}
-                  isDeletingStopped={actions.isDeletingStopped}
-                  searchInputRef={searchInputRef}
-                  onSearchChange={setSearchQuery}
-                  onStatusFilterChange={setStatusFilter}
-                  onToggleTag={filters.toggleTag}
-                  onClearTags={filters.clearTags}
-                  onStartAll={actions.handleStartAll}
-                  onStopAll={actions.handleStopAll}
-                  onDeleteStopped={() => actions.setShowDeleteConfirm(true)}
-                  onExportJSON={exports.handleExportJSON}
-                  onExportCSV={exports.handleExportCSV}
-                  onExportMetrics={exports.handleExportMetrics}
-                />
+            {/* Main content: 2-column grid */}
+            <motion.div variants={reduceMotion ? undefined : pageSectionVariants}>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Sessions panel - 2 columns */}
+                <div className="lg:col-span-2">
+                  <div className="relative bg-slate-900/40 border border-slate-700/40 rounded-2xl overflow-hidden shadow-xl backdrop-blur-md">
+                    {/* Top highlight */}
+                    <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
 
-                {/* Bulk selection toolbar */}
-                <BulkActionsBar
-                  sessions={sessions}
-                  selectedIds={selection.selectedIds}
-                  visibleCount={filters.paginatedSessions.length}
-                  onSelectAll={handleSelectAll}
-                  onClearSelection={selection.clearSelection}
-                  onBulkStart={actions.handleBulkStart}
-                  onBulkStop={actions.handleBulkStop}
-                />
+                    {/* Card header with integrated toolbar */}
+                    <DashboardToolbar
+                      searchQuery={filters.searchQuery}
+                      statusFilter={filters.statusFilter}
+                      allTags={filters.allTags}
+                      selectedTags={filters.selectedTags}
+                      runningCount={runningCount}
+                      stoppedCount={stoppedCount}
+                      sessionsCount={sessions.length}
+                      filteredCount={filters.filteredSessions.length}
+                      hasActiveFilters={filters.hasActiveFilters}
+                      isStartingAll={actions.isStartingAll}
+                      isStoppingAll={actions.isStoppingAll}
+                      isDeletingStopped={actions.isDeletingStopped}
+                      searchInputRef={searchInputRef}
+                      onSearchChange={setSearchQuery}
+                      onStatusFilterChange={setStatusFilter}
+                      onToggleTag={filters.toggleTag}
+                      onClearTags={filters.clearTags}
+                      onStartAll={actions.handleStartAll}
+                      onStopAll={actions.handleStopAll}
+                      onDeleteStopped={() => actions.setShowDeleteConfirm(true)}
+                      onExportJSON={exports.handleExportJSON}
+                      onExportCSV={exports.handleExportCSV}
+                      onExportMetrics={exports.handleExportMetrics}
+                    />
 
-                {/* Sessions list */}
-                <SessionList
-                  isLoading={isLoading}
-                  totalCount={sessions.length}
-                  filteredSessions={filters.filteredSessions}
-                  paginatedSessions={filters.paginatedSessions}
-                  currentPage={filters.currentPage}
-                  totalPages={filters.totalPages}
-                  itemsPerPage={filters.itemsPerPage}
-                  selectedIds={selection.selectedIds}
-                  onPageChange={filters.setCurrentPage}
-                  onPageSizeChange={filters.handlePageSizeChange}
-                  onCreate={handleCreateSession}
-                  onClearFilters={filters.clearFilters}
-                  onStart={handleRowStart}
-                  onStop={handleRowStop}
-                  onRowClick={handleRowClick}
-                  onCopy={exports.handleCopySession}
-                  onExportSummary={exports.handleExportRunSummary}
-                  onRename={actions.handleRename}
-                  onToggleSelect={selection.toggleSelect}
-                />
+                    {/* Bulk selection toolbar */}
+                    <BulkActionsBar
+                      visibleSessions={filters.paginatedSessions}
+                      selectedIds={selectedIds}
+                      isBusy={actions.isBulkActing}
+                      onSelectAll={handleSelectAll}
+                      onClearSelection={selection.clearSelection}
+                      onBulkStart={actions.handleBulkStart}
+                      onBulkStop={actions.handleBulkStop}
+                    />
+
+                    {/* Sessions list */}
+                    <SessionList
+                      isLoading={isLoading}
+                      totalCount={sessions.length}
+                      filteredSessions={filters.filteredSessions}
+                      paginatedSessions={filters.paginatedSessions}
+                      currentPage={filters.currentPage}
+                      totalPages={filters.totalPages}
+                      itemsPerPage={filters.itemsPerPage}
+                      selectedIds={selectedIds}
+                      onPageChange={filters.setCurrentPage}
+                      onPageSizeChange={filters.handlePageSizeChange}
+                      onCreate={handleCreateSession}
+                      onClearFilters={filters.clearFilters}
+                      onStart={handleRowStart}
+                      onStop={handleRowStop}
+                      onRowClick={handleRowClick}
+                      onCopy={exports.handleCopySession}
+                      onExportSummary={exports.handleExportRunSummary}
+                      onRename={actions.handleRename}
+                      onToggleSelect={selection.toggleSelect}
+                    />
+                  </div>
+                </div>
+
+                {/* Sidebar */}
+                <div className="space-y-5 sidebar-sticky">
+                  {hasSessionData && <FleetOverview sessions={sessions} />}
+                  <McpServersOverview />
+                  {sessions.length > 0 && <RecentActivityTimeline sessions={sessions} />}
+                  <ShortcutsHint />
+                </div>
               </div>
-            </div>
-
-            {/* Sidebar */}
-            <div className="space-y-5 sidebar-sticky">
-              <FleetOverview sessions={sessions} />
-              {sessions.length > 0 && <RecentActivityTimeline sessions={sessions} />}
-              <ShortcutsHint />
-            </div>
-          </div>
-        </motion.div>
+            </motion.div>
+          </>
+        )}
       </motion.div>
     </div>
   );

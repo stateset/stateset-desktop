@@ -3,8 +3,10 @@ import { CheckCircle2, KeyRound, Loader2, Network, Trash2, XCircle } from 'lucid
 import { durableWorkflowApi } from '../../../lib/durableWorkflows';
 import { useAuthStore } from '../../../stores/auth';
 import { useDurableWorkflowsStore } from '../../../stores/durableWorkflows';
+import { useSecureStorageAvailability } from '../../../hooks/useSecureStorageAvailability';
 
 export function DurableWorkflowSettings() {
+  const secureStorageAvailable = useSecureStorageAvailability();
   const tenant = useAuthStore((state) => state.tenant);
   const { initialized, engineUrl, apiKey, initialize, setConfiguration, clearApiKey } =
     useDurableWorkflowsStore();
@@ -81,13 +83,17 @@ export function DurableWorkflowSettings() {
             value={keyInput}
             onChange={(event) => setKeyInput(event.target.value)}
             className="mt-1.5 w-full px-3 py-2 bg-slate-950/70 border border-slate-700 rounded-lg text-sm focus:outline-none focus:border-brand-500"
-            placeholder={apiKey ? 'Stored securely — enter a new key to replace it' : 'Required'}
+            placeholder={apiKey ? 'Enter a new key to replace the current key' : 'Required'}
             autoComplete="off"
           />
           <span className="text-xs text-gray-500 mt-1 block">
             {apiKey
-              ? 'A key is stored in the operating system credential store.'
-              : 'No key stored.'}
+              ? secureStorageAvailable === true
+                ? 'The key is encrypted using operating system secure storage.'
+                : secureStorageAvailable === false
+                  ? 'The key is available for this app session. Enter it again after restarting.'
+                  : 'A key is configured. Credential storage availability could not be confirmed.'
+              : 'No key configured.'}
           </span>
         </label>
 

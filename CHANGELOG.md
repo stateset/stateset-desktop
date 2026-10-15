@@ -4,6 +4,25 @@ All notable changes to StateSet Desktop will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.1.19] - 2026-10-15
+
+### Added
+
+- Added computer chat workspaces with sandbox session identity, durable workflow execution, approval recovery, output verification, and workspace files and deliverables.
+- Added local MCP server setup, connection probes, tool discovery, and verification summaries.
+- Added isolated desktop startup and installer checks, updater asset validation, and signing requirements for published releases.
+
+### Changed
+
+- Simplified desktop surfaces, dashboard metrics, controls, and navigation with consistent light and dark themes and keyboard support.
+- Strengthened local credential handling and per-install configuration encryption.
+
+### Fixed
+
+- Keep unavailable dashboard data distinct from an empty fleet, preserve saved agents after refresh failures, and expose retry and offline states.
+- Count paused and transitioning agents accurately and keep bulk selection scoped to the visible page.
+- Report selected-agent bulk action outcomes accurately and prevent duplicate in-flight requests.
+
 ## [1.1.18] - 2026-09-02
 
 ### Added

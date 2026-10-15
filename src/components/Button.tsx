@@ -10,15 +10,11 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
   loading?: boolean;
 }
 
-const variantStyles: Record<string, string> = {
-  primary:
-    'bg-gradient-to-b from-brand-500 to-brand-600 border border-brand-500/50 text-white shadow-md shadow-brand-500/25 hover:from-brand-400 hover:to-brand-500 hover:border-brand-400/60 hover:shadow-lg hover:shadow-brand-500/30',
-  secondary:
-    'bg-slate-800/80 backdrop-blur-sm border border-slate-700/80 text-gray-200 shadow-sm hover:bg-slate-700/80 hover:border-slate-600/80',
-  danger:
-    'bg-gradient-to-b from-rose-500 to-rose-600 border border-rose-500/50 text-white shadow-md shadow-rose-500/25 hover:from-rose-400 hover:to-rose-500 hover:border-rose-400/60 hover:shadow-lg hover:shadow-rose-500/30',
-  ghost:
-    'bg-transparent border border-transparent text-gray-400 hover:text-gray-200 hover:bg-slate-800/60 hover:border-slate-700/50',
+const variantStyles: Record<NonNullable<ButtonProps['variant']>, string> = {
+  primary: 'ui-button-primary',
+  secondary: 'ui-button-secondary',
+  danger: 'ui-button-danger',
+  ghost: 'ui-button-ghost',
 };
 
 const sizeStyles: Record<string, string> = {
@@ -65,10 +61,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         disabled={disabled || loading}
         aria-busy={loading}
         className={clsx(
-          'inline-flex items-center justify-center font-medium rounded-lg relative overflow-hidden',
-          'transition-all duration-200',
-          'active:translate-y-0.5 active:scale-[0.98]',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1',
+          'ui-button inline-flex items-center justify-center font-medium rounded-lg relative overflow-hidden',
           'disabled:opacity-50 disabled:cursor-not-allowed',
           variantStyles[variant],
           isIconOnly ? (size === 'sm' ? 'p-1' : size === 'lg' ? 'p-2.5' : 'p-2') : sizeStyles[size],
@@ -83,9 +76,13 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           </>
         ) : (
           <>
-            {Icon && iconPosition === 'left' && <Icon className={iconSizeMap[size]} />}
+            {Icon && iconPosition === 'left' && (
+              <Icon className={iconSizeMap[size]} aria-hidden="true" />
+            )}
             {children && <span>{children}</span>}
-            {Icon && iconPosition === 'right' && <Icon className={iconSizeMap[size]} />}
+            {Icon && iconPosition === 'right' && (
+              <Icon className={iconSizeMap[size]} aria-hidden="true" />
+            )}
           </>
         )}
       </button>

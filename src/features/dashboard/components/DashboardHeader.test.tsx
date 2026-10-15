@@ -36,10 +36,11 @@ describe('DashboardHeader', () => {
     expect(screen.getByText('Manage your autonomous AI agents')).toBeInTheDocument();
   });
 
-  it('summarizes running and idle agents', () => {
+  it('summarizes running and total agents without calling other statuses idle', () => {
     renderHeader({ sessionsCount: 5, runningCount: 2 });
     expect(screen.getByText('2 agents running')).toBeInTheDocument();
-    expect(screen.getByText('3 idle')).toBeInTheDocument();
+    expect(screen.getByText('5 agents total')).toBeInTheDocument();
+    expect(screen.queryByText(/idle/)).not.toBeInTheDocument();
   });
 
   it('uses singular wording for one running agent', () => {
@@ -55,6 +56,7 @@ describe('DashboardHeader', () => {
   it('shows the offline badge when offline', () => {
     renderHeader({ isOnline: false });
     expect(screen.getByText('Offline')).toBeInTheDocument();
+    expect(screen.getByLabelText('Refresh sessions')).toBeDisabled();
   });
 
   it('hides the offline badge when online', () => {
@@ -80,5 +82,11 @@ describe('DashboardHeader', () => {
   it('disables creation while a session is being created', () => {
     renderHeader({ isCreating: true });
     expect(screen.getByLabelText('Create new agent')).toBeDisabled();
+  });
+
+  it('disables refresh during a fetch', () => {
+    renderHeader({ isFetching: true });
+    expect(screen.getByLabelText('Refresh sessions')).toBeDisabled();
+    expect(screen.getByLabelText('Refresh sessions')).toHaveAttribute('aria-busy', 'true');
   });
 });

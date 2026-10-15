@@ -121,6 +121,30 @@ describe('TemplateCard', () => {
     expect(onSelect).not.toHaveBeenCalled();
   });
 
+  it('exposes selection and deletion as separate native buttons', () => {
+    const { rerender } = render(
+      <TemplateCard
+        template={makeTemplate({ isCustom: true })}
+        isSelected={false}
+        onSelect={vi.fn()}
+        onDelete={vi.fn()}
+      />
+    );
+    const select = screen.getByRole('button', { name: /^Support Agent/ });
+    const remove = screen.getByRole('button', { name: 'Delete template Support Agent' });
+    expect(select).toHaveAttribute('aria-pressed', 'false');
+    expect(select.contains(remove)).toBe(false);
+    rerender(
+      <TemplateCard
+        template={makeTemplate({ isCustom: true })}
+        isSelected={true}
+        onSelect={vi.fn()}
+        onDelete={vi.fn()}
+      />
+    );
+    expect(select).toHaveAttribute('aria-pressed', 'true');
+  });
+
   it('falls back to the Bot icon for unknown icon names without crashing', () => {
     render(
       <TemplateCard

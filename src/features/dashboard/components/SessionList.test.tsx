@@ -1,6 +1,6 @@
 /** @vitest-environment happy-dom */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import { SessionList } from './SessionList';
 import { makeSession } from '../testing/fixtures';
 import type { AgentSession } from '../../../types';
@@ -90,6 +90,50 @@ describe('SessionList', () => {
     const props = renderList();
     fireEvent.click(screen.getByLabelText('Select Alpha Agent'));
     expect(props.onToggleSelect).toHaveBeenCalledWith('sess-a');
+    expect(props.onRowClick).not.toHaveBeenCalled();
+    expect(
+      screen
+        .getByRole('button', { name: /Alpha Agent, status: Running/ })
+        .contains(screen.getByLabelText('Select Alpha Agent'))
+    ).toBe(false);
+  });
+
+  it('renames with Enter exactly once and restores row focus without opening it', () => {
+    const props = renderList();
+    fireEvent.click(screen.getByRole('button', { name: 'Rename Alpha Agent' }));
+    const input = screen.getByRole('textbox', { name: 'Rename session' });
+    const row = screen.getByRole('button', { name: /Alpha Agent, status: Running/ });
+    expect(input).toHaveFocus();
+    expect(row.contains(input)).toBe(false);
+    fireEvent.change(input, { target: { value: 'Priority Agent' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(props.onRename).toHaveBeenCalledExactlyOnceWith('sess-a', 'Priority Agent');
+    expect(row).toHaveFocus();
+    expect(props.onRowClick).not.toHaveBeenCalled();
+  });
+
+  it('cancels a rename with Escape without committing its blur event', () => {
+    const props = renderList();
+    fireEvent.click(screen.getByRole('button', { name: 'Rename Alpha Agent' }));
+    const input = screen.getByRole('textbox', { name: 'Rename session' });
+    fireEvent.change(input, { target: { value: 'Discard this name' } });
+    fireEvent.keyDown(input, { key: 'Escape' });
+    expect(props.onRename).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: /Alpha Agent, status: Running/ })).toHaveFocus();
+    expect(screen.queryByRole('textbox', { name: 'Rename session' })).not.toBeInTheDocument();
+  });
+
+  it('commits a rename on blur while keeping focus on the next control', () => {
+    const props = renderList();
+    fireEvent.click(screen.getByRole('button', { name: 'Rename Alpha Agent' }));
+    const input = screen.getByRole('textbox', { name: 'Rename session' });
+    const selectOther = screen.getByLabelText('Select Beta Agent');
+    fireEvent.change(input, { target: { value: 'Updated Agent' } });
+    act(() => {
+      selectOther.focus();
+    });
+    expect(props.onRename).toHaveBeenCalledExactlyOnceWith('sess-a', 'Updated Agent');
+    expect(selectOther).toHaveFocus();
   });
 
   it('shows pagination when there are multiple pages', () => {

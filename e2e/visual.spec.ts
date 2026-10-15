@@ -8,34 +8,9 @@
  * Update snapshots with: npm run test:e2e -- --update-snapshots
  */
 
-import { spawnSync } from 'child_process';
-import { test, expect, _electron as electron, ElectronApplication, Page } from '@playwright/test';
-
-const hasDisplay = (() => {
-  if (process.platform === 'darwin' || process.platform === 'win32') {
-    return true;
-  }
-  if (!process.env.DISPLAY && !process.env.WAYLAND_DISPLAY) {
-    return false;
-  }
-  const result = spawnSync('xdpyinfo', [], { stdio: 'ignore' });
-  return result.status === 0;
-})();
-
-const electronArgs = ['.'];
-if (process.platform === 'linux') {
-  electronArgs.push(
-    '--no-sandbox',
-    '--disable-gpu',
-    '--disable-dev-shm-usage',
-    '--disable-software-rasterizer'
-  );
-}
-const electronEnv = {
-  ...process.env,
-  NODE_ENV: 'development',
-  E2E_TEST: 'true',
-};
+import type { ElectronApplication, Page } from '@playwright/test';
+import { installDesktopApiFixture } from './api-fixture';
+import { test, expect, requireDesktopDisplay, type DesktopHarness } from './desktop';
 
 async function setTestDefaults(page: Page) {
   await page.evaluate(async () => {
@@ -47,22 +22,17 @@ async function setTestDefaults(page: Page) {
   });
 }
 
-async function ensureElectronAvailable() {
-  if (!hasDisplay) {
-    test.skip(true, 'Electron visual tests require a display (set DISPLAY or use Xvfb).');
-  }
-
-  try {
-    const electronApp = await electron.launch({ args: electronArgs, env: electronEnv });
-    await electronApp.close();
-  } catch (error) {
-    test.skip(true, 'Electron failed to launch in this environment.');
-  }
-}
-
 test.beforeAll(async () => {
-  await ensureElectronAvailable();
+  requireDesktopDisplay();
 });
+
+const FIXTURE_TIME = '2026-10-15T16:00:00.000Z';
+
+async function configureVisualClock(page: Page) {
+  const session = await page.context().newCDPSession(page);
+  await session.send('Emulation.setTimezoneOverride', { timezoneId: 'UTC' });
+  await page.clock.setFixedTime(FIXTURE_TIME);
+}
 
 const mockTenant = { id: 'tenant_1', name: 'Test Tenant', slug: 'test-tenant', tier: 'pro' };
 const mockBrand = {
@@ -97,9 +67,9 @@ const mockSessions = [
       messages_sent: 50,
       uptime_seconds: 3600,
     },
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    started_at: new Date().toISOString(),
+    created_at: '2026-10-15T15:00:00.000Z',
+    updated_at: '2026-10-15T15:59:00.000Z',
+    started_at: '2026-10-15T15:00:00.000Z',
   },
   {
     id: 'session_2',
@@ -124,8 +94,8 @@ const mockSessions = [
       messages_sent: 15,
       uptime_seconds: 600,
     },
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+    created_at: '2026-10-15T14:00:00.000Z',
+    updated_at: '2026-10-15T15:55:00.000Z',
   },
   {
     id: 'session_3',
@@ -150,16 +120,15 @@ const mockSessions = [
       messages_sent: 5,
       uptime_seconds: 120,
     },
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+    created_at: '2026-10-15T13:00:00.000Z',
+    updated_at: '2026-10-15T15:50:00.000Z',
   },
 ];
 
-async function launchWithMocks(): Promise<{ electronApp: ElectronApplication; page: Page }> {
-  const electronApp = await electron.launch({
-    args: electronArgs,
-    env: electronEnv,
-  });
+async function launchWithMocks(
+  desktop: DesktopHarness
+): Promise<{ electronApp: ElectronApplication; page: Page }> {
+  const electronApp = await desktop.launch();
 
   const page = await electronApp.firstWindow();
   page.on('pageerror', (error) => {
@@ -171,67 +140,12 @@ async function launchWithMocks(): Promise<{ electronApp: ElectronApplication; pa
     }
   });
   await page.waitForURL('http://localhost:5173/**', { timeout: 120000 });
-  await page.route('**/health/detailed', async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        status: 'healthy',
-        version: 'test',
-        checks: {
-          database: { status: 'healthy' },
-          redis: { status: 'healthy' },
-          nats: { status: 'healthy' },
-        },
-        circuit_breakers: {
-          sandbox: 'closed',
-          webhook: 'closed',
-          database: 'closed',
-          external_api: 'closed',
-        },
-        resilience_healthy: true,
-      }),
-    });
-  });
-  // Set up API mocks
-  await page.route('**/api/v1/**', async (route) => {
-    const url = route.request().url();
-
-    if (url.includes('/auth/me')) {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          tenant: mockTenant,
-          brands: [mockBrand],
-        }),
-      });
-      return;
-    }
-
-    if (url.includes('/agents') && !url.includes('/stream')) {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ ok: true, sessions: mockSessions }),
-      });
-      return;
-    }
-
-    if (url.includes('/secrets')) {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ ok: true, platforms: ['shopify', 'gorgias'] }),
-      });
-      return;
-    }
-
-    await route.fulfill({
-      status: 404,
-      contentType: 'application/json',
-      body: JSON.stringify({ error: 'Not mocked in visual test' }),
-    });
+  await configureVisualClock(page);
+  await installDesktopApiFixture(electronApp, page, {
+    tenant: mockTenant,
+    brand: mockBrand,
+    sessions: mockSessions,
+    platforms: ['shopify', 'gorgias'],
   });
 
   // Wait for Electron API and login
@@ -261,7 +175,9 @@ async function launchWithMocks(): Promise<{ electronApp: ElectronApplication; pa
   if (await loginError.isVisible()) {
     throw new Error(`Login failed: ${await loginError.textContent()}`);
   }
-  await expect(page.getByRole('heading', { name: 'Agent Sessions' })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { level: 1, name: /Good (morning|afternoon|evening)/ })
+  ).toBeVisible();
 
   return { electronApp, page };
 }
@@ -272,14 +188,14 @@ test.describe('Visual Regression Tests', () => {
   let electronApp: ElectronApplication;
   let page: Page;
 
-  test.beforeAll(async () => {
-    const result = await launchWithMocks();
+  test.beforeAll(async ({ desktop }) => {
+    const result = await launchWithMocks(desktop);
     electronApp = result.electronApp;
     page = result.page;
   });
 
   test.afterAll(async () => {
-    await electronApp.close();
+    await electronApp?.close();
   });
 
   test('Login page appearance', async () => {
@@ -310,13 +226,17 @@ test.describe('Visual Regression Tests', () => {
     const signInButton = page.getByRole('button', { name: 'Sign In' });
     await expect(signInButton).toBeEnabled();
     await signInButton.click({ force: true });
-    await expect(page.getByRole('heading', { name: 'Agent Sessions' })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { level: 1, name: /Good (morning|afternoon|evening)/ })
+    ).toBeVisible();
   });
 
   test('Dashboard with agents', async () => {
     // Wait for data to load
-    await page.waitForSelector('[data-testid="session-row"]', { timeout: 10000 }).catch(() => {});
-    await page.waitForTimeout(500);
+    await expect(
+      page.getByRole('list', { name: 'Agent sessions' }).getByRole('listitem')
+    ).toHaveCount(3);
+    await expect(page.getByText('Cannot reach StateSet API', { exact: true })).toHaveCount(0);
 
     await expect(page).toHaveScreenshot('dashboard-with-agents.png', {
       maxDiffPixelRatio: 0.02,
@@ -345,7 +265,7 @@ test.describe('Visual Regression Tests', () => {
     });
 
     // Click a filter button
-    await page.getByRole('button', { name: 'Running', exact: true }).click();
+    await page.getByRole('button', { name: 'Active', exact: true }).click();
     await page.waitForTimeout(200);
 
     await expect(page).toHaveScreenshot('dashboard-filter-running.png', {
@@ -373,7 +293,11 @@ test.describe('Visual Regression Tests', () => {
     await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
 
     // Switch to light theme
-    await page.getByLabel('Theme').selectOption('light');
+    await page
+      .getByRole('navigation', { name: 'Settings sections' })
+      .getByRole('button', { name: 'Appearance', exact: true })
+      .click();
+    await page.getByRole('button', { name: 'Light theme', exact: true }).click();
     await page.waitForTimeout(300);
 
     await expect(page).toHaveScreenshot('settings-light-theme.png', {
@@ -382,7 +306,7 @@ test.describe('Visual Regression Tests', () => {
     });
 
     // Switch back to dark theme
-    await page.getByLabel('Theme').selectOption('dark');
+    await page.getByRole('button', { name: 'Dark theme', exact: true }).click();
     await page.waitForTimeout(300);
   });
 
@@ -400,7 +324,9 @@ test.describe('Visual Regression Tests', () => {
   test('Command palette appearance', async () => {
     // Go back to dashboard
     await page.getByRole('link', { name: 'Dashboard' }).click({ force: true });
-    await expect(page.getByRole('heading', { name: 'Agent Sessions' })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { level: 1, name: /Good (morning|afternoon|evening)/ })
+    ).toBeVisible();
 
     // Open command palette
     await page.keyboard.press('Control+k');
@@ -435,62 +361,18 @@ test.describe('Visual Regression Tests', () => {
 });
 
 test.describe('Responsive Visual Tests', () => {
-  test('Dashboard at different viewport sizes', async () => {
-    const electronApp = await electron.launch({
-      args: electronArgs,
-      env: electronEnv,
-    });
+  test('Dashboard at different viewport sizes', async ({ desktop }) => {
+    const electronApp = await desktop.launch();
 
     try {
       const page = await electronApp.firstWindow();
       await page.waitForURL('http://localhost:5173/**', { timeout: 120000 });
+      await configureVisualClock(page);
 
-      await page.route('**/health/detailed', async (route) => {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({
-            status: 'healthy',
-            version: 'test',
-            checks: {
-              database: { status: 'healthy' },
-              redis: { status: 'healthy' },
-              nats: { status: 'healthy' },
-            },
-            circuit_breakers: {
-              sandbox: 'closed',
-              webhook: 'closed',
-              database: 'closed',
-              external_api: 'closed',
-            },
-            resilience_healthy: true,
-          }),
-        });
-      });
-
-      // Mock API
-      await page.route('**/api/v1/**', async (route) => {
-        const url = route.request().url();
-
-        if (url.includes('/auth/me')) {
-          await route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            body: JSON.stringify({ tenant: mockTenant, brands: [mockBrand] }),
-          });
-          return;
-        }
-
-        if (url.includes('/agents')) {
-          await route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            body: JSON.stringify({ ok: true, sessions: mockSessions }),
-          });
-          return;
-        }
-
-        await route.fulfill({ status: 404 });
+      await installDesktopApiFixture(electronApp, page, {
+        tenant: mockTenant,
+        brand: mockBrand,
+        sessions: mockSessions,
       });
 
       await page.waitForFunction(() => (window as any).electronAPI !== undefined);
@@ -513,7 +395,9 @@ test.describe('Responsive Visual Tests', () => {
       const signInButton = page.getByRole('button', { name: 'Sign In' });
       await expect(signInButton).toBeEnabled();
       await signInButton.click({ force: true });
-      await expect(page.getByRole('heading', { name: 'Agent Sessions' })).toBeVisible();
+      await expect(
+        page.getByRole('heading', { level: 1, name: /Good (morning|afternoon|evening)/ })
+      ).toBeVisible();
 
       // Test different viewport sizes
       const viewports = [
@@ -532,7 +416,7 @@ test.describe('Responsive Visual Tests', () => {
         });
       }
     } finally {
-      await electronApp.close();
+      await electronApp?.close();
     }
   });
 });

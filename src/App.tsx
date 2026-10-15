@@ -8,6 +8,7 @@ import Layout from './components/Layout';
 import { AppLoadingScreen } from './components/AppLoadingScreen';
 import { RouteErrorBoundary } from './components/RouteErrorBoundary';
 import { useBackgroundAgents } from './hooks/useBackgroundAgents';
+import { useComputerChatRecovery } from './hooks/useComputerChatRecovery';
 import { useAuditLogStore } from './stores/auditLog';
 import { MotionConfig } from 'framer-motion';
 import { useDurableWorkflowMonitor } from './hooks/useDurableWorkflowMonitor';
@@ -69,6 +70,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 function AuthenticatedApp() {
+  useComputerChatRecovery();
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [hasCheckedOnboarding, setHasCheckedOnboarding] = useState(false);
   const autoStartAgentsOnLaunch = usePreferencesStore((s) => s.autoStartAgentsOnLaunch);
@@ -125,9 +127,14 @@ function AuthenticatedApp() {
   }
 
   return (
-    <Layout>
+    <Layout
+      banner={
+        <Suspense fallback={null}>
+          <OfflineBanner />
+        </Suspense>
+      }
+    >
       <Suspense fallback={<PageLoader />}>
-        <OfflineBanner />
         <Routes>
           <Route
             path="/"

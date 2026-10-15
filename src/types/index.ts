@@ -208,12 +208,23 @@ export interface WebhookDelivery {
 }
 
 // Chat Playground types
+/** An MCP/agent tool invocation shown inline in a conversation. */
+export interface ChatToolActivity {
+  name: string;
+  status: 'running' | 'success' | 'error';
+  arguments?: Record<string, unknown>;
+  /** Short, already-stringified preview of the tool's result. */
+  resultPreview?: string;
+  durationMs?: number;
+}
+
 export interface ChatMessage {
   id: string;
-  role: 'user' | 'assistant' | 'system';
+  role: 'user' | 'assistant' | 'system' | 'tool';
   content: string;
   timestamp: number;
   durationMs?: number;
+  tool?: ChatToolActivity;
 }
 
 export interface ChatConversation {

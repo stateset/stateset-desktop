@@ -6,6 +6,7 @@ export { DashboardHeader } from './components/DashboardHeader';
 export { BulkActionsBar } from './components/BulkActionsBar';
 export { SessionList } from './components/SessionList';
 export { FleetOverview } from './components/FleetOverview';
+export { McpServersOverview } from './components/McpServersOverview';
 export { ShortcutsHint } from './components/ShortcutsHint';
 export { RecentActivityTimeline } from './components/RecentActivityTimeline';
 

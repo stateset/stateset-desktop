@@ -2,6 +2,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useSessionFilters } from './useSessionFilters';
+import { useSessionSelection } from './useSessionSelection';
 import { usePreferencesStore } from '../../../stores/preferences';
 import { makeSession } from '../testing/fixtures';
 import type { AgentSession } from '../../../types';
@@ -119,6 +120,51 @@ describe('useSessionFilters', () => {
 
     rerender({ sessions: sessions.slice(0, 5) });
     expect(result.current.currentPage).toBe(1);
+  });
+
+  it('resets pagination and bulk selection when tags change or are cleared', () => {
+    const sessions = Array.from({ length: 30 }, (_, i) =>
+      makeSession({ tags: [i < 25 ? 'prod' : 'dev'] })
+    );
+    const { result } = renderHook(() => {
+      const selection = useSessionSelection();
+      const filters = useSessionFilters(sessions, { onFilterChange: selection.clearSelection });
+      return { selection, filters };
+    });
+
+    act(() => {
+      result.current.filters.setCurrentPage(3);
+      result.current.selection.toggleSelect(sessions[29].id);
+    });
+    expect(result.current.selection.selectedIds.has(sessions[29].id)).toBe(true);
+
+    act(() => result.current.filters.toggleTag('prod'));
+    // Three pages still exist, so this must reset rather than only clamp the page.
+    expect(result.current.filters.totalPages).toBe(3);
+    expect(result.current.filters.currentPage).toBe(1);
+    expect(result.current.selection.selectedIds.size).toBe(0);
+    expect(result.current.filters.paginatedSessions[0].id).toBe(sessions[0].id);
+
+    act(() => {
+      result.current.filters.setCurrentPage(2);
+      result.current.selection.toggleSelect(sessions[10].id);
+    });
+    act(() => result.current.filters.clearTags());
+    expect(result.current.filters.currentPage).toBe(1);
+    expect(result.current.selection.selectedIds.size).toBe(0);
+    expect(result.current.filters.filteredSessions).toHaveLength(30);
+  });
+
+  it('searches custom names after debounce and leaves whitespace unfiltered', () => {
+    const sessions = [makeSession({ name: 'Billing triage' }), makeSession({ name: null })];
+    const { result } = renderFilters(sessions);
+    act(() => result.current.setSearchQuery('  TRIAGE  '));
+    act(() => vi.advanceTimersByTime(300));
+    expect(result.current.filteredSessions.map((session) => session.id)).toEqual([sessions[0].id]);
+    act(() => result.current.setSearchQuery('   '));
+    act(() => vi.advanceTimersByTime(300));
+    expect(result.current.filteredSessions).toHaveLength(2);
+    expect(result.current.hasActiveFilters).toBe(false);
   });
 
   it('clearFilters resets search, status, and tags', () => {

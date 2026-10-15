@@ -1,4 +1,3 @@
-import { useState, useRef, useEffect } from 'react';
 import {
   Search,
   X,
@@ -15,6 +14,7 @@ import clsx from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TagFilter } from '../../../components/TagBadge';
 import { Spinner } from '../../../components/Spinner';
+import { usePopupNavigation } from '../../../hooks/usePopupNavigation';
 import { STATUS_FILTERS, type StatusFilter } from '../utils/sessionFilters';
 
 interface DashboardToolbarProps {
@@ -72,29 +72,7 @@ export function DashboardToolbar({
   onExportCSV,
   onExportMetrics,
 }: DashboardToolbarProps) {
-  const [showExportMenu, setShowExportMenu] = useState(false);
-  const exportMenuRef = useRef<HTMLDivElement>(null);
-
-  // Close export menu on click outside or Escape
-  useEffect(() => {
-    if (!showExportMenu) return;
-    function handleClick(e: MouseEvent) {
-      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
-        setShowExportMenu(false);
-      }
-    }
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') {
-        setShowExportMenu(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClick);
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('mousedown', handleClick);
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [showExportMenu]);
+  const exportMenu = usePopupNavigation('menu');
 
   return (
     <div className="px-5 py-4 border-b border-slate-700/40 bg-slate-900/50 space-y-3">
@@ -149,13 +127,10 @@ export function DashboardToolbar({
               onClick={() => onStatusFilterChange(filter)}
               aria-pressed={statusFilter === filter}
               className={clsx(
-                'px-3 py-1.5 text-[11px] font-bold tracking-wide rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40',
-                statusFilter === filter
-                  ? 'bg-slate-700/80 text-white shadow-sm'
-                  : 'text-gray-500 hover:text-gray-300 hover:bg-slate-800/60'
+                'ui-segment px-3 py-1.5 text-xs font-medium rounded-lg transition-colors'
               )}
             >
-              {filter.charAt(0).toUpperCase() + filter.slice(1)}
+              {filter === 'running' ? 'Active' : filter.charAt(0).toUpperCase() + filter.slice(1)}
             </button>
           ))}
         </div>
@@ -197,7 +172,7 @@ export function DashboardToolbar({
           type="button"
           onClick={onStartAll}
           disabled={stoppedCount === 0 || isStartingAll}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg border border-emerald-500/20 text-xs font-bold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/50"
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 ui-positive disabled:opacity-40 disabled:cursor-not-allowed rounded-lg border border-emerald-500/20 text-xs font-bold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/50"
         >
           {isStartingAll ? (
             <Spinner size="md" color="border-t-emerald-400" />
@@ -214,7 +189,7 @@ export function DashboardToolbar({
           type="button"
           onClick={onStopAll}
           disabled={runningCount === 0 || isStoppingAll}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg border border-rose-500/20 text-xs font-bold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/50"
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 ui-negative disabled:opacity-40 disabled:cursor-not-allowed rounded-lg border border-rose-500/20 text-xs font-bold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/50"
         >
           {isStoppingAll ? (
             <Spinner size="md" color="border-t-rose-400" />
@@ -229,7 +204,7 @@ export function DashboardToolbar({
           type="button"
           onClick={onDeleteStopped}
           disabled={stoppedCount === 0 || isDeletingStopped}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800/40 hover:bg-slate-800/60 text-gray-400 hover:text-rose-400 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg border border-slate-700/40 text-xs font-bold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/40"
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800/40 hover:bg-slate-800/60 text-gray-400 hover:ui-negative disabled:opacity-40 disabled:cursor-not-allowed rounded-lg border border-slate-700/40 text-xs font-bold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/40"
         >
           {isDeletingStopped ? (
             <Spinner size="md" color="border-t-gray-400" />
@@ -240,73 +215,68 @@ export function DashboardToolbar({
         </button>
 
         {/* Export dropdown */}
-        <div className="relative ml-auto" ref={exportMenuRef}>
+        <div className="relative ml-auto" {...exportMenu.containerProps}>
           <button
             type="button"
-            onClick={() => setShowExportMenu(!showExportMenu)}
+            {...exportMenu.triggerProps}
             disabled={sessionsCount === 0}
-            aria-haspopup="menu"
-            aria-expanded={showExportMenu}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800/40 hover:bg-slate-800/60 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg border border-slate-700/40 text-xs font-bold text-gray-400 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
           >
             <Download className="w-3.5 h-3.5" aria-hidden="true" />
             Export
             <ChevronDown
-              className={clsx('w-3 h-3 transition-transform', showExportMenu && 'rotate-180')}
+              className={clsx('w-3 h-3 transition-transform', exportMenu.isOpen && 'rotate-180')}
               aria-hidden="true"
             />
           </button>
-          <AnimatePresence>
-            {showExportMenu && (
-              <motion.div
-                initial={{ opacity: 0, y: -4, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -4, scale: 0.95 }}
-                transition={{ duration: 0.12 }}
-                role="menu"
-                aria-label="Export options"
-                className="absolute right-0 top-full mt-1 w-44 bg-slate-800 border border-slate-700/60 rounded-xl shadow-xl overflow-hidden z-20"
+          {exportMenu.isOpen && (
+            <div
+              {...exportMenu.popupProps}
+              aria-label="Export options"
+              className="ui-popup absolute right-0 top-full mt-1 w-48 rounded-lg p-1 z-20"
+            >
+              <button
+                type="button"
+                role="menuitem"
+                tabIndex={-1}
+                onClick={() => {
+                  onExportJSON();
+                  exportMenu.close(true);
+                }}
+                className="ui-popup-item w-full flex items-center gap-2.5 px-3 py-2 text-sm rounded-md text-left"
               >
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    onExportJSON();
-                    setShowExportMenu(false);
-                  }}
-                  className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm font-medium text-gray-300 hover:bg-slate-700/60 hover:text-white transition-colors text-left"
-                >
-                  <FileJson className="w-4 h-4 text-gray-500" aria-hidden="true" />
-                  JSON
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    onExportCSV();
-                    setShowExportMenu(false);
-                  }}
-                  className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm font-medium text-gray-300 hover:bg-slate-700/60 hover:text-white transition-colors text-left"
-                >
-                  <FileSpreadsheet className="w-4 h-4 text-gray-500" aria-hidden="true" />
-                  CSV
-                </button>
-                <div className="border-t border-slate-700/50" />
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    onExportMetrics();
-                    setShowExportMenu(false);
-                  }}
-                  className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm font-medium text-gray-300 hover:bg-slate-700/60 hover:text-white transition-colors text-left"
-                >
-                  <BarChart3 className="w-4 h-4 text-gray-500" aria-hidden="true" />
-                  Metrics Summary
-                </button>
-              </motion.div>
-            )}
-          </AnimatePresence>
+                <FileJson className="w-4 h-4 text-gray-500" aria-hidden="true" />
+                JSON
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                tabIndex={-1}
+                onClick={() => {
+                  onExportCSV();
+                  exportMenu.close(true);
+                }}
+                className="ui-popup-item w-full flex items-center gap-2.5 px-3 py-2 text-sm rounded-md text-left"
+              >
+                <FileSpreadsheet className="w-4 h-4 text-gray-500" aria-hidden="true" />
+                CSV
+              </button>
+              <div role="separator" className="ui-popup-separator my-1" />
+              <button
+                type="button"
+                role="menuitem"
+                tabIndex={-1}
+                onClick={() => {
+                  onExportMetrics();
+                  exportMenu.close(true);
+                }}
+                className="ui-popup-item w-full flex items-center gap-2.5 px-3 py-2 text-sm rounded-md text-left"
+              >
+                <BarChart3 className="w-4 h-4 text-gray-500" aria-hidden="true" />
+                Metrics Summary
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

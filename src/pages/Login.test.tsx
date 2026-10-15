@@ -1,6 +1,6 @@
 /** @vitest-environment happy-dom */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, fireEvent, waitFor } from '@testing-library/react';
+import { screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { renderWithProviders, mockElectronAPI } from '../test-utils';
 
 // --- Mocks ---
@@ -70,6 +70,21 @@ describe('Login page', () => {
 
     // Actual placeholder: "sk-..."
     expect(screen.getByPlaceholderText('sk-...')).toBeInTheDocument();
+    await waitForLoginEffects();
+  });
+
+  it('names the sign-in choices and exposes the active method', async () => {
+    const Login = await loadLogin();
+    renderWithProviders(<Login />);
+    const methods = within(screen.getByRole('group', { name: 'Sign-in method' }));
+    const email = methods.getByRole('button', { name: 'Email' });
+    const apiKey = methods.getByRole('button', { name: 'API Key' });
+    expect(email).toHaveAttribute('aria-pressed', 'true');
+    expect(apiKey).toHaveAttribute('aria-pressed', 'false');
+    fireEvent.click(apiKey);
+    expect(email).toHaveAttribute('aria-pressed', 'false');
+    expect(apiKey).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByLabelText('API Key')).toHaveFocus();
     await waitForLoginEffects();
   });
 

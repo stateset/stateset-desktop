@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../../../stores/auth';
 import { agentApi } from '../../../lib/api';
@@ -37,6 +37,8 @@ export function useSessionActions({
   const [isStoppingAll, setIsStoppingAll] = useState(false);
   const [isDeletingStopped, setIsDeletingStopped] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isBulkActing, setIsBulkActing] = useState(false);
+  const bulkInFlight = useRef(false);
 
   // Start session mutation with optimistic update
   const startSession = useOptimisticSessionMutation({
@@ -143,41 +145,57 @@ export function useSessionActions({
     }
   };
 
-  const handleBulkStart = useCallback(async () => {
-    const toStart = getStartableSelection(sessions, selectedIds);
-    for (const s of toStart) {
+  const runBulkAction = useCallback(
+    async (action: 'start' | 'stop') => {
+      if (bulkInFlight.current) return;
+      const targets =
+        action === 'start'
+          ? getStartableSelection(sessions, selectedIds)
+          : getStoppableSelection(sessions, selectedIds);
+      if (targets.length === 0) return;
+      bulkInFlight.current = true;
+      setIsBulkActing(true);
+      let succeeded = 0;
       try {
-        await agentApi.startSession(requireTenantId(tenant), requireBrandId(currentBrand), s.id);
-      } catch {
-        /* continue */
+        for (const session of targets) {
+          try {
+            const operation = action === 'start' ? agentApi.startSession : agentApi.stopSession;
+            await operation(requireTenantId(tenant), requireBrandId(currentBrand), session.id);
+          } catch {
+            continue;
+          }
+          succeeded++;
+          useAuditLogStore
+            .getState()
+            .log(
+              action === 'start' ? 'agent.started' : 'agent.stopped',
+              `${action === 'start' ? 'Started' : 'Stopped'} agent "${session.name || session.id}"`,
+              { sessionId: session.id }
+            );
+        }
+        const failed = targets.length - succeeded;
+        const verb = action === 'start' ? 'started' : 'stopped';
+        queryClient.invalidateQueries({ queryKey: queryKeys.sessions.all });
+        clearSelection();
+        showToast({
+          variant: failed === 0 ? 'success' : succeeded === 0 ? 'error' : 'warning',
+          title:
+            failed === 0 ? (action === 'start' ? 'Started' : 'Stopped') : 'Bulk action incomplete',
+          message:
+            failed === 0
+              ? `${succeeded} agent(s) ${verb}.`
+              : `${succeeded} ${verb}; ${failed} failed to ${action}.`,
+        });
+      } finally {
+        bulkInFlight.current = false;
+        setIsBulkActing(false);
       }
-    }
-    queryClient.invalidateQueries({ queryKey: queryKeys.sessions.all });
-    clearSelection();
-    showToast({
-      variant: 'success',
-      title: 'Started',
-      message: `${toStart.length} agent(s) started.`,
-    });
-  }, [selectedIds, sessions, tenant, currentBrand, queryClient, clearSelection, showToast]);
+    },
+    [selectedIds, sessions, tenant, currentBrand, queryClient, clearSelection, showToast]
+  );
 
-  const handleBulkStop = useCallback(async () => {
-    const toStop = getStoppableSelection(sessions, selectedIds);
-    for (const s of toStop) {
-      try {
-        await agentApi.stopSession(requireTenantId(tenant), requireBrandId(currentBrand), s.id);
-      } catch {
-        /* continue */
-      }
-    }
-    queryClient.invalidateQueries({ queryKey: queryKeys.sessions.all });
-    clearSelection();
-    showToast({
-      variant: 'success',
-      title: 'Stopped',
-      message: `${toStop.length} agent(s) stopped.`,
-    });
-  }, [selectedIds, sessions, tenant, currentBrand, queryClient, clearSelection, showToast]);
+  const handleBulkStart = useCallback(() => runBulkAction('start'), [runBulkAction]);
+  const handleBulkStop = useCallback(() => runBulkAction('stop'), [runBulkAction]);
 
   const handleRename = useCallback(
     async (id: string, name: string) => {
@@ -212,6 +230,7 @@ export function useSessionActions({
     isStartingAll,
     isStoppingAll,
     isDeletingStopped,
+    isBulkActing,
     showDeleteConfirm,
     setShowDeleteConfirm,
     handleStartAll,

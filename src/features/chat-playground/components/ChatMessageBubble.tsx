@@ -14,10 +14,15 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
   const senderLabel = isUser ? 'You' : isSystem ? 'System' : 'Assistant';
 
   return (
-    <div className={clsx('flex gap-3 animate-fade-in', isUser ? 'flex-row-reverse' : 'flex-row')}>
+    <div
+      className={clsx(
+        'chat-message flex gap-3 animate-fade-in',
+        isUser ? 'flex-row-reverse' : 'flex-row'
+      )}
+    >
       <div
         className={clsx(
-          'w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0',
+          'chat-message-avatar w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0',
           isUser
             ? 'bg-brand-600'
             : isSystem

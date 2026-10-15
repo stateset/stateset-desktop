@@ -1,0 +1,25 @@
+name: Computer chat service reliability
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    environment: computer-chat-test
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Exercise real workflow, sandbox and policy services
+        run: node scripts/computer-chat-live.mjs
+        env:
+          CHAT_TEST_ENGINE_URL: ${{ vars.CHAT_TEST_ENGINE_URL }}
+          CHAT_TEST_ENGINE_KEY: ${{ secrets.CHAT_TEST_ENGINE_KEY }}
+          CHAT_TEST_TENANT_ID: ${{ vars.CHAT_TEST_TENANT_ID }}
+          CHAT_TEST_BRAND_ID: ${{ vars.CHAT_TEST_BRAND_ID }}
+          CHAT_TEST_NSR_URL: ${{ vars.CHAT_TEST_NSR_URL }}
+          CHAT_TEST_NSR_KEY: ${{ secrets.CHAT_TEST_NSR_KEY }}
+          CHAT_TEST_MODEL: ${{ vars.CHAT_TEST_MODEL }}

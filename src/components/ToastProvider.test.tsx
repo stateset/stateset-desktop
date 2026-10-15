@@ -1,6 +1,7 @@
 /** @vitest-environment happy-dom */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, act, fireEvent } from '@testing-library/react';
+import { StrictMode } from 'react';
 import { ToastProvider, useToast } from './ToastProvider';
 
 // Mock framer-motion to render children without animation so toasts
@@ -33,21 +34,24 @@ function filterDomProps(props: Record<string, unknown>): Record<string, unknown>
 
 type ToastApi = ReturnType<typeof useToast>;
 
-function setup() {
+function setup(strict = false) {
   const api: { current: ToastApi | null } = { current: null };
 
+  const renders = vi.fn();
   function CaptureApi() {
+    renders();
     api.current = useToast();
     return null;
   }
 
-  const utils = render(
+  const content = (
     <ToastProvider>
       <CaptureApi />
     </ToastProvider>
   );
+  const utils = render(strict ? <StrictMode>{content}</StrictMode> : content);
 
-  return { api, ...utils };
+  return { api, renders, ...utils };
 }
 
 describe('ToastProvider', () => {
@@ -184,6 +188,112 @@ describe('ToastProvider', () => {
     expect(screen.getByText('Toast 2')).toBeInTheDocument();
     expect(screen.getByText('Toast 6')).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: 'Dismiss notification' })).toHaveLength(5);
+  });
+
+  it('retains the exact remaining lifetime across repeated long hover pauses', () => {
+    const { api } = setup();
+    act(() => {
+      api.current!.showToast({ message: 'Read this', durationMs: 5000 });
+    });
+    const toast = screen.getByRole('status');
+    act(() => {
+      vi.advanceTimersByTime(1001);
+    });
+    fireEvent.mouseEnter(toast);
+    act(() => {
+      vi.advanceTimersByTime(60_000);
+    });
+    expect(screen.getByText('Read this')).toBeInTheDocument();
+    fireEvent.mouseLeave(toast);
+    act(() => {
+      vi.advanceTimersByTime(2000);
+    });
+    fireEvent.mouseEnter(toast);
+    act(() => {
+      vi.advanceTimersByTime(60_000);
+    });
+    fireEvent.mouseLeave(toast);
+    act(() => {
+      vi.advanceTimersByTime(1998);
+    });
+    expect(screen.getByText('Read this')).toBeInTheDocument();
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
+    expect(screen.queryByText('Read this')).not.toBeInTheDocument();
+  });
+
+  it('keeps action controls available until both keyboard focus and hover leave', () => {
+    const { api } = setup();
+    act(() => {
+      api.current!.showToast({
+        message: 'Deleted',
+        actionLabel: 'Undo',
+        onAction: vi.fn(),
+        durationMs: 5000,
+      });
+    });
+    const toast = screen.getByRole('status');
+    const undo = screen.getByRole('button', { name: 'Undo' });
+    const dismiss = screen.getByRole('button', { name: 'Dismiss notification' });
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    fireEvent.mouseEnter(toast);
+    act(() => {
+      undo.focus();
+    });
+    fireEvent.mouseLeave(toast);
+    act(() => {
+      vi.advanceTimersByTime(20_000);
+    });
+    expect(undo).toBeInTheDocument();
+    act(() => {
+      dismiss.focus();
+    });
+    act(() => {
+      vi.advanceTimersByTime(20_000);
+    });
+    expect(dismiss).toBeInTheDocument();
+    fireEvent.blur(dismiss, { relatedTarget: document.body });
+    act(() => {
+      vi.advanceTimersByTime(3999);
+    });
+    expect(screen.getByText('Deleted')).toBeInTheDocument();
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
+    expect(screen.queryByText('Deleted')).not.toBeInTheDocument();
+  });
+
+  it('keeps unrelated toast consumers from rerendering on progress updates', () => {
+    const { api, renders } = setup();
+    act(() => {
+      api.current!.showToast({ message: 'Counting down', durationMs: 5000 });
+    });
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(screen.getByText('Counting down')).toBeVisible();
+    expect(renders).toHaveBeenCalledOnce();
+  });
+
+  it('cleans evicted, dismissed and unmounted timers in Strict Mode', () => {
+    const { api, unmount } = setup(true);
+    act(() => {
+      for (let index = 0; index < 8; index++) api.current!.showToast({ message: `Timed ${index}` });
+    });
+    expect(screen.getAllByRole('status')).toHaveLength(5);
+    expect(vi.getTimerCount()).toBe(10);
+    act(() => {
+      api.current!.dismissAll();
+    });
+    expect(vi.getTimerCount()).toBe(0);
+    act(() => {
+      api.current!.showToast({ message: 'Unmount me' });
+    });
+    unmount();
+    expect(vi.getTimerCount()).toBe(0);
   });
 
   it('useToast throws when used outside the provider', () => {

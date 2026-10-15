@@ -7,7 +7,7 @@ import type { AgentSession } from '../../../types';
 
 interface UseSessionFiltersOptions {
   /**
-   * Called whenever the search query, status filter, or page size changes
+   * Called whenever the search query, status filter, tags, or page size changes
    * (i.e. whenever the visible result set is reset to page 1). The Dashboard
    * uses this to clear the bulk selection.
    */
@@ -72,7 +72,7 @@ export function useSessionFilters(
   useEffect(() => {
     setCurrentPage(1);
     onFilterChangeRef.current?.();
-  }, [debouncedSearch, statusFilter, pageSize]);
+  }, [debouncedSearch, statusFilter, selectedTags, pageSize]);
 
   // Clamp current page when the total page count shrinks
   useEffect(() => {
@@ -94,7 +94,8 @@ export function useSessionFilters(
     [setPageSize]
   );
 
-  const hasActiveFilters = searchQuery !== '' || statusFilter !== 'all' || selectedTags.size > 0;
+  const hasActiveFilters =
+    searchQuery.trim() !== '' || statusFilter !== 'all' || selectedTags.size > 0;
 
   return {
     searchQuery,

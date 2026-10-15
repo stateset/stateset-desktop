@@ -1,23 +1,22 @@
-const withBrandOpacity = (cssVariable) => ({ opacityValue }) => {
-  if (opacityValue === undefined) {
-    return `var(${cssVariable})`;
-  }
+const withBrandOpacity =
+  (cssVariable) =>
+  ({ opacityValue }) => {
+    if (opacityValue === undefined) {
+      return `var(${cssVariable})`;
+    }
 
-  const parsed = Number(opacityValue);
-  if (Number.isNaN(parsed)) {
-    return `var(${cssVariable})`;
-  }
+    const parsed = Number(opacityValue);
+    if (Number.isNaN(parsed)) {
+      return `var(${cssVariable})`;
+    }
 
-  const opacity = Math.max(0, Math.min(1, parsed));
-  return `color-mix(in srgb, var(${cssVariable}) ${opacity * 100}%, transparent)`;
-};
+    const opacity = Math.max(0, Math.min(1, parsed));
+    return `color-mix(in srgb, var(${cssVariable}) ${opacity * 100}%, transparent)`;
+  };
 
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  content: [
-    "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
-  ],
+  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   darkMode: 'class',
   theme: {
     extend: {
@@ -37,8 +36,8 @@ module.exports = {
         },
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-        mono: ['JetBrains Mono', 'Menlo', 'monospace'],
+        sans: ['system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'sans-serif'],
+        mono: ['ui-monospace', 'SFMono-Regular', 'Consolas', '"Liberation Mono"', 'monospace'],
       },
       keyframes: {
         float: {
@@ -57,9 +56,9 @@ module.exports = {
       animation: {
         'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
         'spin-slow': 'spin 2s linear infinite',
-        'float': 'float 3s ease-in-out infinite',
+        float: 'float 3s ease-in-out infinite',
         'glow-pulse': 'glow-pulse 2s ease-in-out infinite',
-        'breathe': 'breathe 6s ease-in-out infinite',
+        breathe: 'breathe 6s ease-in-out infinite',
       },
     },
   },

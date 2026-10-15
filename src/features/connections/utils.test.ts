@@ -14,6 +14,7 @@ import {
 import { PLATFORMS } from './platforms';
 import type { Platform } from './platforms';
 import { CUSTOM_MCP_FIELDS } from './types';
+import { STATESET_HTTP_MCP_SERVERS } from './statesetMcpServers';
 
 describe('isBuiltInPlatform', () => {
   it('returns true for built-in platform ids', () => {
@@ -23,6 +24,16 @@ describe('isBuiltInPlatform', () => {
     expect(isBuiltInPlatform('recharge')).toBe(true);
     expect(isBuiltInPlatform('klaviyo')).toBe(true);
     expect(isBuiltInPlatform('shipstation')).toBe(true);
+  });
+
+  it('returns true for hosted StateSet MCP servers', () => {
+    expect(isBuiltInPlatform('stateset-response')).toBe(true);
+    expect(isBuiltInPlatform('stateset-engine')).toBe(true);
+    expect(isBuiltInPlatform('stateset-sync')).toBe(true);
+  });
+
+  it('returns false for local-only StateSet MCP servers', () => {
+    expect(isBuiltInPlatform('stateset-nsr')).toBe(false);
   });
 
   it('returns false for unknown platform ids', () => {
@@ -219,6 +230,12 @@ describe('getPlatformConfig', () => {
     expect(config.id).toBe('shopify');
     expect(config.name).toBe('Shopify');
     expect(config).toBe(PLATFORMS.find((p) => p.id === 'shopify'));
+  });
+
+  it('returns the catalog entry for a hosted StateSet MCP server', () => {
+    const config = getPlatformConfig('stateset-sync');
+    expect(config).toBe(STATESET_HTTP_MCP_SERVERS.find((s) => s.id === 'stateset-sync'));
+    expect(config.name).toBe('StateSet Sync');
   });
 
   it('creates custom config for unknown platform', () => {
