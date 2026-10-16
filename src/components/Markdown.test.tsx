@@ -1,6 +1,6 @@
 /** @vitest-environment happy-dom */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { Markdown } from './Markdown';
 
 // Mock the lazily-loaded syntax highlighter so code block tests are deterministic
@@ -99,7 +99,8 @@ describe('Markdown', () => {
 
   it('renders fenced code blocks with a language badge and copy button', async () => {
     render(<Markdown content={'```js\nconst x = 1;\n```'} />);
-    expect(await screen.findByText('const x = 1;')).toBeInTheDocument();
+    // Loading the highlighter replaces the initial plain-text code node.
+    await waitFor(() => expect(screen.getByText('const x = 1;')).toBeInTheDocument());
     expect(screen.getByText('js')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Copy code' })).toBeInTheDocument();
   });

@@ -235,7 +235,7 @@ export const DashboardSessionRow = memo(function DashboardSessionRow({
             onRename ? 'pr-44' : 'pr-36'
           )}
           onClick={handleClick}
-          aria-label={`${sessionTitle}, status: ${config.label}, ${session.metrics.loop_count} loops, ${session.metrics.tokens_used} tokens`}
+          title={`Open ${sessionTitle}`}
         >
           {/* Agent icon with status color */}
           <div className="relative flex-shrink-0">
@@ -293,6 +293,7 @@ export const DashboardSessionRow = memo(function DashboardSessionRow({
               >
                 {sessionTitle}
               </span>
+              {isRenaming && <span className="sr-only">{sessionTitle}</span>}{' '}
               <span
                 className={clsx(
                   'session-status inline-flex items-center gap-1 px-2 py-0.5 text-[10px] uppercase tracking-widest font-bold rounded-md border backdrop-blur-sm',
@@ -333,14 +334,17 @@ export const DashboardSessionRow = memo(function DashboardSessionRow({
                 <Hash className="w-3 h-3" aria-hidden="true" />
                 {session.metrics.loop_count}
                 {loopProgress !== null && <span className="text-gray-600">/ {maxIter}</span>}
+                <span className="sr-only"> loops</span>
               </span>
               <span className="inline-flex items-center gap-1">
                 <Wrench className="w-3 h-3" aria-hidden="true" />
                 {session.metrics.tool_calls}
+                <span className="sr-only"> tool calls</span>
               </span>
               <span className="inline-flex items-center gap-1">
                 <Coins className="w-3 h-3" aria-hidden="true" />
                 {formatCompactNumber(session.metrics.tokens_used)}
+                <span className="sr-only"> tokens</span>
               </span>
               {session.metrics.estimated_cost_cents != null &&
                 session.metrics.estimated_cost_cents > 0 && (

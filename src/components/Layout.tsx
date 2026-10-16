@@ -267,6 +267,11 @@ export default function Layout({ children, banner }: LayoutProps) {
   const enabledBrands = useMemo(() => brands.filter((brand) => brand.enabled), [brands]);
   const disabledBrands = useMemo(() => brands.filter((brand) => !brand.enabled), [brands]);
   const hasEnabledBrands = enabledBrands.length > 0;
+  const visibleBrandName =
+    currentBrand?.name || (hasEnabledBrands ? 'Select Brand' : 'No Active Brands');
+  const brandTriggerName = sidebarCollapsed
+    ? currentBrand?.name || 'None selected'
+    : [tenant?.name, visibleBrandName].filter(Boolean).join(' ');
 
   const pageTitle = useMemo(() => {
     const exactMatch = navItems.find((item) => item.to === location.pathname);
@@ -326,7 +331,7 @@ export default function Layout({ children, banner }: LayoutProps) {
             <button
               type="button"
               {...brandMenu.triggerProps}
-              aria-label={`Select brand. Current: ${currentBrand?.name || 'None selected'}`}
+              aria-label={`Select brand. Current: ${brandTriggerName}`}
               title={sidebarCollapsed ? currentBrand?.name || 'Select Brand' : undefined}
               className={clsx(
                 'ui-workspace-trigger flex items-center rounded-lg transition-colors',
@@ -344,10 +349,9 @@ export default function Layout({ children, banner }: LayoutProps) {
                   <span className="flex min-w-0 flex-col items-start gap-0.5">
                     <span className="text-[11px] text-gray-500 leading-none truncate max-w-full">
                       {tenant?.name}
-                    </span>
+                    </span>{' '}
                     <span className="text-sm font-medium truncate max-w-full">
-                      {currentBrand?.name ||
-                        (hasEnabledBrands ? 'Select Brand' : 'No Active Brands')}
+                      {visibleBrandName}
                     </span>
                   </span>
                   <ChevronDown
@@ -543,7 +547,7 @@ export default function Layout({ children, banner }: LayoutProps) {
               onClick={openCommandPalette}
               className="group flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs text-gray-400 hover:text-gray-200 hover:bg-slate-800/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
               title="Command palette (Ctrl/Cmd+K)"
-              aria-label="Open command palette"
+              aria-label="Commands ⌘K"
             >
               <Command className="w-3.5 h-3.5" aria-hidden="true" />
               <span className="hidden lg:inline">Commands</span>

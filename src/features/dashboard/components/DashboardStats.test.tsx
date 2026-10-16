@@ -187,7 +187,7 @@ describe('DashboardStats', () => {
     render(
       <DashboardStats sessions={[makeSession()]} activeFilter="running" onStatClick={onStatClick} />
     );
-    const card = screen.getByRole('button', { name: /Active: 1/ });
+    const card = screen.getByRole('button', { name: /^Active.*1.*total/ });
     expect(card).toHaveAttribute('aria-pressed', 'true');
     fireEvent.keyDown(card, { key: 'Enter' });
     fireEvent.keyDown(card, { key: ' ' });

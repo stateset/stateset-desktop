@@ -201,7 +201,7 @@ export const DashboardStats = memo(function DashboardStats({
             key={card.key}
             role={isClickable ? 'button' : 'group'}
             tabIndex={isClickable ? 0 : undefined}
-            title={card.tooltip}
+            title={isClickable && isActive ? 'Clear active agent filter' : card.tooltip}
             onClick={isClickable ? () => onStatClick('running') : undefined}
             onKeyDown={
               isClickable
@@ -214,11 +214,7 @@ export const DashboardStats = memo(function DashboardStats({
                 : undefined
             }
             aria-pressed={isClickable ? isActive : undefined}
-            aria-label={
-              isClickable
-                ? `${card.label}: ${card.value}. Click to ${isActive ? 'clear' : 'filter by running or paused'}`
-                : `${card.label}: ${card.value.toLocaleString()}`
-            }
+            aria-label={isClickable ? undefined : `${card.label}: ${card.value.toLocaleString()}`}
             className={clsx(
               'dashboard-stat rounded-xl border p-5 transition-colors',
               isClickable && 'cursor-pointer'

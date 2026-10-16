@@ -66,7 +66,7 @@ describe('DashboardHeader', () => {
 
   it('fires the action callbacks', () => {
     const props = renderHeader();
-    fireEvent.click(screen.getByLabelText('Open command palette'));
+    fireEvent.click(screen.getByRole('button', { name: 'Commands ⌘K' }));
     fireEvent.click(screen.getByLabelText('Refresh sessions'));
     fireEvent.click(screen.getByLabelText('Create new agent'));
     expect(props.onOpenCommandPalette).toHaveBeenCalled();

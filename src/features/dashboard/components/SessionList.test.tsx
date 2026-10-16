@@ -82,7 +82,7 @@ describe('SessionList', () => {
 
   it('navigates when a row is clicked', () => {
     const props = renderList();
-    fireEvent.click(screen.getByRole('button', { name: /Alpha Agent, status: Running/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Alpha Agent.*Running/ }));
     expect(props.onRowClick).toHaveBeenCalledWith('sess-a');
   });
 
@@ -93,7 +93,7 @@ describe('SessionList', () => {
     expect(props.onRowClick).not.toHaveBeenCalled();
     expect(
       screen
-        .getByRole('button', { name: /Alpha Agent, status: Running/ })
+        .getByRole('button', { name: /^Alpha Agent.*Running/ })
         .contains(screen.getByLabelText('Select Alpha Agent'))
     ).toBe(false);
   });
@@ -102,7 +102,7 @@ describe('SessionList', () => {
     const props = renderList();
     fireEvent.click(screen.getByRole('button', { name: 'Rename Alpha Agent' }));
     const input = screen.getByRole('textbox', { name: 'Rename session' });
-    const row = screen.getByRole('button', { name: /Alpha Agent, status: Running/ });
+    const row = screen.getByRole('button', { name: /^Alpha Agent.*Running/ });
     expect(input).toHaveFocus();
     expect(row.contains(input)).toBe(false);
     fireEvent.change(input, { target: { value: 'Priority Agent' } });
@@ -119,7 +119,7 @@ describe('SessionList', () => {
     fireEvent.change(input, { target: { value: 'Discard this name' } });
     fireEvent.keyDown(input, { key: 'Escape' });
     expect(props.onRename).not.toHaveBeenCalled();
-    expect(screen.getByRole('button', { name: /Alpha Agent, status: Running/ })).toHaveFocus();
+    expect(screen.getByRole('button', { name: /^Alpha Agent.*Running/ })).toHaveFocus();
     expect(screen.queryByRole('textbox', { name: 'Rename session' })).not.toBeInTheDocument();
   });
 
@@ -154,6 +154,6 @@ describe('SessionList', () => {
     expect(screen.getByRole('button', { name: 'Stop agent' })).toBeDisabled();
     expect(screen.getByRole('checkbox', { name: 'Select Alpha Agent' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Rename Alpha Agent' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: /^Alpha Agent, status:/ })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /^Alpha Agent/ })).toBeEnabled();
   });
 });

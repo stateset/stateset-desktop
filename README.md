@@ -81,7 +81,8 @@ Example: clicking **Start** for a stopped agent on Dashboard.
 ### Prerequisites
 
 - Node.js 22.12+ (see `.nvmrc`)
-- npm or yarn
+- npm (use the committed lockfile with `npm ci`)
+- Packaged desktop: macOS 12+, Windows 10+, or a supported 64-bit Linux desktop
 
 ### Setup
 
@@ -95,7 +96,7 @@ cd stateset-desktop
 2. Install dependencies:
 
 ```bash
-npm install
+npm ci
 ```
 
 3. Create environment file:
@@ -109,6 +110,11 @@ cp .env.example .env
 ```
 VITE_API_URL=https://engine.stateset.cloud.stateset.app
 ```
+
+The app uses Electron 42. Its binary is downloaded explicitly by `npm run setup:electron`;
+`npm run build:electron` runs that setup automatically before compilation. Run setup
+while network access is available if the next launch or native test must work offline.
+On macOS, native notifications require a signed application.
 
 ### Running in Development
 

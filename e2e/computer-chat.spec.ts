@@ -6,6 +6,7 @@ import type { AddressInfo } from 'node:net';
 import type { ElectronApplication, Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { test, expect, requireDesktopDisplay } from './desktop';
+import { DESKTOP_TEST_ORIGIN } from './dev-server';
 import { installDesktopApiFixture } from './api-fixture';
 import { DEFAULT_CHAT_CONFIGURATION } from '../src/features/computer-chat/durableTypes';
 import type { DurableChatStatus } from '../src/features/computer-chat/durableTypes';
@@ -152,7 +153,7 @@ async function openChats(
   theme: 'light' | 'dark' = 'dark'
 ): Promise<Page> {
   const page = await application.firstWindow();
-  await page.waitForURL('http://localhost:5173/**');
+  await page.waitForURL(`${DESKTOP_TEST_ORIGIN}/**`);
   await installDesktopApiFixture(application, page, {
     tenant,
     brand,

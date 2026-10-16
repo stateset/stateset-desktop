@@ -4,6 +4,7 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { test as base, expect, chromium, _electron as electron } from '@playwright/test';
 import type { ElectronApplication, Page, TestInfo } from '@playwright/test';
+import { DESKTOP_TEST_ORIGIN } from './dev-server';
 
 export interface DesktopProfile {
   entry: string;
@@ -218,6 +219,7 @@ export class DesktopHarness {
         NODE_ENV: isolated.packaged ? 'production' : 'development',
         STORE_ENCRYPTION_KEY: '',
         E2E_TEST: 'true',
+        VITE_DEV_SERVER_URL: DESKTOP_TEST_ORIGIN,
         DISABLE_AUTO_UPDATER: 'true',
         OPEN_DEVTOOLS: 'false',
       },

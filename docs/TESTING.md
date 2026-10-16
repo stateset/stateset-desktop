@@ -66,4 +66,20 @@ Coverage thresholds are enforced in `vite.config.mts` and fail the build when br
 
 ## E2E
 
+Keep `@playwright/test` and the explicit `playwright-core` development dependency
+on the same exact version. The accessibility adapter accepts `playwright-core`
+as a peer; allowing npm to install a different version creates incompatible
+`Page` types even when the runner itself is pinned.
+
 E2E projects are defined in `playwright.config.ts` (electron, integration, accessibility, visual). Integration tests stub the StateSet Engine API with a local mock server — see `e2e/integration.spec.ts`. On headless Linux, run with `xvfb-run -a npm run test:e2e`. Update visual snapshots intentionally with `npm run test:e2e:update-snapshots` and review the diffs in the PR.
+
+If a development server already uses port 5173, select the other trusted desktop
+port for an isolated test run:
+
+```sh
+/home/dom/agent-builds/buildr run -- env STATESET_DESKTOP_TEST_PORT=3000 npm run test:e2e -- --workers=1
+```
+
+Only ports 5173 and 3000 are accepted, matching the existing desktop navigation
+policy. An explicitly selected port requires a new test server. The Electron
+launch, navigation waits, and fixture CORS responses use that server’s origin.

@@ -73,7 +73,7 @@ export function DashboardHeader({
           onClick={onOpenCommandPalette}
           className="ui-button ui-button-secondary flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium"
           title="Command palette (Ctrl/Cmd+K)"
-          aria-label="Open command palette"
+          aria-label="Commands ⌘K"
         >
           <Command className="w-3.5 h-3.5" aria-hidden="true" />
           <kbd className="text-[10px] font-bold tracking-widest uppercase">⌘K</kbd>

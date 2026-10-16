@@ -11,6 +11,7 @@
 import type { ElectronApplication, Page } from '@playwright/test';
 import { installDesktopApiFixture } from './api-fixture';
 import { test, expect, requireDesktopDisplay, type DesktopHarness } from './desktop';
+import { DESKTOP_TEST_ORIGIN } from './dev-server';
 
 async function setTestDefaults(page: Page) {
   await page.evaluate(async () => {
@@ -139,7 +140,7 @@ async function launchWithMocks(
       console.error('Console error:', message.text());
     }
   });
-  await page.waitForURL('http://localhost:5173/**', { timeout: 120000 });
+  await page.waitForURL(`${DESKTOP_TEST_ORIGIN}/**`, { timeout: 120000 });
   await configureVisualClock(page);
   await installDesktopApiFixture(electronApp, page, {
     tenant: mockTenant,
@@ -383,7 +384,7 @@ test.describe('Responsive Visual Tests', () => {
 
     try {
       const page = await electronApp.firstWindow();
-      await page.waitForURL('http://localhost:5173/**', { timeout: 120000 });
+      await page.waitForURL(`${DESKTOP_TEST_ORIGIN}/**`, { timeout: 120000 });
       await configureVisualClock(page);
 
       await installDesktopApiFixture(electronApp, page, {

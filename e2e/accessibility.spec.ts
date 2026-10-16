@@ -9,6 +9,7 @@
 
 import type { ElectronApplication, Page } from '@playwright/test';
 import { test, expect, requireDesktopDisplay, type DesktopHarness } from './desktop';
+import { DESKTOP_TEST_ORIGIN } from './dev-server';
 import AxeBuilder from '@axe-core/playwright';
 import { mkdir } from 'node:fs/promises';
 import {
@@ -112,7 +113,7 @@ async function launchWithMocks(
   const electronApp = await desktop.launch();
 
   const page = await electronApp.firstWindow();
-  await page.waitForURL('http://localhost:5173/**', { timeout: 120000 });
+  await page.waitForURL(`${DESKTOP_TEST_ORIGIN}/**`, { timeout: 120000 });
   await installDesktopApiFixture(electronApp, page, {
     tenant: mockTenant,
     brand: mockBrand,
@@ -259,12 +260,14 @@ test.describe('Accessibility Tests', () => {
 
   test('Agent list items should be interactive and have proper roles', async () => {
     // Session rows should be accessible
-    const sessionRows = page.getByRole('button', { name: /agent, status:/i });
+    const sessionRows = page.getByRole('button', {
+      name: /agent.*(?:running|paused|stopped|failed)/i,
+    });
     const firstRow = sessionRows.first();
 
     if (await firstRow.isVisible()) {
       // Should have accessible label
-      await expect(firstRow).toHaveAttribute('aria-label', /.+/);
+      await expect(firstRow).toHaveAccessibleName(/agent/i);
 
       // Test keyboard activation
       await firstRow.focus();
@@ -821,6 +824,9 @@ test.describe('Sign-in, template and notification usability', () => {
         await expect(trigger).toHaveAccessibleName('Select brand. Current: Second Brand');
         await expect(trigger).toBeFocused();
         await page.getByRole('button', { name: 'Expand sidebar', exact: true }).click();
+        await expect(trigger).toHaveAccessibleName(
+          'Select brand. Current: Test Tenant Second Brand'
+        );
         await expect(page.getByRole('link', { name: 'Chats', exact: true })).toBeVisible();
       });
     });
@@ -867,7 +873,7 @@ test.describe('Sign-in, template and notification usability', () => {
           page.getByRole('checkbox', { name: 'Select Recovery running', exact: true })
         ).toBeVisible();
         await expect(notice).toHaveCount(0);
-        await expect(page.getByRole('button', { name: /^Active: 2/ })).toBeVisible();
+        await expect(page.getByRole('button', { name: /^Active.*2.*total/ })).toBeVisible();
         const counts = page.getByLabel('Agent status counts');
         for (const status of statuses) {
           await expect(
@@ -1083,7 +1089,7 @@ test.describe('Sign-in, template and notification usability', () => {
         await page.getByRole('button', { name: 'Sign In', exact: true }).click();
         await expect(page.getByText('Cannot reach StateSet API', { exact: true })).toHaveCount(0);
         const sessions = page.getByRole('list', { name: 'Agent sessions' });
-        const row = sessions.getByRole('button', { name: /^Response Agent, status: Running/ });
+        const row = sessions.getByRole('button', { name: /^Response Agent.*Running/ });
         await expect(row.locator('button, input')).toHaveCount(0);
         const checkbox = row
           .locator('..')

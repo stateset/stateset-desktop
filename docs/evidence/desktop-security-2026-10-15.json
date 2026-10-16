@@ -1,0 +1,362 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-16T02:26:47.047050+00:00",
+  "scope": "Supported desktop runtime, dependency hardening, accessible dashboard controls and isolated native test origins",
+  "source_parent_commit": "995e33cca3bc5090875026b975fafb899a395193",
+  "qualification": "Local Linux candidate acceptance; live backend and signed cross-platform release gates remain pending",
+  "platform": "Linux, Node22.18.0, Electron42.11.14",
+  "audit": {
+    "baseline_job": "b41a1d4d66c5",
+    "final_job": "e92019a1f67e",
+    "before": {
+      "info": 0,
+      "low": 1,
+      "moderate": 28,
+      "high": 44,
+      "critical": 6,
+      "total": 79
+    },
+    "after": {
+      "info": 0,
+      "low": 0,
+      "moderate": 15,
+      "high": 11,
+      "critical": 0,
+      "total": 26
+    },
+    "remaining": [
+      {
+        "package": "@electron/get",
+        "severity": "moderate",
+        "runtime_dependency": false,
+        "via": ["global-agent"]
+      },
+      {
+        "package": "@storybook/addon-actions",
+        "severity": "moderate",
+        "runtime_dependency": false,
+        "via": ["uuid"]
+      },
+      {
+        "package": "@storybook/addon-essentials",
+        "severity": "moderate",
+        "runtime_dependency": false,
+        "via": ["@storybook/addon-actions"]
+      },
+      {
+        "package": "@typescript-eslint/eslint-plugin",
+        "severity": "high",
+        "runtime_dependency": false,
+        "via": [
+          "@typescript-eslint/parser",
+          "@typescript-eslint/type-utils",
+          "@typescript-eslint/utils"
+        ]
+      },
+      {
+        "package": "@typescript-eslint/parser",
+        "severity": "high",
+        "runtime_dependency": false,
+        "via": ["@typescript-eslint/typescript-estree"]
+      },
+      {
+        "package": "@typescript-eslint/type-utils",
+        "severity": "high",
+        "runtime_dependency": false,
+        "via": ["@typescript-eslint/typescript-estree", "@typescript-eslint/utils"]
+      },
+      {
+        "package": "@typescript-eslint/typescript-estree",
+        "severity": "high",
+        "runtime_dependency": false,
+        "via": ["globby"]
+      },
+      {
+        "package": "@typescript-eslint/utils",
+        "severity": "high",
+        "runtime_dependency": false,
+        "via": ["@typescript-eslint/typescript-estree"]
+      },
+      {
+        "package": "app-builder-lib",
+        "severity": "moderate",
+        "runtime_dependency": false,
+        "via": ["@electron/get", "dmg-builder", "electron-builder-squirrel-windows"]
+      },
+      {
+        "package": "braces",
+        "severity": "high",
+        "runtime_dependency": false,
+        "via": [
+          {
+            "title": "braces vulnerable to stack-exhaustion denial of service through deeply nested patterns",
+            "url": "https://github.com/advisories/GHSA-vfj7-8cjw-p6xm",
+            "range": "<=3.0.3"
+          }
+        ]
+      },
+      {
+        "package": "chokidar",
+        "severity": "high",
+        "runtime_dependency": false,
+        "via": ["braces"]
+      },
+      {
+        "package": "dmg-builder",
+        "severity": "moderate",
+        "runtime_dependency": false,
+        "via": ["app-builder-lib"]
+      },
+      {
+        "package": "electron-builder",
+        "severity": "moderate",
+        "runtime_dependency": false,
+        "via": ["app-builder-lib", "dmg-builder"]
+      },
+      {
+        "package": "electron-builder-squirrel-windows",
+        "severity": "moderate",
+        "runtime_dependency": false,
+        "via": ["app-builder-lib"]
+      },
+      {
+        "package": "fast-glob",
+        "severity": "high",
+        "runtime_dependency": false,
+        "via": ["micromatch"]
+      },
+      {
+        "package": "global-agent",
+        "severity": "moderate",
+        "runtime_dependency": false,
+        "via": ["roarr"]
+      },
+      {
+        "package": "globby",
+        "severity": "high",
+        "runtime_dependency": false,
+        "via": ["fast-glob"]
+      },
+      {
+        "package": "micromatch",
+        "severity": "high",
+        "runtime_dependency": false,
+        "via": ["braces"]
+      },
+      {
+        "package": "postcss-nested",
+        "severity": "moderate",
+        "runtime_dependency": false,
+        "via": ["postcss-selector-parser"]
+      },
+      {
+        "package": "postcss-selector-parser",
+        "severity": "moderate",
+        "runtime_dependency": false,
+        "via": [
+          {
+            "title": "PostCSS: Quadratic complexity in flat selector parsing allows CPU exhaustion",
+            "url": "https://github.com/advisories/GHSA-rj75-hqrm-r3gf",
+            "range": "<7.1.6"
+          }
+        ]
+      },
+      {
+        "package": "react-router",
+        "severity": "moderate",
+        "runtime_dependency": true,
+        "via": [
+          {
+            "title": "React Router: Open redirect via backslash in <Link> and useNavigate (CVE-2025-68470 bypass)",
+            "url": "https://github.com/advisories/GHSA-wrjc-x8rr-h8h6",
+            "range": ">=6.0.0 <7.18.0"
+          },
+          {
+            "title": "React Router: Arbitrary Constructor Injection via deserializeErrors() in React Router SSR Hydration",
+            "url": "https://github.com/advisories/GHSA-337j-9hxr-rhxg",
+            "range": ">=6.4.0 <7.18.0"
+          }
+        ]
+      },
+      {
+        "package": "react-router-dom",
+        "severity": "moderate",
+        "runtime_dependency": true,
+        "via": ["react-router"]
+      },
+      {
+        "package": "roarr",
+        "severity": "moderate",
+        "runtime_dependency": false,
+        "via": ["sprintf-js"]
+      },
+      {
+        "package": "sprintf-js",
+        "severity": "moderate",
+        "runtime_dependency": false,
+        "via": [
+          {
+            "title": "sprintf-js vulnerable to denial of service through unbounded precision specifiers",
+            "url": "https://github.com/advisories/GHSA-hp3w-g68c-fv3c",
+            "range": "<=1.1.3"
+          }
+        ]
+      },
+      {
+        "package": "tailwindcss",
+        "severity": "high",
+        "runtime_dependency": false,
+        "via": ["chokidar", "fast-glob", "micromatch", "postcss-nested", "postcss-selector-parser"]
+      },
+      {
+        "package": "uuid",
+        "severity": "moderate",
+        "runtime_dependency": false,
+        "via": [
+          {
+            "title": "uuid: Missing buffer bounds check in v3/v5/v6 when buf is provided",
+            "url": "https://github.com/advisories/GHSA-w5hq-g745-h8pq",
+            "range": "<11.1.1"
+          }
+        ]
+      }
+    ],
+    "limits": "npm advisory counts are affected packages, not exploitability proofs. Electron is a packaged runtime despite devDependency classification. Candidate is not fully remediated."
+  },
+  "migration": {
+    "electron": "42.11.14",
+    "macos_minimum": "12.0",
+    "native_macos_notifications": "require signed application",
+    "explicit_binary_preparation": "setup:electron; prebuild:electron",
+    "forced_peer_resolution": false,
+    "playwright_core": "1.58.0, explicitly aligned with @playwright/test"
+  },
+  "verification": {
+    "plan": "88ab40002198",
+    "stages": [
+      {
+        "name": "coverage-renderer",
+        "job": "d33736394057",
+        "state": "succeeded",
+        "wait_seconds": 581.77,
+        "runtime_seconds": 204.42
+      },
+      {
+        "name": "native-desktop",
+        "job": "f050d012c6b0",
+        "state": "succeeded",
+        "wait_seconds": 273.38,
+        "runtime_seconds": 353.62
+      },
+      {
+        "name": "linux-bundle",
+        "job": "a970d20805b7",
+        "state": "succeeded",
+        "wait_seconds": 541.2,
+        "runtime_seconds": 56.04
+      }
+    ],
+    "unit_tests": 2606,
+    "unit_files": 220,
+    "coverage": {
+      "lines": {
+        "total": 12242,
+        "covered": 10011,
+        "skipped": 0,
+        "pct": 81.77
+      },
+      "statements": {
+        "total": 13378,
+        "covered": 10824,
+        "skipped": 0,
+        "pct": 80.9
+      },
+      "functions": {
+        "total": 3282,
+        "covered": 2666,
+        "skipped": 0,
+        "pct": 81.23
+      },
+      "branches": {
+        "total": 10504,
+        "covered": 7906,
+        "skipped": 0,
+        "pct": 75.26
+      },
+      "branchesTrue": {
+        "total": 0,
+        "covered": 0,
+        "skipped": 0,
+        "pct": 100
+      }
+    },
+    "native_passed": 55,
+    "live_skipped": 3,
+    "visual_comparisons": 11,
+    "visual_references_changed": false,
+    "packaged_linux_startup": 1,
+    "focused_types_lint_unit_job": "338fc0c19708",
+    "focused_unit_passed": 47,
+    "focused_native_job": "76e9e8c117e3",
+    "focused_native_passed": 4,
+    "earlier_unchanged_gates": {
+      "job": "78213b7f7485",
+      "passed": [
+        "Electron compilation and explicit binary preparation",
+        "full lint before accessible markup edits; edited files rechecked in338fc0c19708",
+        "8 local live-harness failure fixtures",
+        "13 updater/release asset fixtures"
+      ]
+    },
+    "storybook_job": "437e0fac4e68",
+    "storybook_result": "passed before accessible markup edits; tooling inputs unchanged",
+    "fresh_candidate_install_job": "f95392320324",
+    "root_install_job": "d091ad7c58c5",
+    "source_guard": {
+      "method": "Manual SHA256 inputs before/after checks and root/candidate equality, not Buildr Git identity",
+      "inputs": 566,
+      "post_coverage_change": "Only the native workspace test now asserts the collapsed name before expansion and the tenant/brand name after expansion. Application and unit inputs are unchanged.",
+      "coverage_manifest_sha256": "7df2f85dca92a530eeae4ff5f420bf03c9885b7374a0f455d96f238855456fcc",
+      "manifest_sha256": "7e869641c4e9ab8dd434b240f83c645f2eb6d903167408dd9939d67187917438"
+    }
+  },
+  "reproduce": [
+    "/home/dom/agent-builds/buildr run --lane quick -- npm run typecheck",
+    "/home/dom/agent-builds/buildr run --lane quick -- npm run typecheck:e2e",
+    "/home/dom/agent-builds/buildr run --lane quick -- npm run lint",
+    "/home/dom/agent-builds/buildr run -- npm run test:coverage -- --maxWorkers=2 --no-file-parallelism",
+    "/home/dom/agent-builds/buildr run -- env STATESET_DESKTOP_TEST_PORT=3000 npm run test:e2e -- --workers=1 --retries=0",
+    "/home/dom/agent-builds/buildr run -- env STATESET_DESKTOP_TEST_PORT=3000 npm run test:e2e:visual -- --workers=1 --retries=0"
+  ],
+  "limitations": [
+    "Three opt-in live service checks were skipped. No real sandbox provisioning, Temporal continuation, provider execution or NSR acceptance was performed.",
+    "Native startup was verified only on Linux. Signed macOS/Windows installers, macOS native notifications and update publication need protected platform CI.",
+    "The isolated candidate has no Git metadata or local environment files; source identity was guarded manually. Buildr did not establish immutable Git identity.",
+    "Remaining audit findings are affected package counts, not exploitability conclusions. Electron is a packaged runtime despite its devDependency classification.",
+    "v1.1.19 remains unchanged. These changes are on the review branch, not a published release."
+  ],
+  "changed_source_sha256": {
+    "CHANGELOG.md": "00befec12ab9dc8c2a763e7c84e452d07cd16083d1983dcb3510a8e51b229835",
+    "README.md": "8e085d49aa31122a19f82537237a40d03ad860879b454ea0cd2fbef36fd9faa7",
+    "docs/RELEASE_VERIFICATION.md": "15e3db3701ecf093e2dd7ce64c597ac6cb72e3521cb756b98558b02d8170ea20",
+    "docs/TESTING.md": "154e9214b8aa89d2c499569229d60e4361427b64ade13be610279d316f082de7",
+    "e2e/accessibility.spec.ts": "d9b949b0fc866bd09b83a7d4d104ee8c7ea94e094dc713e3b11be23ce8e14ae1",
+    "e2e/api-fixture.ts": "b18b3d6b7f7b67a309a7534cc3042b59b8c451b8dff8784e68ab5f19ac5b52c0",
+    "e2e/computer-chat.spec.ts": "7073b1d0168ae1815b091835231b68a63fce160821cc5f3e1d2af6ac94798f51",
+    "e2e/desktop.ts": "6d08c9ca6312b637c9a9903f91e4fcb1e57873bf6662975a49982f767a6a8bf0",
+    "e2e/electron.spec.ts": "f6dae2753d137c89fd82a55ef4303738873b3b341e20b1a7bd39dddb72901fef",
+    "e2e/visual.spec.ts": "d479ce70995f24ab6dea7d945622eda0b1cfa39257cdde45aa83b28e60c3fb91",
+    "package-lock.json": "907473b4043e114e7d0fb589cc50e8de9d3851d063be2fe48d2f6ac4dd0d675f",
+    "package.json": "e796142c7b23e1bc7a13ce19b167d8c6b8a60168cdcfa055af54b4359ac9cba7",
+    "playwright.config.ts": "2693776daa2be0fe33af69808018397f3e962014bc8d3a7c804c395c86003ed4",
+    "src/components/Layout.tsx": "208bd89f20a406086588b6c13a302fc16a2f78b8a673ce442ccce104e07c8828",
+    "src/components/Markdown.test.tsx": "43669981a41325ed2a2f953da2281cc57c9d349eb589f6702531fa40beabd788",
+    "src/features/dashboard/components/DashboardHeader.test.tsx": "5fdc2a336d2739232c3b392c88235f777ef1751093b89a7c3435ae59af1ad680",
+    "src/features/dashboard/components/DashboardHeader.tsx": "9edc902d133c1155874a5670ffdea33f9ff943adf037ca8ac2eebd31d900726a",
+    "src/features/dashboard/components/DashboardSessionRow.tsx": "7d3b33ff85d6deb768daf727c052fad40198e2a3d84977ea2cb639dfc5ebe6f5",
+    "src/features/dashboard/components/DashboardStats.test.tsx": "d07c4ae0084c38f78e33d57a619efc99abc87421875cd19633b379997cd8d4c0",
+    "src/features/dashboard/components/DashboardStats.tsx": "c8ff60818ee022ff16741f6e3aa2fa0cb7ed9d4dfe0884d3afa7415ed819e96d",
+    "src/features/dashboard/components/SessionList.test.tsx": "4e2d784198a97486c91bd38490dc1770e5974d2c4bd601457566066cf054c7f1",
+    "e2e/dev-server.ts": "b51fb928f4c8cf5cf6c918b4428a33b942a2bdc99333a3b5839b334771bb3a0a"
+  }
+}

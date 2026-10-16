@@ -4,6 +4,16 @@ A successful build is only one release gate. Publishable releases require the
 unit, lint, type, and desktop checks, three platform builds, signing evidence,
 and valid updater manifests. The build workflow does not publish on pull requests.
 
+## Runtime requirements
+
+Electron 42 requires Node.js 22.12+ for development and macOS 12+ for packaged
+applications. `npm run build:electron` installs the pinned Electron binary before
+compilation because Electron no longer downloads it in its package postinstall.
+For direct Playwright commands after `npm ci`, run `npm run setup:electron` first.
+An unsigned macOS review build cannot demonstrate native notification delivery;
+Electron 42 requires signing for that API. See the upstream
+[migration notes](https://www.electronjs.org/docs/latest/breaking-changes#breaking-api-changes-420).
+
 ## Before publishing
 
 - The version tag must equal `package.json`'s version.

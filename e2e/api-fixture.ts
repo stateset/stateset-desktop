@@ -20,8 +20,12 @@ export async function installDesktopApiFixture(
     const { API_CONFIG } = await import(configModule);
     return new URL(API_CONFIG.baseUrl).origin;
   });
+  const rendererOrigin = new URL(page.url()).origin;
   await electronApp.evaluate(
-    ({ session }, { apiOrigin, tenant, brand, sessions, platforms, sessionsStatus, actions }) => {
+    (
+      { session },
+      { apiOrigin, rendererOrigin, tenant, brand, sessions, platforms, sessionsStatus, actions }
+    ) => {
       const fixtureState = globalThis as typeof globalThis & {
         __desktopFixtureSessionStatus?: number;
         __desktopFixtureActions?: {
@@ -43,7 +47,7 @@ export async function installDesktopApiFixture(
         const url = new URL(request.url);
         const headers = {
           'content-type': 'application/json',
-          'access-control-allow-origin': 'http://localhost:5173',
+          'access-control-allow-origin': rendererOrigin,
           'access-control-allow-credentials': 'true',
           'access-control-allow-methods': 'GET, POST, PUT, DELETE, OPTIONS',
           'access-control-allow-headers':
@@ -116,6 +120,7 @@ export async function installDesktopApiFixture(
     },
     {
       apiOrigin,
+      rendererOrigin,
       tenant: fixture.tenant,
       brand: fixture.brand,
       sessions: fixture.sessions,

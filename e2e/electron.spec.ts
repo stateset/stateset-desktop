@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test';
 import { test, expect, requireDesktopDisplay, type DesktopHarness } from './desktop';
+import { DESKTOP_TEST_ORIGIN } from './dev-server';
 
 const mockTenant = { id: 'tenant_1', name: 'Test Tenant', slug: 'test-tenant', tier: 'pro' };
 const mockBrand = {
@@ -32,7 +33,7 @@ async function launchWithMocks(desktop: DesktopHarness) {
   const electronApp = await desktop.launch();
 
   const page = await electronApp.firstWindow();
-  await page.waitForURL('http://localhost:5173/**', { timeout: 120000 });
+  await page.waitForURL(`${DESKTOP_TEST_ORIGIN}/**`, { timeout: 120000 });
 
   await page.route('**/health/detailed', async (route) => {
     await route.fulfill({

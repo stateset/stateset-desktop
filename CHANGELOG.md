@@ -12,8 +12,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - Conversation menus share keyboard navigation and theme surfaces. Rename and deletion preserve focus, and menus remain reachable in short windows.
 - Confirmation dialogs and desktop previews use simpler, readable surfaces in both themes.
 
+### Security
+
+- Move to the supported Electron 42 runtime and explicitly prepare its binary before native builds and tests. Packaged macOS now requires version 12 or newer; native macOS notifications require signing.
+- Update vulnerable runtime and development dependencies within their supported release lines, including telemetry, routing, packaging, Vite, Vitest, and the DOM test environment.
+
 ### Fixed
 
+- Match dashboard control names to their visible text for speech and screen-reader navigation, including workspace selectors, commands, metrics, and agent rows.
+- Run native verification on a separate trusted localhost port when the development server is already open, keeping navigation and fixture origins aligned.
 - Keep late agent mutations and cache rollbacks bound to their original workspace and credential. Preserve newer data and caches cleared by logout.
 - Retain the live acceptance harness's owned workflow identity before starting, verify cleanup receipts, and report unconfirmed shutdown. Run its local failure tests in release CI.
 
