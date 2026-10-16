@@ -65,6 +65,7 @@
     "prebuild-storybook": "npm run preflight",
     "build-storybook": "storybook build",
     "test:e2e:bundle": "npm run preflight && node ./node_modules/@playwright/test/cli.js test --config=playwright.bundle.config.ts --workers=1",
+    "test:playwright:evidence": "npm run preflight && node --test --test-concurrency=1 scripts/playwright-evidence.test.mjs",
     "test:release-assets": "node --test scripts/release-assets.test.mjs",
     "test:e2e:distribution": "npm run preflight && node ./node_modules/@playwright/test/cli.js test --config=playwright.distribution.config.ts --workers=1",
     "setup:electron": "install-electron",

@@ -303,8 +303,14 @@ for (const theme of ['dark', 'light'] as const) {
       .poll(async () => (await savedChats(page)).find((chat) => chat.id === records[1].id).pinned)
       .toBe(true);
     await expect(reorderTrigger).toBeFocused();
+    await expect(reorderTrigger).toHaveAttribute('aria-disabled', 'false');
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('u');
+    await expect(
+      library
+        .getByRole('menu', { name: 'Actions for Reconciliation' })
+        .getByRole('menuitem', { name: 'Unpin', exact: true })
+    ).toBeFocused();
     await page.keyboard.press('Enter');
     await expect
       .poll(async () => (await savedChats(page)).find((chat) => chat.id === records[1].id).pinned)

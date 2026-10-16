@@ -188,6 +188,33 @@ describe('conversation library controls', () => {
     expect(onSelect).not.toHaveBeenCalled();
     expect(store.getState().chats[0].session?.id).toBe('session');
   });
+  it('keeps menu commands unavailable until a metadata save is acknowledged', async () => {
+    let acknowledge!: (value: boolean) => void;
+    vi.mocked(window.electronAPI!.store.set).mockReturnValueOnce(
+      new Promise<boolean>((resolve) => {
+        acknowledge = resolve;
+      })
+    );
+    render(<ChatLibrary onSelect={vi.fn()} onError={vi.fn()} />);
+    open();
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Pin' }));
+    const trigger = screen.getByRole('button', { name: 'Options for October report' });
+    // The optimistic value can already be visible while persistence is still pending.
+    expect(store.getState().chats[0].pinned).toBe(true);
+    expect(trigger).toHaveFocus();
+    expect(trigger).toHaveAttribute('aria-disabled', 'true');
+    fireEvent.keyDown(trigger, { key: 'ArrowDown' });
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    await act(async () => acknowledge(true));
+    await waitFor(() => expect(trigger).toHaveAttribute('aria-disabled', 'false'));
+    fireEvent.keyDown(trigger, { key: 'ArrowDown' });
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'u' });
+    const unpin = screen.getByRole('menuitem', { name: 'Unpin' });
+    expect(unpin).toHaveFocus();
+    fireEvent.click(unpin);
+    await waitFor(() => expect(trigger).toHaveAttribute('aria-disabled', 'false'));
+    expect(store.getState().chats[0].pinned).toBe(false);
+  });
   it('guards repeated submissions and keeps a failed rename available to retry', async () => {
     let reject!: (error: Error) => void;
     const update = vi.spyOn(store.getState(), 'updateMetadata').mockReturnValue(

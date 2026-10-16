@@ -83,3 +83,13 @@ port for an isolated test run:
 Only ports 5173 and 3000 are accepted, matching the existing desktop navigation
 policy. An explicitly selected port requires a new test server. The Electron
 launch, navigation waits, and fixture CORS responses use that server’s origin.
+
+Native, bundle and installer checks keep separate evidence. Native output stays in
+`test-results/`, `playwright-report/`, and `e2e/test-results.json`. Bundle and
+distribution runs use their own subdirectories under both report folders and
+write `e2e/bundle-results.json` and `e2e/distribution-results.json`. Running package
+checks afterward preserves native failures, traces and summaries.
+
+`npm run test:playwright:evidence` verifies that retention using the real reporters
+and small local fixtures. It needs no browser or display. CI uploads the report
+folders and JSON summaries together.
