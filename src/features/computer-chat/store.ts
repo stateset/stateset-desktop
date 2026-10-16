@@ -8,6 +8,7 @@ import {
   durableStatusSchema,
   type DurableChatConfiguration,
 } from './durableTypes';
+import { parseStartConfiguration } from './configuration';
 
 const STORAGE_KEY = 'computerChats';
 export class ChatPersistenceError extends Error {
@@ -213,7 +214,7 @@ export const useComputerChatsStore = create<ComputerChatsState>((set, get) => ({
   setConfiguration: async (scope, configuration) => {
     const configurations = {
       ...get().configurations,
-      [scope]: configurationSchema.parse(configuration),
+      [scope]: parseStartConfiguration(configuration),
     };
     await window.electronAPI?.store.set('computerChatPreferences', configurations);
     set({ configurations });

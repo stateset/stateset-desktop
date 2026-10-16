@@ -1,0 +1,124 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-16T20:52:20.215772+00:00",
+  "source_parent_commit": "e9a12f5c7d2a5d0191062144c8fd68b8f5dc3ee6",
+  "scope": "Validate new chat settings against engine bounds; retain old conversations and make acceptance settings readable and operable in both themes and narrow windows.",
+  "regressions": {
+    "configuration": {
+      "job": {
+        "id": "8100a8484c6c",
+        "state": "failed",
+        "exit_code": 1,
+        "reason": "",
+        "command_display": "/home/dom/.nvm/versions/node/v22.18.0/bin/node node_modules/vitest/vitest.mjs run src/features/computer-chat/DurableChatSetup.test.tsx src/features/computer-chat/durable.test.ts --maxWorkers=1 --no-file-parallelism",
+        "wait_seconds": 0.04623842239379883,
+        "elapsed_seconds": 21.231773853302002
+      },
+      "result": "Fourteen new regressions failed while 68 existing tests passed. Invalid settings were accepted before local save/start."
+    },
+    "layout": {
+      "job": {
+        "id": "441e4fd87273",
+        "state": "failed",
+        "exit_code": 1,
+        "reason": "",
+        "command_display": "bash /tmp/stateset-desktop-configuration-native.sh",
+        "wait_seconds": 138.89729475975037,
+        "elapsed_seconds": 59.1480610370636
+      },
+      "result": "Both themes reproduced 50 pixels of horizontal overflow with long saved criteria in a narrow native window."
+    },
+    "initial_focused": {
+      "job": {
+        "id": "afc655ba3262",
+        "state": "failed",
+        "exit_code": 1,
+        "reason": "",
+        "command_display": "bash /tmp/stateset-desktop-configuration-focused.sh",
+        "wait_seconds": 131.44108176231384,
+        "elapsed_seconds": 150.28114795684814
+      },
+      "result": "Types, lint, 109 unit tests and Electron/renderer builds passed. Two new native checks failed because their AxeBuilder call omitted the existing Electron setLegacyMode. The harness was corrected; no application pass is claimed for that native attempt."
+    }
+  },
+  "implementation": [
+    "Validate workspace paths, serialized expected-value byte limits, four distinct files/eight criteria, model UTF-8 bytes and simple connector/executable identifiers before saving defaults or creating/provisioning new work.",
+    "Keep persisted chat/default schemas readable so stricter start rules do not erase old transcripts or prevent correcting saved defaults.",
+    "Preserve invalid drafts with inline accessible feedback. Use path-first saved rows, readable check names, wrapping detail text and stable neutral Remove controls."
+  ],
+  "verification": {
+    "focused": {
+      "id": "f4c8efe119ca",
+      "state": "succeeded",
+      "exit_code": 0,
+      "reason": "",
+      "command_display": "bash /tmp/stateset-desktop-configuration-focused.sh",
+      "wait_seconds": 1.2341060638427734,
+      "elapsed_seconds": 91.34149432182312
+    },
+    "unit_tests": 109,
+    "unit_files": 4,
+    "checks": "Root/E2E types, lint, Electron and renderer builds; two native theme flows without retries, including Axe checks, corrected criterion save/start, narrow-window overflow prevention and keyboard removal.",
+    "native_stats": {
+      "startTime": "2026-10-16T20:51:04.274Z",
+      "duration": 21350.33,
+      "expected": 2,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "screenshots_sha256": {
+      "dist/verification/native-chat-criteria-dark.png": "c2c3935bf3c76699326d9dbbf503a9d617fbdb268a0c6e6d05d14a7bab34672f",
+      "dist/verification/native-chat-criteria-narrow-dark.png": "1058eb141f862b2605ae57ce033b6999ef58a0bcedf1e2fab7e399a0e193b034",
+      "dist/verification/native-chat-criteria-light.png": "247cee521189d3c50daee406e4c84769dbee609bcc9c622f5be47b3ef4396aa5",
+      "dist/verification/native-chat-criteria-narrow-light.png": "06db764e62b9b803c95fd5bdb9f3e03aa24976c756332358635551b51a5b9e4f"
+    },
+    "source_guard": {
+      "inputs": 626,
+      "manifest_sha256": "206b6e2109cc50947b4511fee0ff73f5b85d8034b4ace5dd6291ba813b104edc",
+      "qualification": "Manual source hashes compared before/after verification; not an immutable queue snapshot."
+    },
+    "full_validation": "Pending exact-head CI after normal-hook commit and push; prior-commit CI does not qualify this change."
+  },
+  "engine_contract": {
+    "job": {
+      "id": "a8f28f86ec4b",
+      "state": "succeeded",
+      "exit_code": 0,
+      "reason": "",
+      "command_display": "bash /tmp/stateset-desktop-configuration-contract.sh",
+      "wait_seconds": 0.019751310348510742,
+      "elapsed_seconds": 0.976269006729126
+    },
+    "accepted": 9,
+    "rejected": 12,
+    "actual_native_request_cases": 2,
+    "method": "Bundled production parser and the exact copied Rust engine validator evaluated the same wire bodies, including captured corrected native requests, multibyte boundaries and JSON escaping.",
+    "engine_source": {
+      "engine_repository": "/home/dom/next-temporal-rs",
+      "head": "a1aff037db85dc5c304c4e15b6f2864dd08c778d",
+      "source": "/home/dom/next-temporal-rs/crates/engine-types/src/computer_chat.rs",
+      "sha256": "777292a66e47f2cb924727784c626d04b69c41f96574e82420666488b950698b",
+      "qualification": "Exact copied Rust contract module; deserialization and validation only, without running Temporal, sandbox provisioning, inference or NSR."
+    },
+    "requests_sha256": "9837239edadc7e3fb254a13e87777287e4805c81477a311713557f733f0af093",
+    "qualification": "Contract validation only; no live Temporal, sandbox provisioning, inference or NSR execution."
+  },
+  "changed_source_sha256": {
+    "src/features/computer-chat/configuration.ts": "0ff0546789d47e6c3fe412bc4b9f5c68542f4a6626a1a6e2a5bdff7b4f202ae4",
+    "src/features/computer-chat/configuration.test.ts": "aff2ed028c96241740e8d68a56e359dcabe5ab2ce9a76d65ef90d7712ee8d0b8",
+    "src/features/computer-chat/DurableChatSetup.tsx": "b550550cc9a5a56905a8b6265ebbb6a4fe7416aa88c796a693fe1341b1a63c81",
+    "src/features/computer-chat/DurableChatSetup.test.tsx": "400a0666f1391abad8f67bf5fef507d7636ab3044f93eeb24e2cd3e95791497e",
+    "src/features/computer-chat/durable.ts": "225a93c6c3afdc56ca37157cddea38ab416c36a27ab4ec4306fdaa333242dd68",
+    "src/features/computer-chat/durable.test.ts": "8eef179a3d36a8644c9a6a3f81761ed924aad943d19f9e243e26848695087c6e",
+    "src/features/computer-chat/store.ts": "1786c17e99bec32c64f55152c33e5977e359926a0c1f047822dea15dc149f08b",
+    "src/features/computer-chat/store.test.ts": "225773a1d7dac1f3fba225dd2b3b84d661dde9d36bc0d63e0b5031492bcd557e",
+    "e2e/computer-chat.spec.ts": "a8c3d58ef2011f4cfe61f59cfcf2ea62d7bb37dc70b5e030b3175d48d4b34631",
+    "docs/COMPUTER_CHATS.md": "cd487a65a81912a61c65bf079617be99e463785d7e999ecf30915bc6d0a78fa4",
+    "CHANGELOG.md": "2cd610cb9775731cb6cd1679b53bedee1fbd43007dbe45cbc3f2fa8e3644207b"
+  },
+  "limitations": [
+    "Live acceptance still requires designated CHAT_TEST workspace connection settings.",
+    "No version/tag/release or update publication; v1.1.19 unchanged."
+  ]
+}

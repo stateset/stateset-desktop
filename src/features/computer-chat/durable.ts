@@ -5,7 +5,6 @@ import { useDurableWorkflowsStore } from '../../stores/durableWorkflows';
 import { ChatPersistenceError, useComputerChatsStore } from './store';
 import {
   artifactSchema,
-  configurationSchema,
   durableStatusSchema,
   setupReportSchema,
   type DurableChatConfiguration,
@@ -15,6 +14,7 @@ import { chatEnded } from './library';
 import { importChatMessages, mergeChatHistory, mergeTimeline } from './history';
 import { decodeArtifactContent, sameArtifactVersion, type ArtifactVersion } from './artifacts';
 import { approvalUnavailable, approvalVersion, supportedReplacement } from './approvals';
+import { parseStartConfiguration } from './configuration';
 
 export class ChatRequestError extends Error {
   constructor(
@@ -218,7 +218,7 @@ export const durableChatController = {
     configuration: DurableChatConfiguration,
     source?: { id: string; title: string; messages: { role: string; content: string }[] }
   ) => {
-    const config = configurationSchema.parse(configuration);
+    const config = parseStartConfiguration(configuration);
     const epoch = contextEpoch;
     const connection = useDurableWorkflowsStore.getState();
     const auth = useAuthStore.getState();
@@ -258,11 +258,12 @@ export const durableChatController = {
     mutation(id, async (scope) => {
       const value = scoped(id);
       const identity = value.durableSession;
+      const configuration = parseStartConfiguration(identity.configuration);
       const result = z.object({ workflow_id: z.string(), run_id: z.string() }).parse(
         await chatRequest(value.tenantId, '/v1/computer-chats/start', 'POST', {
           request_id: value.id,
           brand_id: value.brandId,
-          ...identity.configuration,
+          ...configuration,
           imported_messages: identity.importedMessages ?? [],
           initial_message: identity.initialMessage,
           close_after_turn: identity.closeAfterTurn ?? false,

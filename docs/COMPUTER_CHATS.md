@@ -91,6 +91,16 @@ remaining choices. The desktop validates diagnostic response fields before using
 them. Checks describe the service state at that moment; the workflow still
 enforces permissions and service availability when it starts work.
 
+New-chat settings are checked against the engine limits before defaults are saved
+or a computer is created. Acceptance supports eight checks across four distinct
+files. File paths must stay under `/workspace`, without `.`/`..` segments,
+backslashes or control characters, and fit within 1,024 UTF-8 bytes. Each expected
+value must fit within 16,384 bytes after JSON encoding, including escaping.
+Setup keeps invalid criterion drafts editable and shows the error beside them.
+Model names are limited to 255 UTF-8 bytes; executable and connector names use
+1–100 ASCII letters, digits, dots, hyphens or underscores. Older saved conversations
+and defaults remain readable so settings can be corrected without losing transcripts.
+
 ## Finding and organizing conversations
 
 The conversation is the main workspace. Open **Settings** for connection setup,

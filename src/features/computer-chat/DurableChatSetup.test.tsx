@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DurableChatSetup } from './DurableChatSetup';
-import { DEFAULT_CHAT_CONFIGURATION } from './durableTypes';
+import { DEFAULT_CHAT_CONFIGURATION, type DurableChatConfiguration } from './durableTypes';
 import type { CheckedSetup } from './setup';
 import { useDurableWorkflowsStore } from '../../stores/durableWorkflows';
 
@@ -19,8 +19,14 @@ const ready = {
     { key: 'inventory', ready: true },
   ],
 };
-function Harness({ brandId = 'brand' }: { brandId?: string }) {
-  const [configuration, setConfiguration] = useState(DEFAULT_CHAT_CONFIGURATION);
+function Harness({
+  brandId = 'brand',
+  initial = DEFAULT_CHAT_CONFIGURATION,
+}: {
+  brandId?: string;
+  initial?: DurableChatConfiguration;
+}) {
+  const [configuration, setConfiguration] = useState(initial);
   const [checked, setChecked] = useState<CheckedSetup | null>(null);
   return (
     <DurableChatSetup
@@ -57,6 +63,60 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 describe('connection setup readiness', () => {
+  it.each(['/workspace/./report.json', '/workspace/a\\b.json'])(
+    'keeps an invalid %s criterion draft editable',
+    (path) => {
+      render(<Harness />);
+      fireEvent.click(screen.getByText('Acceptance criteria (0)'));
+      fireEvent.change(screen.getByLabelText('File path'), { target: { value: path } });
+      fireEvent.click(screen.getByRole('button', { name: 'Add criterion' }));
+      expect(screen.queryByRole('button', { name: 'Remove criterion 1' })).not.toBeInTheDocument();
+      expect(screen.getByRole('alert')).toHaveTextContent('Choose a file under /workspace');
+      expect(screen.getByLabelText('File path')).toHaveValue(path);
+      fireEvent.change(screen.getByLabelText('File path'), {
+        target: { value: '/workspace/report.json' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Add criterion' }));
+      expect(screen.getByRole('button', { name: 'Remove criterion 1' })).toBeVisible();
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    }
+  );
+  it('rejects a fifth file while allowing another check for an existing file', () => {
+    render(
+      <Harness
+        initial={{
+          ...DEFAULT_CHAT_CONFIGURATION,
+          criteria: Array.from({ length: 4 }, (_, index) => ({
+            path: `/workspace/${index}.json`,
+            kind: 'json',
+            expected: true,
+          })),
+        }}
+      />
+    );
+    fireEvent.click(screen.getByText('Acceptance criteria (4)'));
+    fireEvent.change(screen.getByLabelText('File path'), {
+      target: { value: '/workspace/fifth.json' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Add criterion' }));
+    expect(screen.queryByRole('button', { name: 'Remove criterion 5' })).not.toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent('Use at most four distinct files');
+    fireEvent.change(screen.getByLabelText('File path'), {
+      target: { value: '/workspace/0.json' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Add criterion' }));
+    expect(screen.getByRole('button', { name: 'Remove criterion 5' })).toBeVisible();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+  it('explains invalid expected JSON beside the preserved draft', () => {
+    render(<Harness />);
+    fireEvent.click(screen.getByText('Acceptance criteria (0)'));
+    fireEvent.change(screen.getByLabelText('Expected JSON'), { target: { value: '{unfinished' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add criterion' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('Enter valid JSON for the expected value');
+    expect(screen.getByLabelText('Expected JSON')).toHaveValue('{unfinished');
+    expect(screen.queryByRole('button', { name: 'Remove criterion 1' })).not.toBeInTheDocument();
+  });
   it('explains session-only keys when the system keyring is unavailable', async () => {
     window.electronAPI!.auth.isSecureStorageAvailable = vi.fn().mockResolvedValue(false);
     render(<Harness />);

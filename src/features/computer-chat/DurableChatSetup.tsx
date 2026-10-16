@@ -1,11 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useDurableWorkflowsStore } from '../../stores/durableWorkflows';
 import { durableChatApi } from './durable';
-import {
-  configurationSchema,
-  type DurableChatConfiguration,
-  type SetupReport,
-} from './durableTypes';
+import { type DurableChatConfiguration, type SetupReport } from './durableTypes';
+import { acceptanceCriteriaSchema, parseStartConfiguration } from './configuration';
 import { useComputerChatsStore } from './store';
 import { useSecureStorageAvailability } from '../../hooks/useSecureStorageAvailability';
 import {
@@ -24,6 +21,13 @@ interface Props {
   report: SetupReport | null;
   onError: (message: string) => void;
 }
+const criterionLabels = {
+  json: 'JSON value',
+  contains: 'Contains text',
+  equals: 'Exact text',
+  sha256: 'SHA-256 digest',
+  png: 'PNG structure and dimensions',
+};
 export function DurableChatSetup({
   tenantId,
   brandId,
@@ -44,6 +48,8 @@ export function DurableChatSetup({
   const [kind, setKind] = useState<'contains' | 'equals' | 'json' | 'sha256' | 'png'>('json');
   const [expected, setExpected] = useState('true');
   const [pointer, setPointer] = useState('/success');
+  const [criterionError, setCriterionError] = useState('');
+  const criterionErrorId = useId();
   const alive = useRef(true);
   const inFlight = useRef(false);
   const revision = useRef(0);
@@ -138,7 +144,7 @@ export function DurableChatSetup({
   };
   const save = async () => {
     try {
-      const parsed = configurationSchema.parse(configuration);
+      const parsed = parseStartConfiguration(configuration);
       await useComputerChatsStore.getState().setConfiguration(`${tenantId}:${brandId}`, parsed);
       setSaved(true);
     } catch (error) {
@@ -147,19 +153,25 @@ export function DurableChatSetup({
   };
   const addCriterion = () => {
     try {
-      if (!path.startsWith('/workspace/') || path.split('/').includes('..'))
-        throw new Error('Choose a file under /workspace');
-      const value = ['json', 'png'].includes(kind) ? JSON.parse(expected) : expected;
+      let value: unknown = expected;
+      if (kind === 'json' || kind === 'png') {
+        try {
+          value = JSON.parse(expected);
+        } catch {
+          throw new Error('Enter valid JSON for the expected value.');
+        }
+      }
       if (kind === 'sha256' && !/^[a-f0-9]{64}$/i.test(expected))
         throw new Error('Enter a SHA-256 digest');
-      update({
-        criteria: [
-          ...configuration.criteria,
-          { path, kind, expected: value, ...(kind === 'json' && pointer ? { pointer } : {}) },
-        ],
-      });
+      const result = acceptanceCriteriaSchema.safeParse([
+        ...configuration.criteria,
+        { path, kind, expected: value, ...(kind === 'json' && pointer ? { pointer } : {}) },
+      ]);
+      if (!result.success) throw new Error(result.error.issues[0].message);
+      update({ criteria: result.data });
+      setCriterionError('');
     } catch (error) {
-      onError(error instanceof Error ? error.message : String(error));
+      setCriterionError(error instanceof Error ? error.message : String(error));
     }
   };
   return (
@@ -381,27 +393,27 @@ export function DurableChatSetup({
           Acceptance criteria ({configuration.criteria.length})
         </summary>
         <p className="mt-2 text-xs text-gray-500">
-          Define what the collected deliverables must contain. These checks are evaluated by NSR
-          using the actual file bytes. Without criteria, results are marked observed rather than
-          verified.
+          Set the conditions a file must meet to be verified. Files without checks remain observed.
         </p>
+        <p className="mt-1 text-xs text-gray-500">Up to eight checks across four files.</p>
         <ul className="mt-2 space-y-2">
           {configuration.criteria.map((criterion, index) => (
-            <li
-              key={index}
-              className="flex items-center justify-between gap-2 text-xs text-gray-400"
-            >
-              <span>
-                {criterion.path} · {criterion.kind}
-                {criterion.pointer ? ` ${criterion.pointer}` : ''} ·{' '}
-                {JSON.stringify(criterion.expected).slice(0, 120)}
-              </span>
+            <li key={index} className="flex items-start justify-between gap-3 py-1 text-xs">
+              <div className="min-w-0 flex-1 [overflow-wrap:anywhere]">
+                <p className="font-medium text-gray-300">{criterion.path}</p>
+                <p className="mt-1 text-gray-400">
+                  {criterionLabels[criterion.kind]}
+                  {criterion.pointer ? ` ${criterion.pointer}` : ''} ·{' '}
+                  {JSON.stringify(criterion.expected).slice(0, 120)}
+                </p>
+              </div>
               <button
                 type="button"
-                onClick={() =>
-                  update({ criteria: configuration.criteria.filter((_, i) => i !== index) })
-                }
-                className="text-red-400"
+                onClick={() => {
+                  update({ criteria: configuration.criteria.filter((_, i) => i !== index) });
+                  setCriterionError('');
+                }}
+                className="shrink-0 rounded px-2 py-1 text-[var(--chat-muted)] hover:bg-[var(--chat-hover)] hover:text-[var(--chat-text)]"
                 aria-label={`Remove criterion ${index + 1}`}
               >
                 Remove
@@ -414,7 +426,11 @@ export function DurableChatSetup({
             File path
             <input
               value={path}
-              onChange={(e) => setPath(e.target.value)}
+              aria-describedby={criterionError ? criterionErrorId : undefined}
+              onChange={(e) => {
+                setPath(e.target.value);
+                setCriterionError('');
+              }}
               className="minimal-input mt-1 w-full"
             />
           </label>
@@ -422,21 +438,28 @@ export function DurableChatSetup({
             Check
             <select
               value={kind}
-              onChange={(e) => setKind(e.target.value as typeof kind)}
+              onChange={(e) => {
+                setKind(e.target.value as typeof kind);
+                setCriterionError('');
+              }}
               className="minimal-input mt-1 w-full"
             >
-              <option value="json">JSON value</option>
-              <option value="contains">Contains text</option>
-              <option value="equals">Exact text</option>
-              <option value="sha256">SHA-256 digest</option>
-              <option value="png">PNG structure and dimensions</option>
+              {Object.entries(criterionLabels).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
             </select>
           </label>
           <label className="text-xs text-gray-400">
             Expected {kind === 'json' || kind === 'png' ? 'JSON' : 'value'}
             <input
               value={expected}
-              onChange={(e) => setExpected(e.target.value)}
+              aria-describedby={criterionError ? criterionErrorId : undefined}
+              onChange={(e) => {
+                setExpected(e.target.value);
+                setCriterionError('');
+              }}
               className="minimal-input mt-1 w-full"
             />
           </label>
@@ -445,13 +468,21 @@ export function DurableChatSetup({
               JSON pointer
               <input
                 value={pointer}
-                onChange={(e) => setPointer(e.target.value)}
+                onChange={(e) => {
+                  setPointer(e.target.value);
+                  setCriterionError('');
+                }}
                 placeholder="/success"
                 className="minimal-input mt-1 w-full"
               />
             </label>
           )}
         </div>
+        {criterionError && (
+          <p id={criterionErrorId} role="alert" className="mt-2 text-xs text-[var(--ui-negative)]">
+            {criterionError}
+          </p>
+        )}
         <button
           type="button"
           onClick={addCriterion}

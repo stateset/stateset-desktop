@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useComputerChatsStore as store } from './store';
 import type { ComputerChat } from './types';
+import { DEFAULT_CHAT_CONFIGURATION } from './durableTypes';
 
 function fixture(): ComputerChat {
   return {
@@ -36,6 +37,51 @@ afterEach(async () => {
 });
 
 describe('computer chat persistence', () => {
+  it('retains older chats and editable defaults when new start validation becomes stricter', async () => {
+    const configuration = {
+      ...DEFAULT_CHAT_CONFIGURATION,
+      criteria: [{ path: '/workspace/./old-report.json', kind: 'json' as const, expected: true }],
+    };
+    const chat = {
+      ...fixture(),
+      messages: [
+        {
+          id: 'original-message',
+          role: 'user' as const,
+          content: 'Keep my original transcript',
+          timestamp: 1,
+        },
+      ],
+      durableSession: {
+        version: 2 as const,
+        workflowId: 'saved-workflow',
+        engineUrl: 'https://engine.example',
+        configuration,
+      },
+    };
+    const scope = 'tenant:brand';
+    vi.mocked(window.electronAPI!.store.get).mockImplementation(async (key) =>
+      key === 'computerChats' ? [chat] : { [scope]: configuration }
+    );
+    store.setState({ configurations: {} });
+    await store.getState().initialize();
+    expect(store.getState().chats).toEqual([chat]);
+    expect(store.getState().configurations[scope]).toEqual(configuration);
+    await store.getState().updateMetadata(chat.id, { title: 'Still accessible' });
+    expect(store.getState().chats[0].messages[0].content).toBe('Keep my original transcript');
+  });
+  it('rejects new unsupported defaults without overwriting the existing defaults', async () => {
+    const scope = 'tenant:brand';
+    store.setState({ configurations: { [scope]: DEFAULT_CHAT_CONFIGURATION } });
+    await expect(
+      store.getState().setConfiguration(scope, {
+        ...DEFAULT_CHAT_CONFIGURATION,
+        criteria: [{ path: '/workspace/./report.json', kind: 'json', expected: true }],
+      })
+    ).rejects.toThrow('Choose a file under /workspace');
+    expect(window.electronAPI!.store.set).not.toHaveBeenCalled();
+    expect(store.getState().configurations[scope]).toEqual(DEFAULT_CHAT_CONFIGURATION);
+  });
   it('persists the last opened chat without promoting its execution activity', async () => {
     const chat = fixture();
     await store.getState().save(chat);

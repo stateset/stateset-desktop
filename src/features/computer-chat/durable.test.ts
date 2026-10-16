@@ -63,6 +63,68 @@ async function create() {
   return controller.create(tenant, brand, DEFAULT_CHAT_CONFIGURATION);
 }
 describe('durable conversation recovery', () => {
+  it.each([
+    [
+      'an outside path',
+      { criteria: [{ path: '/etc/private.txt', kind: 'contains', expected: 'ok' }] },
+    ],
+    [
+      'a dot path',
+      { criteria: [{ path: '/workspace/./report.json', kind: 'json', expected: true }] },
+    ],
+    [
+      'a backslash path',
+      { criteria: [{ path: '/workspace/a\\b.txt', kind: 'contains', expected: 'ok' }] },
+    ],
+    [
+      'a control character',
+      { criteria: [{ path: '/workspace/a\u0085.txt', kind: 'contains', expected: 'ok' }] },
+    ],
+    [
+      'a multibyte path over 1024 bytes',
+      { criteria: [{ path: `/workspace/${'漢'.repeat(339)}`, kind: 'contains', expected: 'ok' }] },
+    ],
+    [
+      'an oversized expected value',
+      {
+        criteria: [
+          { path: '/workspace/report.txt', kind: 'contains', expected: '🙂'.repeat(4096) },
+        ],
+      },
+    ],
+    [
+      'five distinct files',
+      {
+        criteria: Array.from({ length: 5 }, (_, i) => ({
+          path: `/workspace/${i}.txt`,
+          kind: 'contains',
+          expected: 'ok',
+        })),
+      },
+    ],
+    ['a model over 255 bytes', { model: '漢'.repeat(86) }],
+    [
+      'an executable with arguments',
+      {
+        permissions: {
+          ...DEFAULT_CHAT_CONFIGURATION.permissions,
+          allowed_executables: ['python3 -c'],
+        },
+      },
+    ],
+    ['an invalid connector name', { mcp_servers: ['inventory/reports'] }],
+  ])('rejects %s before saving or starting a computer', async (_name, patch) => {
+    await expect(
+      controller.create(tenant, brand, {
+        ...DEFAULT_CHAT_CONFIGURATION,
+        ...patch,
+      } as typeof DEFAULT_CHAT_CONFIGURATION)
+    ).rejects.toThrow();
+    expect(chats.getState().chats).toEqual([]);
+    expect(window.electronAPI!.store.set).not.toHaveBeenCalled();
+    expect(request).not.toHaveBeenCalled();
+  });
+
   it('requests a key instead of repeatedly reconnecting without credentials', async () => {
     const id = await create();
     useDurableWorkflowsStore.setState({ apiKey: null });

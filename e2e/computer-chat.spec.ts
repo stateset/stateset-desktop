@@ -194,6 +194,78 @@ async function savedChats(page: Page): Promise<any[]> {
 test.beforeAll(() => requireDesktopDisplay());
 
 for (const theme of ['dark', 'light'] as const) {
+  test(`native acceptance settings recover from invalid criteria in ${theme} theme`, async ({
+    desktop,
+  }) => {
+    const engine = await startEngine();
+    try {
+      const application = await desktop.launch();
+      const page = await openChats(application, theme);
+      await page.getByRole('button', { name: 'Settings', exact: true }).click();
+      await page.getByLabel('Workflow engine URL').fill(engine.url);
+      await page.getByLabel('Workflow API key').fill(engineKey);
+      await page.getByRole('button', { name: 'Save connection and check' }).click();
+      await expect(page.getByText('Native bridge connected', { exact: false })).toBeVisible();
+      await page.getByText('Acceptance criteria (0)', { exact: true }).click();
+      await page.getByLabel('File path', { exact: true }).fill('/workspace/./report.json');
+      await page.getByRole('button', { name: 'Add criterion', exact: true }).click();
+      const error = page.getByRole('alert').filter({ hasText: 'Choose a file under /workspace' });
+      await expect(error).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Remove criterion 1' })).toHaveCount(0);
+      await expect(page.getByLabel('File path', { exact: true })).toHaveValue(
+        '/workspace/./report.json'
+      );
+      expect(engine.states.size).toBe(0);
+      const accessibility = await new AxeBuilder({ page })
+        .setLegacyMode()
+        .include('[aria-label="Computer setup and defaults"]')
+        .analyze();
+      expect(accessibility.violations).toEqual([]);
+      await mkdir('dist/verification', { recursive: true });
+      await page.screenshot({ path: `dist/verification/native-chat-criteria-${theme}.png` });
+      await page.getByLabel('File path', { exact: true }).fill('/workspace/report.json');
+      await page.getByRole('button', { name: 'Add criterion', exact: true }).click();
+      await expect(page.getByRole('button', { name: 'Remove criterion 1' })).toBeVisible();
+      await expect(error).toHaveCount(0);
+      const longPath = `/workspace/${'delivery-report-'.repeat(12)}2026.json`;
+      await page.getByLabel('File path', { exact: true }).fill(longPath);
+      await page
+        .getByLabel('Expected JSON', { exact: true })
+        .fill(JSON.stringify('ready'.repeat(30)));
+      await page.getByRole('button', { name: 'Add criterion', exact: true }).click();
+      await application.evaluate(({ BrowserWindow }) =>
+        BrowserWindow.getAllWindows()[0].setSize(1000, 760)
+      );
+      const settings = page.locator('.chat-settings');
+      await expect
+        .poll(() => settings.evaluate((element) => element.scrollWidth - element.clientWidth))
+        .toBeLessThanOrEqual(1);
+      const remove = page.getByRole('button', { name: 'Remove criterion 2' });
+      await remove.scrollIntoViewIfNeeded();
+      await expect(remove).toBeInViewport();
+      await page.screenshot({ path: `dist/verification/native-chat-criteria-narrow-${theme}.png` });
+      await remove.focus();
+      await page.keyboard.press('Enter');
+      await expect(remove).toHaveCount(0);
+      await page.getByRole('button', { name: 'Save defaults for this brand' }).click();
+      await expect(page.getByText('Defaults saved', { exact: true })).toBeVisible();
+      await page.getByRole('button', { name: 'Settings', exact: true }).click();
+      await page.getByRole('button', { name: 'New chat', exact: true }).click();
+      await expect(page.getByRole('textbox', { name: 'Chat message' })).toBeEnabled();
+      const start = engine.requests.find((request) => request.path.endsWith('/start'));
+      expect(start?.body.criteria).toEqual([
+        { path: '/workspace/report.json', kind: 'json', expected: true, pointer: '/success' },
+      ]);
+      await writeFile(
+        `dist/verification/native-chat-criteria-${theme}.json`,
+        JSON.stringify(start!.body, null, 2)
+      );
+      await application.close();
+    } finally {
+      await engine.close();
+    }
+  });
+
   test(`native multilingual chat continuation starts a distinct computer in ${theme} theme`, async ({
     desktop,
   }) => {
