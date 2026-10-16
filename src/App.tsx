@@ -7,6 +7,7 @@ import { shouldUseHashRouting } from './lib/routing';
 import Layout from './components/Layout';
 import { AppLoadingScreen } from './components/AppLoadingScreen';
 import { RouteErrorBoundary } from './components/RouteErrorBoundary';
+import PageNotFound from './pages/PageNotFound';
 import { useBackgroundAgents } from './hooks/useBackgroundAgents';
 import { useComputerChatRecovery } from './hooks/useComputerChatRecovery';
 import { useAuditLogStore } from './stores/auditLog';
@@ -34,8 +35,15 @@ const OfflineBanner = lazy(() => import('./components/OfflineBanner'));
 // Page loading fallback
 function PageLoader() {
   return (
-    <div className="flex items-center justify-center h-full min-h-[200px]">
-      <div className="w-8 h-8 border-2 border-brand-500/30 border-t-brand-500 rounded-full animate-spin" />
+    <div
+      role="status"
+      className="flex flex-col gap-3 items-center justify-center h-full min-h-[200px]"
+    >
+      <div
+        aria-hidden="true"
+        className="w-8 h-8 border-2 border-brand-500/30 border-t-brand-500 rounded-full animate-spin"
+      />
+      <span className="text-sm text-[color:var(--ui-muted)]">Loading page…</span>
     </div>
   );
 }
@@ -224,6 +232,7 @@ function AuthenticatedApp() {
               </RouteErrorBoundary>
             }
           />
+          <Route path="*" element={<PageNotFound />} />
         </Routes>
       </Suspense>
     </Layout>
@@ -251,8 +260,22 @@ export default function App() {
       <RouterComponent future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Suspense fallback={<AppLoadingScreen status="loading" />}>
           <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
+            <Route
+              path="/login"
+              element={
+                <RouteErrorBoundary>
+                  <Login />
+                </RouteErrorBoundary>
+              }
+            />
+            <Route
+              path="/register"
+              element={
+                <RouteErrorBoundary>
+                  <Register />
+                </RouteErrorBoundary>
+              }
+            />
             <Route
               path="/*"
               element={

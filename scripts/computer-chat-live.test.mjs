@@ -10,6 +10,40 @@ const fixtureKey = 'local-harness-fixture-key';
 const foreignWorkflow = 'computer-chat-unrelated-workflow';
 const script = fileURLToPath(new URL('./computer-chat-live.mjs', import.meta.url));
 
+async function runHarness(environment, { forbidNetwork = false } = {}) {
+  const args = forbidNetwork
+    ? [
+        '--import',
+        `data:text/javascript,${encodeURIComponent(
+          'globalThis.fetch = () => { throw new Error("Unexpected harness network access"); };'
+        )}`,
+        script,
+      ]
+    : [script];
+  const result = await new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, args, {
+      timeout: 15000,
+      env: { ...process.env, ...environment },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    let stdout = '',
+      stderr = '';
+    child.stdout.on('data', (chunk) => {
+      stdout = (stdout + chunk).slice(-50000);
+    });
+    child.stderr.on('data', (chunk) => {
+      stderr = (stderr + chunk).slice(-50000);
+    });
+    child.once('error', reject);
+    child.once('close', (code, signal) => resolve({ code, signal, stdout, stderr }));
+  });
+  assert.equal(result.signal, null, 'Fixture process must exit without a timeout');
+  assert.notEqual(result.code, 0, 'A failed start must never report acceptance success');
+  assert(!result.stdout.includes('"passed": true'));
+  assert(!result.stderr.includes(fixtureKey), 'Errors must not expose credentials');
+  return result;
+}
+
 async function failedStart({
   mode = 'http-error',
   stopFails = false,
@@ -71,36 +105,15 @@ async function failedStart({
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const endpoint = `http://127.0.0.1:${server.address().port}`;
   try {
-    const result = await new Promise((resolve, reject) => {
-      const child = spawn(process.execPath, [script], {
-        timeout: 15000,
-        env: {
-          ...process.env,
-          CHAT_TEST_ENGINE_URL: endpoint,
-          CHAT_TEST_ENGINE_KEY: fixtureKey,
-          CHAT_TEST_TENANT_ID: tenant,
-          CHAT_TEST_BRAND_ID: brandValue,
-          CHAT_TEST_NSR_URL: endpoint,
-          CHAT_TEST_NSR_KEY: fixtureKey,
-          CHAT_TEST_MODEL: 'fixture-model',
-        },
-        stdio: ['ignore', 'pipe', 'pipe'],
-      });
-      let stdout = '',
-        stderr = '';
-      child.stdout.on('data', (chunk) => {
-        stdout = (stdout + chunk).slice(-50000);
-      });
-      child.stderr.on('data', (chunk) => {
-        stderr = (stderr + chunk).slice(-50000);
-      });
-      child.once('error', reject);
-      child.once('close', (code, signal) => resolve({ code, signal, stdout, stderr }));
+    const result = await runHarness({
+      CHAT_TEST_ENGINE_URL: endpoint,
+      CHAT_TEST_ENGINE_KEY: fixtureKey,
+      CHAT_TEST_TENANT_ID: tenant,
+      CHAT_TEST_BRAND_ID: brandValue,
+      CHAT_TEST_NSR_URL: endpoint,
+      CHAT_TEST_NSR_KEY: fixtureKey,
+      CHAT_TEST_MODEL: 'fixture-model',
     });
-    assert.equal(result.signal, null, 'Fixture process must exit without a timeout');
-    assert.notEqual(result.code, 0, 'A failed start must never report acceptance success');
-    assert(!result.stdout.includes('"passed": true'));
-    assert(!result.stderr.includes(fixtureKey), 'Errors must not expose credentials');
     return { ...result, requests, owned, requestId, statusReads };
   } finally {
     server.closeAllConnections();
@@ -167,8 +180,20 @@ test('normalizes the configured brand before deriving its cleanup identity', asy
 
 test('rejects an invalid workspace identifier before making requests or logging its value', async () => {
   const invalidValue = 'sensitive-value-in-the-wrong-setting';
-  const result = await failedStart({ brandValue: invalidValue });
-  assert.deepEqual(result.requests, []);
+  // Guard this child directly. Other workstation processes can probe an open
+  // fixture port, so server traffic cannot prove which process made a request.
+  const result = await runHarness(
+    {
+      CHAT_TEST_ENGINE_URL: 'http://127.0.0.1:1',
+      CHAT_TEST_ENGINE_KEY: fixtureKey,
+      CHAT_TEST_TENANT_ID: tenant,
+      CHAT_TEST_BRAND_ID: invalidValue,
+      CHAT_TEST_NSR_URL: 'http://127.0.0.1:1',
+      CHAT_TEST_NSR_KEY: fixtureKey,
+    },
+    { forbidNetwork: true }
+  );
   assert(result.stderr.includes('CHAT_TEST_BRAND_ID must be a UUID'));
+  assert(!result.stderr.includes('Unexpected harness network access'));
   assert(!result.stderr.includes(invalidValue));
 });

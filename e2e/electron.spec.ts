@@ -1,6 +1,9 @@
 import type { Page } from '@playwright/test';
 import { test, expect, requireDesktopDisplay, type DesktopHarness } from './desktop';
 import { DESKTOP_TEST_ORIGIN } from './dev-server';
+import AxeBuilder from '@axe-core/playwright';
+import { mkdir } from 'node:fs/promises';
+import { installDesktopApiFixture } from './api-fixture';
 
 const mockTenant = { id: 'tenant_1', name: 'Test Tenant', slug: 'test-tenant', tier: 'pro' };
 const mockBrand = {
@@ -134,6 +137,91 @@ test.describe('Electron UI', () => {
   test.beforeAll(async () => {
     requireDesktopDisplay();
   });
+
+  for (const mode of [
+    { name: 'browser-dark', packaged: false, theme: 'dark' },
+    { name: 'browser-light', packaged: false, theme: 'light' },
+    { name: 'file-light', packaged: true, theme: 'light' },
+  ] as const) {
+    test(`stale routes recover in the same desktop window in ${mode.name}`, async ({ desktop }) => {
+      const application = await desktop.launch(desktop.createProfile({ packaged: mode.packaged }));
+      const page = await application.firstWindow();
+      await page.waitForURL(mode.packaged ? /^file:\/\// : `${DESKTOP_TEST_ORIGIN}/**`);
+      await installDesktopApiFixture(application, page, {
+        tenant: mockTenant,
+        brand: mockBrand,
+        sessions: [],
+        apiOrigin: mode.packaged
+          ? process.env.VITE_API_URL || 'https://engine.stateset.cloud.stateset.app'
+          : undefined,
+      });
+      await page.evaluate(async (theme) => {
+        await window.electronAPI!.store.set('onboardingCompleted', true);
+        await window.electronAPI!.store.set('theme', theme);
+      }, mode.theme);
+      await page.reload();
+      await expect(page.getByText('Welcome back')).toBeVisible();
+      await page.evaluate(
+        ({ tenant, brand }) => {
+          window.__E2E_AUTH__ = { tenant, brands: [brand] } as any;
+        },
+        { tenant: mockTenant, brand: mockBrand }
+      );
+      await page.getByRole('button', { name: 'API Key', exact: true }).click();
+      await page.getByLabel('API Key').fill('sk-test-route-recovery');
+      await page.getByRole('button', { name: 'Sign In', exact: true }).click();
+      await expect(
+        page.getByRole('heading', { level: 1, name: /Good (morning|afternoon|evening)/ })
+      ).toBeVisible();
+      const documentUrl = page.url().split('#')[0];
+      const marker = await page.evaluate(() => {
+        const marker = crypto.randomUUID();
+        (window as any).__routeRecoveryMarker = marker;
+        return marker;
+      });
+      const openMissing = async () => {
+        await page.evaluate((packaged) => {
+          window.history.pushState(
+            {},
+            '',
+            packaged ? '#/missing-page?from=stale-link' : '/missing-page?from=stale-link'
+          );
+          window.dispatchEvent(new PopStateEvent('popstate'));
+        }, mode.packaged);
+        await expect(
+          page.getByRole('heading', { name: 'Page not found', exact: true })
+        ).toBeFocused();
+        await expect(page).toHaveTitle('Page not found — StateSet');
+      };
+      await openMissing();
+      await expect(
+        page.getByRole('link', { name: 'Back to Dashboard', exact: true })
+      ).toHaveAttribute('href', mode.packaged ? '#/' : '/');
+      const accessibility = await new AxeBuilder({ page })
+        .setLegacyMode()
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+        .analyze();
+      expect(accessibility.violations).toEqual([]);
+      await mkdir('dist/verification', { recursive: true });
+      await page.screenshot({
+        path: `dist/verification/native-route-missing-${mode.name}.png`,
+        animations: 'disabled',
+      });
+      await page.getByRole('link', { name: 'Open chats', exact: true }).click();
+      await expect(
+        page.getByRole('heading', { level: 1, name: 'Chats', exact: true })
+      ).toBeVisible();
+      expect(await page.evaluate(() => (window as any).__routeRecoveryMarker)).toBe(marker);
+      await openMissing();
+      await page.getByRole('link', { name: 'Back to Dashboard', exact: true }).click();
+      await expect(
+        page.getByRole('heading', { level: 1, name: /Good (morning|afternoon|evening)/ })
+      ).toBeVisible();
+      expect(await page.evaluate(() => (window as any).__routeRecoveryMarker)).toBe(marker);
+      if (mode.packaged) expect(page.url().split('#')[0]).toBe(documentUrl);
+      await application.close();
+    });
+  }
 
   test('login reaches the dashboard', async ({ desktop }) => {
     const { electronApp, page } = await launchWithMocks(desktop);

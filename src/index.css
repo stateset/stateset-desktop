@@ -2,6 +2,74 @@
 @tailwind components;
 @tailwind utilities;
 
+.page-recovery {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: min(60vh, 30rem);
+  padding: 2rem 1.5rem;
+  text-align: center;
+  color: var(--ui-text);
+}
+.page-recovery-content {
+  width: 100%;
+  max-width: 28rem;
+}
+.page-recovery-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  margin-bottom: 1.25rem;
+  border: 1px solid var(--ui-border);
+  border-radius: 0.75rem;
+  background: var(--ui-surface-hover);
+  color: var(--ui-muted);
+}
+.page-recovery-icon.ui-warning {
+  color: var(--ui-warning);
+}
+.page-recovery-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+.page-recovery-description {
+  margin-top: 0.75rem;
+  color: var(--ui-muted);
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+:root .page-recovery .page-recovery-title:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+.page-recovery-details {
+  margin-top: 1.5rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--ui-border);
+  border-radius: 0.75rem;
+  background: var(--ui-surface-hover);
+  color: var(--ui-muted);
+  text-align: left;
+  font-size: 0.75rem;
+}
+.page-recovery-details summary {
+  cursor: pointer;
+}
+.page-recovery-details summary:focus-visible {
+  outline: 2px solid var(--ui-focus);
+  outline-offset: 4px;
+}
+.page-recovery-details pre {
+  margin-top: 0.75rem;
+  max-height: 10rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 @layer components {
   .minimal-input {
     @apply rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2 text-slate-200 outline-none transition-colors placeholder:text-slate-700 focus:border-slate-600 disabled:opacity-50;

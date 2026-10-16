@@ -1,0 +1,122 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-16T15:39:10.909505+00:00",
+  "scope": "Clear, accessible recovery for stale desktop links, failed pages and unavailable page modules without losing healthy component state during query navigation.",
+  "source_parent_commit": "0526f58cababb40783a4bcdabe6034e88bcad526",
+  "qualification": "Local Linux acceptance. Real sandbox/Temporal/NSR and signed platform release gates remain pending.",
+  "observed_regressions": {
+    "baseline_job": "23deecec347e",
+    "baseline_expected_failures": 3,
+    "baseline_failures": [
+      "Packaged dashboard recovery linked to filesystem root instead of the hash route.",
+      "A mounted route boundary retained its error after navigation.",
+      "A rejected lazy module offered a boundary retry although React.lazy caches the rejection."
+    ],
+    "reproduction_limit": "The frozen navigation reproduction changes pathname in an isolated boundary. The final regression changes chat query on the same pathname, because the real Layout already remounts content on pathname changes.",
+    "focused_job": "c7ad0ecdaaac",
+    "focused_tests": 32,
+    "focused_files": 4,
+    "root_and_e2e_types": "passed"
+  },
+  "fixture_isolation": {
+    "initial_job": "3de1a9bf4386",
+    "initial_result": "Lint, both builds and all 2,650 unit tests passed, then the invalid-workspace fixture observed two GET / requests on its local server and failed. Native checks were not reached.",
+    "cause_assessment": "Those requests do not match any harness API path. Another local process probing the open port is a plausible explanation, not proven attribution.",
+    "change": "Run the invalid-configuration child with a preloaded fetch prohibition and no local server. The existing configuration error must occur before any fetch attempt; timeout, failure and credential-redaction assertions remain.",
+    "production_harness_changed": false
+  },
+  "implementation": [
+    "Use router-aware replacement links for recovery within browser and packaged-file routing.",
+    "Show a minimal, theme-aware Page not found screen with dashboard and chat destinations; preserve the workspace and require sign-in before workspace recovery.",
+    "Clear only failed content on route-key, path, query or hash changes; retain healthy drafts and component state.",
+    "Offer reload for rejected page modules and ordinary retry for render errors; normalize non-Error throws and keep bounded technical details collapsed.",
+    "Announce loading, name pages, focus recovery headings and recovered content, and use theme tokens for readable status text.",
+    "Return top-level recovery outside the router to the browser dashboard path or original packaged renderer file."
+  ],
+  "verification": {
+    "job": "7889ddd56f9e",
+    "state": "succeeded",
+    "command": "bash /tmp/stateset-desktop-route-remaining.sh",
+    "wait_seconds": 702.86,
+    "runtime_seconds": 351.55,
+    "unit_lint_and_build_job": "3de1a9bf4386",
+    "unit_lint_and_build_job_overall_state": "failed",
+    "unit_lint_and_build_scope": "Passed phases of the initial run; application inputs unchanged. Only fixture isolation changed for the successful remaining run.",
+    "unit_tests": 2650,
+    "unit_files": 221,
+    "coverage": {
+      "lines": {
+        "total": 12385,
+        "covered": 10133,
+        "skipped": 0,
+        "pct": 81.81
+      },
+      "statements": {
+        "total": 13544,
+        "covered": 10960,
+        "skipped": 0,
+        "pct": 80.92
+      },
+      "functions": {
+        "total": 3317,
+        "covered": 2696,
+        "skipped": 0,
+        "pct": 81.27
+      },
+      "branches": {
+        "total": 10655,
+        "covered": 8029,
+        "skipped": 0,
+        "pct": 75.35
+      },
+      "branchesTrue": {
+        "total": 0,
+        "covered": 0,
+        "skipped": 0,
+        "pct": 100
+      }
+    },
+    "native_passed": 59,
+    "opt_in_live_skipped": 3,
+    "visual_comparisons": 11,
+    "visual_references_changed": false,
+    "packaged_linux_startup_restart": 1,
+    "harness_and_release_fixtures": 21,
+    "lint": "passed",
+    "electron_and_renderer_builds": "passed",
+    "new_native_cases": "Browser dark/light and packaged-file light recovery verify focus, title, WCAG checks, both destinations and a retained window-document marker.",
+    "native_screenshot_sha256": {
+      "native-route-missing-browser-dark.png": "2bd9e08350b4092e056a9a6cc9a4c7b15492e55ca7d338a1cfacb0d81edc5c4c",
+      "native-route-missing-browser-light.png": "e174526cc9b6e1f9b5b1603ebb1b80a51c5daa1e80850ac58d1871e8b7193e06",
+      "native-route-missing-file-light.png": "e174526cc9b6e1f9b5b1603ebb1b80a51c5daa1e80850ac58d1871e8b7193e06"
+    },
+    "visual_review": "Inspected all three recovery screenshots: readable theme colors, consistent spacing, visible destinations and intact workspace navigation.",
+    "source_guard": {
+      "method": "Manual SHA256 of all tracked and new input files before and after verification; not an immutable Buildr snapshot.",
+      "inputs": 616,
+      "manifest_sha256": "b9e8eb9a94ff0e7bdc9a713ef7ed4ea802685dfe203881f28dcdb40885737cd7"
+    }
+  },
+  "limitations": [
+    "Three opt-in live checks remain skipped without staging configuration. Owned API fixtures do not prove real sandbox, Temporal or NSR acceptance.",
+    "The packaged-file routing fixture uses E2E mode and a mocked isPackaged value. Separate production Linux startup/restart runs without E2E mode; signed macOS/Windows qualification remains pending.",
+    "Dependencies, package version, visual references and snapshot tolerances are unchanged. Existing advisory findings remain documented in desktop-security-2026-10-15.json.",
+    "Changes are for the existing review branch; no release publication, tag movement or merge."
+  ],
+  "changed_source_sha256": {
+    "CHANGELOG.md": "0755a1f60ad567d5df239598706b97b14ccac51a57f0309c2417c95b7e02fe52",
+    "e2e/api-fixture.ts": "840de0fca4600786dfbdf3023b704f6c38ee5e8de11b83b0b0777da8b2a7bc5e",
+    "e2e/electron.spec.ts": "4d14643b3a7fd19b5f7cfb3e8a10f39b4f84914e833e440e9460866bd7fa8355",
+    "scripts/computer-chat-live.test.mjs": "25304870cd03a586dbcd8f3927c7d910591d748dee08e6f7b7be6710b0de7981",
+    "src/App.routing.test.tsx": "fb8f0213a6ead1315c7eb553d2b0b00e3298ad2932499b3b82a30e2a0f1cfa29",
+    "src/App.test.tsx": "260a0e11765f89a25c2adbb631ed6f6888634bba333e84cbf935c1381e2cbadc",
+    "src/App.tsx": "bd6020844d3db5c233a094eaeb3c082ec86247e50437a81f11c0cc4d1884362f",
+    "src/components/ErrorBoundary.test.tsx": "27239c87e2edca044aa86f1d9d9faf136c7e31840b88c2133d940c70141b675e",
+    "src/components/ErrorBoundary.tsx": "744bede97ceeb47c07a8eac998c50d1bc3ef628a36fc9d988fc170d829019fdd",
+    "src/components/RouteErrorBoundary.test.tsx": "b51eba666d70256a030bc4f0686501aaeb8d3b3e0df1eb255355388a2f9d76ba",
+    "src/components/RouteErrorBoundary.tsx": "1b9de819ec88f984a1775dc8d37abb45e8eeb1d3fd144e7e37ee235526883f64",
+    "src/index.css": "8e5b6babd264ca2f7fea0465086dd5edd66db0449fb9877694f83b5e6d812b54",
+    "src/lib/routing.ts": "c56c44681f4192fec95167bf559962fd92fcb3a8c351064fe12fdb1a8d1d8c74",
+    "src/pages/PageNotFound.tsx": "3a692e25b445b07f2edbfa36932eeacba368765bef7fcc63addd8ddc3417b620"
+  }
+}

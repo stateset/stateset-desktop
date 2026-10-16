@@ -8,6 +8,7 @@ export async function installDesktopApiFixture(
   page: Page,
   fixture: {
     tenant: unknown;
+    apiOrigin?: string;
     brand: unknown;
     sessions: unknown[];
     platforms?: string[];
@@ -15,11 +16,13 @@ export async function installDesktopApiFixture(
     actions?: { blocked?: boolean; failIds?: string[] };
   }
 ) {
-  const apiOrigin = await page.evaluate(async () => {
-    const configModule = '/src/config/api.config.ts';
-    const { API_CONFIG } = await import(configModule);
-    return new URL(API_CONFIG.baseUrl).origin;
-  });
+  const apiOrigin = fixture.apiOrigin
+    ? new URL(fixture.apiOrigin).origin
+    : await page.evaluate(async () => {
+        const configModule = '/src/config/api.config.ts';
+        const { API_CONFIG } = await import(configModule);
+        return new URL(API_CONFIG.baseUrl).origin;
+      });
   const rendererOrigin = new URL(page.url()).origin;
   await electronApp.evaluate(
     (
