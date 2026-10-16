@@ -1,10 +1,45 @@
 import { describe, expect, it } from 'vitest';
-import { mergeChatHistory, mergeTimeline } from './history';
+import { importChatMessages, mergeChatHistory, mergeTimeline } from './history';
 const message = (id: string, timestamp: number, content = id) => ({
   id,
   role: 'assistant' as const,
   content,
   timestamp,
+});
+
+describe('history imported into a new engine workflow', () => {
+  it.each(['a', 'é', '漢', '🙂'])(
+    'fits %s text without splitting a UTF-8 character',
+    (character) => {
+      const prefix = 'Previous user: ';
+      const content = character.repeat(8000);
+      const count = Math.floor(
+        (8000 - new TextEncoder().encode(prefix).length) /
+          new TextEncoder().encode(character).length
+      );
+      const [imported] = importChatMessages([{ role: 'user', content }]);
+      expect(imported.content).toBe(prefix + character.repeat(count));
+      expect(new TextEncoder().encode(imported.content).length).toBeLessThanOrEqual(8000);
+      expect(imported.content).not.toContain('\uFFFD');
+    }
+  );
+  it('keeps the latest thirty user and assistant messages without changing the original history', () => {
+    const messages = Array.from({ length: 32 }, (_, index) => ({
+      role: index % 2 ? 'assistant' : 'user',
+      content: `Original ${index}`,
+    }));
+    const original = structuredClone(messages);
+    const imported = importChatMessages([
+      ...messages,
+      { role: 'tool', content: 'Tool output' },
+      { role: 'system', content: 'System instruction' },
+    ]);
+    expect(imported).toHaveLength(30);
+    expect(imported[0].content).toBe('Previous user: Original 2');
+    expect(imported[29].content).toBe('Previous assistant: Original 31');
+    expect(new Set(imported.map((entry) => entry.id)).size).toBe(30);
+    expect(messages).toEqual(original);
+  });
 });
 describe('retained conversation history', () => {
   it('retains earlier messages when the server returns a compacted window and updates duplicate IDs', () => {

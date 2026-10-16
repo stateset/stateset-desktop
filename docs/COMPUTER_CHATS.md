@@ -237,7 +237,9 @@ the session and its consumed budget. An ended/suspended session cannot be revive
 Continuing an ended conversation explicitly creates a new computer with imported
 transcript context. Previous computer chats and older playground histories can
 be imported through the same chat list; importing does not automatically execute
-the old instructions.
+the old instructions. Imported context keeps the latest 30 user/assistant messages.
+Each is bounded to the engine's 8,000-byte UTF-8 limit, including its role label,
+without cutting through a Unicode character. The original conversation is retained.
 
 ## Acceptance checks and files
 

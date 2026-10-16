@@ -12,7 +12,7 @@ import {
 } from './durableTypes';
 import type { ComputerChat } from './types';
 import { chatEnded } from './library';
-import { mergeChatHistory, mergeTimeline } from './history';
+import { importChatMessages, mergeChatHistory, mergeTimeline } from './history';
 import { decodeArtifactContent, sameArtifactVersion, type ArtifactVersion } from './artifacts';
 import { approvalUnavailable, approvalVersion, supportedReplacement } from './approvals';
 
@@ -229,13 +229,7 @@ export const durableChatController = {
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
     const workflowId = `computer-chat-${brandId.replace(/-/g, '')}-${id.replace(/-/g, '')}`;
-    const imported = source?.messages
-      .filter((m) => m.role === 'user' || m.role === 'assistant')
-      .slice(-30)
-      .map((m) => ({
-        id: crypto.randomUUID(),
-        content: `Previous ${m.role}: ${m.content.slice(0, 7500)}`,
-      }));
+    const imported = source ? importChatMessages(source.messages) : undefined;
     await useComputerChatsStore.getState().save({
       id,
       tenantId,

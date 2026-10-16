@@ -242,6 +242,34 @@ describe('durable conversation recovery', () => {
     expect(chat.durableSession?.importedMessages?.[0].content).toContain('Old instruction');
     expect(request).not.toHaveBeenCalled();
   });
+  it('starts continued multilingual chats within the engine’s UTF-8 message limit', async () => {
+    const original = '🙂漢é'.repeat(2000);
+    const id = await controller.create(tenant, brand, DEFAULT_CHAT_CONFIGURATION, {
+      id: 'legacy',
+      title: 'Multilingual report',
+      messages: [{ role: 'assistant', content: original }],
+    });
+    const identity = chats.getState().chats[0].durableSession!;
+    const imported = identity.importedMessages![0];
+    expect(imported.content).toMatch(/^Previous assistant: /);
+    expect(new TextEncoder().encode(imported.content).byteLength).toBeLessThanOrEqual(8000);
+    expect(imported.content).not.toContain('\uFFFD');
+    expect(original.startsWith(imported.content.slice('Previous assistant: '.length))).toBe(true);
+    expect(request).not.toHaveBeenCalled();
+    request.mockImplementation(async ({ path }) => ({
+      ok: true,
+      status: 200,
+      body: path.endsWith('/start')
+        ? { workflow_id: identity.workflowId, run_id: 'continued-run' }
+        : status(id),
+    }));
+    await controller.provision(id);
+    const start = request.mock.calls.find(([call]) => call.path.endsWith('/start'))![0];
+    expect(start.body.imported_messages).toEqual([imported]);
+    expect(start.body.initial_message).toBeUndefined();
+    expect(chats.getState().chats[0].durableSession?.runId).toBe('continued-run');
+    expect(chats.getState().chats[0].error).toBeUndefined();
+  });
   it('retains received messages and timeline entries across compacted server windows', async () => {
     const id = await create();
     const first = status(id, {

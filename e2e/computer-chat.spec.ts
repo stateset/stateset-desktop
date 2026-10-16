@@ -71,6 +71,14 @@ async function startEngine() {
       return;
     }
     if (path === '/v1/computer-chats/start') {
+      if (
+        body.imported_messages?.some(
+          (message: { content: string }) => Buffer.byteLength(message.content, 'utf8') > 8000
+        )
+      ) {
+        reply({ message: 'Imported messages require 1–8000 UTF-8 bytes' }, 400);
+        return;
+      }
       const workflowId = `computer-chat-${brand.id.replace(/-/g, '')}-${body.request_id.replace(/-/g, '')}`;
       if (!states.has(workflowId))
         states.set(workflowId, {
@@ -186,6 +194,80 @@ async function savedChats(page: Page): Promise<any[]> {
 test.beforeAll(() => requireDesktopDisplay());
 
 for (const theme of ['dark', 'light'] as const) {
+  test(`native multilingual chat continuation starts a distinct computer in ${theme} theme`, async ({
+    desktop,
+  }) => {
+    test.setTimeout(120_000);
+    const engine = await startEngine();
+    try {
+      const application = await desktop.launch();
+      const page = await openChats(application, theme);
+      await page.getByRole('button', { name: 'Settings', exact: true }).click();
+      await page.getByLabel('Workflow engine URL').fill(engine.url);
+      await page.getByLabel('Workflow API key').fill(engineKey);
+      await page.getByRole('button', { name: 'Save connection and check' }).click();
+      await expect(page.getByText('Native bridge connected', { exact: false })).toBeVisible();
+      await page.getByRole('button', { name: 'Settings', exact: true }).click();
+      await page.getByRole('button', { name: 'New chat', exact: true }).click();
+      const composer = page.getByRole('textbox', { name: 'Chat message' });
+      await expect(composer).toBeEnabled();
+      const first = (await savedChats(page))[0];
+      const state = engine.states.get(first.durableSession.workflowId)!;
+      const original = '🙂漢é'.repeat(2000);
+      state.messages = [
+        { id: 'multilingual-report', role: 'assistant', content: original, timestamp: Date.now() },
+      ];
+      state.status = 'stopped';
+      state.cleanup_verified = true;
+      state.session!.status = 'stopped';
+      state.generation++;
+      const continuation = page.getByRole('button', {
+        name: 'Continue transcript in a new computer',
+      });
+      await expect(continuation).toBeVisible();
+      await expect
+        .poll(
+          async () =>
+            (await savedChats(page)).find((chat) => chat.id === first.id).messages[0]?.content
+        )
+        .toBe(original);
+      await continuation.click();
+      await expect(composer).toBeEnabled();
+      await expect.poll(() => engine.states.size).toBe(2);
+      const starts = engine.requests.filter((request) => request.path.endsWith('/start'));
+      expect(starts).toHaveLength(2);
+      const imported = starts[1].body.imported_messages;
+      expect(imported).toHaveLength(1);
+      expect(Buffer.byteLength(imported[0].content, 'utf8')).toBeLessThanOrEqual(8000);
+      expect(imported[0].content).toMatch(/^Previous assistant: /);
+      expect(imported[0].content).not.toContain('\uFFFD');
+      expect(starts[1].body.initial_message).toBeUndefined();
+      expect(engine.requests.filter((request) => request.path.endsWith('/messages'))).toEqual([]);
+      await expect
+        .poll(
+          async () =>
+            (await savedChats(page)).find((chat) => chat.id !== first.id)?.serverState?.session?.id
+        )
+        .toBe(`session-${starts[1].body.request_id}`);
+      const records = await savedChats(page);
+      expect(records.find((chat) => chat.id === first.id).messages[0].content).toBe(original);
+      const continued = records.find((chat) => chat.id !== first.id);
+      expect(continued.durableSession.workflowId).not.toBe(first.durableSession.workflowId);
+      expect(continued.serverState.session.id).not.toBe(first.serverState.session.id);
+      expect(continued.serverState.session.currentSandboxId).not.toBe(
+        first.serverState.session.currentSandboxId
+      );
+      await mkdir('dist/verification', { recursive: true });
+      await writeFile(
+        `dist/verification/native-chat-continuation-${theme}.json`,
+        JSON.stringify(starts[1].body, null, 2)
+      );
+      await application.close();
+    } finally {
+      await engine.close();
+    }
+  });
+
   test(`native conversation menus support keyboard editing and focus recovery in ${theme} theme`, async ({
     desktop,
   }) => {

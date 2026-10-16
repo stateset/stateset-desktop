@@ -1,6 +1,24 @@
 import type { ChatMessage } from '../../types';
 import type { DurableChatStatus } from './durableTypes';
 
+/** The engine limits imported messages in UTF-8 bytes, including the role prefix. */
+export function importChatMessages(messages: { role: string; content: string }[]) {
+  const encoder = new TextEncoder();
+  const decoder = new TextDecoder('utf-8', { fatal: true });
+  return messages
+    .filter((message) => message.role === 'user' || message.role === 'assistant')
+    .slice(-30)
+    .map((message) => {
+      const bytes = new Uint8Array(8000);
+      // encodeInto stops before an incomplete code point rather than splitting it.
+      const { written } = encoder.encodeInto(`Previous ${message.role}: ${message.content}`, bytes);
+      return {
+        id: crypto.randomUUID(),
+        content: decoder.decode(bytes.subarray(0, written)),
+      };
+    });
+}
+
 // Retain observations already received when a workflow returns a shorter window.
 // Bound both record count and encoded size, including multibyte text and details.
 function mergeRecords<T extends { id: string | number }>(
