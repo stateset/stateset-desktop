@@ -10,7 +10,7 @@ import { TemplateDetailPanel } from '../features/templates/components/TemplateDe
 import { SaveAsTemplateDialog } from '../features/templates/components/SaveAsTemplateDialog';
 import type { AgentTemplate } from '../types';
 import clsx from 'clsx';
-import { motion, useReducedMotion } from 'framer-motion';
+import { motion, useReducedMotionConfig } from 'framer-motion';
 import {
   pageContainerVariants,
   pageSectionVariants,
@@ -20,7 +20,7 @@ import {
 
 export default function Templates() {
   usePageTitle('Templates');
-  const reduceMotion = useReducedMotion();
+  const reduceMotion = useReducedMotionConfig();
   const navigate = useNavigate();
   const { initialize, getAllTemplates, removeCustomTemplate } = useTemplatesStore();
 

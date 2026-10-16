@@ -1,5 +1,5 @@
 import { memo, useState, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotionConfig } from 'framer-motion';
 import { Bell, X, Trash2 } from 'lucide-react';
 import clsx from 'clsx';
 import { formatDistanceToNow } from 'date-fns';
@@ -26,7 +26,15 @@ interface NotificationsCenterProps {
   onClearAll: () => void;
 }
 
-const typeConfig: Record<NotificationType, { icon: (typeof NOTIFICATION_SEVERITY_CONFIG)[NotificationType]['icon']; color: string; bg: string; border: string }> = {
+const typeConfig: Record<
+  NotificationType,
+  {
+    icon: (typeof NOTIFICATION_SEVERITY_CONFIG)[NotificationType]['icon'];
+    color: string;
+    bg: string;
+    border: string;
+  }
+> = {
   success: {
     icon: NOTIFICATION_SEVERITY_CONFIG.success.icon,
     color: 'text-emerald-400',
@@ -62,7 +70,7 @@ export const NotificationsCenter = memo(function NotificationsCenter({
 }: NotificationsCenterProps) {
   const [isOpen, setIsOpen] = useState(false);
   const unreadCount = notifications.filter((n) => !n.read).length;
-  const reduceMotion = useReducedMotion();
+  const reduceMotion = useReducedMotionConfig();
   const dur = reduceMotion ? 0 : 0.2;
 
   // Close on escape
@@ -131,9 +139,9 @@ export const NotificationsCenter = memo(function NotificationsCenter({
             id="notifications-center-panel"
             role="region"
             aria-label="Notifications"
-            initial={{ opacity: 0, y: 12, scale: 0.96 }}
+            initial={reduceMotion ? false : { opacity: 0, y: 12, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 12, scale: 0.96 }}
+            exit={reduceMotion ? undefined : { opacity: 0, y: 12, scale: 0.96 }}
             transition={{ duration: dur, ease: [0.16, 1, 0.3, 1] }}
             className="absolute right-0 top-full mt-3 w-[90vw] max-w-[26rem] max-h-[75vh] bg-slate-900/80 border border-slate-700/60 rounded-2xl shadow-2xl backdrop-blur-xl flex flex-col overflow-hidden z-50"
           >

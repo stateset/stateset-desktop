@@ -9,7 +9,7 @@ import { useAuditLogStore } from '../stores/auditLog';
 import { usePreferencesStore } from '../stores/preferences';
 import { Pagination } from '../components/Pagination';
 import { AUDIT_ACTION_COLORS, AUDIT_ACTION_LABELS, type AuditAction } from '../lib/auditLog';
-import { motion, useReducedMotion } from 'framer-motion';
+import { motion, useReducedMotionConfig } from 'framer-motion';
 import { pageContainerVariants, pageSectionVariants } from '../lib/animations';
 
 const ACTION_FILTER_OPTIONS: { value: string; label: string }[] = [
@@ -31,7 +31,7 @@ const ACTION_FILTER_OPTIONS: { value: string; label: string }[] = [
 
 export default function AuditLog() {
   usePageTitle('Audit Log');
-  const reduceMotion = useReducedMotion();
+  const reduceMotion = useReducedMotionConfig();
   const { entries, initialize, clear } = useAuditLogStore();
 
   const pageSize = usePreferencesStore((s) => s.pageSize);

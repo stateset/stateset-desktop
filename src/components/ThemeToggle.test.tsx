@@ -16,7 +16,7 @@ vi.mock('framer-motion', () => ({
     ),
   },
   AnimatePresence: ({ children }: React.PropsWithChildren) => <>{children}</>,
-  useReducedMotion: () => false,
+  useReducedMotionConfig: () => false,
 }));
 
 // Strip framer-motion-specific props so they don't end up on DOM elements

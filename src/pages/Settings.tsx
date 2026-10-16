@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
+import { motion, useReducedMotionConfig } from 'framer-motion';
 import { useSearchParams } from 'react-router-dom';
 import { User, FlaskConical, RefreshCw, Palette, Bell, Download, Info } from 'lucide-react';
 import clsx from 'clsx';
@@ -32,7 +32,7 @@ const sectionVariants = {
 
 export default function Settings() {
   usePageTitle('Settings');
-  const reduceMotion = useReducedMotion();
+  const reduceMotion = useReducedMotionConfig();
   const [searchParams, setSearchParams] = useSearchParams();
   const initialTab = (searchParams.get('tab') as TabId) || 'account';
   const [activeTab, setActiveTab] = useState<TabId>(

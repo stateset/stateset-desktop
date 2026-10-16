@@ -23,12 +23,12 @@ import type { AgentSession } from '../types';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { DateRangePicker } from '../components/DateRangePicker';
 import { useState } from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
+import { motion, useReducedMotionConfig } from 'framer-motion';
 import { pageContainerVariants, pageSectionVariants } from '../lib/animations';
 
 export default function Analytics() {
   usePageTitle('Analytics');
-  const reduceMotion = useReducedMotion();
+  const reduceMotion = useReducedMotionConfig();
   const tenant = useAuthStore((s) => s.tenant);
   const currentBrand = useAuthStore((s) => s.currentBrand);
   const [dateRange, setDateRange] = useState({

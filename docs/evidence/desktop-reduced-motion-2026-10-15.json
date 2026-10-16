@@ -1,0 +1,115 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-16T04:00:58.272003+00:00",
+  "scope": "Honor the application reduced-motion policy in page, settings, menu and navigation components; immediately show content without decorative opacity fades when reduced motion is requested",
+  "source_parent_commit": "0d38fbd9beab3b6388f57334963a0ca661203653",
+  "qualification": "Local Linux acceptance. Live sandbox/Temporal/NSR and signed platform release gates remain pending.",
+  "observed_regression": {
+    "ci_run": 38846116143,
+    "ci_job": 116797458498,
+    "parent_head": "0d38fbd9beab3b6388f57334963a0ca661203653",
+    "failures": [
+      "Settings light-theme contrast during section fade",
+      "Workspace keyboard popup light-theme contrast during main-content fade"
+    ],
+    "other_parent_results": "Standalone E2E and Linux bundle workflow38846116151 passed; unit/lint/types and three unsigned platform builds passed. Parent Build and Release overall failed due to these accessibility checks.",
+    "reproduction_job": "4d880c10ac81",
+    "reproduction_result": "Both new component regressions failed with actual opacity0 under MotionConfig reducedMotion always.",
+    "focused_job": "5e24b5aa7b6c",
+    "focused_tests": 76,
+    "focused_files": 8,
+    "root_types": "passed",
+    "e2e_types": "passed"
+  },
+  "implementation": [
+    "Use the public useReducedMotionConfig hook to combine the application MotionConfig policy with the system preference.",
+    "Skip the main-content initial fade and notification/command-palette entry and exit fades when reduced motion is requested.",
+    "Settings and existing animated page controls honor the same policy; retain normal animations otherwise.",
+    "Keep all accessibility rules, color values, visual reference images and snapshot tolerances unchanged."
+  ],
+  "verification": {
+    "job": "13dd8c8750bb",
+    "state": "succeeded",
+    "command": "bash /tmp/stateset-desktop-motion-acceptance.sh",
+    "wait_seconds": 38.61,
+    "runtime_seconds": 568.37,
+    "unit_tests": 2634,
+    "unit_files": 220,
+    "coverage": {
+      "lines": {
+        "total": 12360,
+        "covered": 10107,
+        "skipped": 0,
+        "pct": 81.77
+      },
+      "statements": {
+        "total": 13514,
+        "covered": 10930,
+        "skipped": 0,
+        "pct": 80.87
+      },
+      "functions": {
+        "total": 3309,
+        "covered": 2688,
+        "skipped": 0,
+        "pct": 81.23
+      },
+      "branches": {
+        "total": 10631,
+        "covered": 8006,
+        "skipped": 0,
+        "pct": 75.3
+      },
+      "branchesTrue": {
+        "total": 0,
+        "covered": 0,
+        "skipped": 0,
+        "pct": 100
+      }
+    },
+    "native_passed": 56,
+    "live_skipped": 3,
+    "visual_comparisons": 11,
+    "visual_references_changed": false,
+    "packaged_linux_startup_restart": 1,
+    "harness_and_release_fixtures": 21,
+    "lint": "passed",
+    "electron_and_renderer_builds": "passed",
+    "native_visibility_assertion": "Main content is already opacity1 when the keyboard-operated brand selector has focus.",
+    "source_guard": {
+      "method": "Manual SHA256 of all tracked input files before and after verification, not an immutable Buildr snapshot",
+      "inputs": 613,
+      "manifest_sha256": "8286d76c149dacd70cc64845ef01055e49357fb927eb85c8fbaa031669f55ea0"
+    }
+  },
+  "limitations": [
+    "Three opt-in live checks were skipped; staging configuration was not supplied. Owned HTTP fixtures do not establish real sandbox, Temporal or NSR acceptance.",
+    "Packaged startup and restart were verified on Linux. Signed macOS/Windows release qualification and update publication still require protected platform CI.",
+    "Dependencies and package version are unchanged; existing advisory findings remain recorded in desktop-security-2026-10-15.json.",
+    "These changes are for the review branch; v1.1.19 remains unchanged."
+  ],
+  "changed_source_sha256": {
+    "CHANGELOG.md": "63b6afc2176447087d9d390bd0fd3e4646401b1179ba02313b9c35d29ebe5ce3",
+    "e2e/accessibility.spec.ts": "d28059eb68a8ed4ed9104c06f5759778e38be6bcb5ff70b0d9a9b42104348c62",
+    "src/components/CommandPalette.test.tsx": "0cf8cb93963bd4b3dc4686b3cec6be068f4fc579a5bfeb050e6a92d7c1a6d8e1",
+    "src/components/CommandPalette.tsx": "1eb01617e4c0545c0026196fa3b65876fff49b2d3f1612d0bcb570e9d6efcc4a",
+    "src/components/Layout.test.tsx": "c1914b297f97a2bf2b0defa42f24a87889bd41dc34c6909741bce1a92d904b82",
+    "src/components/Layout.tsx": "a9895ed96f264863feb61f4de7c572fc4e43322ca3abac2520e3a23ddfd376d9",
+    "src/components/NotificationsCenter.tsx": "af588183b76b053c101a6405548da0f8a28351373c11a53cbb3a76cfb94cee0c",
+    "src/components/ThemeToggle.test.tsx": "2a1619f33d63f2e80ea9e7ca688df76dbf63b55ea75fe1b3e68fc67d519d2568",
+    "src/components/ThemeToggle.tsx": "244d82a27a573e1adc7f4d67d4868a9e0c30befe2cc6d1db064f38d60d05c2a6",
+    "src/features/dashboard/components/DashboardHeader.tsx": "fa0b123e3eddb360a7c7ed7283694182a704e4d0364a7e0902eeafe6f7b7562b",
+    "src/features/dashboard/components/SessionList.tsx": "46b937aa2d20b144a4ba368cc584be2483b8204a5d1abb5ed696119c505ac2d4",
+    "src/pages/Analytics.tsx": "cb7ea2e4ec31d8c76c02688b0a53f487052c4b77e7c21c3e336f9fe118b8b318",
+    "src/pages/AuditLog.tsx": "bc96a5d1a850d6e637929b3e389322f8b762e0637c68f9119f901ff7434340b6",
+    "src/pages/Connections.tsx": "4ee3b877bdf364805aae2795d30f4919dbd911b6f1b9e59193d480f251ee3519",
+    "src/pages/Dashboard.tsx": "05f872d55974a6fbabe8dd1e56ed48e55ecca2fce53a4184e14cc689c3a8ad4d",
+    "src/pages/Login.tsx": "1b757f06bc35a3a1152558a332ef806b53b6dd0327a3200f9baf93b20fe171f5",
+    "src/pages/Settings.test.tsx": "8b86caa58e398c2705fb42382727af94c98166c3740519ef4bd6fd810afb3634",
+    "src/pages/Settings.tsx": "b054c6929100f9b7b1075bf9612de2f7eedd8e0868ec78283fa681b70282f4a9",
+    "src/pages/Templates.tsx": "598a42ab46726bd776a5c5d82b17d0a48f67f45de129a0dbf8082ef165a20002",
+    "src/pages/Voice.test.tsx": "a616907a5a0f3b5514756e17ababb64b170c35d0fe9e6577f898a72b0f7b1790",
+    "src/pages/Voice.tsx": "5fed87fb9e118325a328d9bb16b4fd93d4755d6d0aed4da8e19f8a704fdb17ea",
+    "src/pages/Webhooks.tsx": "c336ced9f75de5be9c4673ed52c5e9a4a3f49dc6266fff4cd642e45a781592cc"
+  }
+}

@@ -1,5 +1,5 @@
 import { Bot, Search } from 'lucide-react';
-import { motion, useReducedMotion } from 'framer-motion';
+import { motion, useReducedMotionConfig } from 'framer-motion';
 import { SkeletonCard } from '../../../components/Skeleton';
 import { EmptyState } from '../../../components/EmptyState';
 import { Pagination } from '../../../components/Pagination';
@@ -59,7 +59,7 @@ export function SessionList({
   onRename,
   onToggleSelect,
 }: SessionListProps) {
-  const reduceMotion = useReducedMotion();
+  const reduceMotion = useReducedMotionConfig();
 
   if (isLoading) {
     return (

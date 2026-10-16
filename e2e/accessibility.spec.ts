@@ -788,6 +788,9 @@ test.describe('Sign-in, template and notification usability', () => {
         await expect(second).toBeFocused();
         await page.keyboard.press('ArrowDown');
         await expect(first).toBeFocused();
+        expect(
+          await page.getByRole('main').evaluate((element) => getComputedStyle(element).opacity)
+        ).toBe('1');
         expect((await checkAccessibility(page)).violations).toEqual([]);
         await page.keyboard.press('Escape');
         await expect(trigger).toBeFocused();

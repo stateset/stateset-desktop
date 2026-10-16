@@ -1,5 +1,5 @@
 import { Plus, Command, RefreshCw, WifiOff } from 'lucide-react';
-import { motion, useReducedMotion } from 'framer-motion';
+import { motion, useReducedMotionConfig } from 'framer-motion';
 import { Spinner } from '../../../components/Spinner';
 import { pageSectionVariants } from '../../../lib/animations';
 
@@ -31,7 +31,7 @@ export function DashboardHeader({
   onRefresh,
   onCreate,
 }: DashboardHeaderProps) {
-  const reduceMotion = useReducedMotion();
+  const reduceMotion = useReducedMotionConfig();
 
   return (
     <motion.div

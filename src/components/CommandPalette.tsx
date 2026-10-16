@@ -22,7 +22,7 @@ import {
   Workflow,
 } from 'lucide-react';
 import clsx from 'clsx';
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotionConfig } from 'framer-motion';
 
 interface CommandItem {
   id: string;
@@ -68,7 +68,7 @@ export function CommandPalette({
   const selectedIndexRef = useRef(0);
   const onCloseRef = useRef(onClose);
   const navigate = useNavigate();
-  const reduceMotion = useReducedMotion();
+  const reduceMotion = useReducedMotionConfig();
   const dur = reduceMotion ? 0 : 0.2;
 
   const statusRank = (status: string): number => {
@@ -443,17 +443,17 @@ export function CommandPalette({
     <AnimatePresence>
       {isOpen ? (
         <motion.div
-          initial={{ opacity: 0 }}
+          initial={reduceMotion ? false : { opacity: 0 }}
           animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
+          exit={reduceMotion ? undefined : { opacity: 0 }}
           transition={{ duration: dur }}
           className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh] bg-slate-950/60 backdrop-blur-md"
           onClick={onClose}
         >
           <motion.div
-            initial={{ opacity: 0 }}
+            initial={reduceMotion ? false : { opacity: 0 }}
             animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+            exit={reduceMotion ? undefined : { opacity: 0 }}
             transition={{ duration: dur, ease: [0.16, 1, 0.3, 1] }}
             role="dialog"
             aria-modal="true"

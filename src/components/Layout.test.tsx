@@ -1,6 +1,7 @@
 /** @vitest-environment happy-dom */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen } from '@testing-library/react';
+import { MotionConfig } from 'framer-motion';
 import Layout from './Layout';
 import { renderWithProviders } from '../test-utils';
 import { useAuthStore } from '../stores/auth';
@@ -95,6 +96,17 @@ function renderLayout() {
 }
 
 describe('Layout brand selector', () => {
+  it('keeps content fully visible immediately when the app requests reduced motion', () => {
+    renderWithProviders(
+      <MotionConfig reducedMotion="always">
+        <Layout>
+          <div>Readable page content</div>
+        </Layout>
+      </MotionConfig>
+    );
+    expect(getComputedStyle(screen.getByRole('main')).opacity || '1').toBe('1');
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     mockListSessions.mockResolvedValue([]);

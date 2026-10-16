@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState, useCallback, useMemo } from 'react';
 import clsx from 'clsx';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotionConfig } from 'framer-motion';
 import { ApiHealthIndicator } from './ApiHealthIndicator';
 import { WorkspaceCommandPalette } from '../features/computer-chat/WorkspaceCommandPalette';
 import { KeyboardShortcutsModal } from './KeyboardShortcutsModal';
@@ -63,6 +63,7 @@ function NotificationsBell() {
 }
 
 export default function Layout({ children, banner }: LayoutProps) {
+  const reduceMotion = useReducedMotionConfig();
   const { tenant, currentBrand, brands, setCurrentBrand, logout } = useAuthStore();
   const brandMenu = usePopupNavigation('listbox');
   const [showShortcutsModal, setShowShortcutsModal] = useState(false);
@@ -520,7 +521,7 @@ export default function Layout({ children, banner }: LayoutProps) {
       {/* Main Content */}
       <motion.main
         key={location.pathname}
-        initial={{ opacity: 0 }}
+        initial={reduceMotion ? false : { opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
         className="layout-main-content flex-1 flex flex-col overflow-hidden relative"

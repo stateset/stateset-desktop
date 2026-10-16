@@ -49,7 +49,7 @@ vi.mock('../lib/api', () => ({
 
 // Mock framer-motion to render children without animation
 vi.mock('framer-motion', () => ({
-  useReducedMotion: () => true,
+  useReducedMotionConfig: () => true,
   motion: {
     div: ({ children, ...props }: React.PropsWithChildren<Record<string, unknown>>) => (
       <div {...filterDomProps(props)}>{children}</div>

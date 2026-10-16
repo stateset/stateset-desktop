@@ -16,7 +16,7 @@ import { loginWithEmail } from '../lib/registration';
 import clsx from 'clsx';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { Spinner } from '../components/Spinner';
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { AnimatePresence, motion, useReducedMotionConfig } from 'framer-motion';
 
 type LoginMethod = 'email' | 'apikey';
 
@@ -64,7 +64,7 @@ function getErrorDisplay(error: AuthError | null) {
 
 export default function Login() {
   usePageTitle('Login');
-  const reduceMotion = useReducedMotion();
+  const reduceMotion = useReducedMotionConfig();
   const [loginMethod, setLoginMethod] = useState<LoginMethod>('email');
   const [apiKey, setApiKey] = useState('');
   const [email, setEmail] = useState('');

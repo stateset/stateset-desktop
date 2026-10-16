@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useReducedMotion } from 'framer-motion';
+import { useReducedMotionConfig } from 'framer-motion';
 import { useAuthStore } from '../stores/auth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useToast } from '../components/ToastProvider';
@@ -25,7 +25,7 @@ import {
 
 export default function Voice() {
   usePageTitle('Voice');
-  const reduceMotion = useReducedMotion() ?? false;
+  const reduceMotion = useReducedMotionConfig() ?? false;
   const tenant = useAuthStore((state) => state.tenant);
   const currentBrand = useAuthStore((state) => state.currentBrand);
   const { showToast } = useToast();

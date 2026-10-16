@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { motion, useReducedMotion } from 'framer-motion';
+import { motion, useReducedMotionConfig } from 'framer-motion';
 import { useAuthStore } from '../stores/auth';
 import { usePreferencesStore } from '../stores/preferences';
 import { useUiStore } from '../stores/ui';
@@ -42,7 +42,7 @@ import type { AgentSession, AgentSessionConfig } from '../types';
 
 export default function Dashboard() {
   usePageTitle('Dashboard');
-  const reduceMotion = useReducedMotion();
+  const reduceMotion = useReducedMotionConfig();
   const tenant = useAuthStore((s) => s.tenant);
   const currentBrand = useAuthStore((s) => s.currentBrand);
   const navigate = useNavigate();

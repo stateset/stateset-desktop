@@ -30,7 +30,7 @@ import {
   getStatesetHttpMcpServer,
 } from '../features/connections/statesetMcpServers';
 import { Plug, AlertCircle, Plus, RefreshCw } from 'lucide-react';
-import { motion, useReducedMotion } from 'framer-motion';
+import { motion, useReducedMotionConfig } from 'framer-motion';
 import { Spinner } from '../components/Spinner';
 import {
   pageContainerVariants,
@@ -41,7 +41,7 @@ import {
 
 export default function Connections() {
   usePageTitle('Connections');
-  const reduceMotion = useReducedMotion();
+  const reduceMotion = useReducedMotionConfig();
   const { tenant, currentBrand } = useAuthStore();
   const { showToast } = useToast();
   const { confirm, ConfirmDialogComponent } = useConfirmDialog();

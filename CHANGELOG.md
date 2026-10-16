@@ -19,6 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Fixed
 
+- Honor the app’s reduced-motion preference throughout navigation, settings, menus, and page content. Keep content immediately visible without decorative fade-ins when reduced motion is requested.
 - Keep computer-chat instructions, reviews, file reads and status responses bound to the original connection across asynchronous saves and credential changes. Serialize connection updates and invalidate cached approval readiness on scope changes.
 - Match dashboard control names to their visible text for speech and screen-reader navigation, including workspace selectors, commands, metrics, and agent rows.
 - Run native verification on a separate trusted localhost port when the development server is already open, keeping navigation and fixture origins aligned.
