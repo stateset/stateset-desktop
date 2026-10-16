@@ -140,6 +140,24 @@ describe('deliverable interactions', () => {
   });
 });
 describe('workspace navigation', () => {
+  it.each([
+    ['/workspace/' + '漢'.repeat(338), '1,024 UTF-8 bytes'],
+    ['/workspace/a\u0085b', 'under /workspace'],
+  ])('keeps the rejected %s address editable with an associated error', async (path, message) => {
+    render(<WorkspaceBrowser chat={fixture()} busy={false} />);
+    const input = screen.getByRole('textbox', { name: 'Workspace directory' });
+    fireEvent.change(input, { target: { value: path } });
+    fireEvent.submit(input.closest('form')!);
+    expect(await screen.findByRole('alert')).toHaveTextContent(message);
+    expect(input).toHaveValue(path);
+    expect(input).toHaveAttribute('aria-invalid', 'true');
+    expect(input).toHaveAccessibleDescription(screen.getByRole('alert').textContent!);
+    expect(durableChatController.workspace).not.toHaveBeenCalled();
+    fireEvent.change(input, { target: { value: '/workspace/客户' } });
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    fireEvent.submit(input.closest('form')!);
+    expect(durableChatController.workspace).toHaveBeenCalledWith('chat', 'list', '/workspace/客户');
+  });
   it('updates the address when a new folder observation arrives', () => {
     const chat = fixture();
     const { rerender } = render(<WorkspaceBrowser chat={chat} busy={false} />);

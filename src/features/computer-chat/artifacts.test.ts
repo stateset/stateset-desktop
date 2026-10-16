@@ -166,6 +166,26 @@ describe('bounded passive previews', () => {
   });
 });
 describe('workspace paths', () => {
+  it('accepts a workspace path at the engine’s 1024-byte limit', () => {
+    const path = '/workspace/' + ('漢'.repeat(50) + '/').repeat(6) + 'a'.repeat(107);
+    expect(new TextEncoder().encode(path)).toHaveLength(1024);
+    expect(workspaceDirectory(path)).toBe(path);
+  });
+  it.each(['a', '漢', '🙂'])(
+    'rejects an overlong path made from %s before sending it',
+    (character) => {
+      const size = new TextEncoder().encode(character).byteLength;
+      const path = '/workspace/' + character.repeat(Math.floor(1013 / size) + 1);
+      expect(new TextEncoder().encode(path).byteLength).toBeGreaterThan(1024);
+      expect(() => workspaceDirectory(path)).toThrow('1,024 UTF-8 bytes');
+    }
+  );
+  it('rejects every C1 control character that the engine refuses', () => {
+    for (let code = 127; code <= 159; code++)
+      expect(() => workspaceDirectory(`/workspace/a${String.fromCharCode(code)}b`)).toThrow(
+        'under /workspace'
+      );
+  });
   it('normalizes paths inside the workspace', () => {
     expect(workspaceDirectory('/workspace//reports/')).toBe('/workspace/reports');
     expect(workspaceDirectory('/workspace/')).toBe('/workspace');

@@ -309,6 +309,32 @@ for (const theme of ['dark', 'light'] as const) {
       state.workspace = reports;
       await page.getByRole('button', { name: 'Refresh conversation' }).click();
       await expect(address).toHaveValue(reports.path);
+      for (const [path, message] of [
+        ['/workspace/' + '漢'.repeat(338), '1,024 UTF-8 bytes'],
+        ['/workspace/a\u0085b', 'control characters'],
+      ]) {
+        await address.fill(path);
+        await address.press('Enter');
+        await expect(browser.getByRole('alert')).toContainText(message);
+        await expect(address).toHaveValue(path);
+        await expect(address).toHaveAttribute('aria-invalid', 'true');
+        await expect(address).toHaveAccessibleDescription(new RegExp(message));
+        expect(
+          engine.requests.filter((request) => request.path.endsWith('/workspace'))
+        ).toHaveLength(0);
+      }
+      expect(
+        (
+          await new AxeBuilder({ page })
+            .setLegacyMode()
+            .include('[aria-label="Workspace browser"]')
+            .analyze()
+        ).violations
+      ).toEqual([]);
+      await address.fill(reports.path);
+      await address.press('Enter');
+      await expect(browser.getByRole('alert')).toHaveCount(0);
+      await expect(address).not.toHaveAttribute('aria-invalid', 'true');
       const search = browser.getByRole('searchbox', { name: 'Filter workspace files' });
       await search.fill('drafts');
       const folder = browser.getByRole('button', { name: 'drafts', exact: true });
@@ -354,7 +380,7 @@ for (const theme of ['dark', 'light'] as const) {
         engine.requests
           .filter((request) => request.path.endsWith('/workspace'))
           .map((request) => request.body.path)
-      ).toEqual(['/workspace/reports/drafts', '/workspace/reports']);
+      ).toEqual(['/workspace/reports', '/workspace/reports/drafts', '/workspace/reports']);
       await application.close();
     } finally {
       await engine.close();

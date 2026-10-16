@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useId, useLayoutEffect, useRef, useState } from 'react';
 import { ArrowUp, File, Folder } from 'lucide-react';
 import { durableChatController } from './durable';
 import { workspaceDirectory } from './artifacts';
@@ -30,6 +30,7 @@ export function WorkspaceBrowser({ chat, busy }: { chat: ComputerChat; busy: boo
       address.current?.focus();
   }, [observed]);
   const [error, setError] = useState<string>();
+  const pathError = useId();
   const disabled = busy || chatEnded(chat);
   const navigate = async (value: string, operation: 'list' | 'read' = 'list') => {
     if (disabled) return;
@@ -77,6 +78,7 @@ export function WorkspaceBrowser({ chat, busy }: { chat: ComputerChat; busy: boo
           ref={address}
           aria-label="Workspace directory"
           aria-invalid={Boolean(error) || undefined}
+          aria-describedby={error ? pathError : undefined}
           value={path}
           onChange={(event) => {
             addressEdited.current = true;
@@ -90,7 +92,7 @@ export function WorkspaceBrowser({ chat, busy }: { chat: ComputerChat; busy: boo
         </button>
       </form>
       {error && (
-        <p role="alert" className="text-xs text-red-400">
+        <p id={pathError} role="alert" className="text-xs text-red-400">
           {error}
         </p>
       )}

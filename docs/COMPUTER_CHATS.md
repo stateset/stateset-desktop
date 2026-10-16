@@ -277,6 +277,9 @@ a file is shown as verified.
 
 Browse folders with breadcrumbs, the parent button or an entered `/workspace`
 directory; press Enter to browse and filter larger directory listings by name.
+Workspace paths use at most 1,024 UTF-8 bytes and reject control characters,
+backslashes and `.`/`..` segments before sending a workspace request. Invalid
+addresses stay editable, with the error associated with the address field.
 The address follows newly observed folders unless you are editing it. Opening a
 folder by keyboard returns focus to the address when its old row disappears;
 moving focus elsewhere while it loads keeps your chosen control focused. File

@@ -133,13 +133,19 @@ export function previewArtifact(
 
 export function workspaceDirectory(value: string) {
   const path = value.replace(/\/+$/, '') || '/';
+  if (new TextEncoder().encode(path).byteLength > 1024)
+    throw new Error('Workspace paths can use at most 1,024 UTF-8 bytes.');
   if (
-    path.length > 1024 ||
     path.includes('\\') ||
-    hasControls(path) ||
+    Array.from(path).some((character) => {
+      const code = character.charCodeAt(0);
+      return code < 32 || (code >= 127 && code <= 159);
+    }) ||
     (path !== '/workspace' && !path.startsWith('/workspace/')) ||
     path.split('/').some((part) => part === '..' || part === '.')
   )
-    throw new Error('Choose a directory under /workspace without parent segments.');
+    throw new Error(
+      'Choose a directory under /workspace without . or .. segments, backslashes or control characters.'
+    );
   return path.replace(/\/{2,}/g, '/');
 }
