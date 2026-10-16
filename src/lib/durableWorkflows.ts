@@ -88,7 +88,8 @@ type RequestOptions = {
 };
 
 function configuredClient() {
-  const { engineUrl, apiKey } = useDurableWorkflowsStore.getState();
+  const { engineUrl, apiKey, configuring } = useDurableWorkflowsStore.getState();
+  if (configuring) throw new Error('Wait for the workflow connection update to finish.');
   if (!engineUrl.trim() || !apiKey?.trim()) {
     throw new Error('Configure the durable workflow engine URL and API key first.');
   }

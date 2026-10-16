@@ -63,6 +63,21 @@ A saved chat without a workflow key shows **Connection needs attention** and
 **Open connection settings**. Automatic retries pause until the credential changes.
 Restoring the key refreshes saved workflow status without resending instructions.
 
+Connection changes invalidate in-flight desktop observations and cached review
+readiness, including switching away and back to the same organization or engine.
+A late response or authentication failure cannot replace a newer connection state.
+Instructions waiting for a local save keep their stable pending identity but are
+not submitted if the organization, brand, credential or engine changes before
+submission. Review the original conversation and explicitly retry after reconnecting.
+An action already accepted by the server continues under its original workflow;
+a desktop connection change does not undo that action.
+
+Connection saves and credential removal run in order. While they are pending,
+computer requests wait for a consistent saved connection. The native bridge binds
+each request to a process-local connection revision and rejects an old binding
+before forwarding it, including before an authentication retry. Revisions contain
+no credential material and are not persisted with conversations or sent to services.
+
 `VITE_DURABLE_ENGINE_URL` sets the initial engine URL. `VITE_SANDBOX_API_URL` and
 `VITE_POLICY_API_URL` remain for older app features; durable chats resolve both
 services through the engine's brand connectors.

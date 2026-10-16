@@ -49,6 +49,8 @@ beforeEach(() => {
   useDurableWorkflowsStore.setState({
     initialized: true,
     apiKey: 'test-key',
+    connectionRevision: 'test-revision',
+    configuring: false,
     engineUrl: 'https://engine.example',
   });
   window.electronAPI = {
@@ -419,7 +421,7 @@ describe('collected artifact scope and saving', () => {
     );
     expect(saveArtifact).not.toHaveBeenCalled();
   });
-  it.each(['brand', 'engine', 'artifact'] as const)(
+  it.each(['brand', 'engine', 'credential', 'artifact'] as const)(
     'discards a response after the %s changes',
     async (change) => {
       const { id, artifact, body } = await collected();
@@ -434,6 +436,7 @@ describe('collected artifact scope and saving', () => {
       if (change === 'brand') useAuthStore.setState({ currentBrand: { id: 'different' } } as never);
       if (change === 'engine')
         useDurableWorkflowsStore.setState({ engineUrl: 'https://different.example' });
+      if (change === 'credential') useDurableWorkflowsStore.setState({ apiKey: 'replaced-key' });
       if (change === 'artifact')
         await chats.getState().save({
           ...chats.getState().chats[0],
@@ -619,5 +622,164 @@ describe('action-bound reviews', () => {
     );
     expect(request).not.toHaveBeenCalled();
     expect(chats.getState().chats[0].error).toBeTruthy();
+  });
+});
+
+describe('durable connection changes during requests', () => {
+  it.each(['credential', 'engine', 'brand'] as const)(
+    'keeps a saved instruction unsubmitted if the %s changes while saving',
+    async (change) => {
+      const id = await create();
+      chats.getState().setDraft(id, 'Prepare a private report');
+      let release!: () => void;
+      let blocked = false;
+      vi.mocked(window.electronAPI!.store.set).mockImplementation(async (_key, value) => {
+        if (!blocked && (value as { pendingMessage?: unknown }[])[0]?.pendingMessage) {
+          blocked = true;
+          await new Promise<void>((resolve) => {
+            release = resolve;
+          });
+        }
+        return true;
+      });
+      request.mockImplementation(async ({ path }) => ({
+        ok: true,
+        status: 200,
+        body: path.endsWith('/status') ? status(id) : {},
+      }));
+      const sending = controller.send(id, 'Prepare a private report');
+      await vi.waitFor(() => expect(release).toBeTypeOf('function'));
+      const pending = { ...chats.getState().chats[0].pendingMessage! };
+      if (change === 'credential') useDurableWorkflowsStore.setState({ apiKey: 'replacement-key' });
+      if (change === 'engine')
+        useDurableWorkflowsStore.setState({ engineUrl: 'https://replacement.example' });
+      if (change === 'brand')
+        useAuthStore.setState({ currentBrand: { id: 'other-brand' } } as never);
+      release();
+      await sending;
+      expect(request).not.toHaveBeenCalled();
+      expect(chats.getState().chats[0].pendingMessage).toEqual(pending);
+    }
+  );
+
+  it('discards status fetched with a replaced credential', async () => {
+    const id = await create();
+    let release!: (value: unknown) => void;
+    request.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          release = resolve;
+        })
+    );
+    const refreshing = controller.refresh(id);
+    useDurableWorkflowsStore.setState({ apiKey: 'replacement-key' });
+    release({ ok: true, status: 200, body: status(id, { status: 'paused', paused: true }) });
+    await refreshing;
+    expect(chats.getState().chats[0].serverState).toBeUndefined();
+    expect(chats.getState().connections[id]).toBeUndefined();
+  });
+
+  it('does not let a late authentication failure replace a newly validated connection', async () => {
+    const id = await create();
+    let release!: (value: unknown) => void;
+    request.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          release = resolve;
+        })
+    );
+    const refreshing = controller.refresh(id);
+    useDurableWorkflowsStore.setState({ apiKey: 'replacement-key' });
+    const current = { status: 'connected' as const, failures: 0, lastSyncedAt: 900 };
+    chats.getState().setConnection(id, current);
+    release({ ok: false, status: 401, body: { message: 'Old credential expired' } });
+    await refreshing;
+    expect(chats.getState().connections[id]).toEqual(current);
+  });
+});
+
+describe('connection trust and operation lifetime', () => {
+  it('retains an unstarted local identity if its connection changes during creation', async () => {
+    let release!: () => void;
+    vi.mocked(window.electronAPI!.store.set).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          release = () => resolve(true);
+        })
+    );
+    const creating = create();
+    await vi.waitFor(() => expect(release).toBeTypeOf('function'));
+    useDurableWorkflowsStore.setState({ apiKey: 'replacement-key' });
+    release();
+    await expect(creating).rejects.toThrow('saved locally');
+    expect(chats.getState().chats).toHaveLength(1);
+    expect(chats.getState().chats[0]).toMatchObject({
+      tenantId: tenant,
+      brandId: brand,
+      durableSession: { engineUrl: 'https://engine.example' },
+    });
+    expect(request).not.toHaveBeenCalled();
+  });
+  it('invalidates cached connection trust before a credential update can authorize a review', async () => {
+    const id = await create();
+    chats.getState().setConnection(id, { status: 'connected', failures: 0 });
+    useDurableWorkflowsStore.setState({ apiKey: 'replacement-key' });
+    expect(chats.getState().connections[id]).toBeUndefined();
+  });
+  it('discards an earlier response after switching away and back to the same connection', async () => {
+    const id = await create();
+    let release!: (value: unknown) => void;
+    request.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          release = resolve;
+        })
+    );
+    const refreshing = controller.refresh(id);
+    useDurableWorkflowsStore.setState({ engineUrl: 'https://elsewhere.example' });
+    useDurableWorkflowsStore.setState({ engineUrl: 'https://engine.example' });
+    release({ ok: true, status: 200, body: status(id) });
+    await refreshing;
+    expect(chats.getState().chats[0].serverState).toBeUndefined();
+    expect(chats.getState().connections[id]).toBeUndefined();
+  });
+  it('refuses a control if its connection changes during the initial save', async () => {
+    const id = await create();
+    let release!: () => void;
+    vi.mocked(window.electronAPI!.store.set).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          release = () => resolve(true);
+        })
+    );
+    const controlling = controller.control(id, 'stop');
+    await vi.waitFor(() => expect(release).toBeTypeOf('function'));
+    useDurableWorkflowsStore.setState({ apiKey: 'replacement-key' });
+    release();
+    await controlling;
+    expect(request).not.toHaveBeenCalled();
+  });
+  it('does not send a saved instruction after shutdown arrives during persistence', async () => {
+    const id = await create();
+    let release!: () => void;
+    let blocked = false;
+    vi.mocked(window.electronAPI!.store.set).mockImplementation(async (_key, value) => {
+      if (!blocked && (value as { pendingMessage?: unknown }[])[0]?.pendingMessage) {
+        blocked = true;
+        await new Promise<void>((resolve) => {
+          release = resolve;
+        });
+      }
+      return true;
+    });
+    const sending = controller.send(id, 'Prepare report');
+    await vi.waitFor(() => expect(release).toBeTypeOf('function'));
+    chats.setState({
+      chats: [{ ...chats.getState().chats[0], serverState: status(id, { stop_requested: true }) }],
+    });
+    release();
+    await sending;
+    expect(request).not.toHaveBeenCalled();
+    expect(chats.getState().chats[0].pendingMessage?.content).toBe('Prepare report');
   });
 });

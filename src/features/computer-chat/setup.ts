@@ -7,6 +7,8 @@ export interface SetupContext {
   brandId: string;
   engineUrl: string;
   apiKey: string | null;
+  connectionRevision?: string | null;
+  configuring?: boolean;
   mcpServers: string[];
 }
 export interface CheckedSetup {
@@ -18,7 +20,9 @@ export function sameSetupConnection(a: SetupContext, b: SetupContext) {
     a.tenantId === b.tenantId &&
     a.brandId === b.brandId &&
     a.engineUrl === b.engineUrl &&
-    a.apiKey === b.apiKey
+    a.apiKey === b.apiKey &&
+    (a.connectionRevision ?? null) === (b.connectionRevision ?? null) &&
+    (a.configuring ?? false) === (b.configuring ?? false)
   );
 }
 export function sameSetupContext(a: SetupContext, b: SetupContext) {

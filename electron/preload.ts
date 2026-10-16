@@ -4,6 +4,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 // the ipcRenderer without exposing the entire object
 contextBridge.exposeInMainWorld('electronAPI', {
   computerChat: {
+    getConnection: () => ipcRenderer.invoke('computer-chat:getConnection'),
     request: (request: import('./computer-chat-bridge').ComputerChatRequest) =>
       ipcRenderer.invoke('computer-chat:request', request),
     saveArtifact: (request: { filename: string; contentBase64: string; sha256: string }) =>
@@ -177,6 +178,7 @@ interface UpdateStatusSnapshot {
 // Type definitions for the exposed API
 export interface ElectronAPI {
   computerChat: {
+    getConnection: () => Promise<import('./computer-chat-bridge').ComputerChatConnection>;
     request: (
       request: import('./computer-chat-bridge').ComputerChatRequest
     ) => Promise<{ ok: boolean; status: number; body: unknown }>;

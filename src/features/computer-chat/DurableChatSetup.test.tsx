@@ -45,6 +45,8 @@ beforeEach(() => {
     initialized: true,
     engineUrl: 'https://engine.example',
     apiKey: 'original',
+    connectionRevision: null,
+    configuring: false,
   });
   window.electronAPI = {
     store: { set: vi.fn().mockResolvedValue(true) },
@@ -88,6 +90,8 @@ describe('connection setup readiness', () => {
           brandId: 'brand',
           engineUrl: 'https://next.example',
           apiKey: 'replacement',
+          connectionRevision: null,
+          configuring: false,
           mcpServers: [],
         },
       })

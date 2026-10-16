@@ -33,8 +33,17 @@ export async function chatRequest<T>(
   body?: unknown
 ): Promise<T> {
   const bridge = window.electronAPI?.computerChat;
+  const connection = useDurableWorkflowsStore.getState();
+  if (connection.configuring) throw new Error('Wait for the workflow connection update to finish.');
   if (bridge) {
-    const result = await bridge.request({ tenantId, path, method, body });
+    const result = await bridge.request({
+      tenantId,
+      path,
+      method,
+      body,
+      engineUrl: connection.engineUrl,
+      revision: connection.connectionRevision ?? '',
+    });
     if (!result.ok) {
       const error = result.body as { message?: string; error?: string } | null;
       throw new ChatRequestError(
@@ -92,6 +101,31 @@ export const durableChatApi = {
   artifact: async (tenantId: string, id: string, path: string) =>
     artifactSchema.parse(await chatRequest(tenantId, route(id, 'artifact'), 'POST', { path })),
 };
+let contextEpoch = 0;
+const invalidateContext = () => {
+  contextEpoch++;
+  // A successful query under one connection cannot authorize a cached review
+  // under another connection, even if the organization and brand match.
+  useComputerChatsStore.setState({ connections: {} });
+};
+useAuthStore.subscribe((current, previous) => {
+  if (
+    current.tenant?.id !== previous.tenant?.id ||
+    current.currentBrand?.id !== previous.currentBrand?.id ||
+    current.apiKey !== previous.apiKey
+  )
+    invalidateContext();
+});
+useDurableWorkflowsStore.subscribe((current, previous) => {
+  if (
+    current.engineUrl !== previous.engineUrl ||
+    current.apiKey !== previous.apiKey ||
+    current.connectionRevision !== previous.connectionRevision ||
+    current.configuring !== previous.configuring
+  )
+    invalidateContext();
+});
+
 const mutations = new Set<string>();
 const polling = new Set<string>();
 const artifactExports = new Set<string>();
@@ -115,18 +149,29 @@ async function save(id: string, patch: Partial<ComputerChat>) {
   await useComputerChatsStore.getState().save({ ...chat(id), ...patch });
 }
 
-function stillCurrent(value: ComputerChat) {
+type ChatContext = { value: ReturnType<typeof scoped>; epoch: number };
+function context(id: string): ChatContext {
+  if (useDurableWorkflowsStore.getState().configuring)
+    throw new Error('Wait for the workflow connection update to finish.');
+  return { value: scoped(id), epoch: contextEpoch };
+}
+function stillCurrent({ value, epoch }: ChatContext) {
   const auth = useAuthStore.getState();
   const latest = useComputerChatsStore.getState().chats.find((c) => c.id === value.id);
   return (
+    epoch === contextEpoch &&
     latest?.durableSession?.workflowId === value.durableSession?.workflowId &&
     value.tenantId === auth.tenant?.id &&
     value.brandId === auth.currentBrand?.id &&
     value.durableSession?.engineUrl === useDurableWorkflowsStore.getState().engineUrl
   );
 }
+function assertCurrent(scope: ChatContext) {
+  if (!stillCurrent(scope)) throw new Error('The conversation workspace or connection changed.');
+}
 async function readArtifact(id: string, path: string, expected?: ArtifactVersion) {
-  const value = scoped(id);
+  const scope = context(id);
+  const { value } = scope;
   const recorded = value.serverState?.artifacts.find((artifact) => artifact.path === path);
   if (!recorded) throw new Error('Collect this file as a deliverable before opening it');
   const version = expected ?? { ...recorded };
@@ -138,24 +183,28 @@ async function readArtifact(id: string, path: string, expected?: ArtifactVersion
     path
   );
   const content = await decodeArtifactContent(response, version);
-  if (!stillCurrent(value))
+  if (!stillCurrent(scope))
     throw new Error('The conversation workspace changed while loading this file');
   const latest = chat(id).serverState?.artifacts.find((artifact) => artifact.path === path);
   if (!latest || !sameArtifactVersion(latest, version))
     throw new Error('This file has changed since collection. Collect and verify it again.');
   return content;
 }
-async function mutation(id: string, operation: () => Promise<void>) {
+async function mutation(id: string, operation: (scope: ChatContext) => Promise<void>) {
   if (mutations.has(id)) return;
   mutations.add(id);
   useComputerChatsStore.getState().setBusy(id, true);
+  let scope: ChatContext | undefined;
   try {
+    scope = context(id);
     await save(id, { error: undefined });
-    await operation();
+    assertCurrent(scope);
+    await operation(scope);
   } catch (error) {
-    await save(id, { error: error instanceof Error ? error.message : String(error) }).catch(
-      () => undefined
-    );
+    if (!scope || stillCurrent(scope))
+      await save(id, { error: error instanceof Error ? error.message : String(error) }).catch(
+        () => undefined
+      );
   } finally {
     mutations.delete(id);
     useComputerChatsStore.getState().setBusy(id, false);
@@ -170,6 +219,13 @@ export const durableChatController = {
     source?: { id: string; title: string; messages: { role: string; content: string }[] }
   ) => {
     const config = configurationSchema.parse(configuration);
+    const epoch = contextEpoch;
+    const connection = useDurableWorkflowsStore.getState();
+    const auth = useAuthStore.getState();
+    if (connection.configuring)
+      throw new Error('Wait for the workflow connection update to finish.');
+    if (auth.tenant?.id !== tenantId || auth.currentBrand?.id !== brandId)
+      throw new Error('Select this chat’s organization and brand to continue');
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
     const workflowId = `computer-chat-${brandId.replace(/-/g, '')}-${id.replace(/-/g, '')}`;
@@ -193,15 +249,19 @@ export const durableChatController = {
       durableSession: {
         version: 2,
         workflowId,
-        engineUrl: useDurableWorkflowsStore.getState().engineUrl,
+        engineUrl: connection.engineUrl,
         configuration: config,
         importedMessages: imported,
       },
     });
+    if (epoch !== contextEpoch)
+      throw new Error(
+        'The workspace or connection changed. The chat was saved locally and was not started.'
+      );
     return id;
   },
   provision: (id: string) =>
-    mutation(id, async () => {
+    mutation(id, async (scope) => {
       const value = scoped(id);
       const identity = value.durableSession;
       const result = z.object({ workflow_id: z.string(), run_id: z.string() }).parse(
@@ -214,19 +274,22 @@ export const durableChatController = {
           close_after_turn: identity.closeAfterTurn ?? false,
         })
       );
+      if (!stillCurrent(scope)) return;
       if (result.workflow_id !== identity.workflowId)
         throw new Error('The engine returned an unexpected conversation identity');
       await save(id, {
         durableSession: { ...identity, runId: result.run_id },
         workflows: [{ workflowId: result.workflow_id, runId: result.run_id }],
       });
-      await durableChatController.refresh(id);
+      if (stillCurrent(scope)) await durableChatController.refresh(id);
     }),
   refresh: async (id: string) => {
     if (polling.has(id)) return;
     polling.add(id);
+    let scope: ChatContext | undefined;
     try {
-      const value = scoped(id);
+      scope = context(id);
+      const { value } = scope;
       const connection = useDurableWorkflowsStore.getState();
       if (connection.initialized && !connection.apiKey)
         throw new ChatRequestError(
@@ -234,7 +297,7 @@ export const durableChatController = {
           401
         );
       const state = await durableChatApi.status(value.tenantId, value.durableSession.workflowId);
-      if (!stillCurrent(value)) return;
+      if (!stillCurrent(scope)) return;
       if (state.request_id !== value.id || state.brand_id !== value.brandId)
         throw new Error('Conversation identity does not match this chat');
       const latest = chat(id);
@@ -286,8 +349,7 @@ export const durableChatController = {
       });
     } catch (error) {
       if (error instanceof ChatPersistenceError) return;
-      const latest = useComputerChatsStore.getState().chats.find((c) => c.id === id);
-      if (!latest || !stillCurrent(latest)) return;
+      if (!scope || !stillCurrent(scope)) return;
       const previous = useComputerChatsStore.getState().connections[id];
       const failures = (previous?.failures ?? 0) + 1;
       const status =
@@ -313,7 +375,7 @@ export const durableChatController = {
     }
   },
   send: (id: string, content: string) =>
-    mutation(id, async () => {
+    mutation(id, async (scope) => {
       const value = scoped(id);
       if (chatEnded(value) || value.serverState?.stop_requested)
         throw new Error(
@@ -333,19 +395,23 @@ export const durableChatController = {
             : pending.content.slice(0, 60),
         updatedAt: new Date().toISOString(),
       });
+      assertCurrent(scope);
+      const latest = chat(id);
+      if (chatEnded(latest) || latest.serverState?.stop_requested)
+        throw new Error('This computer ended or is stopping. Continue in a new computer.');
       await durableChatApi.message(value.tenantId, value.durableSession.workflowId, pending);
       // Keep the request id until the workflow query confirms receipt, so a
       // lost signal acknowledgement can be retried without double posting.
-      await durableChatController.refresh(id);
+      if (stillCurrent(scope)) await durableChatController.refresh(id);
     }),
   control: (id: string, control: 'pause' | 'resume' | 'retry' | 'stop') =>
-    mutation(id, async () => {
+    mutation(id, async (scope) => {
       const value = scoped(id);
       await durableChatApi.control(value.tenantId, value.durableSession.workflowId, control);
-      await durableChatController.refresh(id);
+      if (stillCurrent(scope)) await durableChatController.refresh(id);
     }),
   review: (id: string, expectedVersion: string, approved: boolean, acceptRewrite = false) =>
-    mutation(id, async () => {
+    mutation(id, async (scope) => {
       const value = scoped(id);
       if (approvalVersion(value) !== expectedVersion)
         throw new Error('This action changed. Review the current action before deciding.');
@@ -366,14 +432,14 @@ export const durableChatController = {
         approved,
         accept_rewrite: approved && rewrite && acceptRewrite,
       });
-      await durableChatController.refresh(id);
+      if (stillCurrent(scope)) await durableChatController.refresh(id);
     }),
   workspace: (
     id: string,
     operation: 'list' | 'read' | 'screenshot' | 'checkpoint' | 'recover',
     path = '/workspace'
   ) =>
-    mutation(id, async () => {
+    mutation(id, async (scope) => {
       const value = scoped(id);
       await durableChatApi.workspace(
         value.tenantId,
@@ -381,7 +447,7 @@ export const durableChatController = {
         operation,
         path
       );
-      await durableChatController.refresh(id);
+      if (stillCurrent(scope)) await durableChatController.refresh(id);
     }),
   readArtifact,
   exportArtifact: async (id: string, path: string, expected?: ArtifactVersion) => {
@@ -389,7 +455,9 @@ export const durableChatController = {
     if (artifactExports.has(key)) throw new Error('This file is already being saved');
     artifactExports.add(key);
     try {
+      const scope = context(id);
       const artifact = await readArtifact(id, path, expected);
+      assertCurrent(scope);
       const filename = artifact.path.split('/').pop() || 'deliverable';
       if (window.electronAPI?.computerChat)
         return await window.electronAPI.computerChat.saveArtifact({

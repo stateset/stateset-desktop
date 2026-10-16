@@ -41,6 +41,8 @@ beforeEach(() => {
   engine.setState({
     engineUrl: 'https://engine.example',
     apiKey: null,
+    connectionRevision: null,
+    configuring: false,
     initialize: vi.fn().mockResolvedValue(undefined),
   });
   vi.spyOn(durableChatController, 'refresh').mockResolvedValue(undefined);
@@ -190,6 +192,12 @@ describe('computer conversation reconciliation', () => {
 
   it('keeps archived computers synchronized and retries after credentials change', async () => {
     vi.useFakeTimers();
+    // Each rejected retry records attention for the newly attempted connection.
+    vi.mocked(durableChatController.refresh).mockImplementation(async (id) => {
+      chats
+        .getState()
+        .setConnection(id, { status: 'attention', failures: 1, message: 'Invalid key' });
+    });
     chats.setState({ chats: [{ ...chat('active'), archived: true }] });
     renderHook(() => useComputerChatRecovery());
     await act(async () => {
@@ -251,6 +259,12 @@ describe('computer conversation reconciliation', () => {
 
   it('retries every blocked conversation fairly after credentials change', async () => {
     vi.useFakeTimers();
+    // Each rejected retry records attention for the newly attempted connection.
+    vi.mocked(durableChatController.refresh).mockImplementation(async (id) => {
+      chats
+        .getState()
+        .setConnection(id, { status: 'attention', failures: 1, message: 'Invalid key' });
+    });
     const library = Array.from({ length: 8 }, (_, i) => chat(`chat-${i}`));
     chats.setState({
       chats: library,
@@ -284,6 +298,34 @@ describe('computer conversation reconciliation', () => {
       await vi.advanceTimersByTimeAsync(3000);
     });
     expect(durableChatController.refresh).toHaveBeenCalledTimes(8);
+  });
+
+  it('rechecks attention after only the native revision changes', async () => {
+    engine.setState({ apiKey: 'unchanged-key', connectionRevision: 'old-revision' });
+    chats.setState({ connections: { active: { status: 'attention', failures: 1 } } });
+    renderHook(() => useComputerChatRecovery());
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(durableChatController.refresh).not.toHaveBeenCalled();
+    await act(async () => {
+      engine.setState({ connectionRevision: 'new-revision' });
+    });
+    expect(durableChatController.refresh).toHaveBeenCalledWith('active');
+  });
+
+  it('pauses reconciliation during connection writes and resumes after they finish', async () => {
+    vi.useFakeTimers();
+    engine.setState({ configuring: true });
+    renderHook(() => useComputerChatRecovery());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(6000);
+    });
+    expect(durableChatController.refresh).not.toHaveBeenCalled();
+    await act(async () => {
+      engine.setState({ configuring: false, connectionRevision: 'saved-revision' });
+    });
+    expect(durableChatController.refresh).toHaveBeenCalledWith('active');
   });
 
   it('flushes a pending draft when the app is hidden', async () => {

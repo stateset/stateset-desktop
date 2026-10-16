@@ -13,7 +13,13 @@ export function useComputerChatRecovery() {
   const brandId = useAuthStore((s) => s.currentBrand?.id);
   const engineUrl = useDurableWorkflowsStore((s) => s.engineUrl);
   const apiKey = useDurableWorkflowsStore((s) => s.apiKey);
-  const previousConfiguration = useRef<{ engineUrl: string; apiKey: string | null }>();
+  const connectionRevision = useDurableWorkflowsStore((s) => s.connectionRevision);
+  const configuring = useDurableWorkflowsStore((s) => s.configuring);
+  const previousConfiguration = useRef<{
+    engineUrl: string;
+    apiKey: string | null;
+    connectionRevision: string | null;
+  }>();
   const scheduler = useRef({
     inFlight: new Set<string>(),
     attempts: new Map<string, number>(),
@@ -38,12 +44,13 @@ export function useComputerChatRecovery() {
     };
   }, []);
   useEffect(() => {
-    if (!tenantId || !brandId) return;
+    if (!tenantId || !brandId || configuring) return;
     const changed =
       previousConfiguration.current !== undefined &&
       (previousConfiguration.current.engineUrl !== engineUrl ||
-        previousConfiguration.current.apiKey !== apiKey);
-    previousConfiguration.current = { engineUrl, apiKey };
+        previousConfiguration.current.apiKey !== apiKey ||
+        previousConfiguration.current.connectionRevision !== connectionRevision);
+    previousConfiguration.current = { engineUrl, apiKey, connectionRevision };
     let cancelled = false;
     let running = false;
     let forcePending = false;
@@ -62,6 +69,7 @@ export function useComputerChatRecovery() {
         if (
           cancelled ||
           isOffline() ||
+          useDurableWorkflowsStore.getState().configuring ||
           useAuthStore.getState().tenant?.id !== tenantId ||
           useAuthStore.getState().currentBrand?.id !== brandId
         )
@@ -133,5 +141,5 @@ export function useComputerChatRecovery() {
       clearInterval(timer);
       window.removeEventListener('online', reconnect);
     };
-  }, [tenantId, brandId, engineUrl, apiKey]);
+  }, [tenantId, brandId, engineUrl, apiKey, connectionRevision, configuring]);
 }

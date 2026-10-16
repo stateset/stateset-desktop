@@ -36,7 +36,14 @@ import { resolveTrayIconPath } from './runtime-assets';
 import { createRateLimiter } from './ipc-rate-limit';
 import { probeMcpServer } from './mcp-probe';
 import { promises as dnsPromises } from 'dns';
-import { decodeArtifact, requestComputerChat, writeArtifactFile } from './computer-chat-bridge';
+import {
+  createComputerChatConnection,
+  ComputerChatConnectionChangedError,
+  decodeArtifact,
+  requestComputerChat,
+  writeArtifactFile,
+} from './computer-chat-bridge';
+const computerChatConnection = createComputerChatConnection();
 
 const isMac = process.platform === 'darwin';
 const isWindows = process.platform === 'win32';
@@ -309,13 +316,7 @@ let tray: Tray | null = null;
 let isQuitting = false;
 
 type UpdateLifecycleState =
-  | 'idle'
-  | 'checking'
-  | 'available'
-  | 'downloading'
-  | 'ready'
-  | 'error'
-  | 'disabled';
+  'idle' | 'checking' | 'available' | 'downloading' | 'ready' | 'error' | 'disabled';
 
 type UpdateStatusSnapshot = {
   status: UpdateLifecycleState;
@@ -1147,6 +1148,7 @@ ipcMain.handle('store:set', (event, key: string, value: unknown) => {
     );
   }
   store.set(key, value);
+  if (key === 'durableWorkflowEngineUrl') computerChatConnection.invalidate();
   return true;
 });
 
@@ -1157,6 +1159,7 @@ ipcMain.handle('store:delete', (event, key: string) => {
   }
   assertStoreKey(key);
   store.delete(key);
+  if (key === 'durableWorkflowEngineUrl') computerChatConnection.invalidate();
   return true;
 });
 
@@ -1165,6 +1168,7 @@ ipcMain.handle('store:clear', () => {
     return false;
   }
   store.clear();
+  computerChatConnection.invalidate();
   return true;
 });
 
@@ -1255,7 +1259,9 @@ ipcMain.handle('auth:clearSandboxApiKey', () => {
 
 ipcMain.handle('auth:setDurableEngineApiKey', (_event, apiKey: string) => {
   assertNonEmptyString(apiKey, 'apiKey', 4096);
-  return setSecureValue(apiKey, DURABLE_ENGINE_KEY_STORAGE);
+  const result = setSecureValue(apiKey, DURABLE_ENGINE_KEY_STORAGE);
+  computerChatConnection.invalidate();
+  return result;
 });
 
 ipcMain.handle('auth:getDurableEngineApiKey', () => {
@@ -1263,17 +1269,38 @@ ipcMain.handle('auth:getDurableEngineApiKey', () => {
 });
 
 ipcMain.handle('auth:clearDurableEngineApiKey', () => {
-  return clearSecureValue(DURABLE_ENGINE_KEY_STORAGE);
+  const result = clearSecureValue(DURABLE_ENGINE_KEY_STORAGE);
+  computerChatConnection.invalidate();
+  return result;
 });
 
+function computerChatConfiguration() {
+  const configured = store.get('durableWorkflowEngineUrl');
+  return {
+    url: typeof configured === 'string' ? configured : CONFIGURED_DURABLE_ENGINE_URL,
+    apiKey: getSecureValue(DURABLE_ENGINE_KEY_STORAGE) ?? '',
+  };
+}
+ipcMain.handle('computer-chat:getConnection', (event) => {
+  assertIpcRate(event, 'computer-chat:getConnection');
+  return computerChatConnection.read(computerChatConfiguration());
+});
 ipcMain.handle('computer-chat:request', async (event, request: unknown) => {
   assertIpcRate(event, 'computer-chat:request');
-  const apiKey = getSecureValue(DURABLE_ENGINE_KEY_STORAGE);
-  const configured = store.get('durableWorkflowEngineUrl');
-  return requestComputerChat(request, {
-    url: typeof configured === 'string' ? configured : CONFIGURED_DURABLE_ENGINE_URL,
-    apiKey: apiKey ?? '',
-  });
+  const configuration = computerChatConfiguration();
+  const { revision } = computerChatConnection.read(configuration);
+  try {
+    return await requestComputerChat(
+      request,
+      { ...configuration, revision },
+      fetch,
+      () => computerChatConnection.read(computerChatConfiguration()).revision === revision
+    );
+  } catch (error) {
+    if (error instanceof ComputerChatConnectionChangedError)
+      return { ok: false, status: 409, body: { message: error.message } };
+    throw error;
+  }
 });
 
 ipcMain.handle('computer-chat:saveArtifact', async (event, request: unknown) => {

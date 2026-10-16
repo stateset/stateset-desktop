@@ -4,6 +4,7 @@ import { promises as fs } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
+  createComputerChatConnection,
   validateComputerChatRequest,
   engineBaseUrl,
   requestComputerChat,
@@ -33,12 +34,14 @@ describe('computer chat IPC boundary', () => {
       .mockResolvedValueOnce(new Response(JSON.stringify({ ready: true })));
     const result = await requestComputerChat(
       {
+        engineUrl: 'https://engine.example',
+        revision: 'revision',
         path: '/v1/computer-chats/diagnostics',
         method: 'POST',
         tenantId: 'tenant',
         body: { brand_id: 'brand' },
       },
-      { url: 'https://engine.example', apiKey: 'key' },
+      { url: 'https://engine.example', apiKey: 'key', revision: 'revision' },
       fetcher
     );
     expect(result.ok).toBe(true);
@@ -101,5 +104,75 @@ describe('native artifact replacement', () => {
       contentBase64: bytes.toString('base64') + '\n',
     };
     expect(() => decodeArtifact(input)).toThrow();
+  });
+});
+
+describe('native computer connection revisions', () => {
+  const configuration = { url: 'https://engine.example', apiKey: 'private-key' };
+  const request = {
+    path: '/v1/computer-chats/diagnostics',
+    method: 'POST' as const,
+    tenantId: 'tenant',
+    body: { brand_id: 'brand' },
+  };
+  it('keeps a revision stable until configuration changes or is invalidated', () => {
+    const connection = createComputerChatConnection();
+    const first = connection.read(configuration);
+    expect(connection.read(configuration)).toEqual(first);
+    expect(JSON.stringify(first)).not.toContain('private-key');
+    const rotated = connection.read({ ...configuration, apiKey: 'replacement-key' });
+    expect(rotated.revision).not.toBe(first.revision);
+    connection.invalidate();
+    expect(connection.read(configuration).revision).not.toBe(first.revision);
+  });
+  it.each(['engine', 'credential'])(
+    'never dispatches a request bound to the previous %s',
+    async (change) => {
+      const connection = createComputerChatConnection();
+      const old = connection.read(configuration);
+      const next =
+        change === 'engine'
+          ? { ...configuration, url: 'https://next.example' }
+          : { ...configuration, apiKey: 'replacement-key' };
+      const current = connection.read(next);
+      const fetcher = vi.fn();
+      await expect(
+        requestComputerChat(
+          { ...request, ...old },
+          { ...next, revision: current.revision },
+          fetcher
+        )
+      ).rejects.toThrow('connection changed');
+      expect(fetcher).not.toHaveBeenCalled();
+    }
+  );
+  it('refuses a forged destination even with a current revision', async () => {
+    const connection = createComputerChatConnection().read(configuration);
+    const fetcher = vi.fn();
+    await expect(
+      requestComputerChat(
+        { ...request, ...connection, engineUrl: 'https://different.example' },
+        { ...configuration, revision: connection.revision },
+        fetcher
+      )
+    ).rejects.toThrow('connection changed');
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+  it('does not retry old authentication after a connection change', async () => {
+    const connection = createComputerChatConnection().read(configuration);
+    let current = true;
+    const fetcher = vi.fn().mockImplementation(async () => {
+      current = false;
+      return new Response('', { status: 401 });
+    });
+    await expect(
+      requestComputerChat(
+        { ...request, ...connection },
+        { ...configuration, revision: connection.revision },
+        fetcher,
+        () => current
+      )
+    ).rejects.toThrow('connection changed');
+    expect(fetcher).toHaveBeenCalledOnce();
   });
 });

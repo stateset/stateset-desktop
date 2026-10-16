@@ -23,6 +23,8 @@ describe('useDurableWorkflowsStore', () => {
     useDurableWorkflowsStore.setState({
       initialized: true,
       apiKey: 'key',
+      configuring: false,
+      connectionRevision: null,
       workflows: [],
       customAgents: [],
       blueprints: [],
@@ -95,6 +97,84 @@ describe('useDurableWorkflowsStore', () => {
     });
 
     expect(useDurableWorkflowsStore.getState().workflows[0].status).toBe('terminated');
+  });
+
+  it('serializes configuration writes and keeps them untrusted until the last write finishes', async () => {
+    let release!: () => void;
+    storeSet.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          release = () => resolve(true);
+        })
+    );
+    const first = useDurableWorkflowsStore
+      .getState()
+      .setConfiguration('https://first.example', 'first-key');
+    const second = useDurableWorkflowsStore
+      .getState()
+      .setConfiguration('https://second.example', 'second-key');
+    expect(useDurableWorkflowsStore.getState().configuring).toBe(true);
+    await vi.waitFor(() => expect(storeSet).toHaveBeenCalledOnce());
+    release();
+    await Promise.all([first, second]);
+    expect(storeSet.mock.calls.map((call) => call[1])).toEqual([
+      'https://first.example',
+      'https://second.example',
+    ]);
+    expect(useDurableWorkflowsStore.getState()).toMatchObject({
+      engineUrl: 'https://second.example',
+      apiKey: 'second-key',
+      configuring: false,
+    });
+  });
+  it('orders credential removal after a pending configuration write', async () => {
+    let release!: () => void;
+    storeSet.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          release = () => resolve(true);
+        })
+    );
+    const setting = useDurableWorkflowsStore
+      .getState()
+      .setConfiguration('https://first.example', 'first-key');
+    const clearing = useDurableWorkflowsStore.getState().clearApiKey();
+    await vi.waitFor(() => expect(storeSet).toHaveBeenCalledOnce());
+    release();
+    await Promise.all([setting, clearing]);
+    expect(window.electronAPI!.auth.clearDurableEngineApiKey).toHaveBeenCalledOnce();
+    expect(useDurableWorkflowsStore.getState()).toMatchObject({ apiKey: null, configuring: false });
+  });
+  it('reconciles the actual native connection after a partial save fails', async () => {
+    window.electronAPI!.computerChat = {
+      getConnection: vi.fn().mockResolvedValue({
+        engineUrl: 'https://actual.example',
+        revision: 'actual-revision',
+      }),
+    } as never;
+    vi.mocked(window.electronAPI!.auth.setDurableEngineApiKey).mockRejectedValueOnce(
+      new Error('Keyring unavailable')
+    );
+    vi.mocked(window.electronAPI!.auth.getDurableEngineApiKey).mockResolvedValueOnce('actual-key');
+    await expect(
+      useDurableWorkflowsStore.getState().setConfiguration('https://actual.example', 'new-key')
+    ).rejects.toThrow('Keyring unavailable');
+    expect(useDurableWorkflowsStore.getState()).toMatchObject({
+      engineUrl: 'https://actual.example',
+      apiKey: 'actual-key',
+      connectionRevision: 'actual-revision',
+      configuring: false,
+    });
+  });
+  it.each([
+    'https://user:secret@example.com',
+    'https://example.com/?key=secret',
+    'https://example.com/#fragment',
+  ])('rejects unsafe connection URL %s before persisting it', async (url) => {
+    await expect(useDurableWorkflowsStore.getState().setConfiguration(url, 'key')).rejects.toThrow(
+      'without credentials'
+    );
+    expect(storeSet).not.toHaveBeenCalled();
   });
 
   it('rejects insecure remote engine URLs', async () => {

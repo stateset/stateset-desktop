@@ -13,6 +13,8 @@ describe('setup check identity', () => {
     { brandId: 'other' },
     { engineUrl: 'https://other.example' },
     { apiKey: 'rotated' },
+    { connectionRevision: 'new-native-revision' },
+    { configuring: true },
     { mcpServers: ['reports'] },
   ])('invalidates readiness for a changed setting %j', (patch) =>
     expect(sameSetupContext(context, { ...context, ...patch })).toBe(false)

@@ -62,6 +62,8 @@ export function DurableChatSetup({
       brandId,
       engineUrl: engine.engineUrl,
       apiKey: engine.apiKey,
+      connectionRevision: engine.connectionRevision,
+      configuring: engine.configuring,
       mcpServers: configuration.mcp_servers,
     })
       ? discovered.report.mcp_servers
@@ -84,10 +86,8 @@ export function DurableChatSetup({
     onError('');
     let context: SetupContext | undefined;
     try {
-      if (url !== engine.engineUrl || key.trim()) {
-        await engine.setConfiguration(url, key.trim() || undefined);
-        if (alive.current && attempt === revision.current) setKey('');
-      }
+      await engine.setConfiguration(url, key.trim() || undefined);
+      if (alive.current && attempt === revision.current) setKey('');
       if (!alive.current || attempt !== revision.current) return;
       const connection = useDurableWorkflowsStore.getState();
       context = {
@@ -95,6 +95,8 @@ export function DurableChatSetup({
         brandId,
         engineUrl: connection.engineUrl,
         apiKey: connection.apiKey,
+        connectionRevision: connection.connectionRevision,
+        configuring: connection.configuring,
         mcpServers: [...configuration.mcp_servers],
       };
       const result = await durableChatApi.diagnostics(tenantId, brandId, context.mcpServers);
@@ -106,6 +108,8 @@ export function DurableChatSetup({
           ...latest.current,
           engineUrl: current.engineUrl,
           apiKey: current.apiKey,
+          connectionRevision: current.connectionRevision,
+          configuring: current.configuring,
         })
       ) {
         const checked = { context, report: result };
@@ -122,6 +126,8 @@ export function DurableChatSetup({
             ...latest.current,
             engineUrl: current.engineUrl,
             apiKey: current.apiKey,
+            connectionRevision: current.connectionRevision,
+            configuring: current.configuring,
           }))
       )
         onError(error instanceof Error ? error.message : String(error));

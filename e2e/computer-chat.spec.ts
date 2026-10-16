@@ -525,8 +525,9 @@ test('native bridge validates requests and artifact bytes before saving a delive
   await page.waitForFunction(() => window.electronAPI?.computerChat !== undefined);
   await expect(
     page.evaluate(
-      (tenantId) =>
+      async (tenantId) =>
         window.electronAPI!.computerChat!.request({
+          ...(await window.electronAPI!.computerChat!.getConnection()),
           path: '/api/v1/secrets',
           method: 'GET',
           tenantId,
@@ -535,8 +536,9 @@ test('native bridge validates requests and artifact bytes before saving a delive
     )
   ).rejects.toThrow('outside the allowed API');
   await expect(
-    page.evaluate(() =>
+    page.evaluate(async () =>
       window.electronAPI!.computerChat!.request({
+        ...(await window.electronAPI!.computerChat!.getConnection()),
         path: '/v1/computer-chats/diagnostics',
         method: 'POST',
         tenantId: 'tenant\r\nx-injected: value',
@@ -578,4 +580,74 @@ test('native bridge validates requests and artifact bytes before saving a delive
   expect(await readFile(destination)).toEqual(bytes);
   if (process.platform !== 'win32') expect((await stat(destination)).mode & 0o777).toBe(0o600);
   await application.close();
+});
+
+test('native chat requests stay bound to their saved connection after URL and credential changes', async ({
+  desktop,
+}) => {
+  const first = await startEngine();
+  const second = await startEngine();
+  try {
+    const application = await desktop.launch();
+    const page = await application.firstWindow();
+    await page.waitForFunction(() => window.electronAPI?.computerChat !== undefined);
+    const original = await page.evaluate(
+      async ({ url, key }) => {
+        await window.electronAPI!.store.set('durableWorkflowEngineUrl', url);
+        await window.electronAPI!.auth.setDurableEngineApiKey(key);
+        return window.electronAPI!.computerChat!.getConnection();
+      },
+      { url: first.url, key: engineKey }
+    );
+    const diagnostic = {
+      path: '/v1/computer-chats/diagnostics',
+      method: 'POST' as const,
+      tenantId: tenant.id,
+      body: { brand_id: brand.id },
+    };
+    expect(
+      await page.evaluate((request) => window.electronAPI!.computerChat!.request(request), {
+        ...diagnostic,
+        ...original,
+      })
+    ).toMatchObject({ ok: true, status: 200 });
+    await page.evaluate(
+      (url) => window.electronAPI!.store.set('durableWorkflowEngineUrl', url),
+      second.url
+    );
+    expect(
+      await page.evaluate((request) => window.electronAPI!.computerChat!.request(request), {
+        ...diagnostic,
+        ...original,
+      })
+    ).toMatchObject({ ok: false, status: 409 });
+    expect(second.requests).toHaveLength(0);
+    const beforeKey = await page.evaluate(() => window.electronAPI!.computerChat!.getConnection());
+    await page.evaluate(() =>
+      window.electronAPI!.auth.setDurableEngineApiKey('different-test-key')
+    );
+    expect(
+      await page.evaluate((request) => window.electronAPI!.computerChat!.request(request), {
+        ...diagnostic,
+        ...beforeKey,
+      })
+    ).toMatchObject({ ok: false, status: 409 });
+    expect(second.requests).toHaveLength(0);
+    await page.evaluate((key) => window.electronAPI!.auth.setDurableEngineApiKey(key), engineKey);
+    const restored = await page.evaluate(() => window.electronAPI!.computerChat!.getConnection());
+    expect(restored.revision).not.toBe(beforeKey.revision);
+    expect(JSON.stringify(restored)).not.toContain(engineKey);
+    expect(
+      await page.evaluate((request) => window.electronAPI!.computerChat!.request(request), {
+        ...diagnostic,
+        ...restored,
+      })
+    ).toMatchObject({ ok: true, status: 200 });
+    expect(first.requests).toHaveLength(1);
+    expect(second.requests).toHaveLength(1);
+    expect(second.requests[0].body).toEqual({ brand_id: brand.id });
+    await application.close();
+  } finally {
+    await Promise.all([first.close(), second.close()]);
+  }
 });

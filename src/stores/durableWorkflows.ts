@@ -74,6 +74,8 @@ interface DurableWorkflowsState {
   initialized: boolean;
   engineUrl: string;
   apiKey: string | null;
+  connectionRevision: string | null;
+  configuring: boolean;
   workflows: TrackedDurableWorkflow[];
   customAgents: DurableAgentProfile[];
   blueprints: DurableWorkflowBlueprint[];
@@ -99,6 +101,22 @@ interface DurableWorkflowsState {
 }
 
 let initializePromise: Promise<void> | null = null;
+let configurationGeneration = 0;
+let pendingConfigurations = 0;
+let configurationQueue: Promise<unknown> = Promise.resolve();
+
+function writeConfiguration(operation: () => Promise<void>, pending: (value: boolean) => void) {
+  configurationGeneration++;
+  pendingConfigurations++;
+  pending(true);
+  const task = configurationQueue.then(operation, operation);
+  configurationQueue = task.catch(() => undefined);
+  return task.finally(() => pending(--pendingConfigurations > 0));
+}
+
+async function nativeConnection() {
+  return window.electronAPI?.computerChat?.getConnection?.();
+}
 
 async function persist(workflows: TrackedDurableWorkflow[]): Promise<void> {
   if (window.electronAPI?.store) {
@@ -205,6 +223,8 @@ export const useDurableWorkflowsStore = create<DurableWorkflowsState>((set, get)
   initialized: false,
   engineUrl: DEFAULT_ENGINE_URL,
   apiKey: null,
+  connectionRevision: null,
+  configuring: false,
   workflows: [],
   customAgents: [],
   blueprints: [],
@@ -213,6 +233,7 @@ export const useDurableWorkflowsStore = create<DurableWorkflowsState>((set, get)
   initialize: async () => {
     if (get().initialized) return;
     if (initializePromise) return initializePromise;
+    const generation = configurationGeneration;
     initializePromise = (async () => {
       try {
         const [
@@ -222,6 +243,7 @@ export const useDurableWorkflowsStore = create<DurableWorkflowsState>((set, get)
           storedBlueprints,
           storedSchedules,
           apiKey,
+          connection,
         ] = await Promise.all([
           window.electronAPI?.store?.get(ENGINE_URL_KEY),
           window.electronAPI?.store?.get(WORKFLOWS_KEY),
@@ -229,12 +251,21 @@ export const useDurableWorkflowsStore = create<DurableWorkflowsState>((set, get)
           window.electronAPI?.store?.get(BLUEPRINTS_KEY),
           window.electronAPI?.store?.get(SCHEDULES_KEY),
           window.electronAPI?.auth?.getDurableEngineApiKey?.(),
+          nativeConnection(),
         ]);
         set({
           initialized: true,
-          engineUrl:
-            typeof storedUrl === 'string' && storedUrl.trim() ? storedUrl : DEFAULT_ENGINE_URL,
-          apiKey: typeof apiKey === 'string' && apiKey.trim() ? apiKey.trim() : null,
+          ...(generation === configurationGeneration
+            ? {
+                engineUrl:
+                  connection?.engineUrl ??
+                  (typeof storedUrl === 'string' && storedUrl.trim()
+                    ? storedUrl
+                    : DEFAULT_ENGINE_URL),
+                apiKey: typeof apiKey === 'string' && apiKey.trim() ? apiKey.trim() : null,
+                connectionRevision: connection?.revision ?? null,
+              }
+            : {}),
           workflows: Array.isArray(storedWorkflows)
             ? storedWorkflows.filter(isTrackedWorkflow)
             : [],
@@ -261,23 +292,69 @@ export const useDurableWorkflowsStore = create<DurableWorkflowsState>((set, get)
     const normalizedUrl = engineUrl.trim().replace(/\/+$/, '');
     if (!normalizedUrl) throw new Error('Engine URL is required.');
     const parsed = new URL(normalizedUrl);
-    const isLocal = ['localhost', '127.0.0.1', '::1'].includes(parsed.hostname);
+    const isLocal = ['localhost', '127.0.0.1', '[::1]'].includes(parsed.hostname);
+    if (parsed.username || parsed.password || parsed.search || parsed.hash)
+      throw new Error(
+        'Use a workflow engine URL without credentials, query parameters or fragments.'
+      );
     if (parsed.protocol !== 'https:' && !(isLocal && parsed.protocol === 'http:')) {
       throw new Error('Use HTTPS for remote workflow engines.');
     }
-    await window.electronAPI?.store?.set(ENGINE_URL_KEY, normalizedUrl);
-    if (apiKey?.trim()) {
-      await window.electronAPI?.auth?.setDurableEngineApiKey?.(apiKey.trim());
-    }
-    set((state) => ({
-      engineUrl: normalizedUrl,
-      apiKey: apiKey?.trim() || state.apiKey,
-    }));
+    await writeConfiguration(
+      async () => {
+        try {
+          const stored = await window.electronAPI?.store?.set(ENGINE_URL_KEY, normalizedUrl);
+          if (stored === false) throw new Error('The workflow connection could not be saved.');
+          if (apiKey?.trim()) {
+            const storedKey = await window.electronAPI?.auth?.setDurableEngineApiKey?.(
+              apiKey.trim()
+            );
+            if (storedKey === false) throw new Error('The workflow credential could not be saved.');
+          }
+          const connection = await nativeConnection();
+          const actualKey = connection
+            ? await window.electronAPI!.auth.getDurableEngineApiKey()
+            : undefined;
+          set((state) => ({
+            engineUrl: connection?.engineUrl ?? normalizedUrl,
+            apiKey: connection ? actualKey?.trim() || null : apiKey?.trim() || state.apiKey,
+            connectionRevision: connection?.revision ?? null,
+          }));
+        } catch (error) {
+          // A URL write can succeed before saving the credential fails. Reflect
+          // the actual native connection, and never retain an old revision.
+          set({ connectionRevision: null });
+          try {
+            const connection = await nativeConnection();
+            if (connection) {
+              const actualKey = await window.electronAPI!.auth.getDurableEngineApiKey();
+              set({
+                engineUrl: connection.engineUrl,
+                connectionRevision: connection.revision,
+                apiKey: actualKey?.trim() || null,
+              });
+            }
+          } catch {
+            /* The failed connection remains untrusted until checked again. */
+          }
+          throw error;
+        }
+      },
+      (configuring) => set({ configuring })
+    );
   },
 
   clearApiKey: async () => {
-    await window.electronAPI?.auth?.clearDurableEngineApiKey?.();
-    set({ apiKey: null });
+    await writeConfiguration(
+      async () => {
+        await window.electronAPI?.auth?.clearDurableEngineApiKey?.();
+        set({ apiKey: null, connectionRevision: null });
+        const connection = await nativeConnection();
+        if (connection)
+          set({ engineUrl: connection.engineUrl, connectionRevision: connection.revision });
+      },
+      (configuring) => set({ configuring })
+    );
   },
 
   track: async (workflow) => {

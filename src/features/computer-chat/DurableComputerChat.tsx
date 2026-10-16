@@ -74,11 +74,15 @@ export function DurableComputerChat() {
   const [checkedSetup, setCheckedSetup] = useState<CheckedSetup | null>(null);
   const setupEngineUrl = useDurableWorkflowsStore((s) => s.engineUrl);
   const setupApiKey = useDurableWorkflowsStore((s) => s.apiKey);
+  const setupRevision = useDurableWorkflowsStore((s) => s.connectionRevision);
+  const setupConfiguring = useDurableWorkflowsStore((s) => s.configuring);
   const setupContext: SetupContext = {
     tenantId: tenantId ?? '',
     brandId: brandId ?? '',
     engineUrl: setupEngineUrl,
     apiKey: setupApiKey,
+    connectionRevision: setupRevision,
+    configuring: setupConfiguring,
     mcpServers: configuration.mcp_servers,
   };
   const currentSetupContext = useRef(setupContext);
@@ -222,6 +226,8 @@ export function DurableComputerChat() {
         brandId,
         engineUrl: connection.engineUrl,
         apiKey: connection.apiKey,
+        connectionRevision: connection.connectionRevision,
+        configuring: connection.configuring,
         mcpServers: configuration.mcp_servers,
       })
     ) {

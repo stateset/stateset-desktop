@@ -2,7 +2,12 @@ import { createHash, randomUUID } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import { dirname, join } from 'node:path';
 
-export interface ComputerChatRequest {
+export interface ComputerChatConnection {
+  engineUrl: string;
+  revision: string;
+}
+
+export interface ComputerChatRequest extends ComputerChatConnection {
   path: string;
   method: 'GET' | 'POST';
   tenantId: string;
@@ -25,6 +30,12 @@ export function validateComputerChatRequest(value: unknown): ComputerChatRequest
     throw new Error('Computer chat request is outside the allowed API');
   if (JSON.stringify(request.body ?? null).length > 262144)
     throw new Error('Computer chat request is too large');
+  if (
+    typeof request.engineUrl !== 'string' ||
+    typeof request.revision !== 'string' ||
+    !request.revision
+  )
+    throw new Error('Reconnect the workflow connection before submitting this request');
   return request;
 }
 
@@ -42,15 +53,52 @@ export function engineBaseUrl(value: string): string {
   return url.toString().replace(/\/+$/, '');
 }
 
+/** Opaque, process-local revisions never expose or persist credential fingerprints. */
+export function createComputerChatConnection() {
+  let previous: { url: string; apiKey: string } | undefined;
+  let revision = randomUUID();
+  return {
+    invalidate: () => {
+      previous = undefined;
+      revision = randomUUID();
+    },
+    read: (configuration: { url: string; apiKey: string }): ComputerChatConnection => {
+      const url = engineBaseUrl(configuration.url);
+      if (previous && (previous.url !== url || previous.apiKey !== configuration.apiKey))
+        revision = randomUUID();
+      previous = { url, apiKey: configuration.apiKey };
+      return { engineUrl: configuration.url.trim().replace(/\/+$/, ''), revision };
+    },
+  };
+}
+
+export class ComputerChatConnectionChangedError extends Error {
+  constructor() {
+    super('Workflow connection changed. Save and check the connection before trying again.');
+    this.name = 'ComputerChatConnectionChangedError';
+  }
+}
+
 export async function requestComputerChat(
   value: unknown,
-  configuration: { url: string; apiKey: string },
-  fetcher: typeof fetch = fetch
+  configuration: { url: string; apiKey: string; revision: string },
+  fetcher: typeof fetch = fetch,
+  isCurrent: () => boolean = () => true
 ) {
   const request = validateComputerChatRequest(value);
+  const assertCurrent = () => {
+    if (
+      request.revision !== configuration.revision ||
+      engineBaseUrl(request.engineUrl) !== engineBaseUrl(configuration.url) ||
+      !isCurrent()
+    )
+      throw new ComputerChatConnectionChangedError();
+  };
+  assertCurrent();
   const url = `${engineBaseUrl(configuration.url)}${request.path}`;
   if (!configuration.apiKey.trim()) throw new Error('Save a workflow engine API key first');
   for (const scheme of ['Bearer', 'ApiKey']) {
+    assertCurrent();
     const response = await fetcher(url, {
       method: request.method,
       redirect: 'error',
@@ -63,7 +111,16 @@ export async function requestComputerChat(
       },
       body: request.body === undefined ? undefined : JSON.stringify(request.body),
     });
-    if (response.status === 401 && scheme === 'Bearer') continue;
+    try {
+      assertCurrent();
+    } catch (error) {
+      await response.body?.cancel().catch(() => undefined);
+      throw error;
+    }
+    if (response.status === 401 && scheme === 'Bearer') {
+      await response.body?.cancel();
+      continue;
+    }
     if (!response.body) return { ok: response.ok, status: response.status, body: null };
     const reader = response.body.getReader();
     const chunks: Uint8Array[] = [];
@@ -85,6 +142,7 @@ export async function requestComputerChat(
     } catch {
       body = { message: raw.slice(0, 1000) };
     }
+    assertCurrent();
     return { ok: response.ok, status: response.status, body };
   }
   throw new Error('Workflow engine authentication failed');

@@ -28,7 +28,10 @@ export type McpProbeResult =
 
 interface ElectronAPI {
   computerChat?: {
+    getConnection: () => Promise<{ engineUrl: string; revision: string }>;
     request: (request: {
+      engineUrl: string;
+      revision: string;
       path: string;
       method: 'GET' | 'POST';
       tenantId: string;
