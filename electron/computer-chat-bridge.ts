@@ -15,6 +15,8 @@ export interface ComputerChatRequest extends ComputerChatConnection {
 }
 const ALLOWED_PATH =
   /^\/v1\/computer-chats\/(?:start|diagnostics|computer-chat-[a-f0-9]{32}-[a-f0-9]{32}\/(?:status|messages|review|workspace|artifact|control\/(?:pause|resume|retry|stop)))$/;
+// Match the engine's default JSON body limit, including escaped imported context.
+const MAX_REQUEST_BYTES = 2 * 1024 * 1024;
 
 export function validateComputerChatRequest(value: unknown): ComputerChatRequest {
   if (!value || typeof value !== 'object') throw new Error('Invalid computer chat request');
@@ -28,7 +30,7 @@ export function validateComputerChatRequest(value: unknown): ComputerChatRequest
     /[\r\n]/.test(request.tenantId)
   )
     throw new Error('Computer chat request is outside the allowed API');
-  if (JSON.stringify(request.body ?? null).length > 262144)
+  if (Buffer.byteLength(JSON.stringify(request.body ?? null), 'utf8') > MAX_REQUEST_BYTES)
     throw new Error('Computer chat request is too large');
   if (
     typeof request.engineUrl !== 'string' ||

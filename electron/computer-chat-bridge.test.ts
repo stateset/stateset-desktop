@@ -3,6 +3,8 @@ import { createHash } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { DEFAULT_CHAT_CONFIGURATION } from '../src/features/computer-chat/durableTypes';
+import { importChatMessages } from '../src/features/computer-chat/history';
 import {
   createComputerChatConnection,
   validateComputerChatRequest,
@@ -12,6 +14,54 @@ import {
   writeArtifactFile,
 } from './computer-chat-bridge';
 describe('computer chat IPC boundary', () => {
+  it('forwards bounded history and acceptance criteria that exceed the old request cap', async () => {
+    const body = {
+      request_id: crypto.randomUUID(),
+      brand_id: '22222222-2222-4222-8222-222222222222',
+      ...DEFAULT_CHAT_CONFIGURATION,
+      imported_messages: importChatMessages(
+        Array.from({ length: 30 }, () => ({ role: 'user', content: 'a'.repeat(8000) }))
+      ),
+      criteria: Array.from({ length: 8 }, (_, index) => ({
+        path: `/workspace/report-${index % 4}.txt`,
+        kind: 'contains',
+        expected: 'a'.repeat(16382),
+      })),
+    };
+    const serialized = JSON.stringify(body);
+    expect(Buffer.byteLength(serialized, 'utf8')).toBeGreaterThan(262144);
+    const fetcher = vi.fn().mockResolvedValue(new Response('{}'));
+    const result = await requestComputerChat(
+      {
+        engineUrl: 'https://engine.example',
+        revision: 'revision',
+        path: '/v1/computer-chats/start',
+        method: 'POST',
+        tenantId: 'tenant',
+        body,
+      },
+      { url: 'https://engine.example', apiKey: 'key', revision: 'revision' },
+      fetcher
+    );
+    expect(result.ok).toBe(true);
+    expect(fetcher.mock.calls[0][1].body).toBe(serialized);
+  });
+  it.each(['a', '🙂'])('bounds serialized %s request content in UTF-8 bytes', (character) => {
+    const request = {
+      engineUrl: 'https://engine.example',
+      revision: 'revision',
+      path: '/v1/computer-chats/diagnostics',
+      method: 'POST',
+      tenantId: 'tenant',
+    };
+    const body = character.repeat(
+      Math.floor((2 * 1024 * 1024 - 2) / Buffer.byteLength(character, 'utf8'))
+    );
+    expect(() => validateComputerChatRequest({ ...request, body })).not.toThrow();
+    expect(() => validateComputerChatRequest({ ...request, body: body + character })).toThrow(
+      'request is too large'
+    );
+  });
   it.each([
     '/admin',
     'https://attacker.example/v1/computer-chats/start',
