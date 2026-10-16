@@ -120,6 +120,60 @@ function render(ui: ReactElement, route = '/playground') {
   );
 }
 describe('durable chat workspace integration', () => {
+  it('loads saved defaults when entering a brand without carrying another brand’s edits', () => {
+    useComputerChatsStore.setState({
+      configurations: {
+        'tenant:brand': { ...DEFAULT_CHAT_CONFIGURATION, model: 'first-brand-model' },
+        'tenant:other': { ...DEFAULT_CHAT_CONFIGURATION, model: 'second-brand-model' },
+      },
+    });
+    render(<DurableComputerChat />);
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    fireEvent.click(screen.getByText('Defaults and permissions'));
+    expect(screen.getByLabelText('Computer chat model')).toHaveValue('first-brand-model');
+    fireEvent.change(screen.getByLabelText('Computer chat model'), {
+      target: { value: 'unsaved-first-brand-draft' },
+    });
+    act(() => useAuthStore.setState({ currentBrand: { id: 'other' } } as never));
+    fireEvent.click(screen.getByText('Defaults and permissions'));
+    expect(screen.getByLabelText('Computer chat model')).toHaveValue('second-brand-model');
+  });
+  it('keeps edited settings when an earlier defaults save is acknowledged', async () => {
+    let release!: (value: boolean) => void;
+    vi.mocked(window.electronAPI!.store.set).mockImplementation((key) =>
+      key === 'computerChatPreferences'
+        ? new Promise<boolean>((resolve) => {
+            release = resolve;
+          })
+        : Promise.resolve(true)
+    );
+    render(<DurableComputerChat />);
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    fireEvent.click(screen.getByText('Defaults and permissions'));
+    fireEvent.click(screen.getByRole('button', { name: 'Save defaults for this brand' }));
+    await waitFor(() => expect(release).toBeTypeOf('function'));
+    fireEvent.change(screen.getByLabelText('Computer chat model'), {
+      target: { value: 'newer-model' },
+    });
+    await act(async () => release(true));
+    expect(screen.getByLabelText('Computer chat model')).toHaveValue('newer-model');
+    expect(screen.queryByText('Defaults saved')).not.toBeInTheDocument();
+  });
+  it('keeps the current draft when another brand saves its defaults', async () => {
+    render(<DurableComputerChat />);
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    fireEvent.click(screen.getByText('Defaults and permissions'));
+    fireEvent.change(screen.getByLabelText('Computer chat model'), {
+      target: { value: 'current-draft' },
+    });
+    await act(async () =>
+      useComputerChatsStore.getState().setConfiguration('tenant:different', {
+        ...DEFAULT_CHAT_CONFIGURATION,
+        model: 'other-brand-model',
+      })
+    );
+    expect(screen.getByLabelText('Computer chat model')).toHaveValue('current-draft');
+  });
   it('opens a linked conversation and follows browser history without replaying its messages', () => {
     const first = useComputerChatsStore.getState().chats[0];
     const second = fixture('Second computer');

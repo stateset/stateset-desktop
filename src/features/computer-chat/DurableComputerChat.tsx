@@ -52,7 +52,6 @@ export function DurableComputerChat() {
   const loaded = useComputerChatsStore((s) => s.loaded);
   const busy = useComputerChatsStore((s) => s.busy);
   const initialize = useComputerChatsStore((s) => s.initialize);
-  const configurations = useComputerChatsStore((s) => s.configurations);
   const persistenceError = useComputerChatsStore((s) => s.persistenceError);
   const [searchParams, setSearchParams] = useSearchParams();
   const scope = JSON.stringify([tenantId, brandId]);
@@ -207,8 +206,13 @@ export function DurableComputerChat() {
     setPrevious([]);
   }, [scope, tenantId, brandId, setSearchParams, setReport]);
   useEffect(() => {
-    setConfiguration(configurations[`${tenantId}:${brandId}`] ?? DEFAULT_CHAT_CONFIGURATION);
-  }, [tenantId, brandId, configurations]);
+    // Load stored defaults on workspace entry and initial storage recovery.
+    // A save acknowledgement must not replace edits made while it was pending.
+    setConfiguration(
+      useComputerChatsStore.getState().configurations[`${tenantId}:${brandId}`] ??
+        DEFAULT_CHAT_CONFIGURATION
+    );
+  }, [tenantId, brandId, loaded]);
 
   const newChat = async (source?: {
     id: string;

@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { useDurableWorkflowsStore } from '../../stores/durableWorkflows';
 import { durableChatApi } from './durable';
 import { type DurableChatConfiguration, type SetupReport } from './durableTypes';
@@ -42,7 +42,16 @@ export function DurableChatSetup({
   const [url, setUrl] = useState(engine.engineUrl);
   const [key, setKey] = useState('');
   const [checking, setChecking] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [saved, setSaved] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [edited, setEdited] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const savingDefaults = useRef(false);
+  const defaultsFingerprint = JSON.stringify([tenantId, brandId, configuration]);
+  const currentDefaults = useRef(defaultsFingerprint);
+  currentDefaults.current = defaultsFingerprint;
+  const addCriterionButton = useRef<HTMLButtonElement>(null);
+  const restoreCriterionFocus = useRef(false);
   const [discovered, setDiscovered] = useState<CheckedSetup | null>(null);
   const [path, setPath] = useState('/workspace/report.json');
   const [kind, setKind] = useState<'contains' | 'equals' | 'json' | 'sha256' | 'png'>('json');
@@ -61,6 +70,12 @@ export function DurableChatSetup({
       alive.current = false;
     };
   }, []);
+  useLayoutEffect(() => {
+    if (restoreCriterionFocus.current) {
+      restoreCriterionFocus.current = false;
+      addCriterionButton.current?.focus();
+    }
+  }, [configuration.criteria]);
   const tools =
     discovered &&
     sameSetupConnection(discovered.context, {
@@ -81,7 +96,9 @@ export function DurableChatSetup({
   };
   const update = (patch: Partial<DurableChatConfiguration>) => {
     onChange({ ...configuration, ...patch });
-    setSaved(false);
+    setSaved(null);
+    setEdited(true);
+    setSaveError('');
   };
   const check = async () => {
     if (inFlight.current) return;
@@ -143,12 +160,31 @@ export function DurableChatSetup({
     }
   };
   const save = async () => {
+    if (savingDefaults.current) return;
+    setSaveError('');
+    let parsed: DurableChatConfiguration;
     try {
-      const parsed = parseStartConfiguration(configuration);
-      await useComputerChatsStore.getState().setConfiguration(`${tenantId}:${brandId}`, parsed);
-      setSaved(true);
+      parsed = parseStartConfiguration(configuration);
     } catch (error) {
-      onError(error instanceof Error ? error.message : String(error));
+      setSaveError(error instanceof Error ? error.message : String(error));
+      return;
+    }
+    const snapshot = defaultsFingerprint;
+    savingDefaults.current = true;
+    setSaving(true);
+    setSaved(null);
+    try {
+      await useComputerChatsStore.getState().setConfiguration(`${tenantId}:${brandId}`, parsed);
+      if (alive.current && currentDefaults.current === snapshot) {
+        setSaved(snapshot);
+        setEdited(false);
+      }
+    } catch {
+      if (alive.current && currentDefaults.current === snapshot)
+        setSaveError('Defaults could not be saved. Your changes are still here. Try again.');
+    } finally {
+      savingDefaults.current = false;
+      if (alive.current) setSaving(false);
     }
   };
   const addCriterion = () => {
@@ -410,6 +446,7 @@ export function DurableChatSetup({
               <button
                 type="button"
                 onClick={() => {
+                  restoreCriterionFocus.current = true;
                   update({ criteria: configuration.criteria.filter((_, i) => i !== index) });
                   setCriterionError('');
                 }}
@@ -484,6 +521,7 @@ export function DurableChatSetup({
           </p>
         )}
         <button
+          ref={addCriterionButton}
           type="button"
           onClick={addCriterion}
           disabled={configuration.criteria.length >= 8}
@@ -492,13 +530,28 @@ export function DurableChatSetup({
           Add criterion
         </button>
       </details>
-      <button type="button" onClick={() => void save()} className="minimal-secondary-button mt-3">
-        Save defaults for this brand
-      </button>
-      {saved && (
-        <span role="status" className="ml-3 text-xs text-emerald-400">
-          Defaults saved
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          onClick={() => void save()}
+          disabled={saving}
+          aria-busy={saving}
+          className="minimal-secondary-button"
+        >
+          {saving ? 'Saving…' : 'Save defaults for this brand'}
+        </button>
+        <span
+          role="status"
+          className={`text-xs ${saved === defaultsFingerprint ? 'text-emerald-400' : 'text-gray-500'}`}
+        >
+          {!saving &&
+            (saved === defaultsFingerprint ? 'Defaults saved' : edited ? 'Unsaved changes' : '')}
         </span>
+      </div>
+      {saveError && (
+        <p role="alert" className="mt-2 text-xs text-[var(--ui-negative)]">
+          {saveError}
+        </p>
       )}
       <p className="mt-2 text-[11px] text-gray-500">
         Defaults apply to new chats. Existing chats retain their original limits, permissions, and

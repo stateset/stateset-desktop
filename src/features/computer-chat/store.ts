@@ -126,6 +126,7 @@ interface ComputerChatsState {
 }
 
 let writeQueue: Promise<unknown> = Promise.resolve();
+let configurationWriteQueue: Promise<unknown> = Promise.resolve();
 let initialization: Promise<void> | undefined;
 let draftTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -212,12 +213,17 @@ export const useComputerChatsStore = create<ComputerChatsState>((set, get) => ({
   },
   configurations: {},
   setConfiguration: async (scope, configuration) => {
-    const configurations = {
-      ...get().configurations,
-      [scope]: parseStartConfiguration(configuration),
+    const parsed = parseStartConfiguration(configuration);
+    const write = async () => {
+      const configurations = { ...get().configurations, [scope]: parsed };
+      const result = await window.electronAPI?.store.set('computerChatPreferences', configurations);
+      if (result === false)
+        throw new ChatPersistenceError('Desktop storage rejected the defaults save');
+      set({ configurations });
     };
-    await window.electronAPI?.store.set('computerChatPreferences', configurations);
-    set({ configurations });
+    const task = configurationWriteQueue.then(write, write);
+    configurationWriteQueue = task.catch(() => undefined);
+    await task;
   },
   chats: [],
   loaded: false,

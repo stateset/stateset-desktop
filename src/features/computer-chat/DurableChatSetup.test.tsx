@@ -63,6 +63,106 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 describe('connection setup readiness', () => {
+  it('keeps newer edits unsaved when an earlier defaults save finishes', async () => {
+    let release!: (value: boolean) => void;
+    vi.mocked(window.electronAPI!.store.set).mockImplementationOnce(
+      () =>
+        new Promise<boolean>((resolve) => {
+          release = resolve;
+        })
+    );
+    render(<Harness />);
+    fireEvent.click(screen.getByText('Defaults and permissions'));
+    fireEvent.click(screen.getByRole('button', { name: 'Save defaults for this brand' }));
+    await waitFor(() => expect(window.electronAPI!.store.set).toHaveBeenCalledOnce());
+    try {
+      expect(screen.getByRole('button', { name: 'Saving…' })).toBeDisabled();
+      fireEvent.change(screen.getByLabelText('Computer chat model'), {
+        target: { value: 'newer-model' },
+      });
+    } finally {
+      await act(async () => release(true));
+    }
+    expect(screen.getByLabelText('Computer chat model')).toHaveValue('newer-model');
+    expect(screen.queryByText('Defaults saved')).not.toBeInTheDocument();
+    expect(screen.getByText('Unsaved changes')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Save defaults for this brand' }));
+    await screen.findByText('Defaults saved');
+    expect(vi.mocked(window.electronAPI!.store.set).mock.lastCall?.[1]).toMatchObject({
+      'tenant:brand': { model: 'newer-model' },
+    });
+  });
+  it('prevents duplicate defaults saves while a write is pending', async () => {
+    let release!: (value: boolean) => void;
+    vi.mocked(window.electronAPI!.store.set).mockImplementationOnce(
+      () =>
+        new Promise<boolean>((resolve) => {
+          release = resolve;
+        })
+    );
+    render(<Harness />);
+    const button = screen.getByRole('button', { name: 'Save defaults for this brand' });
+    fireEvent.click(button);
+    fireEvent.click(button);
+    try {
+      await waitFor(() => expect(window.electronAPI!.store.set).toHaveBeenCalledOnce());
+    } finally {
+      await act(async () => release(true));
+    }
+  });
+  it('shows a failed defaults save inline and retries the retained draft', async () => {
+    vi.mocked(window.electronAPI!.store.set).mockRejectedValueOnce(new Error('Disk unavailable'));
+    render(<Harness />);
+    fireEvent.click(screen.getByText('Defaults and permissions'));
+    fireEvent.change(screen.getByLabelText('Computer chat model'), {
+      target: { value: 'retry-model' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save defaults for this brand' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Your changes are still here');
+    expect(screen.getByLabelText('Computer chat model')).toHaveValue('retry-model');
+    expect(screen.queryByText('Defaults saved')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Save defaults for this brand' }));
+    await screen.findByText('Defaults saved');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+  it('does not report a failed old save after switching away from its brand', async () => {
+    let reject!: (reason: Error) => void;
+    vi.mocked(window.electronAPI!.store.set).mockImplementationOnce(
+      () =>
+        new Promise<boolean>((_resolve, fail) => {
+          reject = fail;
+        })
+    );
+    const { unmount } = render(<Harness />);
+    fireEvent.click(screen.getByRole('button', { name: 'Save defaults for this brand' }));
+    await waitFor(() => expect(window.electronAPI!.store.set).toHaveBeenCalledOnce());
+    unmount();
+    render(<Harness brandId="other" />);
+    await act(async () => reject(new Error('Old brand disk failure')));
+    expect(onError).not.toHaveBeenCalledWith('Old brand disk failure');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.queryByText('Defaults saved')).not.toBeInTheDocument();
+  });
+  it.each([1, 8])('restores keyboard focus after removing one of %i criteria', (count) => {
+    render(
+      <Harness
+        initial={{
+          ...DEFAULT_CHAT_CONFIGURATION,
+          criteria: Array.from({ length: count }, () => ({
+            path: '/workspace/report.json',
+            kind: 'json',
+            expected: true,
+          })),
+        }}
+      />
+    );
+    fireEvent.click(screen.getByText(`Acceptance criteria (${count})`));
+    const remove = screen.getByRole('button', { name: `Remove criterion ${count}` });
+    remove.focus();
+    fireEvent.click(remove);
+    expect(screen.getByRole('button', { name: 'Add criterion' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Add criterion' })).toHaveFocus();
+  });
   it.each(['/workspace/./report.json', '/workspace/a\\b.json'])(
     'keeps an invalid %s criterion draft editable',
     (path) => {

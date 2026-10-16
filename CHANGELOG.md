@@ -19,6 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Fixed
 
+- Keep newer chat-default edits intact while a save finishes, serialize saves across brands, and show inline progress, success and retry feedback. Restore keyboard focus after removing an acceptance criterion.
 - Validate new chat defaults and acceptance criteria against engine byte, path and file limits before starting work. Keep invalid drafts editable with inline feedback and preserve older saved conversations.
 - Retain native, bundle, and installer test evidence independently so package checks cannot erase earlier failures. Wait for chat menu save completion before testing another keyboard command.
 - Keep imported multilingual chat context within the workflow engine's UTF-8 message limit so continued computers can start without losing the original conversation.

@@ -101,6 +101,12 @@ Model names are limited to 255 UTF-8 bytes; executable and connector names use
 1–100 ASCII letters, digits, dots, hyphens or underscores. Older saved conversations
 and defaults remain readable so settings can be corrected without losing transcripts.
 
+Saving defaults shows progress and confirms success only for the submitted settings.
+You can keep editing while the save is pending; newer edits stay in the form and
+remain unsaved until you save them. Saves for different brands run in order and
+retain each brand's committed defaults. If saving fails, the form keeps your changes
+and offers a retry. Removing a criterion returns keyboard focus to **Add criterion**.
+
 ## Finding and organizing conversations
 
 The conversation is the main workspace. Open **Settings** for connection setup,

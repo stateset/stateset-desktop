@@ -37,6 +37,76 @@ afterEach(async () => {
 });
 
 describe('computer chat persistence', () => {
+  it('serializes brand default saves and merges each committed brand', async () => {
+    store.setState({ configurations: {} });
+    let release!: (value: boolean) => void;
+    const write = vi.mocked(window.electronAPI!.store.set);
+    write.mockImplementationOnce(
+      () =>
+        new Promise<boolean>((resolve) => {
+          release = resolve;
+        })
+    );
+    const first = store
+      .getState()
+      .setConfiguration('tenant:first', { ...DEFAULT_CHAT_CONFIGURATION, model: 'first-model' });
+    await vi.waitFor(() => expect(write).toHaveBeenCalledOnce());
+    const second = store
+      .getState()
+      .setConfiguration('tenant:second', { ...DEFAULT_CHAT_CONFIGURATION, model: 'second-model' });
+    try {
+      await Promise.resolve();
+      expect(write).toHaveBeenCalledOnce();
+    } finally {
+      release(true);
+      await Promise.allSettled([first, second]);
+    }
+    expect(write.mock.lastCall?.[1]).toMatchObject({
+      'tenant:first': { model: 'first-model' },
+      'tenant:second': { model: 'second-model' },
+    });
+    expect(store.getState().configurations['tenant:first'].model).toBe('first-model');
+    expect(store.getState().configurations['tenant:second'].model).toBe('second-model');
+  });
+  it('continues queued defaults after a rejected write without committing the failed settings', async () => {
+    store.setState({ configurations: { 'tenant:first': DEFAULT_CHAT_CONFIGURATION } });
+    let reject!: (reason: Error) => void;
+    const write = vi.mocked(window.electronAPI!.store.set);
+    write.mockImplementationOnce(
+      () =>
+        new Promise<boolean>((_resolve, fail) => {
+          reject = fail;
+        })
+    );
+    const first = store
+      .getState()
+      .setConfiguration('tenant:first', { ...DEFAULT_CHAT_CONFIGURATION, model: 'failed-model' });
+    const failed = expect(first).rejects.toThrow('Disk unavailable');
+    await vi.waitFor(() => expect(write).toHaveBeenCalledOnce());
+    const second = store
+      .getState()
+      .setConfiguration('tenant:second', { ...DEFAULT_CHAT_CONFIGURATION, model: 'second-model' });
+    reject(new Error('Disk unavailable'));
+    await failed;
+    await second;
+    expect(store.getState().configurations['tenant:first']).toEqual(DEFAULT_CHAT_CONFIGURATION);
+    expect(store.getState().configurations['tenant:second'].model).toBe('second-model');
+    expect(write.mock.lastCall?.[1]).toMatchObject({
+      'tenant:first': DEFAULT_CHAT_CONFIGURATION,
+      'tenant:second': { model: 'second-model' },
+    });
+  });
+  it('requires a successful defaults acknowledgement and allows retry', async () => {
+    store.setState({ configurations: { 'tenant:brand': DEFAULT_CHAT_CONFIGURATION } });
+    const next = { ...DEFAULT_CHAT_CONFIGURATION, model: 'next-model' };
+    vi.mocked(window.electronAPI!.store.set).mockResolvedValueOnce(false);
+    await expect(store.getState().setConfiguration('tenant:brand', next)).rejects.toThrow(
+      'rejected'
+    );
+    expect(store.getState().configurations['tenant:brand']).toEqual(DEFAULT_CHAT_CONFIGURATION);
+    await store.getState().setConfiguration('tenant:brand', next);
+    expect(store.getState().configurations['tenant:brand']).toEqual(next);
+  });
   it('retains older chats and editable defaults when new start validation becomes stricter', async () => {
     const configuration = {
       ...DEFAULT_CHAT_CONFIGURATION,

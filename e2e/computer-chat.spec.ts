@@ -5,7 +5,7 @@ import path from 'node:path';
 import type { AddressInfo } from 'node:net';
 import type { ElectronApplication, Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
-import { test, expect, requireDesktopDisplay } from './desktop';
+import { test, expect, requireDesktopDisplay, type DesktopProfile } from './desktop';
 import { DESKTOP_TEST_ORIGIN } from './dev-server';
 import { installDesktopApiFixture } from './api-fixture';
 import { DEFAULT_CHAT_CONFIGURATION } from '../src/features/computer-chat/durableTypes';
@@ -191,9 +191,134 @@ async function savedChats(page: Page): Promise<any[]> {
   );
 }
 
+type DefaultsSaveFixture = {
+  pending: boolean;
+  attempts: number;
+  failNext: boolean;
+  release?: () => void;
+};
+
+/** Delay/fail only the owned profile's defaults writes; successful writes still use the production handler. */
+async function gateDefaultsWrites(profile: DesktopProfile) {
+  const bootstrap = path.join(profile.entry, 'bootstrap.cjs');
+  const original = await readFile(bootstrap, 'utf8');
+  await writeFile(
+    bootstrap,
+    `
+const { ipcMain: defaultsIpc } = require('electron');
+const defaultsHandle = defaultsIpc.handle.bind(defaultsIpc);
+const defaultsGate = { pending: false, attempts: 0, failNext: false, release: undefined };
+globalThis.__desktopDefaultsFixture = defaultsGate;
+defaultsIpc.handle = (channel, listener) => defaultsHandle(channel, channel === 'store:set' ? async (...args) => {
+  if (args[1] === 'computerChatPreferences') {
+    defaultsGate.attempts++;
+    defaultsGate.pending = true;
+    await new Promise(resolve => { defaultsGate.release = resolve; });
+    defaultsGate.pending = false;
+    defaultsGate.release = undefined;
+    if (defaultsGate.failNext) {
+      defaultsGate.failNext = false;
+      throw new Error('Fixture defaults write unavailable');
+    }
+  }
+  return listener(...args);
+} : listener);
+` + original
+  );
+}
+
+async function releaseDefaultsWrite(application: ElectronApplication) {
+  await application.evaluate(() => {
+    const fixture = (
+      globalThis as typeof globalThis & { __desktopDefaultsFixture: DefaultsSaveFixture }
+    ).__desktopDefaultsFixture;
+    if (!fixture.release) throw new Error('No pending defaults write');
+    fixture.release();
+  });
+}
+
+async function defaultsWritePending(application: ElectronApplication) {
+  return application.evaluate(
+    () =>
+      (globalThis as typeof globalThis & { __desktopDefaultsFixture: DefaultsSaveFixture })
+        .__desktopDefaultsFixture.pending
+  );
+}
+
 test.beforeAll(() => requireDesktopDisplay());
 
 for (const theme of ['dark', 'light'] as const) {
+  test(`native defaults preserve edits, recover from failed saves and survive restart in ${theme} theme`, async ({
+    desktop,
+  }) => {
+    test.setTimeout(120_000);
+    const profile = await desktop.createProfile();
+    await gateDefaultsWrites(profile);
+    const application = await desktop.launch(profile);
+    const page = await openChats(application, theme);
+    await page.getByRole('button', { name: 'Settings', exact: true }).click();
+    await page.getByText('Defaults and permissions', { exact: true }).click();
+    const model = page.getByLabel('Computer chat model');
+    const save = page.getByRole('button', { name: 'Save defaults for this brand' });
+    await save.click();
+    await expect.poll(() => defaultsWritePending(application)).toBe(true);
+    await expect(page.getByRole('button', { name: 'Saving…' })).toBeDisabled();
+    await model.fill('native-newer-draft');
+    await releaseDefaultsWrite(application);
+    await expect(save).toBeEnabled();
+    await expect(model).toHaveValue('native-newer-draft');
+    await expect(page.getByText('Defaults saved', { exact: true })).toHaveCount(0);
+    await expect(page.getByText('Unsaved changes', { exact: true })).toBeVisible();
+    const persisted = () =>
+      page.evaluate(
+        async () =>
+          (await window.electronAPI!.store.get('computerChatPreferences')) as Record<
+            string,
+            { model: string }
+          >
+      );
+    expect((await persisted())[`${tenant.id}:${brand.id}`].model).toBe(
+      DEFAULT_CHAT_CONFIGURATION.model
+    );
+    await application.evaluate(() => {
+      (
+        globalThis as typeof globalThis & { __desktopDefaultsFixture: DefaultsSaveFixture }
+      ).__desktopDefaultsFixture.failNext = true;
+    });
+    await save.click();
+    await expect.poll(() => defaultsWritePending(application)).toBe(true);
+    await releaseDefaultsWrite(application);
+    await expect(
+      page.getByRole('alert').filter({ hasText: 'Your changes are still here' })
+    ).toBeVisible();
+    await expect(model).toHaveValue('native-newer-draft');
+    expect((await persisted())[`${tenant.id}:${brand.id}`].model).toBe(
+      DEFAULT_CHAT_CONFIGURATION.model
+    );
+    const accessibility = await new AxeBuilder({ page })
+      .setLegacyMode()
+      .include('[aria-label="Computer setup and defaults"]')
+      .analyze();
+    expect(accessibility.violations).toEqual([]);
+    await save.click();
+    await expect.poll(() => defaultsWritePending(application)).toBe(true);
+    await releaseDefaultsWrite(application);
+    await expect(page.getByText('Defaults saved', { exact: true })).toBeVisible();
+    await expect(
+      page.getByRole('alert').filter({ hasText: 'Your changes are still here' })
+    ).toHaveCount(0);
+    expect((await persisted())[`${tenant.id}:${brand.id}`].model).toBe('native-newer-draft');
+    await mkdir('dist/verification', { recursive: true });
+    await page.screenshot({ path: `dist/verification/native-defaults-save-${theme}.png` });
+    await application.close();
+    const restarted = await desktop.launch(profile);
+    const restored = await openChats(restarted, theme);
+    await restored.getByRole('button', { name: 'Settings', exact: true }).click();
+    await restored.getByText('Defaults and permissions', { exact: true }).click();
+    await expect(restored.getByLabel('Computer chat model')).toHaveValue('native-newer-draft');
+    await restarted.close();
+  });
+
   test(`native acceptance settings recover from invalid criteria in ${theme} theme`, async ({
     desktop,
   }) => {
@@ -247,6 +372,7 @@ for (const theme of ['dark', 'light'] as const) {
       await remove.focus();
       await page.keyboard.press('Enter');
       await expect(remove).toHaveCount(0);
+      await expect(page.getByRole('button', { name: 'Add criterion' })).toBeFocused();
       await page.getByRole('button', { name: 'Save defaults for this brand' }).click();
       await expect(page.getByText('Defaults saved', { exact: true })).toBeVisible();
       await page.getByRole('button', { name: 'Settings', exact: true }).click();
