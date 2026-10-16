@@ -4,6 +4,19 @@ All notable changes to StateSet Desktop will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## Unreleased
+
+### Changed
+
+- Fleet actions retain progress and outcomes across navigation, continue after individual failures, and retry only failed agents. Cleanup keeps the reviewed target set and confirms failed deletions again.
+- Conversation menus share keyboard navigation and theme surfaces. Rename and deletion preserve focus, and menus remain reachable in short windows.
+- Confirmation dialogs and desktop previews use simpler, readable surfaces in both themes.
+
+### Fixed
+
+- Keep late agent mutations and cache rollbacks bound to their original workspace and credential. Preserve newer data and caches cleared by logout.
+- Retain the live acceptance harness's owned workflow identity before starting, verify cleanup receipts, and report unconfirmed shutdown. Run its local failure tests in release CI.
+
 ## [1.1.19] - 2026-10-15
 
 ### Added

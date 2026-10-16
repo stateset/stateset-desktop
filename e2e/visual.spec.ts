@@ -341,6 +341,23 @@ test.describe('Visual Regression Tests', () => {
     await page.keyboard.press('Escape');
   });
 
+  test('Cleanup confirmation appearance', async () => {
+    const trigger = page.getByRole('button', { name: 'Clean Up', exact: true });
+    await trigger.click();
+    const dialog = page.getByRole('alertdialog', { name: 'Delete stopped agents?' });
+    await expect(dialog).toBeVisible();
+    await expect(
+      dialog.getByRole('button', { name: 'Delete 2 agents', exact: true })
+    ).toBeVisible();
+    await expect(page).toHaveScreenshot('cleanup-confirmation.png', { animations: 'disabled' });
+    await page.keyboard.press('Escape');
+    await expect(dialog).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+    await expect(
+      page.getByRole('list', { name: 'Agent sessions' }).getByRole('listitem')
+    ).toHaveCount(3);
+  });
+
   test('Create agent dialog', async () => {
     // Click new agent button
     await page.getByRole('button', { name: 'New Agent' }).click();

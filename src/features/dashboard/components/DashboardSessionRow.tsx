@@ -28,6 +28,7 @@ interface DashboardSessionRowProps {
   onExportSummary: (session: AgentSession) => void;
   onRename?: (id: string, name: string) => void;
   isSelected?: boolean;
+  isActionBusy?: boolean;
   onToggleSelect?: (id: string) => void;
 }
 
@@ -98,6 +99,7 @@ export const DashboardSessionRow = memo(function DashboardSessionRow({
   onExportSummary,
   onRename,
   isSelected,
+  isActionBusy = false,
   onToggleSelect,
 }: DashboardSessionRowProps) {
   const isRunning = session.status === 'running';
@@ -140,6 +142,7 @@ export const DashboardSessionRow = memo(function DashboardSessionRow({
   };
 
   const startRename = () => {
+    if (isActionBusy) return;
     renameActiveRef.current = true;
     setRenameValue(sessionTitle);
     setIsRenaming(true);
@@ -163,10 +166,39 @@ export const DashboardSessionRow = memo(function DashboardSessionRow({
 
   const contextMenuItems = [
     { id: 'view', label: 'View Details', icon: ChevronRight, onClick: handleClick },
-    ...(onRename ? [{ id: 'rename', label: 'Rename', icon: Pencil, onClick: startRename }] : []),
-    ...(canStart ? [{ id: 'start', label: 'Start Agent', icon: Play, onClick: handleStart }] : []),
+    ...(onRename
+      ? [
+          {
+            id: 'rename',
+            label: 'Rename',
+            icon: Pencil,
+            onClick: startRename,
+            disabled: isActionBusy,
+          },
+        ]
+      : []),
+    ...(canStart
+      ? [
+          {
+            id: 'start',
+            label: 'Start Agent',
+            icon: Play,
+            onClick: handleStart,
+            disabled: isActionBusy,
+          },
+        ]
+      : []),
     ...(canStop
-      ? [{ id: 'stop', label: 'Stop Agent', icon: Square, onClick: handleStop, danger: true }]
+      ? [
+          {
+            id: 'stop',
+            label: 'Stop Agent',
+            icon: Square,
+            onClick: handleStop,
+            disabled: isActionBusy,
+            danger: true,
+          },
+        ]
       : []),
     { id: 'copy', label: 'Copy Session Data', icon: Copy, onClick: handleCopy, divider: true },
     { id: 'summary', label: 'Export Run Summary', icon: BarChart3, onClick: handleExportSummary },
@@ -187,6 +219,7 @@ export const DashboardSessionRow = memo(function DashboardSessionRow({
             <input
               type="checkbox"
               checked={!!isSelected}
+              disabled={isActionBusy}
               onChange={() => onToggleSelect(session.id)}
               className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-brand-500 focus:ring-brand-500/40 focus:ring-offset-0 cursor-pointer"
               aria-label={`Select ${sessionTitle}`}
@@ -353,6 +386,7 @@ export const DashboardSessionRow = memo(function DashboardSessionRow({
             onClick={(e) => e.stopPropagation()}
             onBlur={() => commitRename()}
             maxLength={80}
+            disabled={isActionBusy}
             className={clsx(
               onToggleSelect ? 'left-28' : 'left-[76px]',
               'absolute top-3 z-20 font-bold text-sm text-gray-200 bg-slate-800/80 border border-brand-500/50 rounded-lg px-2 py-0.5 outline-none focus:ring-2 focus:ring-brand-500/40 w-48'
@@ -367,6 +401,7 @@ export const DashboardSessionRow = memo(function DashboardSessionRow({
             {canStart && (
               <button
                 type="button"
+                disabled={isActionBusy}
                 onClick={handleStart}
                 className="p-1.5 rounded-lg hover:bg-emerald-500/15 text-emerald-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/50"
                 title="Start agent"
@@ -378,6 +413,7 @@ export const DashboardSessionRow = memo(function DashboardSessionRow({
             {canStop && (
               <button
                 type="button"
+                disabled={isActionBusy}
                 onClick={handleStop}
                 className="p-1.5 rounded-lg hover:bg-rose-500/15 text-rose-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/50"
                 title="Stop agent"
@@ -389,6 +425,7 @@ export const DashboardSessionRow = memo(function DashboardSessionRow({
             {onRename && (
               <button
                 type="button"
+                disabled={isActionBusy}
                 onClick={startRename}
                 className="p-1.5 rounded-lg hover:bg-slate-700/60 text-gray-400 hover:text-gray-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
                 aria-label={`Rename ${sessionTitle}`}

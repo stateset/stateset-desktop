@@ -2,7 +2,7 @@
  * @vitest-environment happy-dom
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, act, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ToastProvider } from '../components/ToastProvider';
@@ -56,6 +56,7 @@ vi.mock('../lib/api', () => ({
     createSession: vi.fn(async () => ({})),
     startSession: vi.fn(async () => ({})),
     stopSession: vi.fn(async () => undefined),
+    deleteSession: vi.fn(async () => undefined),
   },
 }));
 
@@ -276,5 +277,25 @@ describe('Dashboard deep links', () => {
     expect(await screen.findByText('Viewing saved agents')).toBeInTheDocument();
     expect(screen.getByRole('checkbox', { name: 'Select Cached agent' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Refresh sessions' })).toBeDisabled();
+  });
+  it('shows persistent fleet failures and retries only the failed request', async () => {
+    const sessions = [
+      makeSession({ id: 'fail', name: 'Failed request', status: 'stopped' }),
+      makeSession({ id: 'ok', name: 'Successful request', status: 'stopped' }),
+    ];
+    vi.mocked(agentApi.listSessions).mockResolvedValue(sessions);
+    vi.mocked(agentApi.startSession).mockRejectedValueOnce(new Error('Unavailable'));
+    renderDashboard('/');
+    await screen.findByRole('checkbox', { name: 'Select Failed request' });
+    fireEvent.click(screen.getByRole('button', { name: /start all/i }));
+    const result = await screen.findByRole('region', { name: 'Agent action result' });
+    expect(within(result).getByText('1 started; 1 failed to start.')).toBeInTheDocument();
+    fireEvent.click(within(result).getByRole('button', { name: 'Retry failed' }));
+    await waitFor(() => expect(within(result).getByText('1 agent started.')).toBeInTheDocument());
+    expect(vi.mocked(agentApi.startSession).mock.calls.map((args) => args[2])).toEqual([
+      'fail',
+      'ok',
+      'fail',
+    ]);
   });
 });

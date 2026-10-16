@@ -841,8 +841,10 @@ export function DurableComputerChat() {
                           className="w-full rounded-lg border border-slate-700"
                         />
                       ) : (
-                        <p className="rounded-lg bg-slate-950/60 p-6 text-center text-xs text-gray-500">
-                          Capture a screenshot to view the computer.
+                        <p className="chat-empty-preview rounded-lg p-6 text-center text-xs">
+                          {ended
+                            ? 'No screenshot was saved for this computer.'
+                            : 'Capture a screenshot to view the computer.'}
                         </p>
                       )}
                       <details className="chat-session-details">

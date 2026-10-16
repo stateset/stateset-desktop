@@ -12,6 +12,7 @@ export async function installDesktopApiFixture(
     sessions: unknown[];
     platforms?: string[];
     sessionsStatus?: number;
+    actions?: { blocked?: boolean; failIds?: string[] };
   }
 ) {
   const apiOrigin = await page.evaluate(async () => {
@@ -20,12 +21,25 @@ export async function installDesktopApiFixture(
     return new URL(API_CONFIG.baseUrl).origin;
   });
   await electronApp.evaluate(
-    ({ session }, { apiOrigin, tenant, brand, sessions, platforms, sessionsStatus }) => {
+    ({ session }, { apiOrigin, tenant, brand, sessions, platforms, sessionsStatus, actions }) => {
       const fixtureState = globalThis as typeof globalThis & {
         __desktopFixtureSessionStatus?: number;
+        __desktopFixtureActions?: {
+          blocked: boolean;
+          failIds: string[];
+          requests: { id: string; action: string }[];
+          waiters: (() => void)[];
+        };
       };
       fixtureState.__desktopFixtureSessionStatus = sessionsStatus;
-      session.defaultSession.protocol.handle('https', (request) => {
+      fixtureState.__desktopFixtureActions = {
+        blocked: actions?.blocked ?? false,
+        failIds: actions?.failIds ?? [],
+        requests: [],
+        waiters: [],
+      };
+      const records = sessions as Record<string, unknown>[];
+      session.defaultSession.protocol.handle('https', async (request) => {
         const url = new URL(request.url);
         const headers = {
           'content-type': 'application/json',
@@ -64,7 +78,33 @@ export async function installDesktopApiFixture(
               headers,
             });
           }
-          body = { ok: true, sessions };
+          const parts = url.pathname.split('/');
+          const index = parts.lastIndexOf('agents');
+          const id = parts[index + 1];
+          const action = request.method === 'DELETE' ? 'delete' : parts[index + 2];
+          if (
+            id &&
+            (request.method === 'DELETE' ||
+              (request.method === 'POST' && (action === 'start' || action === 'stop')))
+          ) {
+            const controls = fixtureState.__desktopFixtureActions!;
+            controls.requests.push({ id, action });
+            if (controls.blocked)
+              await new Promise<void>((resolve) => controls.waiters.push(resolve));
+            if (controls.failIds.includes(id))
+              return new Response(JSON.stringify({ error: 'Fixture action failed' }), {
+                status: 400,
+                headers,
+              });
+            const target = records.find((record) => record.id === id);
+            if (!target) return new Response('{}', { status: 404, headers });
+            if (action === 'delete') records.splice(records.indexOf(target), 1);
+            else target.status = action === 'start' ? 'running' : 'stopped';
+            body = { ok: true, session: target };
+          } else
+            body = id
+              ? { ok: true, session: records.find((record) => record.id === id) }
+              : { ok: true, sessions: records };
         } else if (url.pathname.includes('/secrets')) body = { ok: true, platforms };
         else
           return new Response(JSON.stringify({ error: 'Not a fixture route' }), {
@@ -81,6 +121,7 @@ export async function installDesktopApiFixture(
       sessions: fixture.sessions,
       platforms: fixture.platforms ?? ['shopify'],
       sessionsStatus: fixture.sessionsStatus ?? 200,
+      actions: fixture.actions,
     }
   );
 }
@@ -92,4 +133,31 @@ export async function setDesktopSessionResponse(electronApp: ElectronApplication
       globalThis as typeof globalThis & { __desktopFixtureSessionStatus?: number }
     ).__desktopFixtureSessionStatus = status;
   }, status);
+}
+
+/** Release only the pending requests in this owned desktop fixture. */
+export async function configureDesktopActions(
+  electronApp: ElectronApplication,
+  options: { blocked?: boolean; failIds?: string[] }
+) {
+  await electronApp.evaluate((_, options) => {
+    const controls = (
+      globalThis as typeof globalThis & {
+        __desktopFixtureActions: { blocked: boolean; failIds: string[]; waiters: (() => void)[] };
+      }
+    ).__desktopFixtureActions;
+    if (options.failIds) controls.failIds = options.failIds;
+    if (options.blocked !== undefined) controls.blocked = options.blocked;
+    if (!controls.blocked) controls.waiters.splice(0).forEach((resolve) => resolve());
+  }, options);
+}
+export async function getDesktopActionRequests(electronApp: ElectronApplication) {
+  return electronApp.evaluate(
+    () =>
+      (
+        globalThis as typeof globalThis & {
+          __desktopFixtureActions: { requests: { id: string; action: string }[] };
+        }
+      ).__desktopFixtureActions.requests
+  );
 }

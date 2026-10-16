@@ -45,6 +45,9 @@ jobs:
       - name: Verify release asset validation
         run: npm run test:release-assets
 
+      - name: Verify computer chat acceptance harness
+        run: npm run test:computer-chat:harness
+
       - name: Run unit tests with coverage
         run: npm run test:coverage
 

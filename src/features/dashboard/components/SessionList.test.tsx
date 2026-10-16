@@ -148,4 +148,12 @@ describe('SessionList', () => {
     });
     expect(screen.getAllByRole('listitem').length).toBeGreaterThanOrEqual(10);
   });
+  it('disables row lifecycle, selection and rename controls while keeping details available during a batch', () => {
+    renderList({ isActionBusy: true });
+    expect(screen.getByRole('button', { name: 'Start agent' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Stop agent' })).toBeDisabled();
+    expect(screen.getByRole('checkbox', { name: 'Select Alpha Agent' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Rename Alpha Agent' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /^Alpha Agent, status:/ })).toBeEnabled();
+  });
 });

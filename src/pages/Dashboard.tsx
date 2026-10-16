@@ -15,6 +15,7 @@ import { uiLogger } from '../lib/logger';
 import { useAuditLogStore } from '../stores/auditLog';
 import { CreateAgentDialog } from '../components/CreateAgentDialog';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { BatchActionNotice } from '../features/dashboard/components/BatchActionNotice';
 import { SessionDataNotice } from '../features/dashboard/components/SessionDataNotice';
 import { getStatusBreakdown } from '../features/dashboard/utils/sessionFilters';
 import {
@@ -204,9 +205,8 @@ export default function Dashboard() {
   };
 
   // Stable callbacks for DashboardSessionRow (avoids defeating memo)
-  const { startSession, stopSession } = actions;
-  const handleRowStart = useCallback((id: string) => startSession.mutate(id), [startSession]);
-  const handleRowStop = useCallback((id: string) => stopSession.mutate(id), [stopSession]);
+  const handleRowStart = actions.handleStartSession;
+  const handleRowStop = actions.handleStopSession;
   const handleRowClick = useCallback((id: string) => navigate(`/agent/${id}`), [navigate]);
 
   const handleSelectAll = useCallback(
@@ -241,9 +241,9 @@ export default function Dashboard() {
         isOpen={actions.showDeleteConfirm}
         onClose={() => actions.setShowDeleteConfirm(false)}
         onConfirm={actions.handleDeleteStopped}
-        title="Delete Stopped Agents"
-        message={`This will permanently delete ${stoppedCount} stopped/failed agent session(s). This action cannot be undone.`}
-        confirmLabel="Delete All"
+        title="Delete stopped agents?"
+        message={`Delete up to ${actions.deleteCount} stopped or failed agent${actions.deleteCount === 1 ? '' : 's'} from this reviewed set. Agents added later are excluded; active agents are skipped. This cannot be undone.`}
+        confirmLabel={`Delete ${actions.deleteCount} agent${actions.deleteCount === 1 ? '' : 's'}`}
         variant="danger"
         isLoading={actions.isDeletingStopped}
       />
@@ -294,10 +294,7 @@ export default function Dashboard() {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Sessions panel - 2 columns */}
                 <div className="lg:col-span-2">
-                  <div className="relative bg-slate-900/40 border border-slate-700/40 rounded-2xl overflow-hidden shadow-xl backdrop-blur-md">
-                    {/* Top highlight */}
-                    <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
-
+                  <div className="dashboard-session-panel border rounded-xl overflow-hidden">
                     {/* Card header with integrated toolbar */}
                     <DashboardToolbar
                       searchQuery={filters.searchQuery}
@@ -312,6 +309,7 @@ export default function Dashboard() {
                       isStartingAll={actions.isStartingAll}
                       isStoppingAll={actions.isStoppingAll}
                       isDeletingStopped={actions.isDeletingStopped}
+                      isBusy={actions.isActionBusy}
                       searchInputRef={searchInputRef}
                       onSearchChange={setSearchQuery}
                       onStatusFilterChange={setStatusFilter}
@@ -325,11 +323,20 @@ export default function Dashboard() {
                       onExportMetrics={exports.handleExportMetrics}
                     />
 
+                    <BatchActionNotice
+                      previousWorkspace={actions.isPreviousWorkspaceAction}
+                      progress={actions.batchProgress}
+                      result={actions.batchResult}
+                      isBusy={actions.isActionBusy}
+                      onRetry={actions.retryFailed}
+                      onDismiss={actions.dismissBatchResult}
+                    />
+
                     {/* Bulk selection toolbar */}
                     <BulkActionsBar
                       visibleSessions={filters.paginatedSessions}
                       selectedIds={selectedIds}
-                      isBusy={actions.isBulkActing}
+                      isBusy={actions.isActionBusy}
                       onSelectAll={handleSelectAll}
                       onClearSelection={selection.clearSelection}
                       onBulkStart={actions.handleBulkStart}
@@ -339,6 +346,7 @@ export default function Dashboard() {
                     {/* Sessions list */}
                     <SessionList
                       isLoading={isLoading}
+                      isActionBusy={actions.isActionBusy}
                       totalCount={sessions.length}
                       filteredSessions={filters.filteredSessions}
                       paginatedSessions={filters.paginatedSessions}

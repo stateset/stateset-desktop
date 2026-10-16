@@ -9,6 +9,7 @@ import type { AgentSession } from '../../../types';
 
 interface SessionListProps {
   isLoading: boolean;
+  isActionBusy?: boolean;
   /** Total number of sessions before filtering. */
   totalCount: number;
   /** Sessions after filtering, before pagination. */
@@ -38,6 +39,7 @@ interface SessionListProps {
  */
 export function SessionList({
   isLoading,
+  isActionBusy = false,
   totalCount,
   filteredSessions,
   paginatedSessions,
@@ -112,6 +114,7 @@ export function SessionList({
           <motion.div key={session.id} variants={listItemVariants} role="listitem">
             <DashboardSessionRow
               session={session}
+              isActionBusy={isActionBusy}
               onStart={onStart}
               onStop={onStop}
               onClick={onRowClick}

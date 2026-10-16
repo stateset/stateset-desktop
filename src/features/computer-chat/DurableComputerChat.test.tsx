@@ -284,7 +284,7 @@ describe('durable chat workspace integration', () => {
     render(<DurableComputerChat />);
     fireEvent.click(screen.getByText('My computer', { exact: true }));
     fireEvent.click(screen.getByLabelText('Options for My computer'));
-    fireEvent.click(screen.getByRole('button', { name: 'Archive chat' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Archive chat' }));
     expect(screen.getByText(/This chat is archived/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Stop computer' })).toBeInTheDocument();
     expect(
@@ -402,6 +402,9 @@ it('keeps an ended saved chat read-only while its server snapshot is unavailable
   expect(
     screen.getByRole('button', { name: 'Continue transcript in a new computer' })
   ).toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: 'Show computer details' }));
+  expect(screen.getByText('No screenshot was saved for this computer.')).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Refresh desktop screenshot' })).toBeDisabled();
 });
 
 function withApproval() {

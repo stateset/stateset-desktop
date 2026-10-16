@@ -4,7 +4,9 @@ import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { AddressInfo } from 'node:net';
 import type { ElectronApplication, Page } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
 import { test, expect, requireDesktopDisplay } from './desktop';
+import { installDesktopApiFixture } from './api-fixture';
 import { DEFAULT_CHAT_CONFIGURATION } from '../src/features/computer-chat/durableTypes';
 import type { DurableChatStatus } from '../src/features/computer-chat/durableTypes';
 
@@ -145,16 +147,18 @@ async function startEngine() {
   };
 }
 
-async function openChats(application: ElectronApplication): Promise<Page> {
+async function openChats(
+  application: ElectronApplication,
+  theme: 'light' | 'dark' = 'dark'
+): Promise<Page> {
   const page = await application.firstWindow();
-  await page
-    .context()
-    .route('**/api/v1/**', (route) =>
-      route.fulfill({ json: { ok: true, sessions: [], tenant, brands: [brand] } })
-    );
-  await page
-    .context()
-    .route('**/health/detailed', (route) => route.fulfill({ json: { status: 'healthy' } }));
+  await page.waitForURL('http://localhost:5173/**');
+  await installDesktopApiFixture(application, page, {
+    tenant,
+    brand,
+    sessions: [],
+    sessionsStatus: 200,
+  });
   await page.context().addInitScript(
     ({ tenant, brand }) => {
       window.__E2E_AUTH__ = { tenant, brands: [brand] } as any;
@@ -162,10 +166,10 @@ async function openChats(application: ElectronApplication): Promise<Page> {
     { tenant, brand }
   );
   await page.waitForFunction(() => window.electronAPI?.store !== undefined);
-  await page.evaluate(async () => {
+  await page.evaluate(async (theme) => {
     await window.electronAPI!.store.set('onboardingCompleted', true);
-    await window.electronAPI!.store.set('theme', 'dark');
-  });
+    await window.electronAPI!.store.set('theme', theme);
+  }, theme);
   await page.reload();
   await page.getByRole('link', { name: 'Chats', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Chats', exact: true })).toBeVisible();
@@ -179,6 +183,214 @@ async function savedChats(page: Page): Promise<any[]> {
 }
 
 test.beforeAll(() => requireDesktopDisplay());
+
+for (const theme of ['dark', 'light'] as const) {
+  test(`native conversation menus support keyboard editing and focus recovery in ${theme} theme`, async ({
+    desktop,
+  }) => {
+    test.setTimeout(120_000);
+    const application = await desktop.launch();
+    const firstPage = await application.firstWindow();
+    await firstPage.waitForFunction(() => window.electronAPI?.store !== undefined);
+    const fixtureEngine = 'http://127.0.0.1:65530';
+    const records = ['October report', 'Reconciliation'].map((title, index) => {
+      const id = `33333333-3333-4333-8333-33333333333${index}`;
+      const session = {
+        id: `saved-computer-${index}`,
+        organizationId: tenant.id,
+        status: 'stopped',
+      };
+      const messages = [
+        {
+          id: `message-${index}`,
+          role: 'assistant',
+          content: 'The report is ready for review.',
+          timestamp: Date.parse('2026-10-15T10:00:00.000Z'),
+        },
+      ];
+      return {
+        id,
+        tenantId: tenant.id,
+        brandId: brand.id,
+        title,
+        createdAt: '2026-10-15T10:00:00.000Z',
+        updatedAt: '2026-10-15T10:00:00.000Z',
+        messages,
+        workflows: [],
+        stopped: true,
+        session,
+        durableSession: {
+          version: 2,
+          workflowId: `computer-chat-${brand.id.replace(/-/g, '')}-${id.replace(/-/g, '')}`,
+          engineUrl: fixtureEngine,
+          configuration: DEFAULT_CHAT_CONFIGURATION,
+        },
+        serverState: {
+          version: 1,
+          status: 'stopped',
+          request_id: id,
+          brand_id: brand.id,
+          session,
+          messages,
+          events: [],
+          last_event_id: 0,
+          pending_action: null,
+          artifacts: [],
+          verification: null,
+          workspace: null,
+          screenshot: null,
+          checkpoint: null,
+          usage: {},
+          budget: DEFAULT_CHAT_CONFIGURATION.budget,
+          actions: 0,
+          turns: 0,
+          tokens: 0,
+          paused: false,
+          stop_requested: true,
+          cleanup_verified: true,
+          error: null,
+          generation: 1,
+        },
+      };
+    });
+    await firstPage.evaluate(
+      async ({ records, fixtureEngine }) => {
+        await window.electronAPI!.store.set('computerChats', records);
+        await window.electronAPI!.store.set('durableWorkflowEngineUrl', fixtureEngine);
+      },
+      { records, fixtureEngine }
+    );
+    const page = await openChats(application, theme);
+    await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+    const library = page.getByRole('complementary', { name: 'Computer conversations' });
+    const search = library.getByRole('searchbox', { name: 'Search conversations' });
+    await library.getByRole('button', { name: /^October report/ }).click();
+    await page.getByRole('button', { name: 'Show computer details' }).click();
+    const trigger = library.getByRole('button', { name: 'Options for October report' });
+    await trigger.focus();
+    await page.keyboard.press('ArrowDown');
+    const menu = library.getByRole('menu', { name: 'Actions for October report' });
+    await expect(menu.getByRole('menuitem', { name: 'Rename' })).toBeFocused();
+    await page.keyboard.press('End');
+    await expect(menu.getByRole('menuitem', { name: 'Delete saved chat' })).toBeFocused();
+    await page.keyboard.press('Home');
+    await page.keyboard.press('p');
+    await expect(menu.getByRole('menuitem', { name: 'Pin' })).toBeFocused();
+    const scan = () =>
+      new AxeBuilder({ page })
+        .setLegacyMode()
+        .include('.computer-chat')
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+        .analyze();
+    expect((await scan()).violations).toEqual([]);
+    await mkdir('dist/verification', { recursive: true });
+    await page.screenshot({ path: `dist/verification/chat-library-menu-${theme}.png` });
+    await page.keyboard.press('Escape');
+    await expect(menu).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+    // Escape in the popup must not close the evidence panel behind it.
+    await expect(
+      page.getByRole('complementary', { name: 'Computer workspace and evidence' })
+    ).toBeVisible();
+    // Pinning and unpinning reorder rows without changing the open computer.
+    const reorderTrigger = library.getByRole('button', { name: 'Options for Reconciliation' });
+    await reorderTrigger.focus();
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('p');
+    await page.keyboard.press('Enter');
+    await expect
+      .poll(async () => (await savedChats(page)).find((chat) => chat.id === records[1].id).pinned)
+      .toBe(true);
+    await expect(reorderTrigger).toBeFocused();
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('u');
+    await page.keyboard.press('Enter');
+    await expect
+      .poll(async () => (await savedChats(page)).find((chat) => chat.id === records[1].id).pinned)
+      .toBe(false);
+    await expect(reorderTrigger).toBeFocused();
+    await expect(page.getByRole('heading', { name: 'October report', exact: true })).toBeVisible();
+    await trigger.focus();
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
+    const name = library.getByRole('textbox', { name: 'Conversation name' });
+    await expect(name).toBeFocused();
+    await name.fill('Discarded name');
+    await page.keyboard.press('Escape');
+    await expect(name).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+    expect((await savedChats(page)).find((chat) => chat.id === records[0].id).title).toBe(
+      'October report'
+    );
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
+    await name.fill('Monthly report');
+    await page.keyboard.press('Enter');
+    const renamedTrigger = library.getByRole('button', { name: 'Options for Monthly report' });
+    await expect(renamedTrigger).toBeFocused();
+    expect((await savedChats(page)).find((chat) => chat.id === records[0].id).session.id).toBe(
+      records[0].session.id
+    );
+    await page.keyboard.press('ArrowDown');
+    // Tab leaves the popup and preserves the browser's normal focus order.
+    await page.keyboard.press('Tab');
+    await expect(library.getByRole('menu')).toHaveCount(0);
+    await renamedTrigger.focus();
+    await page.keyboard.press('ArrowUp');
+    await page.keyboard.press('Enter');
+    await expect(library.getByRole('button', { name: 'Keep chat' })).toBeFocused();
+    expect((await scan()).violations).toEqual([]);
+    await page.screenshot({ path: `dist/verification/chat-library-delete-${theme}.png` });
+    await page.keyboard.press('Escape');
+    await expect(renamedTrigger).toBeFocused();
+    expect(await savedChats(page)).toHaveLength(2);
+    // Menus near the bottom of a short sidebar must remain fully reachable.
+    await application.evaluate(({ BrowserWindow }) =>
+      BrowserWindow.getAllWindows()[0].setSize(1000, 600)
+    );
+    const lowerTrigger = library.getByRole('button', { name: 'Options for Reconciliation' });
+    await lowerTrigger.focus();
+    await page.keyboard.press('ArrowDown');
+    const lowerMenu = library.getByRole('menu', { name: 'Actions for Reconciliation' });
+    await expect
+      .poll(() =>
+        lowerMenu.evaluate((node) => {
+          const bounds = node.getBoundingClientRect();
+          const sidebar = node.closest('.chat-library')!.getBoundingClientRect();
+          return (
+            bounds.top >= sidebar.top &&
+            bounds.bottom <= Math.min(sidebar.bottom, window.innerHeight) &&
+            bounds.left >= sidebar.left &&
+            bounds.right <= sidebar.right
+          );
+        })
+      )
+      .toBe(true);
+    await page.keyboard.press('End');
+    await expect(lowerMenu.getByRole('menuitem', { name: 'Delete saved chat' })).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(lowerTrigger).toBeFocused();
+    await application.evaluate(({ BrowserWindow }) =>
+      BrowserWindow.getAllWindows()[0].setSize(1400, 900)
+    );
+    await renamedTrigger.focus();
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('a');
+    await page.keyboard.press('Enter');
+    await expect(renamedTrigger).toHaveCount(0);
+    await expect(search).toBeFocused();
+    expect((await savedChats(page)).find((chat) => chat.id === records[0].id).archived).toBe(true);
+    await library.getByRole('combobox', { name: 'Filter conversations' }).selectOption('archived');
+    await renamedTrigger.focus();
+    await page.keyboard.press('ArrowUp');
+    await page.keyboard.press('Enter');
+    await library.getByRole('button', { name: 'Delete permanently' }).click();
+    await expect(search).toBeFocused();
+    await expect(renamedTrigger).toHaveCount(0);
+    expect((await savedChats(page)).map((chat) => chat.id)).toEqual([records[1].id]);
+    await application.close();
+  });
+}
 
 test('native chats survive restart with distinct computers and no automatic signal replay', async ({
   desktop,

@@ -30,6 +30,7 @@ interface DashboardToolbarProps {
   isStartingAll: boolean;
   isStoppingAll: boolean;
   isDeletingStopped: boolean;
+  isBusy?: boolean;
   searchInputRef: React.RefObject<HTMLInputElement | null>;
   onSearchChange: (query: string) => void;
   onStatusFilterChange: (filter: StatusFilter) => void;
@@ -60,6 +61,7 @@ export function DashboardToolbar({
   isStartingAll,
   isStoppingAll,
   isDeletingStopped,
+  isBusy = false,
   searchInputRef,
   onSearchChange,
   onStatusFilterChange,
@@ -73,12 +75,13 @@ export function DashboardToolbar({
   onExportMetrics,
 }: DashboardToolbarProps) {
   const exportMenu = usePopupNavigation('menu');
+  const actionsDisabled = isBusy || isStartingAll || isStoppingAll || isDeletingStopped;
 
   return (
-    <div className="px-5 py-4 border-b border-slate-700/40 bg-slate-900/50 space-y-3">
+    <div className="dashboard-session-toolbar px-5 py-4 border-b space-y-3">
       {/* Title row */}
       <div className="flex items-center justify-between">
-        <h2 className="font-bold text-lg text-gray-200 tracking-tight">Agent Sessions</h2>
+        <h2 className="font-semibold text-lg tracking-tight">Agent Sessions</h2>
         <span className="text-xs font-semibold text-gray-500">
           {hasActiveFilters ? `${filteredCount} of ${sessionsCount}` : `${sessionsCount} total`}
         </span>
@@ -157,57 +160,55 @@ export function DashboardToolbar({
       )}
 
       {/* Quick actions row */}
-      <div className="flex items-center gap-2 pt-1">
-        {/* Announce bulk operation progress to screen readers */}
-        <span className="sr-only" role="status" aria-live="polite">
-          {isStartingAll
-            ? 'Starting all agents'
-            : isStoppingAll
-              ? 'Stopping all agents'
-              : isDeletingStopped
-                ? 'Deleting stopped agents'
-                : ''}
-        </span>
+      <div className="flex flex-wrap items-center gap-2 pt-1">
         <button
           type="button"
           onClick={onStartAll}
-          disabled={stoppedCount === 0 || isStartingAll}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 ui-positive disabled:opacity-40 disabled:cursor-not-allowed rounded-lg border border-emerald-500/20 text-xs font-bold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/50"
+          disabled={stoppedCount === 0 || actionsDisabled}
+          className="ui-button ui-button-secondary flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium"
         >
           {isStartingAll ? (
-            <Spinner size="md" color="border-t-emerald-400" />
+            <span aria-hidden="true">
+              <Spinner size="md" color="border-t-emerald-400" />
+            </span>
           ) : (
-            <PlayCircle className="w-3.5 h-3.5" aria-hidden="true" />
+            <PlayCircle className="w-3.5 h-3.5 ui-positive" aria-hidden="true" />
           )}
           Start All
           {stoppedCount > 0 && (
-            <span className="text-emerald-500/70 text-[10px]">{stoppedCount}</span>
+            <span className="dashboard-stat-caption text-[10px]">{stoppedCount}</span>
           )}
         </button>
 
         <button
           type="button"
           onClick={onStopAll}
-          disabled={runningCount === 0 || isStoppingAll}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 ui-negative disabled:opacity-40 disabled:cursor-not-allowed rounded-lg border border-rose-500/20 text-xs font-bold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/50"
+          disabled={runningCount === 0 || actionsDisabled}
+          className="ui-button ui-button-secondary flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium"
         >
           {isStoppingAll ? (
-            <Spinner size="md" color="border-t-rose-400" />
+            <span aria-hidden="true">
+              <Spinner size="md" color="border-t-rose-400" />
+            </span>
           ) : (
-            <StopCircle className="w-3.5 h-3.5" aria-hidden="true" />
+            <StopCircle className="w-3.5 h-3.5 ui-negative" aria-hidden="true" />
           )}
           Stop All
-          {runningCount > 0 && <span className="text-rose-500/70 text-[10px]">{runningCount}</span>}
+          {runningCount > 0 && (
+            <span className="dashboard-stat-caption text-[10px]">{runningCount}</span>
+          )}
         </button>
 
         <button
           type="button"
           onClick={onDeleteStopped}
-          disabled={stoppedCount === 0 || isDeletingStopped}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800/40 hover:bg-slate-800/60 text-gray-400 hover:ui-negative disabled:opacity-40 disabled:cursor-not-allowed rounded-lg border border-slate-700/40 text-xs font-bold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/40"
+          disabled={stoppedCount === 0 || actionsDisabled}
+          className="ui-button ui-button-secondary flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium"
         >
           {isDeletingStopped ? (
-            <Spinner size="md" color="border-t-gray-400" />
+            <span aria-hidden="true">
+              <Spinner size="md" color="border-t-gray-400" />
+            </span>
           ) : (
             <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
           )}
@@ -220,7 +221,7 @@ export function DashboardToolbar({
             type="button"
             {...exportMenu.triggerProps}
             disabled={sessionsCount === 0}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800/40 hover:bg-slate-800/60 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg border border-slate-700/40 text-xs font-bold text-gray-400 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
+            className="ui-button ui-button-secondary flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium"
           >
             <Download className="w-3.5 h-3.5" aria-hidden="true" />
             Export

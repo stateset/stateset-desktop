@@ -11,7 +11,12 @@ import type { ElectronApplication, Page } from '@playwright/test';
 import { test, expect, requireDesktopDisplay, type DesktopHarness } from './desktop';
 import AxeBuilder from '@axe-core/playwright';
 import { mkdir } from 'node:fs/promises';
-import { installDesktopApiFixture, setDesktopSessionResponse } from './api-fixture';
+import {
+  installDesktopApiFixture,
+  setDesktopSessionResponse,
+  configureDesktopActions,
+  getDesktopActionRequests,
+} from './api-fixture';
 
 async function setTestDefaults(page: Page, theme: 'dark' | 'light' = 'dark') {
   await page.evaluate(
@@ -101,7 +106,8 @@ const mockSessions = [
 async function launchWithMocks(
   desktop: DesktopHarness,
   fixtureSessions: unknown[] = mockSessions,
-  sessionsStatus = 200
+  sessionsStatus = 200,
+  actions?: { blocked?: boolean; failIds?: string[] }
 ): Promise<{ electronApp: ElectronApplication; page: Page }> {
   const electronApp = await desktop.launch();
 
@@ -112,6 +118,7 @@ async function launchWithMocks(
     brand: mockBrand,
     sessions: fixtureSessions,
     sessionsStatus,
+    actions,
   });
 
   await page.waitForFunction(() => (window as any).electronAPI !== undefined);
@@ -887,6 +894,106 @@ test.describe('Sign-in, template and notification usability', () => {
         await desktop.captureFailure(test.info());
         throw error;
       } finally {
+        await electronApp.close();
+      }
+    });
+
+    test(`Fleet actions report partial failures and retry only reviewed targets in ${theme} theme`, async ({
+      desktop,
+    }) => {
+      const sessions = [
+        { ...mockSessions[0], id: 'fleet_fail', name: 'Needs attention', status: 'stopped' },
+        { ...mockSessions[1], id: 'fleet_ok', name: 'Ready agent', status: 'failed' },
+      ];
+      const { electronApp, page } = await launchWithMocks(desktop, sessions, 200, {
+        blocked: true,
+        failIds: ['fleet_fail'],
+      });
+      try {
+        await setTestDefaults(page, theme);
+        await page.evaluate(() => window.electronAPI!.auth.clearApiKey());
+        await page.reload();
+        await expect(page.getByText('Welcome back')).toBeVisible();
+        await page.evaluate(
+          ({ tenant, brand }) => {
+            (window as any).__E2E_AUTH__ = { tenant, brands: [brand] };
+          },
+          { tenant: mockTenant, brand: mockBrand }
+        );
+        await page.getByRole('button', { name: 'API Key', exact: true }).click();
+        await page.getByLabel('API Key').fill('sk-test-fleet-actions');
+        await page.getByRole('button', { name: 'Sign In', exact: true }).click();
+        const start = page.getByRole('button', { name: /^Start All/ });
+        await start.focus();
+        await page.keyboard.press('Enter');
+        await page.getByRole('link', { name: 'Settings', exact: true }).click();
+        await expect(
+          page.getByRole('heading', { name: 'Settings', exact: true, level: 1 })
+        ).toBeVisible();
+        await page.getByRole('link', { name: 'Dashboard', exact: true }).click();
+        const progress = page.getByRole('region', { name: 'Agent action progress' });
+        await expect(progress.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '0');
+        await expect(start).toBeDisabled();
+        await expect(page.getByRole('button', { name: /^Stop All/ })).toBeDisabled();
+        await expect(page.getByRole('button', { name: 'Clean Up', exact: true })).toBeDisabled();
+        await expect(page.getByRole('checkbox', { name: 'Select Needs attention' })).toBeDisabled();
+        expect((await checkAccessibility(page)).violations).toEqual([]);
+        await configureDesktopActions(electronApp, { blocked: false });
+        const result = page.getByRole('region', { name: 'Agent action result' });
+        await expect(result).toContainText('1 started; 1 failed to start.');
+        await result.getByText('1 failed agent', { exact: true }).click();
+        await expect(result.getByRole('list', { name: 'Failed agents' })).toContainText(
+          'Needs attention'
+        );
+        expect((await checkAccessibility(page)).violations).toEqual([]);
+        await mkdir('dist/verification', { recursive: true });
+        await page.screenshot({
+          path: `dist/verification/fleet-partial-${theme}.png`,
+          animations: 'disabled',
+        });
+        await configureDesktopActions(electronApp, { failIds: [] });
+        await result.getByRole('button', { name: 'Retry failed' }).focus();
+        await page.keyboard.press('Enter');
+        await expect(result).toContainText('1 agent started.');
+        expect(
+          (await getDesktopActionRequests(electronApp))
+            .filter((request) => request.action === 'start')
+            .map((request) => request.id)
+        ).toEqual(['fleet_fail', 'fleet_ok', 'fleet_fail']);
+        await page.getByRole('button', { name: /^Stop All/ }).click();
+        await expect(result).toContainText('2 agents stopped.');
+        await configureDesktopActions(electronApp, { failIds: ['fleet_fail'] });
+        await page.getByRole('button', { name: 'Clean Up', exact: true }).click();
+        const dialog = page.getByRole('alertdialog', { name: 'Delete stopped agents?' });
+        await expect(dialog).toContainText(
+          'Agents added later are excluded; active agents are skipped.'
+        );
+        expect((await checkAccessibility(page)).violations).toEqual([]);
+        await dialog.getByRole('button', { name: 'Delete 2 agents', exact: true }).click();
+        await expect(result).toContainText('1 deleted; 1 failed to delete.');
+        await result.getByRole('button', { name: 'Review cleanup' }).click();
+        await expect(
+          dialog.getByRole('button', { name: 'Delete 1 agent', exact: true })
+        ).toBeVisible();
+        expect(
+          (await getDesktopActionRequests(electronApp)).filter(
+            (request) => request.action === 'delete'
+          )
+        ).toHaveLength(2);
+        await configureDesktopActions(electronApp, { failIds: [] });
+        await dialog.getByRole('button', { name: 'Delete 1 agent', exact: true }).click();
+        await expect(result).toContainText('1 agent deleted.');
+        await expect(page.getByText('Launch your first agent')).toBeVisible();
+        expect(
+          (await getDesktopActionRequests(electronApp))
+            .filter((request) => request.action === 'delete')
+            .map((request) => request.id)
+        ).toEqual(['fleet_fail', 'fleet_ok', 'fleet_fail']);
+      } catch (error) {
+        await desktop.captureFailure(test.info());
+        throw error;
+      } finally {
+        await configureDesktopActions(electronApp, { blocked: false }).catch(() => undefined);
         await electronApp.close();
       }
     });

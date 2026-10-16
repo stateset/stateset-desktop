@@ -237,10 +237,15 @@ export class DesktopHarness {
     let index = 0;
     for (const bundle of this.bundles) {
       if (bundle.page) {
+        const name = `bundle-failure-${index++}`;
         await bundle.page
-          .screenshot({ animations: 'disabled', timeout: 5000 })
-          .then((body) =>
-            info.attach(`bundle-failure-${index++}`, { body, contentType: 'image/png' })
+          .screenshot({
+            path: info.outputPath(`${name}.png`),
+            animations: 'disabled',
+            timeout: 5000,
+          })
+          .then(() =>
+            info.attach(name, { path: info.outputPath(`${name}.png`), contentType: 'image/png' })
           )
           .catch(() => undefined);
       }
@@ -251,8 +256,14 @@ export class DesktopHarness {
         // does not capture their failure screenshots automatically.
         const name = `desktop-failure-${index++}`;
         await page
-          .screenshot({ animations: 'disabled', timeout: 5000 })
-          .then((body) => info.attach(name, { body, contentType: 'image/png' }))
+          .screenshot({
+            path: info.outputPath(`${name}.png`),
+            animations: 'disabled',
+            timeout: 5000,
+          })
+          .then(() =>
+            info.attach(name, { path: info.outputPath(`${name}.png`), contentType: 'image/png' })
+          )
           .catch(() => undefined);
       }
     }

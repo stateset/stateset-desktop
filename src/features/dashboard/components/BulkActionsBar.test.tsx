@@ -106,7 +106,7 @@ describe('BulkActionsBar', () => {
       'aria-busy',
       'true'
     );
-    expect(screen.getByText('Updating 2 agents…')).toBeInTheDocument();
+    expect(screen.getByText('2 selected · actions in progress')).toBeInTheDocument();
     expect(screen.getByLabelText('Select all visible agents')).toBeDisabled();
     for (const button of screen.getAllByRole('button')) expect(button).toBeDisabled();
   });

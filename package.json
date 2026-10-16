@@ -50,6 +50,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:computer-chat:live": "npm run preflight && node scripts/computer-chat-live.mjs",
+    "test:computer-chat:harness": "npm run preflight && node --test --test-concurrency=1 scripts/computer-chat-live.test.mjs",
     "test:coverage": "vitest run --coverage",
     "pretest:e2e": "npm run preflight",
     "test:e2e": "npm run build:electron && npm run build:vite && node ./node_modules/@playwright/test/cli.js test --project=electron --project=accessibility --project=integration",

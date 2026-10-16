@@ -54,9 +54,7 @@ export function BulkActionsBar({
           aria-label="Select all visible agents"
         />
         <span className="text-sm font-medium text-gray-300" role="status" aria-live="polite">
-          {isBusy
-            ? `Updating ${selectedCount} agent${selectedCount === 1 ? '' : 's'}…`
-            : `${selectedCount} selected`}
+          {isBusy ? `${selectedCount} selected · actions in progress` : `${selectedCount} selected`}
         </span>
         <button
           type="button"

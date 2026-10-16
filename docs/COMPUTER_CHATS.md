@@ -126,6 +126,13 @@ archived chats within the selected organization and brand. Pin frequently used
 chats, or rename them through the chat's options menu. A custom name is retained
 when the first message is sent. Idle refreshes do not change activity ordering.
 
+Conversation options support arrow keys, Home, End and typing an action's name.
+Escape closes the menu and returns focus to its button. Rename selects the current
+name for editing; Escape discards the edit. Deletion initially focuses **Keep chat**
+and still requires explicit confirmation. Archiving, deleting or renaming a chat
+out of the current search returns focus to conversation search. Finishing a save
+does not move focus back if you have already moved to another control.
+
 Unsent drafts belong to their conversation and remain available when switching
 chats or reopening the app. Draft changes are saved locally within 350 ms;
 leaving the composer or hiding the app also requests an immediate save. A failed
@@ -284,6 +291,12 @@ follow the backend deployment policies.
 
 ## Validation
 
+`npm run test:computer-chat:harness` checks the live acceptance harness against
+owned local failure fixtures. It covers lost start acknowledgements, malformed
+workflow identities, delayed shutdown evidence and explicit cleanup failures.
+It does not exercise real sandbox, workflow or policy services. The release
+workflow runs this check before the unit coverage suite.
+
 The Electron project includes a native chat recovery check:
 
 ```bash
@@ -328,11 +341,20 @@ npm run test:computer-chat:live
 The harness creates a real computer and uses provider inference (up to $2, 12
 actions and ten minutes). It checks duplicate starts/messages, mismatched reviews,
 worker progress without desktop polling, file creation, independent acceptance,
-tamper rejection, organization isolation and confirmed shutdown. It always requests
-cleanup of its own workflow. Missing configuration or failed assertions exit
+tamper rejection, organization isolation and confirmed shutdown. It requests
+cleanup of its own workflow on success and caught failures. Missing configuration
+or failed assertions exit
 nonzero; the command never silently skips or substitutes mocks. An optional
 `CHAT_TEST_MODEL` chooses a priced model. The manually triggered GitHub workflow
 uses the `computer-chat-test` environment with these variables/secrets.
+
+Tenant and brand settings must be UUIDs. The cleanup target is derived from the
+brand and request ID before sending the start request; an unexpected returned
+workflow ID cannot redirect cleanup. Failed runs attempt shutdown and wait up to
+one minute for a matching request/brand receipt with confirmed cleanup. They emit
+`cleanup_confirmed` and the owned workflow ID on stderr so an unconfirmed shutdown
+can be inspected before rerunning. A cleanup confirmation does not turn a failed
+acceptance run into a pass.
 
 Live service execution still requires configured services and credentials. Unit
 and replay tests do not substitute for deploying all three services or for a

@@ -94,18 +94,27 @@ describe('DashboardToolbar', () => {
 
   it('disables Start All / Clean Up when nothing is stopped', () => {
     renderToolbar({ stoppedCount: 0 });
-    expect(screen.getByRole('button', { name: /start all/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /^Start All/ })).toBeDisabled();
     expect(screen.getByRole('button', { name: /clean up/i })).toBeDisabled();
   });
 
   it('disables Stop All when nothing is running', () => {
     renderToolbar({ runningCount: 0 });
-    expect(screen.getByRole('button', { name: /stop all/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /^Stop All/ })).toBeDisabled();
   });
 
-  it('announces in-flight bulk operations politely', () => {
-    renderToolbar({ isStartingAll: true });
-    expect(screen.getByText('Starting all agents')).toBeInTheDocument();
+  it.each([
+    { isStartingAll: true },
+    { isStoppingAll: true },
+    { isDeletingStopped: true },
+    { isBusy: true },
+  ])('disables all competing lifecycle actions while busy: %j', (busy) => {
+    renderToolbar(busy);
+    expect(screen.getByRole('button', { name: /^Start All/ })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /^Stop All/ })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /clean up/i })).toBeDisabled();
+    expect(screen.getByRole('textbox', { name: 'Search agents' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Export' })).toBeEnabled();
   });
 
   it('opens the export menu and fires export callbacks', () => {

@@ -8,6 +8,11 @@ const required = (name) => {
   if (!value) throw new Error(`Set ${name}; see docs/COMPUTER_CHATS.md`);
   return value;
 };
+const identity = (name) => {
+  const value = required(name);
+  assert(/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(value), `${name} must be a UUID`);
+  return value.toLowerCase();
+};
 const origin = (value) => {
   const url = new URL(value);
   assert(!url.username && !url.password && !url.search && !url.hash);
@@ -19,17 +24,18 @@ const origin = (value) => {
 };
 const engine = origin(required('CHAT_TEST_ENGINE_URL'));
 const key = required('CHAT_TEST_ENGINE_KEY');
-const tenant = required('CHAT_TEST_TENANT_ID');
-const brand = required('CHAT_TEST_BRAND_ID');
+const tenant = identity('CHAT_TEST_TENANT_ID');
+const brand = identity('CHAT_TEST_BRAND_ID');
 const nsr = origin(required('CHAT_TEST_NSR_URL'));
 const nsrKey = required('CHAT_TEST_NSR_KEY');
-const api = async (base, token, path, body, expectOk = true) => {
+const api = async (base, token, path, body, expectOk = true, timeoutMs = 60000) => {
+  const deadline = Date.now() + timeoutMs;
   let response;
   for (const scheme of ['Bearer', 'ApiKey']) {
     response = await fetch(base + path, {
       method: body === undefined ? 'GET' : 'POST',
       redirect: 'error',
-      signal: AbortSignal.timeout(60000),
+      signal: AbortSignal.timeout(Math.max(1, deadline - Date.now())),
       headers: {
         Authorization: `${scheme} ${token}`,
         'x-tenant-id': tenant,
@@ -49,7 +55,8 @@ const api = async (base, token, path, body, expectOk = true) => {
   if (expectOk) assert(response.ok, `${path}: HTTP ${response.status}`);
   return { status: response.status, result };
 };
-const call = async (path, body) => (await api(engine, key, path, body)).result;
+const call = async (path, body, timeoutMs) =>
+  (await api(engine, key, path, body, true, timeoutMs)).result;
 const diagnostics = await call('/v1/computer-chats/diagnostics', { brand_id: brand });
 assert(diagnostics.ready, JSON.stringify(diagnostics.checks));
 const id = randomUUID(),
@@ -68,11 +75,30 @@ const start = {
   criteria: [{ path: '/workspace/proof.json', kind: 'json', pointer: '/marker', expected: marker }],
   mcp_servers: [],
 };
-let workflow;
+// Retain the owned identity before sending: an accepted request can lose its
+// acknowledgement, and an invalid returned ID must never become a cleanup target.
+const workflow = `computer-chat-${brand.replaceAll('-', '')}-${id.replaceAll('-', '')}`;
+let cleanupConfirmed = false;
+const stopAndConfirm = async () => {
+  const deadline = Date.now() + 60000;
+  const remaining = () => Math.max(1, deadline - Date.now());
+  await call(`/v1/computer-chats/${workflow}/control/stop`, {}, remaining());
+  while (Date.now() < deadline) {
+    const state = await call(`/v1/computer-chats/${workflow}/status`, undefined, remaining());
+    assert.equal(state.request_id, id);
+    assert.equal(state.brand_id, brand);
+    // An earlier action error must not prevent checking shutdown evidence.
+    if (state.cleanup_verified === true) {
+      assert.equal(state.status, 'stopped');
+      return;
+    }
+    await delay(Math.min(1000, remaining()));
+  }
+  throw new Error('Timed out confirming test computer cleanup');
+};
 try {
   const first = await call('/v1/computer-chats/start', start);
-  workflow = first.workflow_id;
-  assert.equal(workflow, `computer-chat-${brand.replaceAll('-', '')}-${id.replaceAll('-', '')}`);
+  assert.equal(first.workflow_id, workflow);
   // Deliberately discard the first acknowledgement and retry identical input.
   const repeated = await call('/v1/computer-chats/start', start);
   assert.equal(repeated.workflow_id, workflow);
@@ -165,9 +191,8 @@ try {
     (await api(nsr, nsrKey, '/api/v1/policy/computer/verify', crossOrg, false)).status,
     403
   );
-  await call(path('control/stop'), {});
-  const stopped = await until((s) => s.cleanup_verified);
-  assert.equal(stopped.status, 'stopped');
+  await stopAndConfirm();
+  cleanupConfirmed = true;
   console.log(
     JSON.stringify(
       {
@@ -192,6 +217,21 @@ try {
     )
   );
 } finally {
-  if (workflow)
-    await call(`/v1/computer-chats/${workflow}/control/stop`, {}).catch(() => undefined);
+  if (!cleanupConfirmed) {
+    try {
+      await stopAndConfirm();
+      console.error(
+        JSON.stringify({ passed: false, cleanup_confirmed: true, workflow_id: workflow })
+      );
+    } catch {
+      console.error(
+        JSON.stringify({
+          passed: false,
+          cleanup_confirmed: false,
+          workflow_id: workflow,
+          message: 'Test computer cleanup is unconfirmed. Inspect this workflow before rerunning.',
+        })
+      );
+    }
+  }
 }

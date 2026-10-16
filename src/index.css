@@ -1628,3 +1628,34 @@ button:active {
 .dashboard-fleet-divider {
   border-color: var(--ui-border);
 }
+
+.dashboard-action-notice {
+  color: var(--ui-text);
+  background: var(--ui-surface);
+  border-color: var(--ui-border);
+}
+.dashboard-action-track {
+  background: var(--ui-surface-selected);
+}
+.dashboard-action-fill {
+  background: var(--brand-700);
+}
+
+.dashboard-session-panel,
+.dashboard-session-toolbar {
+  color: var(--ui-text);
+  background: var(--ui-surface);
+  border-color: var(--ui-border);
+}
+
+.ui-modal {
+  color: var(--ui-text);
+  background: var(--ui-surface);
+  border-color: var(--ui-border);
+}
+.ui-modal-description {
+  color: var(--ui-muted);
+}
+.ui-modal-divider {
+  border-color: var(--ui-border);
+}

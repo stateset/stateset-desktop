@@ -47,27 +47,42 @@ function createWrapper() {
       mutations: { retry: false },
     },
   });
-  return function Wrapper({ children }: { children: React.ReactNode }) {
+  function Wrapper({ children }: { children: React.ReactNode }) {
     return (
       <QueryClientProvider client={queryClient}>
         <ToastProvider>{children}</ToastProvider>
       </QueryClientProvider>
     );
-  };
+  }
+  return { Wrapper, queryClient };
 }
 
 function renderActions(sessions: AgentSession[], selectedIds = new Set<string>()) {
   const clearSelection = vi.fn();
-  const hook = renderHook(() => useSessionActions({ sessions, selectedIds, clearSelection }), {
-    wrapper: createWrapper(),
-  });
-  return { ...hook, clearSelection };
+  const { Wrapper, queryClient } = createWrapper();
+  const hook = renderHook(
+    ({ sessions, selectedIds }) => useSessionActions({ sessions, selectedIds, clearSelection }),
+    {
+      initialProps: { sessions, selectedIds },
+      wrapper: Wrapper,
+    }
+  );
+  return { ...hook, clearSelection, queryClient };
 }
+
+let scopeSequence = 0;
 
 describe('useSessionActions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    useAuthStore.setState({ tenant, currentBrand: brand });
+    vi.mocked(agentApi.startSession).mockReset().mockResolvedValue(makeSession());
+    vi.mocked(agentApi.stopSession).mockReset().mockResolvedValue(undefined);
+    vi.mocked(agentApi.deleteSession).mockReset().mockResolvedValue(undefined);
+    useAuthStore.setState({
+      tenant,
+      currentBrand: brand,
+      apiKey: `sk-actions-test-${++scopeSequence}`,
+    });
     useAuditLogStore.setState({ entries: [], isLoaded: true });
   });
 
@@ -264,10 +279,324 @@ describe('useSessionActions', () => {
     expect(result.current.isBulkActing).toBe(false);
   });
 
-  it('exposes optimistic start/stop mutations', async () => {
+  it.each(['start', 'stop', 'delete'] as const)(
+    'continues fleet %s after an early failure and refreshes the original list once',
+    async (action) => {
+      const status = action === 'stop' ? 'running' : 'stopped';
+      const sessions = ['failed', 'second', 'third'].map((id) => makeSession({ id, status }));
+      const operation = {
+        start: agentApi.startSession,
+        stop: agentApi.stopSession,
+        delete: agentApi.deleteSession,
+      }[action];
+      vi.mocked(operation).mockRejectedValueOnce(new Error('Unavailable'));
+      const { result, queryClient } = renderActions(sessions);
+      const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+      if (action === 'delete') act(() => result.current.setShowDeleteConfirm(true));
+      await act(async () => {
+        await {
+          start: result.current.handleStartAll,
+          stop: result.current.handleStopAll,
+          delete: result.current.handleDeleteStopped,
+        }[action]();
+      });
+      expect(operation).toHaveBeenCalledTimes(3);
+      expect(result.current.batchResult).toMatchObject({
+        total: 3,
+        succeeded: 2,
+        failed: [sessions[0]],
+        skipped: 0,
+      });
+      expect(screen.getByText('Fleet action incomplete')).toBeInTheDocument();
+      expect(useAuditLogStore.getState().entries.map((entry) => entry.metadata?.sessionId)).toEqual(
+        ['third', 'second']
+      );
+      expect(useAuditLogStore.getState().entries[0].metadata).toMatchObject({
+        tenantId: 'tenant-1',
+        brandId: 'brand-1',
+      });
+      expect(invalidate).toHaveBeenCalledTimes(1);
+      expect(invalidate).toHaveBeenCalledWith({
+        queryKey: ['sessions', 'tenant-1', 'brand-1'],
+        exact: true,
+        refetchType: 'active',
+      });
+    }
+  );
+
+  it('shows incremental progress and blocks fleet, selection and row actions synchronously', async () => {
+    let finishFirst!: () => void;
+    let finishSecond!: () => void;
+    vi.mocked(agentApi.stopSession)
+      .mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            finishFirst = resolve;
+          })
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            finishSecond = resolve;
+          })
+      );
+    const sessions = [
+      makeSession({ id: 'first' }),
+      makeSession({ id: 'second' }),
+      makeSession({ id: 'stopped', status: 'stopped' }),
+    ];
+    const { result } = renderActions(sessions, new Set(['first', 'stopped']));
+    let pending!: Promise<void>;
+    act(() => {
+      pending = result.current.handleStopAll();
+      void result.current.handleStopAll();
+      void result.current.handleStartAll();
+      void result.current.handleBulkStart();
+      void result.current.handleBulkStop();
+      void result.current.handleStartSession('stopped');
+      result.current.setShowDeleteConfirm(true);
+    });
+    expect(result.current.isActionBusy).toBe(true);
+    expect(result.current.batchProgress).toEqual({ action: 'stop', completed: 0, total: 2 });
+    expect(agentApi.stopSession).toHaveBeenCalledTimes(1);
+    expect(agentApi.startSession).not.toHaveBeenCalled();
+    expect(result.current.showDeleteConfirm).toBe(false);
+    await act(async () => finishFirst());
+    await waitFor(() => expect(result.current.batchProgress?.completed).toBe(1));
+    expect(agentApi.stopSession).toHaveBeenCalledTimes(2);
+    await act(async () => {
+      finishSecond();
+      await pending;
+    });
+    expect(result.current.isActionBusy).toBe(false);
+    expect(result.current.batchProgress).toBeNull();
+  });
+
+  it('retries only failed targets and never replays a successful request', async () => {
+    const sessions = [
+      makeSession({ id: 'failed', status: 'stopped' }),
+      makeSession({ id: 'ok', status: 'stopped' }),
+    ];
+    vi.mocked(agentApi.startSession).mockRejectedValueOnce(new Error('Unavailable'));
+    const { result } = renderActions(sessions);
+    await act(async () => result.current.handleStartAll());
+    await act(async () => result.current.retryFailed());
+    expect(vi.mocked(agentApi.startSession).mock.calls.map((args) => args[2])).toEqual([
+      'failed',
+      'ok',
+      'failed',
+    ]);
+    expect(result.current.batchResult).toMatchObject({ total: 1, succeeded: 1, failed: [] });
+    act(() => result.current.dismissBatchResult());
+    expect(result.current.batchResult).toBeNull();
+  });
+
+  it('pins cleanup to reviewed targets and skips agents that become active before confirmation', async () => {
+    const sessions = [
+      makeSession({ id: 'now-active', status: 'stopped' }),
+      makeSession({ id: 'reviewed', status: 'failed' }),
+    ];
+    const { result, rerender } = renderActions(sessions);
+    act(() => result.current.setShowDeleteConfirm(true));
+    rerender({
+      sessions: [
+        { ...sessions[0], status: 'running' },
+        sessions[1],
+        makeSession({ id: 'new', status: 'stopped' }),
+      ],
+      selectedIds: new Set<string>(),
+    });
+    expect(result.current.deleteCount).toBe(2);
+    await act(async () => result.current.handleDeleteStopped());
+    expect(agentApi.deleteSession).toHaveBeenCalledTimes(1);
+    expect(agentApi.deleteSession).toHaveBeenCalledWith('tenant-1', 'brand-1', 'reviewed');
+    expect(result.current.batchResult).toMatchObject({ total: 2, succeeded: 1, skipped: 1 });
+  });
+
+  it('requires a reviewed confirmation before deletion or retrying failed cleanup', async () => {
+    const sessions = [
+      makeSession({ id: 'failed', status: 'stopped' }),
+      makeSession({ id: 'ok', status: 'stopped' }),
+    ];
+    const { result } = renderActions(sessions);
+    await act(async () => result.current.handleDeleteStopped());
+    expect(agentApi.deleteSession).not.toHaveBeenCalled();
+    vi.mocked(agentApi.deleteSession).mockRejectedValueOnce(new Error('Unavailable'));
+    act(() => result.current.setShowDeleteConfirm(true));
+    await act(async () => result.current.handleDeleteStopped());
+    expect(result.current.showDeleteConfirm).toBe(false);
+    await act(async () => result.current.retryFailed());
+    expect(agentApi.deleteSession).toHaveBeenCalledTimes(2);
+    expect(result.current.showDeleteConfirm).toBe(true);
+    expect(result.current.deleteCount).toBe(1);
+    await act(async () => result.current.handleDeleteStopped());
+    expect(vi.mocked(agentApi.deleteSession).mock.calls.map((args) => args[2])).toEqual([
+      'failed',
+      'ok',
+      'failed',
+    ]);
+  });
+
+  it.each(['brand', 'tenant', 'credentials'] as const)(
+    'stops pending requests when %s changes and hides the old result',
+    async (change) => {
+      let finish!: () => void;
+      vi.mocked(agentApi.stopSession).mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            finish = resolve;
+          })
+      );
+      const { result, queryClient, clearSelection } = renderActions([
+        makeSession({ id: 'first' }),
+        makeSession({ id: 'second' }),
+      ]);
+      const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+      let pending!: Promise<void>;
+      act(() => {
+        pending = result.current.handleStopAll();
+      });
+      act(() =>
+        useAuthStore.setState(
+          change === 'brand'
+            ? { currentBrand: { ...brand, id: 'other' } }
+            : change === 'tenant'
+              ? { tenant: { ...tenant, id: 'other' } }
+              : { apiKey: 'sk-other-identity' }
+        )
+      );
+      await act(async () => {
+        finish();
+        await pending;
+      });
+      expect(agentApi.stopSession).toHaveBeenCalledTimes(1);
+      expect(result.current.batchResult).toBeNull();
+      expect(clearSelection).not.toHaveBeenCalled();
+      expect(invalidate).toHaveBeenCalledWith({
+        queryKey: ['sessions', 'tenant-1', 'brand-1'],
+        exact: true,
+        refetchType: 'none',
+      });
+      expect(result.current.isActionBusy).toBe(false);
+    }
+  );
+
+  it('does not issue requests without a workspace and releases the action controls', async () => {
+    useAuthStore.setState({ currentBrand: null });
+    const { result } = renderActions([makeSession({ status: 'stopped' })]);
+    await act(async () => result.current.handleStartAll());
+    expect(agentApi.startSession).not.toHaveBeenCalled();
+    expect(screen.getByText('Unable to update agents')).toBeInTheDocument();
+    expect(result.current.isActionBusy).toBe(false);
+  });
+
+  it('blocks a fleet action until an individual row request finishes', async () => {
+    let finish!: () => void;
+    vi.mocked(agentApi.stopSession).mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        })
+    );
+    const { result } = renderActions([
+      makeSession({ id: 'running' }),
+      makeSession({ id: 'stopped', status: 'stopped' }),
+    ]);
+    let pending!: Promise<void>;
+    act(() => {
+      pending = result.current.handleStopSession('running');
+      void result.current.handleStartAll();
+      void result.current.handleStopSession('running');
+    });
+    await waitFor(() => expect(agentApi.stopSession).toHaveBeenCalledTimes(1));
+    expect(agentApi.startSession).not.toHaveBeenCalled();
+    await act(async () => {
+      finish();
+      await pending;
+    });
+    expect(result.current.isActionBusy).toBe(false);
+  });
+
+  it('keeps completed requests out of retries if local audit recording fails', async () => {
+    const log = vi.spyOn(useAuditLogStore.getState(), 'log').mockImplementationOnce(() => {
+      throw new Error('Local audit unavailable');
+    });
+    const { result } = renderActions([
+      makeSession({ status: 'stopped' }),
+      makeSession({ status: 'stopped' }),
+    ]);
+    await act(async () => result.current.handleStartAll());
+    expect(result.current.batchResult).toMatchObject({ succeeded: 2, failed: [] });
+    await act(async () => result.current.retryFailed());
+    expect(agentApi.startSession).toHaveBeenCalledTimes(2);
+    log.mockRestore();
+  });
+
+  it('discards pending cleanup confirmation when changing workspaces', async () => {
+    const { result } = renderActions([makeSession({ status: 'stopped' })]);
+    act(() => result.current.setShowDeleteConfirm(true));
+    expect(result.current.showDeleteConfirm).toBe(true);
+    act(() => useAuthStore.setState({ currentBrand: { ...brand, id: 'other-workspace' } }));
+    expect(result.current.showDeleteConfirm).toBe(false);
+    await act(async () => result.current.handleDeleteStopped());
+    expect(agentApi.deleteSession).not.toHaveBeenCalled();
+  });
+
+  it('explains when failed cleanup targets are no longer eligible instead of silently ignoring retry', async () => {
+    const session = makeSession({ id: 'changed', status: 'stopped' });
+    vi.mocked(agentApi.deleteSession).mockRejectedValueOnce(new Error('Unavailable'));
+    const { result, rerender } = renderActions([session]);
+    act(() => result.current.setShowDeleteConfirm(true));
+    await act(async () => result.current.handleDeleteStopped());
+    rerender({ sessions: [{ ...session, status: 'running' }], selectedIds: new Set<string>() });
+    await act(async () => result.current.retryFailed());
+    expect(agentApi.deleteSession).toHaveBeenCalledTimes(1);
+    expect(result.current.showDeleteConfirm).toBe(false);
+    expect(result.current.batchResult).toMatchObject({ succeeded: 0, skipped: 1, failed: [] });
+    expect(screen.getByText('No agents to delete')).toBeInTheDocument();
+  });
+
+  it('retains the action lock, progress, and result when the dashboard is remounted', async () => {
+    let finish!: () => void;
+    vi.mocked(agentApi.stopSession).mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        })
+    );
+    const sessions = [
+      makeSession({ id: 'running' }),
+      makeSession({ id: 'stopped', status: 'stopped' }),
+    ];
+    const original = renderActions(sessions);
+    let pending!: Promise<void>;
+    act(() => {
+      pending = original.result.current.handleStopAll();
+    });
+    original.unmount();
+    const next = renderActions(sessions);
+    expect(next.result.current.isActionBusy).toBe(true);
+    expect(next.result.current.batchProgress).toMatchObject({
+      action: 'stop',
+      total: 1,
+      completed: 0,
+    });
+    await act(async () => next.result.current.handleStartAll());
+    expect(agentApi.startSession).not.toHaveBeenCalled();
+    await act(async () => {
+      finish();
+      await pending;
+    });
+    expect(next.result.current.isActionBusy).toBe(false);
+    expect(next.result.current.batchResult).toMatchObject({ succeeded: 1, failed: [] });
+  });
+
+  it('uses optimistic mutations for individual row actions', async () => {
     const { result } = renderActions([makeSession({ id: 'sess-1', status: 'stopped' })]);
 
-    act(() => result.current.startSession.mutate('sess-1'));
+    act(() => {
+      void result.current.handleStartSession('sess-1');
+    });
     await waitFor(() => {
       expect(agentApi.startSession).toHaveBeenCalledWith('tenant-1', 'brand-1', 'sess-1');
     });

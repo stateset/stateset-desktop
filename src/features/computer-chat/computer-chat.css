@@ -7,6 +7,7 @@
   --chat-muted: #96999f;
   --chat-accent: #b9c6d8;
   --chat-warning: #d8ba7f;
+  --chat-danger: #fda4af;
   color: var(--chat-text);
   background: var(--chat-bg);
   font-size: 14px;
@@ -21,6 +22,7 @@
   --chat-muted: #666b73;
   --chat-accent: #485b75;
   --chat-warning: #855b16;
+  --chat-danger: #b42318;
 }
 
 :root[data-theme='light'] .computer-chat .text-emerald-400 {
@@ -95,13 +97,27 @@
   height: 28px;
   width: 28px;
 }
-.chat-library-row summary {
+.chat-library-menu-trigger {
   opacity: 0;
 }
-.chat-library-row:hover summary,
-.chat-library-row:focus-within summary,
-.chat-library-row details[open] summary {
+.chat-library-row:hover .chat-library-menu-trigger,
+.chat-library-row:focus-within .chat-library-menu-trigger,
+.chat-library-menu-trigger[aria-expanded='true'] {
   opacity: 1;
+}
+.computer-chat .chat-library-menu {
+  color: var(--chat-text);
+  background: var(--chat-bg);
+  border-color: var(--chat-border);
+}
+.computer-chat .chat-library-menu .ui-popup-item {
+  color: var(--chat-text);
+}
+.computer-chat .chat-library-menu .ui-popup-label {
+  color: var(--chat-muted);
+}
+.computer-chat :is(.chat-library-menu .ui-popup-item, .minimal-secondary-button).chat-danger {
+  color: var(--chat-danger);
 }
 .chat-new-button {
   min-height: 36px;
@@ -178,6 +194,11 @@
   margin: 0 28px 4px;
   font-size: 10px;
   color: var(--chat-muted);
+}
+.chat-empty-preview {
+  color: var(--chat-muted);
+  background: var(--chat-subtle);
+  border: 1px dashed var(--chat-border);
 }
 .chat-approval {
   margin: 12px 28px;
@@ -645,7 +666,7 @@
   .chat-mobile-close {
     display: inline-flex !important;
   }
-  .chat-library-row summary {
+  .chat-library-menu-trigger {
     opacity: 1;
   }
 }
@@ -658,7 +679,7 @@
   }
 }
 @media (hover: none) {
-  .chat-library-row summary {
+  .chat-library-menu-trigger {
     opacity: 1;
   }
 }
