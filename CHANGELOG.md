@@ -19,6 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Fixed
 
+- Resize chat drafts with the available space while keeping focus and long drafts scrollable. Keep message-limit warnings readable in both themes and preserve oversized drafts for editing.
 - Keep long-chat reading positions stable as new messages arrive. Show new-message counts without moving the reader, follow late content resizing only at the end, restore transcript focus when history controls disappear, and keep draft indicators readable in both themes.
 - Recover from stale page links with clear dashboard and chat destinations. Keep error recovery inside the packaged router, reset failed pages on navigation, preserve healthy-page input, and offer reload when a page module cannot be loaded.
 - Honor the app’s reduced-motion preference throughout navigation, settings, menus, and page content. Keep content immediately visible without decorative fade-ins when reduced motion is requested.

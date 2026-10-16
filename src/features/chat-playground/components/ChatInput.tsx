@@ -12,6 +12,11 @@ interface ChatInputProps {
   maxBytes?: number;
 }
 
+function fitDraftHeight(textarea: HTMLTextAreaElement) {
+  textarea.style.height = 'auto';
+  textarea.style.height = `${Math.min(160, textarea.scrollHeight)}px`;
+}
+
 export function ChatInput({
   onSend,
   isLoading,
@@ -31,9 +36,31 @@ export function ChatInput({
   useLayoutEffect(() => {
     const textarea = textareaRef.current;
     if (!textarea) return;
-    textarea.style.height = 'auto';
-    textarea.style.height = `${Math.min(160, textarea.scrollHeight)}px`;
+    fitDraftHeight(textarea);
   }, [input]);
+
+  useLayoutEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea || typeof ResizeObserver === 'undefined') return;
+    let width = textarea.clientWidth;
+    let frame: number | undefined;
+    const observer = new ResizeObserver(() => {
+      // Ignore our own height changes and preserve scrolling inside long drafts.
+      if (textarea.clientWidth === width) return;
+      width = textarea.clientWidth;
+      if (frame !== undefined) return;
+      // Apply layout changes outside the observer delivery to avoid feedback loops.
+      frame = requestAnimationFrame(() => {
+        frame = undefined;
+        fitDraftHeight(textarea);
+      });
+    });
+    observer.observe(textarea);
+    return () => {
+      observer.disconnect();
+      if (frame !== undefined) cancelAnimationFrame(frame);
+    };
+  }, []);
 
   // Auto-focus on mount
   useEffect(() => {
@@ -97,7 +124,7 @@ export function ChatInput({
         <p
           id={sizeDescription}
           role={tooLong ? 'alert' : undefined}
-          className={`mt-2 text-xs ${tooLong ? 'text-red-300' : 'text-gray-400'}`}
+          className={`mt-2 text-xs ${tooLong ? 'ui-negative' : 'text-gray-400'}`}
         >
           {bytes.toLocaleString()} / {maxBytes.toLocaleString()} bytes
           {tooLong ? ' — shorten the message to send it.' : ''}

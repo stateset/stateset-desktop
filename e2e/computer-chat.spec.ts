@@ -499,6 +499,124 @@ for (const theme of ['dark', 'light'] as const) {
   });
 }
 
+async function openComposer(
+  application: ElectronApplication,
+  engineURL: string,
+  theme: 'dark' | 'light'
+) {
+  const firstPage = await application.firstWindow();
+  await firstPage.waitForFunction(() => window.electronAPI?.store !== undefined);
+  await firstPage.evaluate(() => window.electronAPI!.store.set('reduceMotion', true));
+  const page = await openChats(application, theme);
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await page.getByLabel('Workflow engine URL').fill(engineURL);
+  await page.getByLabel('Workflow API key').fill(engineKey);
+  await page.getByRole('button', { name: 'Save connection and check' }).click();
+  await expect(page.getByText('Native bridge connected', { exact: false })).toBeVisible();
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await page.getByRole('button', { name: 'New chat', exact: true }).click();
+  await expect(page.getByRole('textbox', { name: 'Chat message' })).toBeEnabled();
+  return page;
+}
+
+for (const theme of ['dark', 'light'] as const) {
+  test(`native composer preserves and explains oversized drafts in ${theme} theme`, async ({
+    desktop,
+  }) => {
+    const engine = await startEngine();
+    try {
+      const application = await desktop.launch();
+      const page = await openComposer(application, engine.url, theme);
+      const composer = page.getByRole('textbox', { name: 'Chat message' });
+      const oversized = '🙂'.repeat(2001);
+      await composer.fill(oversized);
+      await expect(composer).toHaveAttribute('aria-invalid', 'true');
+      await expect(composer).toHaveAccessibleDescription(/8,004 \/ 8,000 bytes/);
+      await expect(page.getByRole('button', { name: 'Send message' })).toBeDisabled();
+      await composer.press('Enter');
+      await expect(composer).toHaveValue(oversized);
+      await page.getByRole('heading', { name: 'New computer chat', exact: true }).click();
+      await expect.poll(async () => (await savedChats(page))[0]?.draft).toBe(oversized);
+      expect(engine.requests.filter((request) => request.path.endsWith('/messages'))).toEqual([]);
+      const accessibility = await new AxeBuilder({ page })
+        .setLegacyMode()
+        .include('.computer-chat')
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+        .analyze();
+      await mkdir('dist/verification', { recursive: true });
+      await page.screenshot({ path: `dist/verification/native-composer-limit-${theme}.png` });
+      expect(accessibility.violations).toEqual([]);
+      await composer.fill('🙂'.repeat(2000));
+      await expect(composer).not.toHaveAttribute('aria-invalid');
+      await expect(composer).toHaveAccessibleDescription('8,000 / 8,000 bytes');
+      await expect(page.getByRole('alert')).toHaveCount(0);
+      await expect(page.getByRole('button', { name: 'Send message' })).toBeEnabled();
+      await expect(composer).toBeFocused();
+      expect(engine.requests.filter((request) => request.path.endsWith('/messages'))).toEqual([]);
+      await application.close();
+    } finally {
+      await engine.close();
+    }
+  });
+
+  test(`native composer fits wrapped drafts after resizing in ${theme} theme`, async ({
+    desktop,
+  }) => {
+    const engine = await startEngine();
+    try {
+      const application = await desktop.launch();
+      await application.evaluate(({ BrowserWindow }) =>
+        BrowserWindow.getAllWindows()[0].setSize(1400, 900)
+      );
+      const page = await openComposer(application, engine.url, theme);
+      const pageErrors: string[] = [];
+      page.on('pageerror', (error) => pageErrors.push(error.message));
+      const composer = page.getByRole('textbox', { name: 'Chat message' });
+      const draft =
+        'Please reconcile the recent orders and explain any differences before making changes. '.repeat(
+          2
+        );
+      await composer.fill(draft);
+      const dimensions = () =>
+        composer.evaluate((element) => ({
+          height: element.clientHeight,
+          scroll: element.scrollHeight,
+        }));
+      const wide = await dimensions();
+      expect(wide.height).toBeLessThan(160);
+      await application.evaluate(({ BrowserWindow }) =>
+        BrowserWindow.getAllWindows()[0].setSize(1000, 760)
+      );
+      await expect.poll(async () => (await dimensions()).height).toBeGreaterThan(wide.height);
+      await expect
+        .poll(async () => {
+          const size = await dimensions();
+          return size.scroll - size.height;
+        })
+        .toBeLessThanOrEqual(1);
+      await expect(composer).toHaveValue(draft);
+      await expect(composer).toBeFocused();
+      await mkdir('dist/verification', { recursive: true });
+      await page.screenshot({ path: `dist/verification/native-composer-resize-${theme}.png` });
+      await application.evaluate(({ BrowserWindow }) =>
+        BrowserWindow.getAllWindows()[0].setSize(1400, 900)
+      );
+      await expect.poll(async () => (await dimensions()).height).toBe(wide.height);
+      await composer.fill('A long draft that stays scrollable. '.repeat(100));
+      await expect.poll(async () => (await dimensions()).height).toBe(160);
+      expect((await dimensions()).scroll).toBeGreaterThan(160);
+      await composer.fill('Short draft');
+      await expect.poll(async () => (await dimensions()).height).toBeLessThan(wide.height);
+      await expect(composer).toBeFocused();
+      expect(pageErrors).toEqual([]);
+      expect(engine.requests.filter((request) => request.path.endsWith('/messages'))).toEqual([]);
+      await application.close();
+    } finally {
+      await engine.close();
+    }
+  });
+}
+
 test('native chats survive restart with distinct computers and no automatic signal replay', async ({
   desktop,
 }) => {

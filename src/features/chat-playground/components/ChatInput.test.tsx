@@ -1,7 +1,12 @@
 /** @vitest-environment happy-dom */
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { afterEach, describe, it, expect, vi } from 'vitest';
+import { act, cleanup, render, screen, fireEvent } from '@testing-library/react';
 import { ChatInput } from './ChatInput';
+
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
 
 function makeProps(overrides: Partial<Parameters<typeof ChatInput>[0]> = {}) {
   return {
@@ -50,6 +55,84 @@ describe('ChatInput', () => {
     fireEvent.keyDown(screen.getByLabelText('Chat message'), { key: 'Enter', isComposing: true });
     expect(props.onSend).not.toHaveBeenCalled();
   });
+  it('refits a draft when its width changes without moving focus or leaking observers', () => {
+    let notify: (() => void) | undefined;
+    const disconnect = vi.fn();
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(callback: () => void) {
+          notify = callback;
+        }
+        observe = vi.fn();
+        disconnect = disconnect;
+      }
+    );
+    let pendingFrame: FrameRequestCallback | undefined;
+    const requestFrame = vi.fn((callback: FrameRequestCallback) => {
+      pendingFrame = callback;
+      return 1;
+    });
+    const cancelFrame = vi.fn(() => {
+      pendingFrame = undefined;
+    });
+    vi.stubGlobal('requestAnimationFrame', requestFrame);
+    vi.stubGlobal('cancelAnimationFrame', cancelFrame);
+    const flushFrame = () =>
+      act(() => {
+        const callback = pendingFrame;
+        pendingFrame = undefined;
+        callback?.(0);
+      });
+    const onSend = vi.fn();
+    const { unmount } = render(<ChatInput {...makeProps({ onSend })} />);
+    const textarea = screen.getByLabelText('Chat message') as HTMLTextAreaElement;
+    let width = 500;
+    let height = 60;
+    Object.defineProperties(textarea, {
+      clientWidth: { configurable: true, get: () => width },
+      scrollHeight: { configurable: true, get: () => height },
+    });
+    fireEvent.change(textarea, { target: { value: 'A draft that wraps after resizing' } });
+    act(() => notify?.());
+    flushFrame();
+    expect(textarea.style.height).toBe('60px');
+    // A resize in height alone must not reset scroll position inside a long draft.
+    textarea.scrollTop = 20;
+    height = 120;
+    act(() => notify?.());
+    expect(textarea.style.height).toBe('60px');
+    expect(textarea.scrollTop).toBe(20);
+    requestFrame.mockClear();
+    width = 300;
+    act(() => notify?.());
+    width = 250;
+    act(() => notify?.());
+    expect(requestFrame).toHaveBeenCalledOnce();
+    expect(textarea.style.height).toBe('60px');
+    flushFrame();
+    expect(textarea.style.height).toBe('120px');
+    expect(textarea).toHaveValue('A draft that wraps after resizing');
+    expect(textarea).toHaveFocus();
+    expect(onSend).not.toHaveBeenCalled();
+    width = 200;
+    height = 240;
+    act(() => notify?.());
+    flushFrame();
+    expect(textarea.style.height).toBe('160px');
+    width = 500;
+    height = 60;
+    act(() => notify?.());
+    flushFrame();
+    expect(textarea.style.height).toBe('60px');
+    width = 200;
+    act(() => notify?.());
+    unmount();
+    expect(disconnect).toHaveBeenCalledOnce();
+    expect(cancelFrame).toHaveBeenCalledWith(1);
+    expect(pendingFrame).toBeUndefined();
+  });
+
   it('renders the default placeholder', () => {
     render(<ChatInput {...makeProps()} />);
     expect(

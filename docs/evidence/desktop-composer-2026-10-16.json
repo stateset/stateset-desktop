@@ -1,0 +1,140 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-16T18:46:08.184563+00:00",
+  "scope": "Keep chat drafts readable as the desktop window changes size, and keep oversized-message validation accessible and recoverable in both themes.",
+  "source_parent_commit": "c7506cfaf3a243a0695651af3780e27bfc876bb5",
+  "qualification": "Local Linux acceptance. Native networking uses an owned local workflow fixture, not real sandbox/Temporal/NSR execution.",
+  "observed_regressions": {
+    "native_baseline": {
+      "id": "e494c09f2c0e",
+      "state": "failed",
+      "exit_code": 1,
+      "command_display": "bash /tmp/stateset-desktop-composer-baseline.sh",
+      "wait_seconds": 399.3962423801422,
+      "elapsed_seconds": 108.91262626647949
+    },
+    "unit_baseline": {
+      "id": "1f32fd90b118",
+      "state": "failed",
+      "exit_code": 1,
+      "command_display": "bash /tmp/stateset-desktop-composer-unit-baseline.sh",
+      "wait_seconds": 392.5444917678833,
+      "elapsed_seconds": 2.655202627182007
+    },
+    "failures": [
+      "Draft height did not refit when the available width changed, in both native themes.",
+      "The oversized-message warning failed the light-theme WCAG contrast check.",
+      "The unit regression confirmed that changing the draft width did not update its height."
+    ],
+    "baseline_source": "A copied set of 618 tracked inputs with new regression tests and the original composer. Queued scripts were atomically updated to use it and confirmed still queued before implementation changed.",
+    "light_theme_contrast": {
+      "foreground": "#fca5a5",
+      "background": "#ffffff",
+      "measured": 1.89,
+      "required": 4.5
+    },
+    "baseline_source_sha256": {
+      "src/features/chat-playground/components/ChatInput.tsx": "04af01971753b15b3374d9f02def306e9cd8206f803981db6caa2fbf30d23f0d",
+      "src/features/computer-chat/computer-chat.css": "0008892d90667b0df2d8145f0a0c696772306feb1981ebf1b10b718e7f2df003",
+      "src/index.css": "8e5b6babd264ca2f7fea0465086dd5edd66db0449fb9877694f83b5e6d812b54"
+    }
+  },
+  "implementation": [
+    "Observe textarea width changes and refit its draft height. Keep the existing 160-pixel cap so long drafts remain scrollable.",
+    "Coalesce width changes into an animation frame outside observer delivery. Ignore height-only notifications and cancel pending frames and observers on unmount.",
+    "Use the existing theme-aware error color for message-limit warnings.",
+    "Preserve existing controlled draft ownership, persisted oversized text, UTF-8 byte validation, input-method and Enter behavior."
+  ],
+  "verification": {
+    "job": "8ee1bd84f51d",
+    "state": "succeeded",
+    "command": "bash /tmp/stateset-desktop-composer-acceptance.sh",
+    "wait_seconds": 5187.04,
+    "runtime_seconds": 1111.25,
+    "focused": {
+      "id": "1338d1c77432",
+      "state": "succeeded",
+      "exit_code": 0,
+      "command_display": "bash /tmp/stateset-desktop-composer-native.sh",
+      "wait_seconds": 4522.111346960068,
+      "elapsed_seconds": 108.20913624763489
+    },
+    "preflight_and_native": {
+      "id": "1338d1c77432",
+      "state": "succeeded",
+      "exit_code": 0,
+      "command_display": "bash /tmp/stateset-desktop-composer-native.sh",
+      "wait_seconds": 4522.111346960068,
+      "elapsed_seconds": 108.20913624763489
+    },
+    "native_setup_correction": {
+      "job": "188e3004b81f",
+      "reason": "Lint rejected a test helper inside the theme loop (no-inner-declarations); moved it to program root and passed theme explicitly. Composer source unchanged."
+    },
+    "unit_tests": 2658,
+    "unit_files": 221,
+    "coverage": {
+      "lines": {
+        "total": 12433,
+        "covered": 10181,
+        "skipped": 0,
+        "pct": 81.88
+      },
+      "statements": {
+        "total": 13601,
+        "covered": 11015,
+        "skipped": 0,
+        "pct": 80.98
+      },
+      "functions": {
+        "total": 3326,
+        "covered": 2705,
+        "skipped": 0,
+        "pct": 81.32
+      },
+      "branches": {
+        "total": 10692,
+        "covered": 8063,
+        "skipped": 0,
+        "pct": 75.41
+      },
+      "branchesTrue": {
+        "total": 0,
+        "covered": 0,
+        "skipped": 0,
+        "pct": 100
+      }
+    },
+    "native_passed": 65,
+    "opt_in_live_skipped": 3,
+    "visual_comparisons": 11,
+    "visual_references_changed": false,
+    "packaged_linux_startup_restart": 1,
+    "harness_and_release_fixtures": 21,
+    "preflight": "Root and E2E types, lint, Electron and renderer builds passed. Full coverage and all configured thresholds passed.",
+    "native_composer_cases": "Dark/light: real window narrowing and widening without editing, focus/text retention, long-draft scrolling and shrinking, no message signal during editing; 8,004-byte drafts remain saved and editable, block Enter, pass WCAG scans, and enable Send after shortening to exactly 8,000 bytes.",
+    "native_screenshot_sha256": {
+      "native-composer-limit-dark.png": "257bb188661e7b8e106431e8bc636c0673603507e421d551f70e45bf5d9636e5",
+      "native-composer-limit-light.png": "f452239acc81e05e189305f6ca2295d93c2bc532bf74027ecca58c3ae82947bd",
+      "native-composer-resize-dark.png": "b876f7ed0daca49fac975acd1ddb8bf7423a69e89f242a4114d88a7689bcbd4a",
+      "native-composer-resize-light.png": "a7053f3e731e01cf485582b9352dab6c2d86f6e2da74e80e9dd97d73a17ee007"
+    },
+    "source_guard": {
+      "method": "Manual SHA256 of tracked inputs before and after verification; not an immutable Buildr snapshot.",
+      "inputs": 618,
+      "manifest_sha256": "3f548387c3507ca265fe472d96353d93b64aac7a2cddfc2cfb00e8227bc29de7"
+    }
+  },
+  "limitations": [
+    "Owned local workflow fixture; no real sandbox/Temporal/NSR acceptance.",
+    "No signed release publication; v1.1.19 unchanged.",
+    "Three opt-in live checks require staging configuration.",
+    "Existing dependency findings remain documented in desktop-security-2026-10-15.json; no dependency or version changes in this patch."
+  ],
+  "changed_source_sha256": {
+    "CHANGELOG.md": "e6e22dbce88807613d9197fd411edd1e46e67bc25c52a8e7c41ac9675b3348ed",
+    "e2e/computer-chat.spec.ts": "53db91fb3b019f65ab2fb922329ead41a12b9f85ee80acdae9b6c1d49dc8322e",
+    "src/features/chat-playground/components/ChatInput.test.tsx": "6f9b67aef52db02032efa25fe62162fe5caef03fe40e9aaaf2162688f1fba688",
+    "src/features/chat-playground/components/ChatInput.tsx": "6a6128fbf2c1da20c30ba20a72ff3c0fe632e13c06560a0be752450e7bb026b9"
+  }
+}
