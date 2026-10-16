@@ -206,7 +206,7 @@ const ChatLibraryRow = memo(function ChatLibraryRow({
             {status.label}
           </span>
           {chat.draft?.trim() && (
-            <span className="mt-1 block text-[10px] text-brand-300">Unsent draft</span>
+            <span className="chat-draft-label mt-1 block text-[10px]">Unsent draft</span>
           )}
         </button>
         <div {...menu.containerProps} className="relative mr-1 mt-1">

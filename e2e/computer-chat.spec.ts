@@ -393,6 +393,112 @@ for (const theme of ['dark', 'light'] as const) {
   });
 }
 
+for (const theme of ['dark', 'light'] as const) {
+  test(`native transcript preserves reading position and keyboard focus in ${theme} theme`, async ({
+    desktop,
+  }) => {
+    test.setTimeout(120_000);
+    const engine = await startEngine();
+    try {
+      const application = await desktop.launch();
+      const firstPage = await application.firstWindow();
+      await firstPage.waitForFunction(() => window.electronAPI?.store !== undefined);
+      await firstPage.evaluate(() => window.electronAPI!.store.set('reduceMotion', true));
+      const page = await openChats(application, theme);
+      await page.getByRole('button', { name: 'Settings', exact: true }).click();
+      await page.getByLabel('Workflow engine URL').fill(engine.url);
+      await page.getByLabel('Workflow API key').fill(engineKey);
+      await page.getByRole('button', { name: 'Save connection and check' }).click();
+      await expect(page.getByText('Native bridge connected', { exact: false })).toBeVisible();
+      await page.getByRole('button', { name: 'Settings', exact: true }).click();
+      await page.getByRole('button', { name: 'New chat', exact: true }).click();
+      const composer = page.getByRole('textbox', { name: 'Chat message' });
+      await expect(composer).toBeEnabled();
+      expect(engine.states.size).toBe(1);
+      const state = [...engine.states.values()][0];
+      const message = (index: number) => ({
+        id: `reading-${index}`,
+        role: 'user' as const,
+        content: `Reading message ${index}`,
+        timestamp: Date.parse('2026-10-16T10:00:00Z') + index,
+      });
+      state.messages = Array.from({ length: 130 }, (_, index) => message(index));
+      await expect(page.getByRole('button', { name: 'Show older messages (30)' })).toBeAttached();
+      const transcript = page.getByRole('region', { name: 'Chat transcript', exact: true });
+      await transcript.focus();
+      await page.keyboard.press('Home');
+      await expect.poll(() => transcript.evaluate((element) => element.scrollTop)).toBe(0);
+      const anchor = transcript.getByText('Reading message 40', { exact: true });
+      await anchor.evaluate((node) => {
+        const scroller = node.closest<HTMLElement>('.chat-transcript')!;
+        scroller.scrollTop +=
+          node.getBoundingClientRect().top - scroller.getBoundingClientRect().top - 60;
+      });
+      const latest = page.getByRole('button', { name: 'Jump to latest', exact: true });
+      await expect(latest).toBeVisible();
+      await composer.fill('Keep this unsent draft while I read');
+      const anchorOffset = () =>
+        anchor.evaluate(
+          (node) =>
+            node.getBoundingClientRect().top -
+            node.closest('.chat-transcript')!.getBoundingClientRect().top
+        );
+      const before = await anchorOffset();
+      state.messages.push(message(130), message(131));
+      await expect(latest).toHaveAccessibleDescription('2 new messages below');
+      await expect.poll(async () => Math.abs((await anchorOffset()) - before)).toBeLessThan(2);
+      await expect(transcript.getByText('Reading message 30', { exact: true })).toBeAttached();
+      await expect(composer).toBeFocused();
+      await expect(composer).toHaveValue('Keep this unsent draft while I read');
+      const accessibility = await new AxeBuilder({ page })
+        .setLegacyMode()
+        .include('.computer-chat')
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+        .analyze();
+      expect(accessibility.violations).toEqual([]);
+      await mkdir('dist/verification', { recursive: true });
+      await page.screenshot({ path: `dist/verification/native-chat-reading-${theme}.png` });
+
+      await latest.focus();
+      await page.keyboard.press('Enter');
+      await expect(latest).toHaveCount(0);
+      await expect(transcript).toBeFocused();
+      const gapToLatest = () =>
+        transcript.evaluate(
+          (element) => element.scrollHeight - element.scrollTop - element.clientHeight
+        );
+      await expect.poll(gapToLatest).toBeLessThanOrEqual(1);
+      // Exercise a late layout change, such as an expanded tool result or an image.
+      await transcript
+        .locator('.chat-message')
+        .last()
+        .evaluate((element) => {
+          (element as HTMLElement).style.paddingBottom = '260px';
+        });
+      await expect.poll(gapToLatest).toBeLessThanOrEqual(1);
+      await expect(transcript).toBeFocused();
+
+      await page.keyboard.press('Home');
+      await expect.poll(() => transcript.evaluate((element) => element.scrollTop)).toBe(0);
+      const older = page.getByRole('button', { name: 'Show older messages (32)' });
+      await older.focus();
+      const beforePrepend = await anchorOffset();
+      await page.keyboard.press('Enter');
+      await expect(older).toHaveCount(0);
+      await expect(transcript).toBeFocused();
+      await expect
+        .poll(async () => Math.abs((await anchorOffset()) - beforePrepend))
+        .toBeLessThan(2);
+      await expect(transcript.getByText('Reading message 0', { exact: true })).toBeAttached();
+      expect(engine.requests.filter((request) => request.path.endsWith('/messages'))).toEqual([]);
+      expect((await savedChats(page))[0].draft).toBe('Keep this unsent draft while I read');
+      await application.close();
+    } finally {
+      await engine.close();
+    }
+  });
+}
+
 test('native chats survive restart with distinct computers and no automatic signal replay', async ({
   desktop,
 }) => {

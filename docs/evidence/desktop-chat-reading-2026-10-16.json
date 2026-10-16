@@ -1,0 +1,104 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-16T16:23:15.903497+00:00",
+  "scope": "Keep long computer-chat history stable while reading, expose new output without stealing focus, and preserve keyboard access through history controls.",
+  "source_parent_commit": "921729634a00f267274216c36ff4323ea904cd51",
+  "qualification": "Local Linux acceptance. Native networking uses an owned local workflow fixture, not real sandbox/Temporal/NSR execution.",
+  "observed_regressions": {
+    "baseline_job": "8c371fd141ef",
+    "expected_failures": 4,
+    "failures": [
+      "The trailing hundred-message window evicted older displayed messages when new output arrived.",
+      "Returning to latest removed the focused button without restoring focus.",
+      "Loading the last older messages removed its focused button without restoring focus.",
+      "Late content resizing did not keep a reader following the latest output at the bottom."
+    ],
+    "focused_job": "822bf1568f3d",
+    "focused_tests": 42,
+    "focused_files": 2,
+    "native_contrast_failure_job": "717271ae0977",
+    "native_contrast_failure": "Unsent draft used #7dd3fc against #eeeff1 in the selected light-theme row, measured 1.44:1; changed only the draft indicator to the existing chat theme-accent token.",
+    "test_setup_correction": "First native type check 7ba58d01e610 caught an RTL assertion name used in Playwright. Corrected before native execution."
+  },
+  "implementation": [
+    "Retain the first displayed message identity while away from latest; count older messages from the actual window start and fall back to retained history when an old anchor expires.",
+    "Preserve position when prepending history using the captured scroll position and height difference.",
+    "Name and focus the transcript scroll region. Restore focus only when an activated history control disappears; keep unrelated composer focus and drafts intact.",
+    "Observe content and viewport size changes to follow delayed layout changes only while at latest; release the observer on unmount.",
+    "Add a quiet new-message badge and polite status description, deduplicated by message identity across repeated polling.",
+    "Keep the draft indicator readable using existing theme tokens. Do not change accessibility rules or visual references."
+  ],
+  "verification": {
+    "job": "ee0333201071",
+    "state": "succeeded",
+    "command": "bash /tmp/stateset-desktop-reading-acceptance.sh",
+    "wait_seconds": 27.34,
+    "runtime_seconds": 653.78,
+    "preflight_and_native_job": "68f3046bbe45",
+    "preflight": "Lint, E2E types, Electron and renderer builds passed in the focused native run. Root types and complete coverage passed in the full run.",
+    "unit_tests": 2657,
+    "unit_files": 221,
+    "coverage": {
+      "lines": {
+        "total": 12417,
+        "covered": 10165,
+        "skipped": 0,
+        "pct": 81.86
+      },
+      "statements": {
+        "total": 13581,
+        "covered": 10996,
+        "skipped": 0,
+        "pct": 80.96
+      },
+      "functions": {
+        "total": 3321,
+        "covered": 2700,
+        "skipped": 0,
+        "pct": 81.3
+      },
+      "branches": {
+        "total": 10682,
+        "covered": 8054,
+        "skipped": 0,
+        "pct": 75.39
+      },
+      "branchesTrue": {
+        "total": 0,
+        "covered": 0,
+        "skipped": 0,
+        "pct": 100
+      }
+    },
+    "native_passed": 61,
+    "opt_in_live_skipped": 3,
+    "visual_comparisons": 11,
+    "visual_references_changed": false,
+    "packaged_linux_startup_restart": 1,
+    "harness_and_release_fixtures": 21,
+    "native_reading_cases": "Dark and light: real scroll geometry, keyboard Home/Enter, incoming-message anchor retention, unsent draft and composer focus, unread count, Axe scan, late layout growth, history prepend, and no message signals during reading.",
+    "native_screenshot_sha256": {
+      "native-chat-reading-dark.png": "65068c6fedb29290ece24e1948db19916f9d944dfea4879c503f09f17b7ed285",
+      "native-chat-reading-light.png": "162ef8727943f3f91b25281fc152755606e22720459a53b929ee8edb79de17a3"
+    },
+    "source_guard": {
+      "method": "Manual SHA256 of tracked inputs before and after verification; not an immutable Buildr snapshot.",
+      "inputs": 617,
+      "manifest_sha256": "2ea9a629f065a18c3c1bb8b001b314270cb5d65bb397902d27cef983a16b0064"
+    }
+  },
+  "limitations": [
+    "Three opt-in live checks require staging configuration. This work does not establish real sandbox, Temporal or NSR acceptance.",
+    "Local production startup/restart is verified on Linux; signed macOS/Windows release qualification and updater publication remain pending.",
+    "Dependencies and package version are unchanged. Existing advisory findings remain documented in desktop-security-2026-10-15.json.",
+    "Changes target the existing review branch; v1.1.19 remains unchanged. No merge or release publication."
+  ],
+  "changed_source_sha256": {
+    "CHANGELOG.md": "bc40e7005b37df432f14df4754409d10ccae2e8411f39e4c5734295619d4b49b",
+    "e2e/computer-chat.spec.ts": "6c26f17abda43e170c13e75a9d1feeb8e6f1b3251da185984197786e3500a6f6",
+    "src/features/computer-chat/ChatLibrary.tsx": "2577af790cdd1c1fc2494493e6f5ce6d16090d103b4009edcea1bbc61a9e47d0",
+    "src/features/computer-chat/ConversationTranscript.test.tsx": "31c581f14726259ed0a1e8370e937c67f5cc713f1a3555c03138f9b436e1d719",
+    "src/features/computer-chat/ConversationTranscript.tsx": "7c78bcffb8e26fdf2e0e52ea9ce6fe93c38a8a33763d949ae4c7abb7b2d7e980",
+    "src/features/computer-chat/computer-chat.css": "0008892d90667b0df2d8145f0a0c696772306feb1981ebf1b10b718e7f2df003"
+  }
+}

@@ -93,6 +93,9 @@
   background: var(--chat-hover);
   color: var(--chat-text);
 }
+.chat-draft-label {
+  color: var(--chat-accent);
+}
 .chat-library-row .minimal-icon-button {
   height: 28px;
   width: 28px;
