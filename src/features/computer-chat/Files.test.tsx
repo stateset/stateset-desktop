@@ -140,6 +140,128 @@ describe('deliverable interactions', () => {
   });
 });
 describe('workspace navigation', () => {
+  it('updates the address when a new folder observation arrives', () => {
+    const chat = fixture();
+    const { rerender } = render(<WorkspaceBrowser chat={chat} busy={false} />);
+    rerender(
+      <WorkspaceBrowser
+        chat={{
+          ...chat,
+          serverState: { ...chat.serverState!, workspace: { path: '/workspace/new', entries: [] } },
+        }}
+        busy={false}
+      />
+    );
+    expect(screen.getByRole('textbox', { name: 'Workspace directory' })).toHaveValue(
+      '/workspace/new'
+    );
+  });
+  it('preserves a typed address when a folder observation arrives', () => {
+    const chat = fixture();
+    const { rerender } = render(<WorkspaceBrowser chat={chat} busy={false} />);
+    fireEvent.change(screen.getByRole('textbox', { name: 'Workspace directory' }), {
+      target: { value: '/workspace/my-next-folder' },
+    });
+    rerender(
+      <WorkspaceBrowser
+        chat={{
+          ...chat,
+          serverState: { ...chat.serverState!, workspace: { path: '/workspace/new', entries: [] } },
+        }}
+        busy={false}
+      />
+    );
+    expect(screen.getByRole('textbox', { name: 'Workspace directory' })).toHaveValue(
+      '/workspace/my-next-folder'
+    );
+  });
+  it.each([false, true])(
+    'returns focus after opening a folder without stealing it (moved: %s)',
+    (moved) => {
+      const chat = fixture();
+      const { rerender } = render(<WorkspaceBrowser chat={chat} busy={false} />);
+      const folder = screen.getByRole('button', { name: 'drafts' });
+      folder.focus();
+      fireEvent.click(folder);
+      const browse = screen.getByRole('button', { name: 'Browse' });
+      if (moved) browse.focus();
+      rerender(
+        <WorkspaceBrowser
+          chat={{
+            ...chat,
+            serverState: {
+              ...chat.serverState!,
+              workspace: { path: '/workspace/reports/drafts', entries: [] },
+            },
+          }}
+          busy={false}
+        />
+      );
+      expect(
+        moved ? browse : screen.getByRole('textbox', { name: 'Workspace directory' })
+      ).toHaveFocus();
+    }
+  );
+  it('clears a file search with Escape before bubbling a second Escape to the panel', () => {
+    const chat = fixture();
+    chat.serverState!.workspace!.entries = Array.from({ length: 6 }, (_, i) => ({
+      name: `report-${i}.txt`,
+      path: `/workspace/reports/report-${i}.txt`,
+      type: 'file',
+      size_bytes: 1,
+    }));
+    const onKeyDown = vi.fn();
+    render(
+      <div onKeyDown={onKeyDown}>
+        <WorkspaceBrowser chat={chat} busy={false} />
+      </div>
+    );
+    const search = screen.getByRole('searchbox', { name: 'Filter workspace files' });
+    search.focus();
+    fireEvent.change(search, { target: { value: 'missing' } });
+    fireEvent.keyDown(search, { key: 'Escape', isComposing: true });
+    expect(search).toHaveValue('missing');
+    onKeyDown.mockClear();
+    fireEvent.keyDown(search, { key: 'Escape' });
+    expect(search).toHaveValue('');
+    expect(search).toHaveFocus();
+    expect(onKeyDown).not.toHaveBeenCalled();
+    expect(
+      within(screen.getByRole('list', { name: 'Workspace files' })).getAllByRole('button')
+    ).toHaveLength(6);
+    fireEvent.keyDown(search, { key: 'Escape' });
+    expect(onKeyDown).toHaveBeenCalledOnce();
+  });
+  it('clears the previous folder search only when the observed folder changes', () => {
+    const chat = fixture();
+    chat.serverState!.workspace!.entries = Array.from({ length: 6 }, (_, i) => ({
+      name: `report-${i}.txt`,
+      path: `/workspace/reports/report-${i}.txt`,
+      type: 'file',
+      size_bytes: 1,
+    }));
+    const { rerender } = render(<WorkspaceBrowser chat={chat} busy={false} />);
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Filter workspace files' }), {
+      target: { value: 'report-2' },
+    });
+    rerender(<WorkspaceBrowser chat={{ ...chat }} busy={false} />);
+    expect(screen.getByRole('searchbox', { name: 'Filter workspace files' })).toHaveValue(
+      'report-2'
+    );
+    rerender(
+      <WorkspaceBrowser
+        chat={{
+          ...chat,
+          serverState: {
+            ...chat.serverState!,
+            workspace: { path: '/workspace/new', entries: chat.serverState!.workspace!.entries },
+          },
+        }}
+        busy={false}
+      />
+    );
+    expect(screen.getByRole('searchbox', { name: 'Filter workspace files' })).toHaveValue('');
+  });
   it('submits a directory with Enter and rejects traversal before sending', async () => {
     render(<WorkspaceBrowser chat={fixture()} busy={false} />);
     const input = screen.getByRole('textbox', { name: 'Workspace directory' });

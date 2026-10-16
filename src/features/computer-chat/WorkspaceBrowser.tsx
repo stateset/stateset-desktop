@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { ArrowUp, File, Folder } from 'lucide-react';
 import { durableChatController } from './durable';
 import { workspaceDirectory } from './artifacts';
@@ -10,6 +10,25 @@ export function WorkspaceBrowser({ chat, busy }: { chat: ComputerChat; busy: boo
   const observed = workspace?.path ?? '/workspace';
   const [path, setPath] = useState(observed);
   const [filter, setFilter] = useState('');
+  const address = useRef<HTMLInputElement>(null);
+  const addressEdited = useRef(false);
+  const files = useRef<HTMLUListElement>(null);
+  const folderFocus = useRef<{ path: string; source: Element }>();
+  const previousFolder = useRef(observed);
+  useLayoutEffect(() => {
+    if (previousFolder.current === observed) return;
+    previousFolder.current = observed;
+    if (!addressEdited.current) setPath(observed);
+    setFilter('');
+    const pending = folderFocus.current;
+    folderFocus.current = undefined;
+    if (
+      pending?.path === observed &&
+      !pending.source.isConnected &&
+      document.activeElement === document.body
+    )
+      address.current?.focus();
+  }, [observed]);
   const [error, setError] = useState<string>();
   const disabled = busy || chatEnded(chat);
   const navigate = async (value: string, operation: 'list' | 'read' = 'list') => {
@@ -17,7 +36,13 @@ export function WorkspaceBrowser({ chat, busy }: { chat: ComputerChat; busy: boo
     try {
       const target = workspaceDirectory(value);
       setError(undefined);
+      const source = document.activeElement;
+      folderFocus.current =
+        operation === 'list' && source && files.current?.contains(source)
+          ? { path: target, source }
+          : undefined;
       if (operation === 'list') {
+        addressEdited.current = false;
         setPath(target);
         setFilter('');
       }
@@ -49,10 +74,12 @@ export function WorkspaceBrowser({ chat, busy }: { chat: ComputerChat; busy: boo
         }}
       >
         <input
+          ref={address}
           aria-label="Workspace directory"
           aria-invalid={Boolean(error) || undefined}
           value={path}
           onChange={(event) => {
+            addressEdited.current = true;
             setPath(event.target.value);
             setError(undefined);
           }}
@@ -106,12 +133,20 @@ export function WorkspaceBrowser({ chat, busy }: { chat: ComputerChat; busy: boo
               placeholder="Find a file…"
               value={filter}
               onChange={(event) => setFilter(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.nativeEvent.isComposing) return;
+                if (event.key === 'Escape' && filter) {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setFilter('');
+                }
+              }}
               className="minimal-input w-full text-xs"
             />
           )}
         </>
       )}
-      <ul className="chat-workspace-files" aria-label="Workspace files">
+      <ul ref={files} className="chat-workspace-files" aria-label="Workspace files">
         {entries.map((entry) => (
           <li key={entry.path} className="flex items-center gap-2 py-2 text-xs">
             <button

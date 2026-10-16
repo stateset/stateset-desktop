@@ -36,6 +36,7 @@ async function startEngine() {
     authorization: string | undefined;
   }[] = [];
   const states = new Map<string, DurableChatStatus>();
+  const directories = new Map<string, NonNullable<DurableChatStatus['workspace']>>();
   const receipts = new Map<string, { id: string; content: string }>();
   let dropAcknowledgement = true;
   const server = createServer(async (request, response) => {
@@ -125,6 +126,16 @@ async function startEngine() {
       reply(state);
       return;
     }
+    if (match[2] === 'workspace' && body.operation === 'list') {
+      const directory = directories.get(body.path);
+      if (!directory) {
+        reply({ message: 'Fixture folder not found' }, 404);
+        return;
+      }
+      state.workspace = directory;
+      reply({ accepted: true });
+      return;
+    }
     if (match[2] === 'messages') {
       // Retain the signal but hide its query confirmation until an explicit retry.
       // This makes the ambiguous acknowledgement scenario deterministic across restart.
@@ -147,6 +158,7 @@ async function startEngine() {
     url: `http://127.0.0.1:${(server.address() as AddressInfo).port}`,
     requests,
     states,
+    directories,
     receipts,
     close: () =>
       new Promise<void>((resolve, reject) => {
@@ -248,6 +260,107 @@ async function defaultsWritePending(application: ElectronApplication) {
 test.beforeAll(() => requireDesktopDisplay());
 
 for (const theme of ['dark', 'light'] as const) {
+  test(`native workspace navigation preserves address edits and keyboard focus in ${theme} theme`, async ({
+    desktop,
+  }) => {
+    test.setTimeout(120_000);
+    const engine = await startEngine();
+    try {
+      const application = await desktop.launch();
+      const page = await openChats(application, theme);
+      await page.getByRole('button', { name: 'Settings', exact: true }).click();
+      await page.getByLabel('Workflow engine URL').fill(engine.url);
+      await page.getByLabel('Workflow API key').fill(engineKey);
+      await page.getByRole('button', { name: 'Save connection and check' }).click();
+      await expect(page.getByText('Native bridge connected', { exact: false })).toBeVisible();
+      await page.getByRole('button', { name: 'Settings', exact: true }).click();
+      await page.getByRole('button', { name: 'New chat', exact: true }).click();
+      await expect(page.getByRole('textbox', { name: 'Chat message' })).toBeEnabled();
+      const first = (await savedChats(page))[0];
+      const state = engine.states.get(first.durableSession.workflowId)!;
+      const reports = {
+        path: '/workspace/reports',
+        entries: [
+          {
+            name: 'drafts',
+            path: '/workspace/reports/drafts',
+            type: 'directory' as const,
+            size_bytes: 0,
+          },
+          ...Array.from({ length: 5 }, (_, index) => ({
+            name: `report-${index}.json`,
+            path: `/workspace/reports/report-${index}.json`,
+            type: 'file' as const,
+            size_bytes: 128,
+          })),
+        ],
+      };
+      engine.directories.set(reports.path, reports);
+      engine.directories.set('/workspace/reports/drafts', {
+        path: '/workspace/reports/drafts',
+        entries: [],
+      });
+      await page.getByRole('button', { name: 'Show computer details' }).click();
+      await page.getByRole('tab', { name: 'Files', exact: true }).click();
+      const browser = page.getByRole('region', { name: 'Workspace browser' });
+      const address = browser.getByRole('textbox', { name: 'Workspace directory' });
+      await expect(address).toHaveValue('/workspace');
+      // A status observation can arrive after the Files panel has mounted.
+      state.workspace = reports;
+      await page.getByRole('button', { name: 'Refresh conversation' }).click();
+      await expect(address).toHaveValue(reports.path);
+      const search = browser.getByRole('searchbox', { name: 'Filter workspace files' });
+      await search.fill('drafts');
+      const folder = browser.getByRole('button', { name: 'drafts', exact: true });
+      await folder.focus();
+      await page.keyboard.press('Enter');
+      await expect(address).toHaveValue('/workspace/reports/drafts');
+      await expect(address).toBeFocused();
+      await expect(browser.getByText('This folder is empty.', { exact: true })).toBeVisible();
+      await address.fill(reports.path);
+      await address.press('Enter');
+      await expect(search).toBeVisible();
+      await search.fill('missing');
+      await search.press('Escape');
+      await expect(search).toHaveValue('');
+      await expect(search).toBeFocused();
+      const inspector = page.getByRole('complementary', {
+        name: 'Computer workspace and evidence',
+      });
+      await expect(inspector).toBeVisible();
+      await expect(
+        browser.getByRole('list', { name: 'Workspace files' }).getByRole('button')
+      ).toHaveCount(6);
+      await address.fill('/workspace/my-next-folder');
+      state.workspace = { path: '/workspace/observed-elsewhere', entries: reports.entries };
+      await page.getByRole('button', { name: 'Refresh conversation' }).click();
+      await expect(
+        browser.getByRole('button', { name: 'observed-elsewhere', exact: true })
+      ).toBeVisible();
+      await expect(address).toHaveValue('/workspace/my-next-folder');
+      const accessibility = await new AxeBuilder({ page })
+        .setLegacyMode()
+        .include('.computer-chat')
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+        .analyze();
+      expect(accessibility.violations).toEqual([]);
+      await mkdir('dist/verification', { recursive: true });
+      await page.screenshot({ path: `dist/verification/native-workspace-navigation-${theme}.png` });
+      await search.focus();
+      await search.press('Escape');
+      await expect(inspector).toBeHidden();
+      await expect(page.getByRole('button', { name: 'Show computer details' })).toBeFocused();
+      expect(
+        engine.requests
+          .filter((request) => request.path.endsWith('/workspace'))
+          .map((request) => request.body.path)
+      ).toEqual(['/workspace/reports/drafts', '/workspace/reports']);
+      await application.close();
+    } finally {
+      await engine.close();
+    }
+  });
+
   test(`native defaults preserve edits, recover from failed saves and survive restart in ${theme} theme`, async ({
     desktop,
   }) => {

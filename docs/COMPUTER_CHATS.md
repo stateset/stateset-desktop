@@ -277,6 +277,11 @@ a file is shown as verified.
 
 Browse folders with breadcrumbs, the parent button or an entered `/workspace`
 directory; press Enter to browse and filter larger directory listings by name.
+The address follows newly observed folders unless you are editing it. Opening a
+folder by keyboard returns focus to the address when its old row disappears;
+moving focus elsewhere while it loads keeps your chosen control focused. File
+searches reset when the observed folder changes. Escape clears a nonempty file
+search first; pressing it again closes the computer details panel.
 Selecting a file collects it as a deliverable. Ended computers retain their last
 folder observation with navigation disabled.
 
