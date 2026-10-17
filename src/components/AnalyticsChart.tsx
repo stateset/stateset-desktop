@@ -34,6 +34,8 @@ interface LineChartProps {
   showGrid?: boolean;
   showArea?: boolean;
   className?: string;
+  /** Accessible label describing the chart for screen readers */
+  ariaLabel?: string;
 }
 
 export const LineChart = memo(function LineChart({
@@ -44,6 +46,7 @@ export const LineChart = memo(function LineChart({
   showGrid = true,
   showArea = true,
   className,
+  ariaLabel = 'Line chart',
 }: LineChartProps) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -83,6 +86,7 @@ export const LineChart = memo(function LineChart({
   if (data.length === 0) {
     return (
       <div
+        role="status"
         className={clsx('flex items-center justify-center text-gray-500 text-sm', className)}
         style={{ height }}
       >
@@ -94,7 +98,13 @@ export const LineChart = memo(function LineChart({
   return (
     <div className={clsx('relative', className)} ref={containerRef}>
       <ChartTooltip tooltip={tooltip} />
-      <svg viewBox={`0 0 100 ${height}`} className="w-full" preserveAspectRatio="none">
+      <svg
+        viewBox={`0 0 100 ${height}`}
+        className="w-full"
+        preserveAspectRatio="none"
+        role="img"
+        aria-label={ariaLabel}
+      >
         {/* Grid lines */}
         {showGrid && (
           <g className="text-gray-700">
@@ -192,6 +202,8 @@ interface BarChartProps {
   color?: string;
   showLabels?: boolean;
   className?: string;
+  /** Accessible label describing the chart for screen readers */
+  ariaLabel?: string;
 }
 
 export const BarChart = memo(function BarChart({
@@ -200,6 +212,7 @@ export const BarChart = memo(function BarChart({
   color = '#0ea5e9',
   showLabels = true,
   className,
+  ariaLabel = 'Bar chart',
 }: BarChartProps) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
@@ -241,6 +254,7 @@ export const BarChart = memo(function BarChart({
   if (data.length === 0) {
     return (
       <div
+        role="status"
         className={clsx('flex items-center justify-center text-gray-500 text-sm', className)}
         style={{ height }}
       >
@@ -252,7 +266,13 @@ export const BarChart = memo(function BarChart({
   return (
     <div className={clsx('relative', className)}>
       <ChartTooltip tooltip={tooltip} />
-      <svg viewBox={`0 0 100 ${height}`} className="w-full" preserveAspectRatio="none">
+      <svg
+        viewBox={`0 0 100 ${height}`}
+        className="w-full"
+        preserveAspectRatio="none"
+        role="img"
+        aria-label={ariaLabel}
+      >
         {/* Bars */}
         {bars.map((bar, i) => (
           <g key={i}>
@@ -320,6 +340,8 @@ interface DonutChartProps {
   thickness?: number;
   showLegend?: boolean;
   className?: string;
+  /** Accessible label describing the chart for screen readers */
+  ariaLabel?: string;
 }
 
 export const DonutChart = memo(function DonutChart({
@@ -328,6 +350,7 @@ export const DonutChart = memo(function DonutChart({
   thickness = 20,
   showLegend = true,
   className,
+  ariaLabel = 'Donut chart',
 }: DonutChartProps) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
@@ -360,6 +383,7 @@ export const DonutChart = memo(function DonutChart({
   if (total === 0) {
     return (
       <div
+        role="status"
         className={clsx('flex items-center justify-center text-gray-500 text-sm', className)}
         style={{ height: size }}
       >
@@ -373,7 +397,13 @@ export const DonutChart = memo(function DonutChart({
 
   return (
     <div className={clsx('flex items-center gap-4', className)}>
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      <svg
+        width={size}
+        height={size}
+        viewBox={`0 0 ${size} ${size}`}
+        role="img"
+        aria-label={ariaLabel}
+      >
         {/* Background circle */}
         <circle
           cx={center}

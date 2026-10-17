@@ -8,11 +8,14 @@ import {
   nativeImage,
   Notification,
   safeStorage,
+  dialog,
   type NativeImage,
 } from 'electron';
 import * as path from 'path';
 import Store from 'electron-store';
+import { resolveStoreKey, isPlaintextConfiguration } from './store-key';
 import { autoUpdater } from 'electron-updater';
+import { checkForDesktopUpdates, type UpdateStatusSnapshot } from './update-check';
 import * as Sentry from '@sentry/electron/main';
 import { ShopifyOAuth } from './oauth/shopify';
 import { GorgiasOAuth } from './oauth/gorgias';
@@ -32,6 +35,16 @@ import {
 } from './sanitization';
 import { resolveTrayIconPath } from './runtime-assets';
 import { createRateLimiter } from './ipc-rate-limit';
+import { probeMcpServer } from './mcp-probe';
+import { promises as dnsPromises } from 'dns';
+import {
+  createComputerChatConnection,
+  ComputerChatConnectionChangedError,
+  decodeArtifact,
+  requestComputerChat,
+  writeArtifactFile,
+} from './computer-chat-bridge';
+const computerChatConnection = createComputerChatConnection();
 
 const isMac = process.platform === 'darwin';
 const isWindows = process.platform === 'win32';
@@ -90,8 +103,16 @@ const STORE_KEYS = new Set([
   'pageSize',
   'customAgentTemplates',
   'chatPlaygroundConversations',
+  'computerChats',
+  'computerChatPreferences',
+  'durableWorkflowEngineUrl',
+  'durableTrackedWorkflows',
+  'durableCustomAgentProfiles',
+  'durableWorkflowBlueprints',
+  'durableWorkflowSchedules',
   'auditLog',
   'currentBrandId',
+  'mcpVerifications',
 ]);
 const OAUTH_SECRET_KEYS = {
   shopifyClientId: 'oauth:shopify:clientId',
@@ -152,17 +173,39 @@ const SANDBOX_API_URL = (() => {
     return new URL('https://api.sandbox.stateset.app');
   }
 })();
+const CONFIGURED_DURABLE_ENGINE_URL =
+  process.env.VITE_DURABLE_ENGINE_URL ||
+  process.env.DURABLE_ENGINE_URL ||
+  'https://api.workstream.stateset.com';
+const DURABLE_ENGINE_URL = (() => {
+  try {
+    return new URL(CONFIGURED_DURABLE_ENGINE_URL);
+  } catch {
+    return new URL('https://api.workstream.stateset.com');
+  }
+})();
+const POLICY_API_URL = (() => {
+  try {
+    return new URL(process.env.VITE_POLICY_API_URL || 'https://api.nsr.stateset.com');
+  } catch {
+    return new URL('https://api.nsr.stateset.com');
+  }
+})();
 const CORS_ORIGIN_URLS = [
   `${CONFIGURED_API_URL.protocol}//${CONFIGURED_API_URL.host}/*`,
   `${SANDBOX_API_URL.protocol}//${SANDBOX_API_URL.host}/*`,
+  `${DURABLE_ENGINE_URL.protocol}//${DURABLE_ENGINE_URL.host}/*`,
+  `${POLICY_API_URL.origin}/*`,
 ];
 const API_REQUEST_URL_PATTERNS = Array.from(new Set(CORS_ORIGIN_URLS));
 const CONFIGURED_API_WS_SCHEME = CONFIGURED_API_URL.protocol === 'https:' ? 'wss:' : 'ws:';
 const ELEVENLABS_API_ORIGIN = 'https://api.elevenlabs.io';
 const ELEVENLABS_WS_ORIGIN = 'wss://api.elevenlabs.io';
+const DURABLE_ENGINE_ORIGIN = DURABLE_ENGINE_URL.origin;
+const COMPUTER_API_ORIGINS = `${SANDBOX_API_URL.origin} ${POLICY_API_URL.origin}`;
 const CSP_CONNECT_HOSTS = app.isPackaged
-  ? `${CONFIGURED_API_URL.origin} ${CONFIGURED_API_WS_SCHEME}//${CONFIGURED_API_URL.host} ${ELEVENLABS_API_ORIGIN} ${ELEVENLABS_WS_ORIGIN}`
-  : `${CONFIGURED_API_URL.origin} ${CONFIGURED_API_WS_SCHEME}//${CONFIGURED_API_URL.host} ${ELEVENLABS_API_ORIGIN} ${ELEVENLABS_WS_ORIGIN} ws://localhost:* http://localhost:* ws://127.0.0.1:* http://127.0.0.1:* ws://[::1]:* http://[::1]:*`;
+  ? `${CONFIGURED_API_URL.origin} ${CONFIGURED_API_WS_SCHEME}//${CONFIGURED_API_URL.host} ${DURABLE_ENGINE_ORIGIN} ${COMPUTER_API_ORIGINS} ${ELEVENLABS_API_ORIGIN} ${ELEVENLABS_WS_ORIGIN}`
+  : `${CONFIGURED_API_URL.origin} ${CONFIGURED_API_WS_SCHEME}//${CONFIGURED_API_URL.host} ${DURABLE_ENGINE_ORIGIN} ${COMPUTER_API_ORIGINS} ${ELEVENLABS_API_ORIGIN} ${ELEVENLABS_WS_ORIGIN} ws://localhost:* http://localhost:* ws://127.0.0.1:* http://127.0.0.1:* ws://[::1]:* http://[::1]:*`;
 const CSP_HEADER =
   "default-src 'self'; " +
   "base-uri 'none'; " +
@@ -170,10 +213,10 @@ const CSP_HEADER =
   "frame-ancestors 'none'; " +
   "img-src 'self' https: data:; " +
   "media-src 'self' blob: data: https:; " +
-  "font-src 'self' https://fonts.gstatic.com data:; " +
-  "style-src 'self' https://fonts.googleapis.com; " +
+  "font-src 'self' data:; " +
+  "style-src 'self'; " +
   "style-src-attr 'unsafe-inline'; " +
-  "style-src-elem 'self' https://fonts.googleapis.com; " +
+  "style-src-elem 'self'; " +
   "script-src 'self'; " +
   `connect-src 'self' ${CSP_CONNECT_HOSTS}; ` +
   "object-src 'none'; " +
@@ -254,49 +297,24 @@ if (sentryDsn) {
   });
 }
 
-// Initialize electron store for persisting data
-const storeEncryptionKey = process.env.STORE_ENCRYPTION_KEY;
-if (!storeEncryptionKey && app.isPackaged) {
-  throw new Error(
-    'STORE_ENCRYPTION_KEY is not set. ' +
-      'A 32+ character encryption key is required in production to protect stored configuration.'
-  );
-}
-if (!storeEncryptionKey && !app.isPackaged) {
-  // Production hard-fails on a missing key, but dev silently falls through.
-  // Warn loudly so it's obvious this path is unencrypted at rest.
-  console.warn(
-    '[store] STORE_ENCRYPTION_KEY is not set — config will be stored UNENCRYPTED. ' +
-      'Acceptable for local dev only. Set STORE_ENCRYPTION_KEY in .env to match prod behavior.'
-  );
-}
+// Configuration encryption is per installation; credentials still use safeStorage below.
+const userData = app.getPath('userData');
+const effectiveStoreEncryptionKey = resolveStoreKey(userData, process.env.STORE_ENCRYPTION_KEY);
+const migratePlaintext = isPlaintextConfiguration(userData);
 const store = new Store({
   name: 'stateset-config',
-  ...(storeEncryptionKey ? { encryptionKey: storeEncryptionKey } : {}),
+  encryptionKey: effectiveStoreEncryptionKey,
+  configFileMode: 0o600,
+  clearInvalidConfig: false,
 });
+if (migratePlaintext) {
+  const legacyConfiguration = store.store;
+  store.store = legacyConfiguration;
+}
 
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let isQuitting = false;
-
-type UpdateLifecycleState =
-  | 'idle'
-  | 'checking'
-  | 'available'
-  | 'downloading'
-  | 'ready'
-  | 'error'
-  | 'disabled';
-
-type UpdateStatusSnapshot = {
-  status: UpdateLifecycleState;
-  checking: boolean;
-  available: boolean;
-  progress: number;
-  version?: string;
-  error?: string;
-  message?: string;
-};
 
 function createInitialUpdateStatusSnapshot(): UpdateStatusSnapshot {
   const updaterStatus = getAutoUpdaterStatus();
@@ -442,6 +460,11 @@ const SANDBOX_KEY_STORAGE: SecureStorageOptions = {
   inMemoryKey: 'sandboxApiKey',
 };
 
+const DURABLE_ENGINE_KEY_STORAGE: SecureStorageOptions = {
+  storeKey: 'durableEngineApiKeyEncrypted',
+  inMemoryKey: 'durableEngineApiKey',
+};
+
 const LOCAL_SECRETS_STORAGE: SecureStorageOptions = {
   storeKey: 'localSecretsEncrypted',
   inMemoryKey: 'localSecrets',
@@ -530,6 +553,11 @@ function assertStoreKey(key: string) {
 // per sender is well above any legitimate UI need and well below the rate at
 // which we'd start blocking the main thread on disk I/O.
 const ipcRateLimiter = createRateLimiter({ limit: 500, windowMs: 1000 });
+// Probing makes outbound network requests, so it gets its own, far smaller
+// budget: the global one is sized for local store reads.
+const mcpProbeRateLimiter = createRateLimiter({ limit: 10, windowMs: 1000 });
+const MAX_CONCURRENT_PROBES = 4;
+let probesInFlight = 0;
 
 function assertIpcRate(event: Electron.IpcMainInvokeEvent, channel: string): void {
   const senderId = event.sender?.id;
@@ -674,7 +702,7 @@ function setupAutoUpdater() {
   autoUpdater.on('update-not-available', () => {
     console.log('No updates available');
     setUpdateStatusSnapshot({
-      status: 'idle',
+      status: 'current',
       checking: false,
       available: false,
       progress: 0,
@@ -739,7 +767,7 @@ function setupAutoUpdater() {
   // Check for updates on startup (after a short delay to let the app initialize)
   setTimeout(() => {
     if (app.isPackaged) {
-      autoUpdater.checkForUpdates().catch((err) => {
+      checkForAppUpdates().catch((err) => {
         console.error('Failed to check for updates:', err);
       });
     }
@@ -749,7 +777,7 @@ function setupAutoUpdater() {
   setInterval(
     () => {
       if (app.isPackaged) {
-        autoUpdater.checkForUpdates().catch((err) => {
+        checkForAppUpdates().catch((err) => {
           console.error('Failed to check for updates:', err);
         });
       }
@@ -816,7 +844,7 @@ function createTray() {
       enabled: updaterStatus.enabled,
       click: () => {
         if (updaterStatus.enabled) {
-          autoUpdater.checkForUpdates().catch((error) => {
+          checkForAppUpdates().catch((error) => {
             console.error('Failed to check for updates:', error);
             Sentry.captureException(error);
           });
@@ -888,7 +916,7 @@ function createWindow() {
       const allowedOrigin = resolveCorsOrigin(details);
       headers['access-control-allow-origin'] = [allowedOrigin];
       headers['access-control-allow-headers'] = [
-        'Authorization, Content-Type, X-Requested-With, X-API-Key',
+        'Authorization, Content-Type, X-Requested-With, X-API-Key, X-Tenant-ID',
       ];
       headers['access-control-allow-methods'] = ['GET, POST, PUT, DELETE, OPTIONS'];
       headers['access-control-allow-credentials'] = ['true'];
@@ -1108,6 +1136,7 @@ ipcMain.handle('store:set', (event, key: string, value: unknown) => {
     );
   }
   store.set(key, value);
+  if (key === 'durableWorkflowEngineUrl') computerChatConnection.invalidate();
   return true;
 });
 
@@ -1118,6 +1147,7 @@ ipcMain.handle('store:delete', (event, key: string) => {
   }
   assertStoreKey(key);
   store.delete(key);
+  if (key === 'durableWorkflowEngineUrl') computerChatConnection.invalidate();
   return true;
 });
 
@@ -1126,6 +1156,7 @@ ipcMain.handle('store:clear', () => {
     return false;
   }
   store.clear();
+  computerChatConnection.invalidate();
   return true;
 });
 
@@ -1211,6 +1242,69 @@ ipcMain.handle('auth:clearSandboxApiKey', () => {
 });
 
 // ============================================
+// IPC Handlers - Durable workflow engine key management
+// ============================================
+
+ipcMain.handle('auth:setDurableEngineApiKey', (_event, apiKey: string) => {
+  assertNonEmptyString(apiKey, 'apiKey', 4096);
+  const result = setSecureValue(apiKey, DURABLE_ENGINE_KEY_STORAGE);
+  computerChatConnection.invalidate();
+  return result;
+});
+
+ipcMain.handle('auth:getDurableEngineApiKey', () => {
+  return getSecureValue(DURABLE_ENGINE_KEY_STORAGE);
+});
+
+ipcMain.handle('auth:clearDurableEngineApiKey', () => {
+  const result = clearSecureValue(DURABLE_ENGINE_KEY_STORAGE);
+  computerChatConnection.invalidate();
+  return result;
+});
+
+function computerChatConfiguration() {
+  const configured = store.get('durableWorkflowEngineUrl');
+  return {
+    url: typeof configured === 'string' ? configured : CONFIGURED_DURABLE_ENGINE_URL,
+    apiKey: getSecureValue(DURABLE_ENGINE_KEY_STORAGE) ?? '',
+  };
+}
+ipcMain.handle('computer-chat:getConnection', (event) => {
+  assertIpcRate(event, 'computer-chat:getConnection');
+  return computerChatConnection.read(computerChatConfiguration());
+});
+ipcMain.handle('computer-chat:request', async (event, request: unknown) => {
+  assertIpcRate(event, 'computer-chat:request');
+  const configuration = computerChatConfiguration();
+  const { revision } = computerChatConnection.read(configuration);
+  try {
+    return await requestComputerChat(
+      request,
+      { ...configuration, revision },
+      fetch,
+      () => computerChatConnection.read(computerChatConfiguration()).revision === revision
+    );
+  } catch (error) {
+    if (error instanceof ComputerChatConnectionChangedError)
+      return { ok: false, status: 409, body: { message: error.message } };
+    throw error;
+  }
+});
+
+ipcMain.handle('computer-chat:saveArtifact', async (event, request: unknown) => {
+  assertIpcRate(event, 'computer-chat:saveArtifact');
+  const { filename, bytes } = decodeArtifact(request);
+  if (!mainWindow) throw new Error('The desktop window is unavailable');
+  const result = await dialog.showSaveDialog(mainWindow, {
+    defaultPath: filename,
+    title: 'Save computer deliverable',
+  });
+  if (result.canceled || !result.filePath) return false;
+  await writeArtifactFile(result.filePath, bytes);
+  return true;
+});
+
+// ============================================
 // IPC Handlers - Local secrets fallback
 // ============================================
 
@@ -1226,6 +1320,50 @@ ipcMain.handle('secrets:getLocal', (event) => {
 
 ipcMain.handle('secrets:clearLocal', () => {
   return clearSecureValue(LOCAL_SECRETS_STORAGE);
+});
+
+// ============================================
+// IPC Handlers - MCP servers
+// ============================================
+
+// Runs the MCP handshake against a server so the renderer can verify an
+// endpoint + key before storing them. Credentials never leave this call.
+ipcMain.handle('mcp:probe', async (event, payload: { endpoint?: unknown; authToken?: unknown }) => {
+  assertIpcRate(event, 'mcp:probe');
+  const senderId = event.sender?.id;
+  if (typeof senderId === 'number' && !mcpProbeRateLimiter.check(senderId)) {
+    throw new Error('Too many server tests at once. Try again in a moment.');
+  }
+  if (probesInFlight >= MAX_CONCURRENT_PROBES) {
+    throw new Error('Too many server tests at once. Try again in a moment.');
+  }
+  const endpoint = payload?.endpoint;
+  assertNonEmptyString(endpoint, 'endpoint', 2048);
+
+  let authToken: string | undefined;
+  if (payload?.authToken !== undefined && payload?.authToken !== null) {
+    assertNonEmptyString(payload.authToken, 'authToken', 4096);
+    authToken = payload.authToken;
+  }
+
+  probesInFlight += 1;
+  try {
+    return await probeMcpServer(
+      { endpoint, authToken },
+      {
+        clientVersion: app.getVersion(),
+        // Local endpoints are a development affordance; a packaged renderer
+        // must not be able to reach local services through this channel.
+        allowLocalhost: !app.isPackaged,
+        resolveHost: async (hostname) => {
+          const resolved = await dnsPromises.lookup(hostname, { all: true });
+          return resolved.map((entry) => entry.address);
+        },
+      }
+    );
+  } finally {
+    probesInFlight -= 1;
+  }
 });
 
 // ============================================
@@ -1260,7 +1398,7 @@ ipcMain.handle('app:getPlatform', () => {
   return process.platform;
 });
 
-ipcMain.handle('app:checkForUpdates', async () => {
+async function checkForAppUpdates() {
   const updaterStatus = getAutoUpdaterStatus();
   if (!updaterStatus.enabled) {
     setUpdateStatusSnapshot({
@@ -1272,55 +1410,23 @@ ipcMain.handle('app:checkForUpdates', async () => {
       error: undefined,
       version: undefined,
     });
-    return { available: false, message: updaterStatus.reason || 'Updates disabled in this build' };
+    return {
+      available: false,
+      message: updaterStatus.reason || 'Updates disabled in this build',
+      snapshot: { ...updateStatusSnapshot },
+    };
   }
 
-  setUpdateStatusSnapshot({
-    status: 'checking',
-    checking: true,
-    available: false,
-    progress: 0,
-    message: undefined,
-    error: undefined,
-    version: undefined,
+  return checkForDesktopUpdates(autoUpdater, {
+    get: () => updateStatusSnapshot,
+    set: setUpdateStatusSnapshot,
   });
+}
 
-  try {
-    const result = await autoUpdater.checkForUpdates();
-    const version = result?.updateInfo?.version;
-    const available = Boolean(version);
-
-    if (available) {
-      setUpdateStatusSnapshot({
-        status: 'available',
-        checking: false,
-        available: true,
-        progress: 0,
-        version,
-      });
-    } else {
-      setUpdateStatusSnapshot({
-        status: 'idle',
-        checking: false,
-        available: false,
-        progress: 0,
-        version: undefined,
-      });
-    }
-
-    return { available, version };
-  } catch (error) {
-    setUpdateStatusSnapshot({
-      status: 'error',
-      checking: false,
-      error: String(error),
-    });
-    return { available: false, error: String(error) };
-  }
-});
+ipcMain.handle('app:checkForUpdates', checkForAppUpdates);
 
 ipcMain.handle('app:installUpdate', () => {
-  if (!getAutoUpdaterStatus().enabled) {
+  if (!getAutoUpdaterStatus().enabled || updateStatusSnapshot.status !== 'ready') {
     return false;
   }
   autoUpdater.quitAndInstall();

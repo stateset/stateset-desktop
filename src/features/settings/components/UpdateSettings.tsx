@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { APP_VERSION } from '../../../lib/appVersion';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Download, RefreshCw, Loader2, Check } from 'lucide-react';
 import clsx from 'clsx';
 import { isElectronAvailable } from '../../../lib/electron';
@@ -16,13 +17,7 @@ interface UpdateProgress {
 }
 
 type UpdateStatus =
-  | 'idle'
-  | 'checking'
-  | 'available'
-  | 'downloading'
-  | 'ready'
-  | 'error'
-  | 'disabled';
+  'idle' | 'current' | 'checking' | 'available' | 'downloading' | 'ready' | 'error' | 'disabled';
 
 interface UpdateStatusSnapshot {
   status: UpdateStatus;
@@ -35,13 +30,24 @@ interface UpdateStatusSnapshot {
 }
 
 export function UpdateSettings({ appVersion }: { appVersion: string }) {
-  const [updateStatus, setUpdateStatus] = useState<UpdateStatus>('idle');
+  const desktopAvailable = isElectronAvailable();
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus>(
+    desktopAvailable ? 'idle' : 'disabled'
+  );
+  const revision = useRef(0);
+  const mounted = useRef(false);
+  const checkPending = useRef(false);
+  const installPending = useRef(false);
+  const [installing, setInstalling] = useState(false);
+  const [installationError, setInstallationError] = useState<string | null>(null);
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [downloadSpeed, setDownloadSpeed] = useState(0);
   const [downloadTotal, setDownloadTotal] = useState(0);
   const [downloadTransferred, setDownloadTransferred] = useState(0);
-  const [updateError, setUpdateError] = useState<string | null>(null);
+  const [updateError, setUpdateError] = useState<string | null>(
+    desktopAvailable ? null : 'Updates are available in the installed desktop app.'
+  );
 
   const applyUpdateStatusSnapshot = useCallback((snapshot: UpdateStatusSnapshot) => {
     setUpdateStatus(snapshot.status);
@@ -49,7 +55,11 @@ export function UpdateSettings({ appVersion }: { appVersion: string }) {
 
     if (snapshot.version) {
       setUpdateInfo({ version: snapshot.version });
-    } else if (snapshot.status === 'idle' || snapshot.status === 'disabled') {
+    } else if (
+      snapshot.status === 'idle' ||
+      snapshot.status === 'current' ||
+      snapshot.status === 'disabled'
+    ) {
       setUpdateInfo(null);
     }
 
@@ -65,75 +75,115 @@ export function UpdateSettings({ appVersion }: { appVersion: string }) {
   }, []);
 
   useEffect(() => {
-    if (!isElectronAvailable()) return;
-
-    void window
-      .electronAPI!.app.getUpdateStatus()
-      .then((snapshot) => {
-        applyUpdateStatusSnapshot(snapshot);
-      })
-      .catch(() => {
-        // Ignore and keep UI in default state if the status endpoint is unavailable.
-      });
-
+    mounted.current = true;
+    if (!isElectronAvailable())
+      return () => {
+        mounted.current = false;
+      };
+    const app = window.electronAPI!.app;
+    let active = true;
+    const initialRevision = revision.current;
+    const observe = () => {
+      revision.current++;
+      setUpdateError(null);
+      setInstallationError(null);
+    };
     const unsubscribers = [
-      window.electronAPI!.app.onUpdateChecking(() => {
+      app.onUpdateChecking(() => {
+        if (!active) return;
+        observe();
         setUpdateStatus('checking');
-        setUpdateError(null);
       }),
-      window.electronAPI!.app.onUpdateAvailable((info: UpdateInfo) => {
+      app.onUpdateAvailable((info: UpdateInfo) => {
+        if (!active) return;
+        observe();
         setUpdateStatus('available');
         setUpdateInfo(info);
       }),
-      window.electronAPI!.app.onUpdateNotAvailable(() => {
-        setUpdateStatus('idle');
+      app.onUpdateNotAvailable(() => {
+        if (!active) return;
+        observe();
+        setUpdateStatus('current');
+        setUpdateInfo(null);
       }),
-      window.electronAPI!.app.onUpdateProgress((progress: UpdateProgress) => {
+      app.onUpdateProgress((progress: UpdateProgress) => {
+        if (!active) return;
+        observe();
         setUpdateStatus('downloading');
-        setDownloadProgress(progress.percent);
+        setDownloadProgress(Math.max(0, Math.min(100, progress.percent)));
         setDownloadSpeed(progress.bytesPerSecond);
         setDownloadTotal(progress.total);
         setDownloadTransferred(progress.transferred);
       }),
-      window.electronAPI!.app.onUpdateDownloaded((info: UpdateInfo) => {
+      app.onUpdateDownloaded((info: UpdateInfo) => {
+        if (!active) return;
+        observe();
         setUpdateStatus('ready');
         setUpdateInfo(info);
       }),
-      window.electronAPI!.app.onUpdateError((error: string) => {
+      app.onUpdateError((error: string) => {
+        if (!active) return;
+        observe();
         setUpdateStatus('error');
         setUpdateError(error);
       }),
     ];
-
+    void app
+      .getUpdateStatus()
+      .then((snapshot) => {
+        if (active && revision.current === initialRevision) applyUpdateStatusSnapshot(snapshot);
+      })
+      .catch(() => {
+        if (active && revision.current === initialRevision) {
+          setUpdateStatus('error');
+          setUpdateError('Unable to read update status. Try checking again.');
+        }
+      });
     return () => {
+      active = false;
+      mounted.current = false;
       unsubscribers.forEach((unsubscribe) => unsubscribe());
     };
   }, [applyUpdateStatusSnapshot]);
 
   const checkForUpdates = async () => {
-    if (isElectronAvailable()) {
-      setUpdateStatus('checking');
-      setUpdateError(null);
+    if (!isElectronAvailable() || checkPending.current) return;
+    checkPending.current = true;
+    const requestRevision = ++revision.current;
+    setUpdateStatus('checking');
+    setUpdateError(null);
+    setInstallationError(null);
+    try {
       const result = await window.electronAPI!.app.checkForUpdates();
-      if (result?.available === false) {
-        if (result.message) {
-          setUpdateStatus('disabled');
-          setUpdateError(result.message);
-          return;
-        }
-        if (result.error) {
-          setUpdateStatus('error');
-          setUpdateError(result.error);
-          return;
-        }
-        setUpdateStatus('idle');
+      if (!mounted.current || revision.current !== requestRevision) return;
+      // A check can reuse an already downloaded update without emitting another
+      // native event. Preserve its restart action and progress from the snapshot.
+      applyUpdateStatusSnapshot(result.snapshot);
+    } catch {
+      if (mounted.current && revision.current === requestRevision) {
+        setUpdateStatus('error');
+        setUpdateError('Unable to check for updates. Please try again.');
       }
+    } finally {
+      checkPending.current = false;
     }
   };
 
-  const installUpdate = () => {
-    if (isElectronAvailable()) {
-      window.electronAPI!.app.installUpdate();
+  const installUpdate = async () => {
+    if (!isElectronAvailable() || installPending.current) return;
+    installPending.current = true;
+    setInstalling(true);
+    setInstallationError(null);
+    try {
+      const accepted = await window.electronAPI!.app.installUpdate();
+      if (!accepted && mounted.current)
+        setInstallationError('Unable to restart for the update. Please try again.');
+    } catch {
+      if (mounted.current)
+        setInstallationError('Unable to restart for the update. Please try again.');
+    } finally {
+      installPending.current = false;
+      if (mounted.current) setInstalling(false);
     }
   };
 
@@ -148,18 +198,18 @@ export function UpdateSettings({ appVersion }: { appVersion: string }) {
         );
       case 'available':
         return (
-          <span className="flex items-center gap-2 text-blue-400">
+          <span className="flex items-center gap-2 text-[color:var(--ui-link)]">
             <Download className="w-4 h-4" aria-hidden="true" />
             Version {updateInfo?.version} available, downloading...
           </span>
         );
       case 'downloading':
         return (
-          <span className="flex items-center gap-2 text-blue-400">
+          <span className="flex items-center gap-2 text-[color:var(--ui-link)]">
             <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
             Downloading... {downloadProgress.toFixed(0)}%
             {downloadSpeed > 0 && (
-              <span className="text-blue-300/70 text-xs ml-1">
+              <span className="text-[color:var(--ui-muted)] text-xs ml-1">
                 ({(downloadSpeed / (1024 * 1024)).toFixed(1)} MB/s)
               </span>
             )}
@@ -167,14 +217,14 @@ export function UpdateSettings({ appVersion }: { appVersion: string }) {
         );
       case 'ready':
         return (
-          <span className="flex items-center gap-2 text-green-400">
+          <span className="flex items-center gap-2 text-[color:var(--ui-positive)]">
             <Check className="w-4 h-4" aria-hidden="true" />
             Version {updateInfo?.version} ready to install
           </span>
         );
       case 'error':
         return (
-          <span className="flex items-center gap-2 text-red-400">
+          <span className="flex items-center gap-2 text-[color:var(--ui-negative)]">
             {updateError || 'Update check failed'}
           </span>
         );
@@ -184,42 +234,58 @@ export function UpdateSettings({ appVersion }: { appVersion: string }) {
             {updateError || 'Updates are disabled in this build'}
           </span>
         );
-      default:
+      case 'current':
         return <span className="text-gray-400">You're on the latest version</span>;
+      default:
+        return (
+          <span className="text-gray-400">
+            Check for updates to see if a newer version is available.
+          </span>
+        );
     }
   };
 
   return (
-    <section className="bg-slate-900/40 border border-slate-700/50 rounded-2xl overflow-hidden backdrop-blur-sm shadow-sm">
-      <div className="px-5 py-4 border-b border-slate-700/50 bg-slate-900/60">
-        <h2 className="font-bold text-gray-200 flex items-center gap-2.5">
+    <section
+      aria-labelledby="update-settings-heading"
+      className="rounded-xl border overflow-hidden"
+      style={{
+        background: 'var(--ui-surface)',
+        borderColor: 'var(--ui-border)',
+        color: 'var(--ui-text)',
+      }}
+    >
+      <div className="px-5 py-4 border-b" style={{ borderColor: 'var(--ui-border)' }}>
+        <h2 id="update-settings-heading" className="font-semibold flex items-center gap-2.5">
           <Download className="w-5 h-5 text-gray-400" />
           Updates
         </h2>
       </div>
       <div className="p-5 space-y-5">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <p className="font-medium">Current Version</p>
-            <p className="text-sm text-gray-400">{appVersion || '1.0.1'}</p>
+            <p className="text-sm text-gray-400 break-all">{appVersion || APP_VERSION}</p>
           </div>
           <div className="flex items-center gap-2">
             {updateStatus === 'ready' ? (
               <button
                 type="button"
                 onClick={installUpdate}
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 focus-visible:ring-offset-1 rounded-lg transition-all duration-200 font-medium flex items-center gap-2 shadow-md shadow-green-500/25 hover:shadow-lg hover:shadow-green-500/30 animate-glow-pulse"
-                style={{ color: 'rgb(74 222 128)' }}
+                disabled={installing}
+                className="ui-button ui-button-primary px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
               >
                 <RefreshCw className="w-4 h-4" aria-hidden="true" />
-                Restart to Update
+                {installing ? 'Restarting...' : 'Restart to Update'}
               </button>
             ) : (
               <button
                 type="button"
                 onClick={checkForUpdates}
-                disabled={updateStatus === 'checking' || updateStatus === 'downloading'}
-                className="px-4 py-2 bg-gray-800 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 rounded-lg transition-colors flex items-center gap-2"
+                disabled={['checking', 'available', 'downloading', 'disabled'].includes(
+                  updateStatus
+                )}
+                className="ui-button ui-button-secondary px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
               >
                 <RefreshCw
                   className={clsx('w-4 h-4', updateStatus === 'checking' && 'animate-spin')}
@@ -235,13 +301,18 @@ export function UpdateSettings({ appVersion }: { appVersion: string }) {
           {getUpdateStatusDisplay()}
           {updateStatus === 'downloading' && (
             <>
-              <div className="mt-2 w-full bg-gray-800 rounded-full h-2 overflow-hidden">
+              <div
+                role="progressbar"
+                aria-label="Update download"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={downloadProgress}
+                className="mt-2 w-full bg-gray-800 rounded-full h-2 overflow-hidden"
+              >
                 <div
-                  className="bg-gradient-to-r from-brand-600 to-brand-400 h-2 rounded-full transition-all duration-300 relative"
+                  className="bg-brand-600 h-2 rounded-full transition-[width] duration-300 motion-reduce:transition-none"
                   style={{ width: `${downloadProgress}%` }}
-                >
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-[shimmer_2s_infinite]" />
-                </div>
+                ></div>
               </div>
               {downloadTotal > 0 && (
                 <p className="text-[11px] text-gray-500 mt-1 tabular-nums">
@@ -251,7 +322,11 @@ export function UpdateSettings({ appVersion }: { appVersion: string }) {
               )}
             </>
           )}
-          {updateError && <p className="text-sm text-red-400 mt-1">{updateError}</p>}
+          {installationError && (
+            <p role="alert" className="text-sm text-[color:var(--ui-negative)] mt-1">
+              {installationError}
+            </p>
+          )}
         </div>
 
         <p className="text-xs text-gray-500">

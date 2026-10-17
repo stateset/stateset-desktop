@@ -3,6 +3,7 @@
  */
 import { afterEach, describe, it, expect, vi } from 'vitest';
 import { buildStreamAuthCandidates, parseEventChunk } from './useAgentStream';
+import { getLogBuffer, clearLogBuffer } from '../lib/logger';
 
 // Event parsing and normalization are validated against the parser helpers used by the hook.
 
@@ -79,14 +80,15 @@ describe('useAgentStream logic', () => {
     });
 
     it('drops malformed JSON payloads', () => {
-      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      clearLogBuffer();
       const raw = 'data: {"type":"message","content":"Hi"\n\n';
       const parsed = parseEventChunk(raw);
       expect(parsed.events).toHaveLength(0);
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        'Failed to parse SSE event payload:',
-        expect.any(SyntaxError)
+      const errors = getLogBuffer().filter(
+        (entry) => entry.level === 'error' && entry.context === 'Stream'
       );
+      expect(errors).toHaveLength(1);
+      expect(errors[0].message).toBe('Failed to parse SSE event payload');
     });
   });
 

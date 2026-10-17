@@ -4,6 +4,147 @@ All notable changes to StateSet Desktop will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## Unreleased
+
+### Security
+
+- Bind published installers to the exact pushed version-tag commit, reject branch publication, and route local release requests through the signed multi-platform workflow. Report missing signing settings before build work.
+- Move production routing to patched React Router 7, use its direct package, and remove obsolete migration flags while preserving browser and packaged hash navigation.
+- Update TypeScript ESLint on its supported release line and remove unused Storybook addons to reduce vulnerable development dependencies while retaining strict lint rules.
+
+### Fixed
+
+- Recover saved workflow settings after temporary storage or credential read failures, with a clear retry action. Protect saved workflows and connection identity until loading succeeds, preserve newer connection saves and form edits, and restore the saved engine URL in computer setup.
+- Report updates only after a completed check, preserve download and restart actions across late replies, and recover failed check and restart requests with clear retry feedback. Simplify the Updates surface and make progress available to assistive technology.
+- Use the built package version in renderer startup diagnostics and Settings fallbacks.
+
+## [1.1.20] - 2026-10-16
+
+### Changed
+
+- Fleet actions retain progress and outcomes across navigation, continue after individual failures, and retry only failed agents. Cleanup keeps the reviewed target set and confirms failed deletions again.
+- Conversation menus share keyboard navigation and theme surfaces. Rename and deletion preserve focus, and menus remain reachable in short windows.
+- Confirmation dialogs and desktop previews use simpler, readable surfaces in both themes.
+
+### Security
+
+- Move to the supported Electron 42 runtime and explicitly prepare its binary before native builds and tests. Packaged macOS now requires version 12 or newer; native macOS notifications require signing.
+- Update vulnerable runtime and development dependencies within their supported release lines, including telemetry, routing, packaging, Vite, Vitest, and the DOM test environment.
+
+### Fixed
+
+- Keep command search selection tied to the chosen conversation or agent during live updates. Contain long names, improve keyboard-hint contrast, expose status descriptions, and respect reduced motion without restarting scroll for status-only refreshes.
+- Match workspace browsing and file-collection paths to the engine’s UTF-8 byte and control-character limits. Keep invalid addresses editable with accessible inline errors.
+- Keep the workspace address in sync with folder observations while preserving typed paths. Restore keyboard focus after opening folders, reset searches between folders, and let Escape clear file search before closing computer details.
+- Keep newer chat-default edits intact while a save finishes, serialize saves across brands, and show inline progress, success and retry feedback. Restore keyboard focus after removing an acceptance criterion.
+- Validate new chat defaults and acceptance criteria against engine byte, path and file limits before starting work. Keep invalid drafts editable with inline feedback and preserve older saved conversations.
+- Retain native, bundle, and installer test evidence independently so package checks cannot erase earlier failures. Wait for chat menu save completion before testing another keyboard command.
+- Keep imported multilingual chat context within the workflow engine's UTF-8 message limit so continued computers can start without losing the original conversation.
+- Allow bounded chat history and acceptance criteria through the native bridge within the engine's JSON byte limit, while rejecting oversized UTF-8 requests.
+- Resize chat drafts with the available space while keeping focus and long drafts scrollable. Keep message-limit warnings readable in both themes and preserve oversized drafts for editing.
+- Keep long-chat reading positions stable as new messages arrive. Show new-message counts without moving the reader, follow late content resizing only at the end, restore transcript focus when history controls disappear, and keep draft indicators readable in both themes.
+- Recover from stale page links with clear dashboard and chat destinations. Keep error recovery inside the packaged router, reset failed pages on navigation, preserve healthy-page input, and offer reload when a page module cannot be loaded.
+- Honor the app’s reduced-motion preference throughout navigation, settings, menus, and page content. Keep content immediately visible without decorative fade-ins when reduced motion is requested.
+- Keep computer-chat instructions, reviews, file reads and status responses bound to the original connection across asynchronous saves and credential changes. Serialize connection updates and invalidate cached approval readiness on scope changes.
+- Match dashboard control names to their visible text for speech and screen-reader navigation, including workspace selectors, commands, metrics, and agent rows.
+- Run native verification on a separate trusted localhost port when the development server is already open, keeping navigation and fixture origins aligned.
+- Keep late agent mutations and cache rollbacks bound to their original workspace and credential. Preserve newer data and caches cleared by logout.
+- Retain the live acceptance harness's owned workflow identity before starting, verify cleanup receipts, and report unconfirmed shutdown. Run its local failure tests in release CI.
+
+## [1.1.19] - 2026-10-15
+
+### Added
+
+- Added computer chat workspaces with sandbox session identity, durable workflow execution, approval recovery, output verification, and workspace files and deliverables.
+- Added local MCP server setup, connection probes, tool discovery, and verification summaries.
+- Added isolated desktop startup and installer checks, updater asset validation, and signing requirements for published releases.
+
+### Changed
+
+- Simplified desktop surfaces, dashboard metrics, controls, and navigation with consistent light and dark themes and keyboard support.
+- Strengthened local credential handling and per-install configuration encryption.
+
+### Fixed
+
+- Keep unavailable dashboard data distinct from an empty fleet, preserve saved agents after refresh failures, and expose retry and offline states.
+- Count paused and transitioning agents accurately and keep bulk selection scoped to the visible page.
+- Report selected-agent bulk action outcomes accurately and prevent duplicate in-flight requests.
+
+## [1.1.18] - 2026-09-02
+
+### Added
+
+- Added unit coverage for the app shell keyboard shortcuts and chrome (+9 Layout tests), the notifications center component (+12 tests), the durable workflow monitor (6 tests), and durable workflow settings (8 tests).
+- Added `RELEASE_NOTES_v1.1.17.md` and backfilled CHANGELOG entries for 1.1.11–1.1.16.
+
+## [1.1.17] - 2026-09-02
+
+### Added
+
+- Added durable background workflows: Workflows page, scheduler/monitor/event hooks, durable-workflows store, agent profiles, and blueprint transfer.
+- Added command validation for workflow step commands.
+- Added unit coverage for the durable workflow monitor (poll gates, status updates, terminal notifications, error recording).
+
+### Changed
+
+- Refactored background-agent settings for clearer structure.
+- Follow-up accessibility improvements to modal and layout components.
+
+## [1.1.16] - 2026-05-18
+
+### Added
+
+- Added IPC rate limiting for high-frequency channels in the Electron main process.
+- Added a startup warning when the development store is unencrypted.
+- Added light-theme coverage to the accessibility suite.
+
+### Changed
+
+- CI now enforces a vitest coverage floor.
+- Auto-updater disable state is logged at startup.
+- UI refresh pass across dashboard, login, and analytics surfaces.
+
+## [1.1.15] - 2026-03-11
+
+### Changed
+
+- Refreshed app loading screen, layout, dashboard, analytics, and login surfaces with updated styling.
+- Updated sandbox library, agent stream hook, and schemas alongside their tests.
+- Added a standalone end-to-end harness (`test-e2e.js`).
+
+## [1.1.14] - 2026-03-09
+
+### Changed
+
+- Reworked the auth store with expanded unit coverage.
+- Hardened OAuth utilities and request sanitization with additional tests.
+- Improved offline cache behavior and added a routing helper.
+
+## [1.1.13] - 2026-03-05
+
+### Added
+
+- Extracted Electron runtime-asset resolution into its own tested module.
+- Added whitepaper documentation (`WHITEPAPER.md`).
+
+### Changed
+
+- Hardened API client and auth flows with expanded tests.
+
+## [1.1.12] - 2026-03-01
+
+### Fixed
+
+- Hardened command palette Escape handling with regression coverage.
+
+## [1.1.11] - 2026-02-27
+
+### Changed
+
+- Extracted SSE stream parsing from the agent stream hook into `lib/streamParsing` (re-exported for compatibility).
+- Added a shared animations library and refined API client behavior.
+- Updated notifications, toasts, metrics, and connection-form surfaces.
+
 ## [1.1.10] - 2026-02-27
 
 ### Added

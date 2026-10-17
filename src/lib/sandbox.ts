@@ -123,7 +123,10 @@ function isRetryableError(error: unknown, status?: number): boolean {
   return false;
 }
 
-async function sandboxRequest<T>(path: string, options: SandboxRequestOptions = {}): Promise<T> {
+export async function sandboxRequest<T>(
+  path: string,
+  options: SandboxRequestOptions = {}
+): Promise<T> {
   const {
     timeoutMs = 15000,
     maxRetries = 2,

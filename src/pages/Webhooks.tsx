@@ -13,7 +13,7 @@ import {
   useTestWebhook,
 } from '../features/webhooks';
 import type { Webhook } from '../types';
-import { motion, useReducedMotion } from 'framer-motion';
+import { motion, useReducedMotionConfig } from 'framer-motion';
 import { Spinner } from '../components/Spinner';
 import {
   pageContainerVariants,
@@ -24,7 +24,7 @@ import {
 
 export default function Webhooks() {
   usePageTitle('Webhooks');
-  const reduceMotion = useReducedMotion();
+  const reduceMotion = useReducedMotionConfig();
 
   const { data: webhooks, isLoading } = useWebhooksList();
   const createWebhook = useCreateWebhook();

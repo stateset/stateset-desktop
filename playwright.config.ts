@@ -1,4 +1,6 @@
 import { defineConfig } from '@playwright/test';
+import { desktopEvidence } from './e2e/reporting';
+import { DESKTOP_TEST_ORIGIN, DESKTOP_TEST_PORT } from './e2e/dev-server';
 
 const isCI = !!process.env.CI;
 
@@ -31,20 +33,18 @@ export default defineConfig({
     // Disable animations for visual tests
     actionTimeout: 10_000,
   },
-  reporter: isCI
-    ? [['list'], ['html', { open: 'never' }], ['json', { outputFile: 'e2e/test-results.json' }]]
-    : [['list'], ['html', { open: 'never' }]],
+  ...desktopEvidence('native'),
   webServer: {
-    command: 'npm run dev:vite',
-    url: 'http://localhost:5173',
-    reuseExistingServer: !process.env.CI,
+    command: `npm run dev:vite -- --port ${DESKTOP_TEST_PORT}`,
+    url: DESKTOP_TEST_ORIGIN,
+    reuseExistingServer: !isCI && process.env.STATESET_DESKTOP_TEST_PORT === undefined,
     timeout: 120_000,
   },
   // Project-specific settings
   projects: [
     {
       name: 'electron',
-      testMatch: /electron\.spec\.ts/,
+      testMatch: /(electron|computer-chat|startup)\.spec\.ts/,
     },
     {
       name: 'visual',

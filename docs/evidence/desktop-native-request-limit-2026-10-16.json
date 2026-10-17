@@ -1,0 +1,152 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-16T20:06:15.822422+00:00",
+  "scope": "Allow valid continued-chat history and acceptance criteria through the native bridge while bounding serialized HTTP bodies in UTF-8 bytes.",
+  "source_parent_commit": "13bb9720df9b259f73937d155feef61ae10d336b",
+  "regression": {
+    "baseline": {
+      "id": "d10784e16a10",
+      "state": "failed",
+      "exit_code": 1,
+      "reason": "",
+      "command_display": "/home/dom/.nvm/versions/node/v22.18.0/bin/node node_modules/vitest/vitest.mjs run electron/computer-chat-bridge.test.ts --maxWorkers=1 --no-file-parallelism",
+      "wait_seconds": 8.264642238616943,
+      "elapsed_seconds": 2.9482038021087646
+    },
+    "result": "Three new request-size cases failed; fifteen existing bridge cases passed. The 262,144-character cap rejected a valid start with thirty imported messages and eight bounded acceptance criteria."
+  },
+  "implementation": [
+    "Bound computer-chat request bodies to 2,097,152 UTF-8 bytes, matching the reviewed engine API default JSON limit.",
+    "Measure serialized bytes rather than JavaScript string length, covering multibyte text and JSON escaping.",
+    "Retain allowed paths, connection revisions, tenant headers, HTTPS/localhost policy, redirect rejection and authentication handling."
+  ],
+  "engine_limit_reference": {
+    "path": "/home/dom/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/axum-core-0.5.6/src/ext_traits/request.rs",
+    "sha256": "630a931c1c4ee0f6232e7934a0ff4d08a2cc1854587e48c87af12cb93611b935",
+    "default_bytes": 2097152,
+    "qualification": "Read from local Axum source; the reviewed engine API does not override the default. Live deployment acceptance remains unproved."
+  },
+  "verification": {
+    "focused": {
+      "id": "c0c062be2e26",
+      "state": "succeeded",
+      "exit_code": 0,
+      "reason": "",
+      "command_display": "bash /tmp/stateset-desktop-bridge-focused.sh",
+      "wait_seconds": 1.1085789203643799,
+      "elapsed_seconds": 84.52337336540222
+    },
+    "unit_tests": 18,
+    "unit_files": 1,
+    "preflight": "Root/E2E types, lint and Electron compilation passed. Eighteen bridge tests cover valid large bodies, ASCII/emoji boundaries and existing connection/export protections.",
+    "source_guard": {
+      "inputs": 623,
+      "helper_inputs": 11,
+      "manifest_sha256": "05cb480d7b3681365a1734f9b40ffb133e5dbb4a3f42901779fae37d5a07c629",
+      "method": "Manual SHA256 of tracked inputs; not an immutable queue snapshot. This evidence file was written afterward."
+    },
+    "previous_runtime_acceptance": {
+      "commit": "13bb9720df9b259f73937d155feef61ae10d336b",
+      "job": "8ea844fc2b6c",
+      "unit_tests": 2665,
+      "unit_files": 221,
+      "native_passed": 67,
+      "live_skipped": 3,
+      "packaged_linux_startup_restart": 1,
+      "qualification": "These results qualify the history-import parent. The final bridge change still requires exact-head full CI."
+    },
+    "full_validation": {
+      "status": "pending exact-head CI",
+      "reason": "Shared local queue repeatedly interrupted coverage before a final result. Required full suites will run through the existing review-branch CI workflows; queued local jobs are left to finish normally.",
+      "attempts": [
+        {
+          "id": "a41c44bbcffb",
+          "state": "failed",
+          "exit_code": 1,
+          "reason": "OperationalError: database is locked",
+          "command_display": "bash /tmp/stateset-desktop-bridge-acceptance.sh",
+          "wait_seconds": 120.29168844223022,
+          "elapsed_seconds": 287.25129437446594
+        },
+        {
+          "id": "e8f3c212db77",
+          "state": "failed",
+          "exit_code": 1,
+          "reason": "OperationalError: database is locked",
+          "command_display": "bash /tmp/stateset-desktop-bridge-acceptance.sh",
+          "wait_seconds": 3.4129772186279297,
+          "elapsed_seconds": 216.4963572025299
+        },
+        {
+          "id": "7d3e420930c6",
+          "state": "failed",
+          "exit_code": 1,
+          "reason": "OperationalError: database is locked",
+          "command_display": "bash /tmp/stateset-desktop-bridge-shard.sh 1",
+          "wait_seconds": 30.74575114250183,
+          "elapsed_seconds": 118.60432195663452
+        },
+        {
+          "id": "2f085fb89496",
+          "state": "lost",
+          "exit_code": null,
+          "reason": "owner exited; inspect logs before retrying",
+          "command_display": "bash /tmp/stateset-desktop-bridge-shard.sh 2",
+          "wait_seconds": 197.4964063167572,
+          "elapsed_seconds": 52.11602973937988
+        },
+        {
+          "id": "7aebfe6da266",
+          "state": "running",
+          "exit_code": null,
+          "reason": "",
+          "command_display": "bash /tmp/stateset-desktop-bridge-shard.sh 3",
+          "wait_seconds": 254.0683262348175,
+          "elapsed_seconds": 108.04102945327759
+        },
+        {
+          "id": "9308cd2ae960",
+          "state": "queued",
+          "exit_code": null,
+          "reason": "repository already building [7aebfe6da266]",
+          "command_display": "bash /tmp/stateset-desktop-bridge-shard.sh 4",
+          "wait_seconds": 362.0723068714142,
+          "elapsed_seconds": 0
+        }
+      ],
+      "qualification": "Queue database-lock/owner-exit failures do not establish desktop test failure or success. No full local coverage pass is claimed for these attempts."
+    }
+  },
+  "engine_contract": {
+    "cases": [
+      {
+        "name": "maximum ASCII history and criteria",
+        "wire_bytes": 373809
+      },
+      {
+        "name": "escaped context and maximum criteria",
+        "wire_bytes": 1571559
+      }
+    ],
+    "method": "Production requestComputerChat sent both bodies through real local HTTP, which compared the exact received JSON. The exact copied engine Rust module deserialized and validated those captured bodies.",
+    "source": {
+      "engine_repository": "/home/dom/next-temporal-rs",
+      "head": "a1aff037db85dc5c304c4e15b6f2864dd08c778d",
+      "source": "/home/dom/next-temporal-rs/crates/engine-types/src/computer_chat.rs",
+      "sha256": "777292a66e47f2cb924727784c626d04b69c41f96574e82420666488b950698b",
+      "qualification": "Exact copied Rust contract module; deserialization and validation only, without running Temporal, sandbox provisioning, inference or NSR."
+    },
+    "requests_sha256": "6b728410ef096bf759f2f95025e92a5582ac56d6f2223f762f3e383861d56216",
+    "qualification": "Contract validation only, not live Temporal, sandbox provisioning, inference or NSR execution."
+  },
+  "limitations": [
+    "Live engine, sandbox and NSR acceptance still needs CHAT_TEST connection settings and a designated test workspace.",
+    "No signed release or update publication; v1.1.19 unchanged.",
+    "Remaining dependency findings are documented in desktop-security-2026-10-15.json."
+  ],
+  "changed_source_sha256": {
+    "electron/computer-chat-bridge.ts": "6de31cd699652498f085640a248ce0487666d4f8b56d7d7f6bac1910fc6814bf",
+    "electron/computer-chat-bridge.test.ts": "b61c02c312a57fc32d50311fc3cdf2037f6fa42a61902bc633a76e8ad5546f40",
+    "CHANGELOG.md": "072dada7ef4b7cebbae845bd3f65bd0f3ba7ea98617f9e00d9b2cb1524bd024e"
+  }
+}

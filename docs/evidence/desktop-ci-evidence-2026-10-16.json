@@ -1,0 +1,130 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-16T19:17:23.713732+00:00",
+  "scope": "Keep native test diagnostics available after packaged checks, and wait for conversation-menu persistence readiness before sending the next keyboard command.",
+  "source_parent_commit": "75c908e7cfea3f571ff138af448f2e3c5c4b3073",
+  "observations": {
+    "ci_run": 38950286104,
+    "ci_job": 117139653456,
+    "native_summary": "64 passed, 1 flaky, 3 skipped; bundle 1 passed. Workflow succeeded, but the first dark menu attempt failed at the persisted unpin assertion.",
+    "failure": "Unpin expected persisted false but remained true after 10 seconds. Original native artifacts were overwritten, so the exact focus state at failure is unavailable.",
+    "artifact_loss": "Downloaded playwright-artifacts contained only playwright-report/index.html for bundle, with native trace and report missing; bundle inherited native output/report paths."
+  },
+  "readiness_diagnosis": "Likely readiness race: persisted pin value can precede the row leaving its saving state. The native test previously waited for value and focus but not aria-disabled=false. Added that readiness barrier and an Unpin focus assertion; delayed-save unit case independently checks the busy window.",
+  "report_retention_regression": {
+    "baseline": {
+      "id": "745f963c6df0",
+      "state": "failed",
+      "exit_code": 1,
+      "command_display": "bash /tmp/stateset-desktop-evidence-baseline.sh",
+      "wait_seconds": 0.32949256896972656,
+      "elapsed_seconds": 20.340357780456543
+    },
+    "result": "Expected failure: the fixture failed after 19.8 seconds because the bundle run removed a native playwright-report/data attachment. SHA256 verification caught ENOENT."
+  },
+  "implementation": [
+    "Give native, bundle and distribution runs distinct HTML, attachment and JSON locations; upload all summaries with CI evidence.",
+    "Verify preservation with actual Playwright reporters and attachment-bearing fixtures without launching a browser.",
+    "Wait for aria-disabled=false after pin persistence, then verify keyboard focus on Unpin before activating it.",
+    "Exercise the optimistic-save busy window with delayed storage acknowledgement in a unit test."
+  ],
+  "verification": {
+    "job": {
+      "id": "79de99064cbe",
+      "state": "succeeded",
+      "exit_code": 0,
+      "command_display": "bash /tmp/stateset-desktop-evidence-acceptance.sh",
+      "wait_seconds": 244.7733175754547,
+      "elapsed_seconds": 344.5427587032318
+    },
+    "focused": {
+      "id": "1a5ef8d7afbe",
+      "state": "succeeded",
+      "exit_code": 0,
+      "command_display": "bash /tmp/stateset-desktop-evidence-focused.sh",
+      "wait_seconds": 30.463752269744873,
+      "elapsed_seconds": 116.3055350780487
+    },
+    "focused_checks": "Root/E2E types, lint, 15 ChatLibrary tests and one real three-suite reporter-retention fixture passed.",
+    "unit_tests": 2659,
+    "unit_files": 221,
+    "coverage": {
+      "lines": {
+        "total": 12433,
+        "covered": 10181,
+        "skipped": 0,
+        "pct": 81.88
+      },
+      "statements": {
+        "total": 13601,
+        "covered": 11015,
+        "skipped": 0,
+        "pct": 80.98
+      },
+      "functions": {
+        "total": 3326,
+        "covered": 2705,
+        "skipped": 0,
+        "pct": 81.32
+      },
+      "branches": {
+        "total": 10692,
+        "covered": 8064,
+        "skipped": 0,
+        "pct": 75.42
+      },
+      "branchesTrue": {
+        "total": 0,
+        "covered": 0,
+        "skipped": 0,
+        "pct": 100
+      }
+    },
+    "native_menu_cases": {
+      "startTime": "2026-10-16T19:15:12.231Z",
+      "duration": 71375.278,
+      "expected": 6,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "native_repetition": "Dark and light menu flows repeated three times each; zero retries.",
+    "packaged_linux_startup_restart": {
+      "startTime": "2026-10-16T19:16:28.281Z",
+      "duration": 19825.856,
+      "expected": 1,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "native_files_preserved_after_bundle": 3,
+    "application_outputs": "Reused verified renderer, Electron and packaged Linux outputs from 75c908e. Runtime application sources, dependencies and packaging metadata are unchanged; only a development test script alias was added to package.json.",
+    "source_guard": {
+      "method": "Manual SHA256 before and after acceptance, not an immutable Buildr snapshot. New evidence file is written afterward.",
+      "inputs": 621,
+      "manifest_sha256": "f3788414a80628496fb961456ce26e1a1454fa654b5cba3b07d2808376481740"
+    },
+    "previous_runtime_acceptance": "75c908e: 65 native checks, 11 unchanged visual comparisons, 21 harness/release fixtures and Linux startup/restart passed locally. Main CI: 2,658 units across 221 files, 65 native passed, 3 live skipped, and all three unsigned platform builds succeeded. Standalone CI had one flaky menu test; that retry is not treated as clean acceptance."
+  },
+  "limitations": [
+    "No real sandbox/Temporal/NSR acceptance; owned local workflow fixtures only.",
+    "Three opt-in live checks require staging configuration.",
+    "No signed release publication; v1.1.19 unchanged.",
+    "Remaining dependency findings are documented in desktop-security-2026-10-15.json."
+  ],
+  "changed_source_sha256": {
+    "e2e/reporting.ts": "750ce3bc56009c471d8f9d75be755484af50f0ae67c45631cbf73815988688d4",
+    "scripts/playwright-evidence.test.mjs": "e947a4cf7f96416f788b4b9d9ab9b70c4f63ff301cee760e5aa6c4cd27142572",
+    "playwright.config.ts": "6cdfc69ff0e4bb15a57a16fc75da2638e9e0bff7d6b844cb7dfc33c9d17329ea",
+    "playwright.bundle.config.ts": "d069e210c00f03f376eff4e7c69983151f25cae546993e6be07ff303f38f5254",
+    "playwright.distribution.config.ts": "4df5646770635d3453a3de1c5fb19a3f802c9af5bb6d68c64d38e932cc4866cf",
+    "package.json": "bd1cfda3fda48b599754075981055bc986dcaa1df8e2f18ab7150ede6290f25f",
+    ".github/workflows/build-release.yml": "8953a62cc3faadc6e230edfedb51d86dfe3ec42f7743250e6e918f922c4694ba",
+    ".github/workflows/e2e.yml": "0f1c8f5900f7263ab0be167a4782d09ba7e73fad603a0d5b920d08afb118ea67",
+    "e2e/computer-chat.spec.ts": "45d729a4d94a75ce63b3a2a4da7f48e6c5e2cce17fa5f989454a93a4fcfa90d1",
+    "src/features/computer-chat/ChatLibrary.test.tsx": "6e88b16deff6a70bc257435534b66602285198072bbe654854ac6b2cd16d24ba",
+    "CHANGELOG.md": "de5d32d00dd87c070ded53c9d0564af73cfe7387d2a6a706c7d0c120d6e7e093",
+    "docs/TESTING.md": "df9133a3765b61780ccb5ddbbadc3157c2117b200cde2e6ce23ca050dc2a9625",
+    ".gitignore": "e4f9e0760939a19bf797c5e9ebe7578bee2922ce1edc80dcfe18fa34bb07011d"
+  }
+}

@@ -1,0 +1,206 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-17T05:30:51.527496+00:00",
+  "source_parent_commit": "fe2f9d69535ea0c21bebd181ffdc5d16aecda6cd",
+  "scope": "Replace affected production routing dependencies with patched React Router 7, preserving browser and packaged-file navigation, and bind signed publication requests to the pushed version tag and exact source commit.",
+  "baseline": {
+    "audit_artifact": "dist/verification/desktop-dependency-audit-fe2f9d6.json",
+    "audit_sha256": "8b5c73c4a960cdce85c851ce539617c9d7bfb61b0414136cbe7d3a07da697197",
+    "counts": {
+      "critical": 0,
+      "high": 11,
+      "moderate": 15,
+      "total": 26
+    },
+    "affected_runtime_packages": ["react-router@6.30.6", "react-router-dom@6.30.6"]
+  },
+  "upstream": {
+    "migration": "https://raw.githubusercontent.com/remix-run/react-router/v7/docs/upgrading/v6.md",
+    "package_metadata": "https://raw.githubusercontent.com/remix-run/react-router/v7/packages/react-router/package.json",
+    "navigation_advisory": "https://github.com/remix-run/react-router/security/advisories/GHSA-wrjc-x8rr-h8h6",
+    "ssr_advisory": "https://github.com/remix-run/react-router/security/advisories/GHSA-337j-9hxr-rhxg",
+    "qualification": "Upstream requires Node 20+ and React/React DOM 18+. Existing Node 22 and React 18 satisfy these requirements. The SSR hydration advisory does not apply to this declarative SPA; no prior application exploit is asserted."
+  },
+  "release_safety_baseline": {
+    "job": {
+      "id": "41a0c86ea5a0",
+      "state": "failed",
+      "exit_code": 1,
+      "command_display": "bash /tmp/stateset-desktop-release-source-baseline.sh",
+      "wait_seconds": 0.016611099243164062,
+      "elapsed_seconds": 0.28003954887390137
+    },
+    "result": "Exact legacy inline validator: 2 passed, 2 failed because branch references were accepted. No external publication performed.",
+    "source": {
+      "commit": "fe2f9d69535ea0c21bebd181ffdc5d16aecda6cd",
+      "workflow_sha256": "8953a62cc3faadc6e230edfedb51d86dfe3ec42f7743250e6e918f922c4694ba",
+      "inline_sha256": "13612b9c83f97640825db7b60122d53d6f40569035bc2dee79757778916712a3",
+      "baseline_job": "41a0c86ea5a0",
+      "result": "2 passed;2 failed because publishing branch references were accepted."
+    }
+  },
+  "implementation": [
+    "Require publishing references to be exact version tags whose remote peeled commit matches the checkout and requested source; reject branch references and source mismatches before publication.",
+    "Replace direct local publishing with a guarded GitHub Actions request or dry-run, default manual runs to build-only, and check signing-setting presence before expensive release work. Actual platform signature and notarization gates remain required.",
+    "Document immutable tags, credential names, per-install encryption keys, native verification and shared queue requirements.",
+    "Pin direct react-router to 7.18.4, replacing react-router-dom and its old @remix-run/router dependency.",
+    "Update production, test and vendor-chunk imports to the direct package. Remove v7 migration flags because those behaviors are defaults; preserve default transitions.",
+    "Gate build/release CI on npm audit --omit=dev --audit-level=moderate. Development findings remain separately reported."
+  ],
+  "verification": {
+    "install": {
+      "id": "977ec7c931ec",
+      "state": "succeeded",
+      "exit_code": 0,
+      "command_display": "bash /tmp/stateset-desktop-router-install.sh",
+      "wait_seconds": 45.44887638092041,
+      "elapsed_seconds": 3.321505546569824
+    },
+    "focused": {
+      "id": "5ab6256ae747",
+      "state": "succeeded",
+      "exit_code": 0,
+      "command_display": "bash /tmp/stateset-desktop-router-focused.sh",
+      "wait_seconds": 3364.8547406196594,
+      "elapsed_seconds": 284.2901849746704
+    },
+    "audit": {
+      "id": "38c940826190",
+      "state": "succeeded",
+      "exit_code": 0,
+      "command_display": "bash /tmp/stateset-desktop-router-audit.sh",
+      "wait_seconds": 3573.3523511886597,
+      "elapsed_seconds": 5.159418821334839
+    },
+    "composed_release": {
+      "id": "bb8bf1e02534",
+      "state": "succeeded",
+      "exit_code": 0,
+      "command_display": "bash /tmp/stateset-desktop-composed-release-check.sh",
+      "wait_seconds": 1438.4737122058868,
+      "elapsed_seconds": 5.181806564331055
+    },
+    "release_source_tests": 34,
+    "release_workflow_checks": "Actionlint 1.7.12 with default ShellCheck, YAML/manual input checks and git diff whitespace validation.",
+    "release_source_inputs_sha256": {
+      "scripts/release-source.mjs": "e33b8d098f631c6f4b126e5f6dda983f82e386e4aee5bc74de66294244266b7b",
+      "scripts/release-source.test.mjs": "1ad3458b750a388f4fec8c466987d6a4f03213a52c126e25e9947913a09317de",
+      "scripts/request-release.mjs": "c2f5a671fcf87d16a7817ff7f6f192359c62bf7b2c8c9961a4ddc6a5b7e336f1",
+      "scripts/validate-release-source.mjs": "7c2a00b92dee738c5f02ba120cc84942f29f1a20173011934fdb6f9100f770a6",
+      "scripts/validate-release-signing.mjs": "256d8214be02be258e36d4737e147023b8a69d3d57116c6aadb123194674903d",
+      "package.json": "61a3460ffa650576ba932248052bcc107549f2d00cc93ec5b38f786467b4a00c",
+      ".github/workflows/build-release.yml": "50c5260f97650d3d95c8bcbaffb31419e7db7c5039eb70722458b4adb62ac220"
+    },
+    "release_isolated_provenance": {
+      "unit": {
+        "id": "27dfd54c2a64",
+        "state": "succeeded",
+        "exit_code": 0,
+        "command_display": "bash /tmp/stateset-desktop-release-safety-check.sh",
+        "wait_seconds": 65.30380058288574,
+        "elapsed_seconds": 6.291409969329834
+      },
+      "workflow": {
+        "id": "a6d43814d2f3",
+        "state": "succeeded",
+        "exit_code": 0,
+        "command_display": "bash /tmp/stateset-desktop-release-workflow-recheck.sh",
+        "wait_seconds": 0.015266656875610352,
+        "elapsed_seconds": 0.34915709495544434
+      },
+      "qualification": "Independent candidate evidence is provenance; composed gate validates these changes alongside the routing migration."
+    },
+    "unit_tests": 2730,
+    "unit_files": 222,
+    "checks": "Both typechecks, lint, all unit tests, Electron/renderer builds, native route/palette flows and actual production Linux bundle startup/restart.",
+    "native_reports": {
+      "native": {
+        "startTime": "2026-10-17T04:51:06.640Z",
+        "duration": 36131.739,
+        "expected": 5,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "bundle": {
+        "startTime": "2026-10-17T04:52:11.292Z",
+        "duration": 9119.99,
+        "expected": 1,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      }
+    },
+    "native_scope": "Three existing stale-route flows cover browser dark/light and file light routing, same-document recovery and accessible focus. Two existing palette flows cover selection across live reordering. All five passed with zero retries or accessibility violations.",
+    "bundle_scope": "Actual packaged production renderer, file routing, native version, disabled test hooks, encrypted settings and stable key across restart.",
+    "production_audit": {
+      "info": 0,
+      "low": 0,
+      "moderate": 0,
+      "high": 0,
+      "critical": 0,
+      "total": 0
+    },
+    "complete_audit": {
+      "info": 0,
+      "low": 0,
+      "moderate": 13,
+      "high": 11,
+      "critical": 0,
+      "total": 24
+    },
+    "audit_qualification": "Exact production gate returned zero findings. Full npm audit still reports development advisories; its expected finding exit code is distinct from queue or functional test failure. Package metadata was unchanged by audits.",
+    "source_guard": {
+      "inputs": 637,
+      "manifest_sha256": "4379097fa35e8d1c4f0f1945a2f738a8f310c4c059730e9bf72e203455e6ca7f",
+      "qualification": "Manual hashes sealed after formatting and compared after checks; not an immutable queue snapshot."
+    },
+    "full_ci": "Pending normal-hook commit/push and exact-head CI; parent/tag validation does not qualify this migration."
+  },
+  "changed_source_sha256": {
+    ".github/workflows/build-release.yml": "50c5260f97650d3d95c8bcbaffb31419e7db7c5039eb70722458b4adb62ac220",
+    "CHANGELOG.md": "2d7ac3f0bfddf35614f1cc60e9260459d39a864f99bdf3096428c9ac7eacfc2d",
+    "RELEASE.md": "bbb332c577616ba7fbbb1a156d9903aa79b955796352033cf834ad21bf66e1a5",
+    "docs/RELEASE_VERIFICATION.md": "b79c7c1a40306f0333e14a483fed469b9d7c69005fb0f8ae37051c0a8193868b",
+    "package-lock.json": "9e7d3b6e332a44a47bdc54a33c5d573539027a01c932b39939f2d38d0fe8c9af",
+    "package.json": "61a3460ffa650576ba932248052bcc107549f2d00cc93ec5b38f786467b4a00c",
+    "scripts/release-source.mjs": "e33b8d098f631c6f4b126e5f6dda983f82e386e4aee5bc74de66294244266b7b",
+    "scripts/release-source.test.mjs": "1ad3458b750a388f4fec8c466987d6a4f03213a52c126e25e9947913a09317de",
+    "scripts/request-release.mjs": "c2f5a671fcf87d16a7817ff7f6f192359c62bf7b2c8c9961a4ddc6a5b7e336f1",
+    "scripts/validate-release-signing.mjs": "256d8214be02be258e36d4737e147023b8a69d3d57116c6aadb123194674903d",
+    "scripts/validate-release-source.mjs": "7c2a00b92dee738c5f02ba120cc84942f29f1a20173011934fdb6f9100f770a6",
+    "src/App.tsx": "de86128ce4e28e9325ab1083883b1390d9eca5424b56bde8de6581aa36d33bd5",
+    "src/components/CommandPalette.test.tsx": "13b3525c77e6422bd0f62da099efa2a588d02e00584ed5d20003e7d93d53ced2",
+    "src/components/CommandPalette.tsx": "22a952080116674cc4c4727bfff4159a06bae3b3f7e6c8d5ad0a896e8b989a01",
+    "src/components/CreateAgentDialog.test.tsx": "9090481e97da5ee38ca4ec4abeb9f6ebee3cc3098b540d04b75fc646d67405ad",
+    "src/components/KeyboardShortcutsModal.tsx": "109add5cc15869678aae025328ac9a01688e73c085c5700f514ad1cb3d47488c",
+    "src/components/Layout.tsx": "20be694243e40d7ad5c59bf61a4f070c3758a6e3276e06774c63eb86d67c5e0d",
+    "src/components/RouteErrorBoundary.test.tsx": "c220d30db37dffcd68dc87ec4e5e6f3d46b654451b974f8a88b94f1f1389eab1",
+    "src/components/RouteErrorBoundary.tsx": "553441e3a02cba18704b56a39dcbf2c1b1898c6aab7af3642b5971824f03d1f4",
+    "src/features/chat-playground/components/ChatPlayground.test.tsx": "de3cb2c48d373a5dfea7e28ba2664cd49fd45c7386235285fe0437c72ca62311",
+    "src/features/computer-chat/DurableComputerChat.test.tsx": "cacf2c30551eea47335f83856e64c20c871c3c4d23a8706268aa0a9e8e4446fd",
+    "src/features/computer-chat/DurableComputerChat.tsx": "c3aec4d10c91ce65b8a562f878a4deb80263122657b7b827b6364563e1983614",
+    "src/features/connections/components/McpServerStatusNotice.test.tsx": "f42abc5af1a6579ee8d117b657a27cfed52556767791d231eff9f372a9b4b126",
+    "src/features/connections/components/McpServerStatusNotice.tsx": "69ba928657f9c23431de74e1602c5481b25cca8409cfb5b72a8d0a00fd2120fb",
+    "src/features/dashboard/components/McpServersOverview.test.tsx": "f0364fdad9992e1b4270b6d47a74c2c03d819d456d0af66d0cff6a4370c4f88d",
+    "src/features/dashboard/components/McpServersOverview.tsx": "2a538b2c0403b42da6efc1c41b5d4e588a2f83294dc447905c7e9a7464911eaa",
+    "src/pages/AgentConsole.test.tsx": "3189e7fbcd6f6eabffe1916d378cbc047b65f50562f4ecf0a1a2b70a9b33b5e3",
+    "src/pages/AgentConsole.tsx": "2a2f9de23a4e5987e5530887d08532df18d6e4e56fb3cd2ea4b088e89cc3dcf0",
+    "src/pages/Dashboard.test.tsx": "77a9aff28d116adb6bd36a6121e08f9ca98e29af2b81968616c3a30c09e3ad47",
+    "src/pages/Dashboard.tsx": "29904edebdae6f7e65868573d5bd2f65cd299f19fe5eaa398cfcf4785e1ab7b4",
+    "src/pages/Login.tsx": "8ddb1d3c483dfaa215b74eeb9a4f267506abff91c833edd061d7f9ac63a14eaf",
+    "src/pages/PageNotFound.tsx": "74a387188d469dcaf03db19a445ae938fe7dc12d218917e965c78806e686b380",
+    "src/pages/Register.tsx": "28fac072a5a5a7f87688aa8f7afb20d567f8ada035df204bbc412a3f23110296",
+    "src/pages/Settings.tsx": "b8c80223df9d6e61b15f1226e4141db67c73cf2aa3993bbfb3663fd753b52612",
+    "src/pages/Templates.tsx": "99be08e7d9ba9574617520498b30808f4a20d9f629a654ba3a9be541e9bda03c",
+    "src/pages/Workflows.tsx": "fd24da323a732a2fa7a011b614912a910df74d769970aa5d8313dc3f1880c0a3",
+    "src/test-utils.tsx": "d2ebe26da532d985ee4a264b10d9ab76752b2b09f88497acd64d4e6ebf07d7e0",
+    "vite.config.mts": "8f840e1c09a4d9e6f08ed8dfee03d0af422b353d0464bea9d40addaced668577"
+  },
+  "limitations": [
+    "Live engine/Temporal/sandbox/NSR acceptance remains unconfigured. Controlled desktop fixtures do not establish live provider execution.",
+    "Signing preflight verifies setting presence only; no credentials, external workflow dispatch or publication were exercised by the local release fixtures.",
+    "Existing v1.1.20 tag remains immutable at fe2f9d6 and does not contain these unreleased changes. Its installer publication is blocked by required signing credentials.",
+    "Remaining development dependency advisories are not resolved by this change."
+  ]
+}

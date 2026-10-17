@@ -1,0 +1,281 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-17T14:50:51.228766+00:00",
+  "source_parent_commit": "0066e281b18e3800fc2f021e555fb31d659361d1",
+  "scope": "Preserve scheduled workflow occurrence identity through storage, connection and launch-response failures; expose readable recovery controls, theme-aware workflow surfaces and accurate unavailable-credential state.",
+  "implementation": [
+    "Persist a frozen occurrence and a dispatch marker before its first start request; advance only after a validated engine confirmation and acknowledged local tracking write.",
+    "Recover potentially submitted occurrences using GET on their original engine and deterministic workflow ID; missing, conflicting, malformed or timed-out responses never authorize a fresh start request.",
+    "Guard launches against configuration generation changes, pending saves, pause/edit intent and unmount; serialize collection writes and merge only user changes into the latest schedule.",
+    "Preserve terminal tracking receipts and acknowledged local state; catch secondary persistence failures and retain accepted action/fleet outcomes without resending accepted command drafts.",
+    "Show pending/preparing/attention states with original-engine guidance, Check/Retry controls, caught save errors and protected deletion/Run now actions.",
+    "Distinguish unavailable saved key/connection state from a confirmed missing key across workflow and computer-chat settings.",
+    "Give schedule identity and status a full-width wrapping row above its controls; use semantic surfaces, borders and readable muted text in both themes.",
+    "Use the existing semantic primary button treatment for workflow launch, attach and save actions; scan the workflow header as well as the pending schedule in both themes.",
+    "Native owned-profile process restart retains pending identity after HTTP404, then saves terminal confirmation using two scoped GET requests and zero start POSTs; retains dark/light screenshots. The owned bootstrap explicitly selects the real memory-only credential fallback, asserts its key is absent after restart, then restores it through the normal bridge."
+  ],
+  "verification": {
+    "jobs": {
+      "integrated": {
+        "id": "4812f4714238",
+        "state": "succeeded",
+        "exit_code": 0,
+        "command_display": "bash /tmp/stateset-desktop-schedule-final.sh",
+        "wait_seconds": 86.45728182792664,
+        "elapsed_seconds": 111.26761174201965
+      },
+      "native": {
+        "id": "4812f4714238",
+        "state": "succeeded",
+        "exit_code": 0,
+        "command_display": "bash /tmp/stateset-desktop-schedule-final.sh",
+        "wait_seconds": 86.45728182792664,
+        "elapsed_seconds": 111.26761174201965
+      }
+    },
+    "queue_qualification": "Integrated and native phases share one sequential Buildr admission when their job IDs match.",
+    "previous_focused_pass": {
+      "job": {
+        "id": "71a848b42e8e",
+        "state": "succeeded",
+        "exit_code": 0,
+        "command_display": "bash /tmp/stateset-desktop-schedule-quick.sh",
+        "wait_seconds": 531.7542192935944,
+        "elapsed_seconds": 138.6936013698578
+      },
+      "unit_tests": 185,
+      "unit_files": 11,
+      "qualification": "Passed before the final confirmed-manual-launch recovery and nullable run-ID type correction; superseded by the final combined gate."
+    },
+    "previous_integrated_pass": {
+      "job": {
+        "id": "1afd2b579e84",
+        "state": "succeeded",
+        "exit_code": 0,
+        "command_display": "bash /tmp/stateset-desktop-schedule-final.sh",
+        "wait_seconds": 712.6484327316284,
+        "elapsed_seconds": 276.03346133232117
+      },
+      "unit_tests": 187,
+      "unit_files": 11,
+      "native_passed": 1,
+      "qualification": "Passed before screenshot review exposed cramped schedule names and opaque light-theme panels. Superseded by the final semantic layout, scoped accessibility checks and unique toast-ID test fixtures."
+    },
+    "previous_design_pass": {
+      "job": {
+        "id": "5d4c66ace830",
+        "state": "succeeded",
+        "exit_code": 0,
+        "command_display": "bash /tmp/stateset-desktop-schedule-final.sh",
+        "wait_seconds": 183.65730953216553,
+        "elapsed_seconds": 123.85580039024353
+      },
+      "unit_tests": 187,
+      "unit_files": 11,
+      "native_passed": 1,
+      "qualification": "Schedule-row checks passed; visual review then found an omitted light-theme primary label outside that scan. Superseded by semantic primary buttons, expanded header scans and stable pre-scan captures. The earlier capture alone does not establish the rendering cause."
+    },
+    "earlier_native_timeout": {
+      "job": {
+        "id": "07cf676f76df",
+        "state": "failed",
+        "exit_code": 1,
+        "command_display": "bash /tmp/stateset-desktop-schedule-final.sh",
+        "wait_seconds": 273.4676353931427,
+        "elapsed_seconds": 231.14696645736694
+      },
+      "unit_tests": 187,
+      "unit_files": 11,
+      "native_passed": 0,
+      "qualification": "The focused checks passed, but native setup exceeded the unchanged 60-second test budget before any layout/recovery assertion. Its retained trace shows about 45 seconds in the native credential-read IPC after a 15-second initial storage/key setup. The final owned fixture selects the real memory-only credential backend before importing main; no product behavior, test timeout or recovery assertion was weakened. This is not a queue failure or evidence of final acceptance."
+    },
+    "earlier_fixture_traffic_failure": {
+      "job": {
+        "id": "e85020207033",
+        "state": "failed",
+        "exit_code": 1,
+        "command_display": "bash /tmp/stateset-desktop-schedule-final.sh",
+        "wait_seconds": 308.5848124027252,
+        "elapsed_seconds": 139.8550660610199
+      },
+      "unit_tests": 187,
+      "unit_files": 11,
+      "native_passed": 0,
+      "qualification": "Header/schedule Axe scans and layout checks passed, then the pre-Check traffic assertion saw two unauthenticated GET / requests. Their caller is unproven and the workflow client does not use that route. The final fixture retains such root-only reads separately while keeping every POST and all other requests in the exact workflow assertions. Native reports, trace and captures remain preserved; this attempt is not final acceptance."
+    },
+    "preserved_prior_native_job": {
+      "job": {
+        "id": "093c0ee630e5",
+        "state": "failed",
+        "exit_code": 1,
+        "command_display": "bash /tmp/stateset-desktop-updater-native.sh",
+        "wait_seconds": 32556.902326345444,
+        "elapsed_seconds": 175.49965476989746
+      },
+      "qualification": "Different frozen updater source completed with its already-corrected Electron AxeBuilder Target.createTarget harness error; not evidence against or acceptance of this candidate."
+    },
+    "earlier_typechecks": {
+      "jobs": [
+        {
+          "id": "85d6e5a640a5",
+          "state": "failed",
+          "exit_code": 2,
+          "command_display": "bash /tmp/stateset-desktop-schedule-quick.sh",
+          "wait_seconds": 302.8372118473053,
+          "elapsed_seconds": 42.25038933753967
+        },
+        {
+          "id": "fe86e7e8d4d4",
+          "state": "failed",
+          "exit_code": 2,
+          "command_display": "bash /tmp/stateset-desktop-schedule-quick.sh",
+          "wait_seconds": 465.1977014541626,
+          "elapsed_seconds": 130.28266787528992
+        }
+      ],
+      "qualification": "New-code TypeScript narrowing/nullability and test selector-option errors stopped these runs before tests. Corrected in the final verified source; not queue failures."
+    },
+    "unit_tests": 187,
+    "unit_files": 11,
+    "checks": [
+      "Renderer typecheck",
+      "Desktop-test typecheck",
+      "Uncached strict lint; rules unchanged",
+      "Release-source fixtures",
+      "Real repository Vite test configuration, single worker"
+    ],
+    "native": {
+      "passed": 1,
+      "skipped": 0,
+      "retries": 0,
+      "flaky": 0,
+      "scoped_accessibility": {
+        "themes": ["dark", "light"],
+        "scope": "Workflow header and pending schedule row with their controls",
+        "axe_violations": 0,
+        "qualification": "Scoped scans do not establish whole-application accessibility certification."
+      },
+      "layout_assertions": [
+        "Schedule name is not horizontally clipped",
+        "Schedule section uses the semantic surface token"
+      ],
+      "traffic_evidence": "scheduled-recovery-requests JSON attachment retains two exact workflow status GETs, separately counted unauthenticated GET / probes, and primary-button computed-style diagnostics before/after each scan. All POSTs and all other requests remain in strict workflow assertions.",
+      "qualification": "Controlled native profile/HTTP fixture. Its owned bootstrap selects the real memory-only credential fallback; key absence after restart and re-entry through the normal bridge are asserted. This case does not consult or establish host OS keyring behavior.",
+      "request_receipt": {
+        "attachment_sha256": "72886df34ac91dc37aa5226f2491e49ed98aa43ea88cd1650450e032cbe1b00e",
+        "status_path": "/v1/workflows/active-horizon-agent/active-horizon-agent-22222222222242228222222222222222-33333333333343338333333333333333/status",
+        "status_get_count": 2,
+        "ambient_root_probe_count": 2,
+        "primary_styles": {
+          "dark": {
+            "beforeScan": {
+              "text": " New workflow",
+              "color": "rgb(255, 255, 255)",
+              "textFillColor": "rgb(255, 255, 255)",
+              "background": "rgb(3, 105, 161)",
+              "opacity": "1",
+              "visibility": "visible"
+            },
+            "afterScan": {
+              "text": " New workflow",
+              "color": "rgb(255, 255, 255)",
+              "textFillColor": "rgb(255, 255, 255)",
+              "background": "rgb(3, 105, 161)",
+              "opacity": "1",
+              "visibility": "visible"
+            }
+          },
+          "light": {
+            "beforeScan": {
+              "text": " New workflow",
+              "color": "rgb(255, 255, 255)",
+              "textFillColor": "rgb(255, 255, 255)",
+              "background": "rgb(3, 105, 161)",
+              "opacity": "1",
+              "visibility": "visible"
+            },
+            "afterScan": {
+              "text": " New workflow",
+              "color": "rgb(255, 255, 255)",
+              "textFillColor": "rgb(255, 255, 255)",
+              "background": "rgb(3, 105, 161)",
+              "opacity": "1",
+              "visibility": "visible"
+            }
+          }
+        },
+        "qualification": "Computed style checks preserve visible button text before/after the scoped Axe scan; this does not replace the test's accessibility analysis."
+      },
+      "visual_review": "Reviewed the exact retained dark/light captures after the final pass: schedule names, status and primary labels are readable. Earlier unstable captures did not establish a CSS or Axe cause; final captures wait for fonts and two frames before accessibility instrumentation."
+    },
+    "unit_report_sha256": "62176294581a3f60719e5b742a2f6013eacd1610c664bc3089b95c2a0b528a1a",
+    "native_report_sha256": "d33b36fdbb19446cf35bcf2186d2fbaf4d42567ae255aaf729ee4418aa4c9dba",
+    "source_guard": {
+      "inputs": 648,
+      "manifest_sha256": "1f9e3e10521c12f31dfea0d404ecd8ae24fc4f56f6fa0c8eaa33f88187afbd19",
+      "qualification": "Manual hashes before/after checks, not an immutable queue snapshot."
+    },
+    "screenshots": {
+      "dark": {
+        "path": "dist/verification/schedule-native/schedule-pending-dark.png",
+        "sha256": "aaad816b1acc6dea003bf6a610ce6c6a6eaac60cb91982a5de3c312d46a85b44"
+      },
+      "light": {
+        "path": "dist/verification/schedule-native/schedule-pending-light.png",
+        "sha256": "0dbedc4cd5a4e58ec0d7a74fbe3007ddfd766dd00571bbc73468f3aa415a9e07"
+      }
+    },
+    "dependency_audit": {
+      "production": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 0,
+        "critical": 0,
+        "total": 0
+      },
+      "all": {
+        "info": 0,
+        "low": 0,
+        "moderate": 10,
+        "high": 5,
+        "critical": 0,
+        "total": 15
+      },
+      "qualification": "Unchanged package/lock bytes retain the prior source-bound audit (production 0, development 15 affected-package entries). This is not a fresh full audit; the new exact-head CI production gate is required."
+    },
+    "full_ci": "Required on the next committed source. Focused checks do not establish all platform/bundle/installer acceptance."
+  },
+  "changed_source_sha256": {
+    ".github/workflows/build-release.yml": "f29041a4259d85e56602b73ac2d3d670f9c057e15867b887a5e0ea3ab83fe5cb",
+    ".github/workflows/e2e.yml": "d2eb09b1f93bd83de50d13bfd999b566b0413ac30f31e868f3693fb69cdde9a2",
+    "docs/DESKTOP_STORAGE.md": "0fe0fc7d329f6e432840be157fc2b6785119fbfb9f00cd27032b5e8b90ac73b1",
+    "e2e/desktop.ts": "dfd9f2fdb33bcfddb0bb4137fd7035176d7bff30f5dac3213210c7599d0ee233",
+    "e2e/startup.spec.ts": "88f491bc6bcec812619a9258b98aca723a06caa1e451b1fd703bbb1a5f3f3490",
+    "src/features/computer-chat/ComputerChatSettings.test.tsx": "3d35413dba281274141c9c3437be1e56b983e7d0d106294c7a9e96fbd91f41e1",
+    "src/features/computer-chat/ComputerChatSettings.tsx": "4de468cfb177c696e92517508b93ea7e0e7ec32860ab6a10a2b31a46370a0dac",
+    "src/features/computer-chat/DurableChatSetup.test.tsx": "9c43f74a7202b374937d45e356ec85d3d529cc591644f372eaf1a73d906d5ff7",
+    "src/features/computer-chat/DurableChatSetup.tsx": "a7444a1309cda0bf7b0e1dd13375831ee830de852fc5c79b4ae8c54d527379bd",
+    "src/features/settings/components/DurableWorkflowSettings.test.tsx": "9a66b644ee2501fca3250bead57716de06999969570596222e69fc30c8735c71",
+    "src/features/settings/components/DurableWorkflowSettings.tsx": "cb88768c35dd1b6ed989af99a42e1302ada7c9f8b920a6f893d1d86e815b091d",
+    "src/hooks/useDurableWorkflowMonitor.test.tsx": "5cbc72ceefd527c329eedccf20f1fc72b1c9944fca9749212b7c93d719615a29",
+    "src/hooks/useDurableWorkflowMonitor.ts": "7ca260004b396faf2fb6a0d22c18ba268f16566e383808c7399142cdb54e25ab",
+    "src/hooks/useDurableWorkflowScheduler.test.tsx": "52cb65c95f20d82124208249897f58e5508b976392482d4f6bba3dbeab882624",
+    "src/hooks/useDurableWorkflowScheduler.ts": "4911a90c54cefe32bda1d40d498297ba6a27c5d44db937cf277169c2f890fe4c",
+    "src/lib/durableWorkflowSchedules.test.ts": "62f5b26245178f014dc8f143eb044f43ae3b1b68a82d1827a1763f888887973a",
+    "src/lib/durableWorkflowSchedules.ts": "f43a32d4fcaaf9f78881654ef6d83b06c714cfeab557ad553b4e2ce994e03e3f",
+    "src/lib/durableWorkflowStatus.ts": "be9b6f123e7b90f16dafa8b01725224ea7bda197dae6bed7f5c0bbc44367021d",
+    "src/lib/durableWorkflows.ts": "153fafd305dc078c602cd62a7e23f8281716da269bd7f6556442a1cc0e4950c7",
+    "src/pages/Workflows.test.tsx": "0a00660e2e91d3d78ba3782e2db1dbd9ad6c5cd0f0f1782014e2aa5a053982dc",
+    "src/pages/Workflows.tsx": "a89d728bdba5f31430f7b5a2ec2b5da54e5c805206d62d8ba857017edbef68bf",
+    "src/stores/durableWorkflowSchedulePersistence.test.ts": "ae51c80b3d83bbcda37000de672be4b1c74c2fab640141ef75b90d9adc412e33",
+    "src/stores/durableWorkflows.ts": "f873979c1544a77bb58ae802294e9f76d50aecef7b12e665cab88b112ff510e8"
+  },
+  "limitations": [
+    "Controlled tests and the local engine source contract do not establish live engine/Temporal/sandbox/provider/NSR acceptance or an indefinite exactly-once guarantee.",
+    "A submitted occurrence that the engine cannot confirm remains pending for operator recovery; status absence does not prove that no execution occurred.",
+    "The request observation timeout does not cancel work already admitted by the engine.",
+    "Required signing and live acceptance remain gated; immutable v1.1.20 stays at fe2f9d6 and this branch work is unreleased.",
+    "Existing isolated jobs 093c0ee630e5 and c6b81f3c0d87 were preserved; their different frozen source does not qualify this candidate."
+  ]
+}

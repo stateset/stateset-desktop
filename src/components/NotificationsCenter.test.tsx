@@ -1,9 +1,10 @@
 /**
  * @vitest-environment happy-dom
  */
-import { describe, it, expect } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
-import { useNotifications } from './NotificationsCenter';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { renderHook, act, cleanup } from '@testing-library/react';
+import { renderWithProviders, screen, fireEvent } from '../test-utils';
+import { useNotifications, NotificationsCenter, type Notification } from './NotificationsCenter';
 
 describe('useNotifications', () => {
   it('should initialize with empty notifications', () => {
@@ -181,5 +182,150 @@ describe('useNotifications', () => {
 
     const ids = result.current.notifications.map((n) => n.id);
     expect(ids[0]).not.toBe(ids[1]);
+  });
+});
+
+describe('NotificationsCenter', () => {
+  const handlers = () => ({
+    onMarkAsRead: vi.fn(),
+    onMarkAllAsRead: vi.fn(),
+    onDismiss: vi.fn(),
+    onClearAll: vi.fn(),
+  });
+
+  function makeNotification(overrides: Partial<Notification> = {}): Notification {
+    return {
+      id: `notif-${Math.random().toString(36).slice(2, 9)}`,
+      type: 'info',
+      title: 'Test notification',
+      message: 'Something happened',
+      timestamp: Date.now(),
+      read: false,
+      ...overrides,
+    };
+  }
+
+  function openCenter(notifications: Notification[]) {
+    const h = handlers();
+    renderWithProviders(<NotificationsCenter notifications={notifications} {...h} />);
+    fireEvent.click(screen.getByRole('button', { name: /Notifications/ }));
+    return h;
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  it('announces no unread notifications and shows no badge when all are read', () => {
+    renderWithProviders(
+      <NotificationsCenter notifications={[makeNotification({ read: true })]} {...handlers()} />
+    );
+
+    expect(screen.getByText('No unread notifications')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Notifications' })).toBeInTheDocument();
+  });
+
+  it('announces singular and plural unread counts', () => {
+    const { unmount } = renderWithProviders(
+      <NotificationsCenter notifications={[makeNotification()]} {...handlers()} />
+    );
+    expect(screen.getByText('1 unread notification')).toBeInTheDocument();
+    unmount();
+
+    renderWithProviders(
+      <NotificationsCenter
+        notifications={[makeNotification(), makeNotification()]}
+        {...handlers()}
+      />
+    );
+    expect(screen.getByText('2 unread notifications')).toBeInTheDocument();
+  });
+
+  it('caps the badge at 99+', () => {
+    const many = Array.from({ length: 100 }, () => makeNotification({ read: false }));
+    renderWithProviders(<NotificationsCenter notifications={many} {...handlers()} />);
+
+    expect(screen.getByText('99+')).toBeInTheDocument();
+  });
+
+  it('opens the panel and shows the empty state', () => {
+    openCenter([]);
+
+    // The ToastProvider also renders a "Notifications" live region, so assert
+    // on panel content unique to NotificationsCenter.
+    expect(screen.getByText('No notifications')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Notifications/ })).toHaveAttribute(
+      'aria-expanded',
+      'true'
+    );
+  });
+
+  it('lists notifications with a singular footer count', () => {
+    openCenter([makeNotification({ title: 'Only one' })]);
+
+    expect(screen.getByText('Only one')).toBeInTheDocument();
+    expect(screen.getByText('1 notification')).toBeInTheDocument();
+  });
+
+  it('marks all as read from the header', () => {
+    const h = openCenter([makeNotification(), makeNotification()]);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mark all read' }));
+    expect(h.onMarkAllAsRead).toHaveBeenCalledTimes(1);
+  });
+
+  it('hides the mark-all-read button when nothing is unread', () => {
+    openCenter([makeNotification({ read: true })]);
+
+    expect(screen.queryByRole('button', { name: 'Mark all read' })).not.toBeInTheDocument();
+  });
+
+  it('clears all notifications from the header', () => {
+    const h = openCenter([makeNotification()]);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear all notifications' }));
+    expect(h.onClearAll).toHaveBeenCalledTimes(1);
+  });
+
+  it('fires the action and marks read when the action button is clicked', () => {
+    const onAction = vi.fn();
+    const h = openCenter([
+      makeNotification({ id: 'n-action', actionLabel: 'View details', onAction }),
+    ]);
+
+    fireEvent.click(screen.getByRole('button', { name: 'View details' }));
+    expect(h.onMarkAsRead).toHaveBeenCalledWith('n-action');
+    expect(onAction).toHaveBeenCalledTimes(1);
+  });
+
+  it('dismisses a notification', () => {
+    const h = openCenter([makeNotification({ id: 'n-dismiss' })]);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss notification' }));
+    expect(h.onDismiss).toHaveBeenCalledWith('n-dismiss');
+  });
+
+  it('closes on Escape', () => {
+    openCenter([makeNotification()]);
+    const trigger = screen.getByRole('button', { name: /Notifications/ });
+    expect(trigger).toHaveAttribute('aria-expanded', 'true');
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    // Exit animations do not complete in happy-dom, so assert the close
+    // state (which also detaches the Escape/outside-click listeners).
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('closes on outside click', () => {
+    openCenter([makeNotification()]);
+    const trigger = screen.getByRole('button', { name: /Notifications/ });
+    expect(trigger).toHaveAttribute('aria-expanded', 'true');
+
+    fireEvent.mouseDown(document.body);
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
   });
 });

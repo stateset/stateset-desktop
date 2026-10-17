@@ -102,4 +102,29 @@ describe('ErrorBoundary', () => {
     render(<WrappedComponent />);
     expect(screen.getByText('Wrapped content')).toBeInTheDocument();
   });
+
+  it('returns top-level browser recovery to the dashboard path instead of changing only its hash', () => {
+    const previous = window.location.href;
+    const assign = vi.spyOn(window.location, 'assign').mockImplementation(() => {});
+    let failed = true;
+    function Page() {
+      if (failed) throw new Error('Test error');
+      return <div>Recovered dashboard</div>;
+    }
+    try {
+      window.history.replaceState({}, '', '/settings?tab=appearance');
+      render(
+        <ErrorBoundary>
+          <Page />
+        </ErrorBoundary>
+      );
+      failed = false;
+      fireEvent.click(screen.getByRole('button', { name: 'Go to Dashboard' }));
+      expect(assign).toHaveBeenCalledWith(`${window.location.origin}/`);
+      expect(screen.getByText('Recovered dashboard')).toBeInTheDocument();
+    } finally {
+      assign.mockRestore();
+      window.history.replaceState({}, '', previous);
+    }
+  });
 });

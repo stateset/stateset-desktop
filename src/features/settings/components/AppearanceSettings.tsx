@@ -43,11 +43,15 @@ export function AppearanceSettings() {
             <p className="text-sm text-gray-400">Choose your preferred theme</p>
           </div>
           <div className="flex items-center gap-2">
-            <div className="flex gap-1 p-0.5 bg-gray-800/60 rounded-lg border border-gray-700/50">
+            <div
+              role="group"
+              aria-label="Theme"
+              className="ui-segment-group flex gap-1 p-0.5 rounded-lg"
+            >
               <button
                 type="button"
                 onClick={() => setTheme('dark')}
-                className={`px-3 py-1.5 text-sm rounded-md transition-all duration-200 ${theme === 'dark' ? 'bg-gray-700 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200'}`}
+                className="ui-segment px-3 py-1.5 text-sm rounded-md transition-colors"
                 aria-label="Dark theme"
                 aria-pressed={theme === 'dark'}
               >
@@ -56,7 +60,7 @@ export function AppearanceSettings() {
               <button
                 type="button"
                 onClick={() => setTheme('light')}
-                className={`px-3 py-1.5 text-sm rounded-md transition-all duration-200 ${theme === 'light' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-400 hover:text-gray-200'}`}
+                className="ui-segment px-3 py-1.5 text-sm rounded-md transition-colors"
                 aria-label="Light theme"
                 aria-pressed={theme === 'light'}
               >

@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router';
 import { X, Keyboard } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -39,7 +39,7 @@ export function KeyboardShortcutsModal({ isOpen, onClose }: KeyboardShortcutsMod
           { keys: [MOD_KEY, 'H'], description: 'Go to Dashboard' },
           { keys: [MOD_KEY, 'Shift', 'A'], description: 'Go to Analytics' },
           { keys: [MOD_KEY, 'Shift', 'C'], description: 'Go to Connections' },
-          { keys: [MOD_KEY, 'Shift', 'P'], description: 'Go to Playground' },
+          { keys: [MOD_KEY, 'Shift', 'P'], description: 'Go to Chats' },
           { keys: [MOD_KEY, 'Shift', 'V'], description: 'Go to Voice' },
           { keys: [MOD_KEY, ','], description: 'Go to Settings' },
         ],
@@ -66,6 +66,16 @@ export function KeyboardShortcutsModal({ isOpen, onClose }: KeyboardShortcutsMod
           { keys: ['Enter'], description: 'Next search match (in search)' },
           { keys: ['Shift', 'Enter'], description: 'Previous search match (in search)' },
           { keys: ['Esc'], description: 'Close search/logs panels' },
+        ],
+      });
+    }
+    if (location.pathname === '/playground') {
+      groups.push({
+        title: 'Chats',
+        shortcuts: [
+          { keys: [MOD_KEY, 'F'], description: 'Search conversations' },
+          { keys: ['Esc'], description: 'Clear chat search or close computer details' },
+          { keys: ['Shift', 'Enter'], description: 'New line in a message' },
         ],
       });
     }

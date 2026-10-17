@@ -1,3 +1,4 @@
+import { APP_VERSION } from '../../../lib/appVersion';
 import { Info, ExternalLink } from 'lucide-react';
 
 export function AboutSettings({ appVersion, platform }: { appVersion: string; platform: string }) {
@@ -13,7 +14,7 @@ export function AboutSettings({ appVersion, platform }: { appVersion: string; pl
         <div className="flex items-center justify-between">
           <span className="text-gray-400 font-medium">Version</span>
           <span className="font-mono text-sm bg-slate-800/50 px-2 py-0.5 rounded-md border border-slate-700/40">
-            {appVersion || '1.0.1'}
+            {appVersion || APP_VERSION}
           </span>
         </div>
         <div className="flex items-center justify-between">

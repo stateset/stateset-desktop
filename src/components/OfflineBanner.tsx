@@ -68,7 +68,8 @@ export default function OfflineBanner() {
           initial={{ height: 0, opacity: 0 }}
           animate={{ height: 'auto', opacity: 1 }}
           exit={{ height: 0, opacity: 0 }}
-          className={`border-b ${
+          data-severity={isError ? 'error' : 'warning'}
+          className={`offline-banner border-b ${
             isError
               ? 'bg-red-900/40 border-red-800'
               : isWarning
@@ -77,7 +78,7 @@ export default function OfflineBanner() {
           }`}
         >
           {/* Main Banner Row */}
-          <div className="flex items-center justify-between px-4 py-2">
+          <div className="offline-banner-summary flex items-center justify-between px-4 py-2">
             <div className="flex items-center gap-3">
               {isError ? (
                 <WifiOff className="w-4 h-4 text-red-400" />

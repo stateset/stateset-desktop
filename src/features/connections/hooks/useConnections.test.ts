@@ -101,6 +101,20 @@ describe('useConnections', () => {
     expect(customIndex).toBeGreaterThan(shopifyIndex);
   });
 
+  it('keeps connected StateSet MCP servers out of displayedPlatforms', async () => {
+    mockListConnections.mockResolvedValue([{ platform: 'stateset-sync', connected: true }]);
+
+    const { result } = renderHook(() => useConnections(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    const platformIds = result.current.displayedPlatforms.map((p) => p.id);
+    expect(platformIds).not.toContain('stateset-sync');
+    expect(result.current.isConnected('stateset-sync')).toBe(true);
+  });
+
   it('reports isConnected correctly', async () => {
     mockListConnections.mockResolvedValue([
       { platform: 'shopify', connected: true },
@@ -132,5 +146,40 @@ describe('useConnections', () => {
     expect(result.current.vaultError).toBeDefined();
     expect(result.current.isConnected('shopify')).toBe(true);
     expect(result.current.isLocalConnection('shopify')).toBe(true);
+  });
+
+  it('stays silent about errors when asked to', async () => {
+    mockListConnections.mockRejectedValue(new Error('boom'));
+
+    const { result } = renderHook(() => useConnections({ notifyOnError: false }), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(mockShowToast).not.toHaveBeenCalled();
+  });
+
+  it('toasts by default so the page the user is on reports the failure', async () => {
+    mockListConnections.mockRejectedValue(new Error('boom'));
+
+    const { result } = renderHook(() => useConnections(), { wrapper: createWrapper() });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    await waitFor(() =>
+      expect(mockShowToast).toHaveBeenCalledWith(
+        expect.objectContaining({ title: 'Failed to load connections' })
+      )
+    );
+  });
+
+  it('reports a failed query as an error rather than an empty connection list', async () => {
+    mockListConnections.mockRejectedValue(new Error('boom'));
+
+    const { result } = renderHook(() => useConnections({ notifyOnError: false }), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(result.current.isConnected('shopify')).toBe(false);
   });
 });

@@ -2,7 +2,7 @@ import { memo } from 'react';
 import { Sun, Moon } from 'lucide-react';
 import { usePreferencesStore } from '../stores/preferences';
 import clsx from 'clsx';
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { AnimatePresence, motion, useReducedMotionConfig } from 'framer-motion';
 
 interface ThemeToggleProps {
   className?: string;
@@ -14,7 +14,7 @@ export const ThemeToggle = memo(function ThemeToggle({
   showLabel = false,
 }: ThemeToggleProps) {
   const { theme, setTheme } = usePreferencesStore();
-  const reduceMotion = useReducedMotion();
+  const reduceMotion = useReducedMotionConfig();
 
   const toggleTheme = () => {
     setTheme(theme === 'dark' ? 'light' : 'dark');

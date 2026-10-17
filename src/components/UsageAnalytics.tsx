@@ -28,7 +28,7 @@ function StatCard({ label, value, subtext, icon: Icon, color, trend }: StatCardP
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
       <div className="flex items-center justify-between mb-2">
-        <div className={clsx('p-2 rounded-lg', colorClasses[color])}>
+        <div className={clsx('p-2 rounded-lg', colorClasses[color])} aria-hidden="true">
           <Icon className="w-4 h-4" />
         </div>
         {trend !== undefined && (
@@ -40,7 +40,10 @@ function StatCard({ label, value, subtext, icon: Icon, color, trend }: StatCardP
           >
             {trend > 0 && '+'}
             {trend}%
-            <TrendingUp className={clsx('w-3 h-3 ml-1', trend < 0 && 'rotate-180')} />
+            <TrendingUp
+              className={clsx('w-3 h-3 ml-1', trend < 0 && 'rotate-180')}
+              aria-hidden="true"
+            />
           </div>
         )}
       </div>
@@ -97,8 +100,11 @@ export function UsageAnalytics({ sessions }: UsageAnalyticsProps) {
   }
 
   return (
-    <div className="mb-6">
-      <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
+    <section className="mb-6" aria-labelledby="usage-overview-heading">
+      <h2
+        id="usage-overview-heading"
+        className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3"
+      >
         Usage Overview
       </h2>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -131,13 +137,16 @@ export function UsageAnalytics({ sessions }: UsageAnalyticsProps) {
         />
       </div>
       {stats.failedSessions > 0 && (
-        <div className="mt-3 p-3 bg-red-900/20 border border-red-800 rounded-lg flex items-center gap-3">
-          <AlertCircle className="w-5 h-5 text-red-400" />
+        <div
+          className="mt-3 p-3 bg-red-900/20 border border-red-800 rounded-lg flex items-center gap-3"
+          role="alert"
+        >
+          <AlertCircle className="w-5 h-5 text-red-400" aria-hidden="true" />
           <span className="text-sm text-red-300">
             {stats.failedSessions} agent{stats.failedSessions > 1 ? 's' : ''} in failed state
           </span>
         </div>
       )}
-    </div>
+    </section>
   );
 }

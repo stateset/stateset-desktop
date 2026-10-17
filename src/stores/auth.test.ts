@@ -120,6 +120,11 @@ function createElectronApiMock(overrides: DeepPartial<ElectronApiMock> = {}): El
     ...(overrides.secrets ?? {}),
   } as ElectronApiMock['secrets'];
 
+  const mcp: ElectronApiMock['mcp'] = {
+    probe: vi.fn().mockResolvedValue({ ok: false, error: 'not probed in tests' }),
+    ...(overrides.mcp ?? {}),
+  } as ElectronApiMock['mcp'];
+
   const windowControls: ElectronApiMock['window'] = {
     minimize: vi.fn().mockResolvedValue(undefined),
     maximize: vi.fn().mockResolvedValue(undefined),
@@ -159,6 +164,7 @@ function createElectronApiMock(overrides: DeepPartial<ElectronApiMock> = {}): El
     auth,
     store,
     oauth,
+    mcp,
     secrets,
     window: windowControls,
     app,

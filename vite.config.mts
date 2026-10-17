@@ -20,6 +20,8 @@ if (typeof globalThis.crypto === 'undefined' && nodeCrypto.webcrypto) {
 // These can still be overridden via `.env` or the environment.
 process.env.VITE_API_URL ??= 'https://engine.stateset.cloud.stateset.app';
 process.env.VITE_SANDBOX_API_URL ??= 'https://api.sandbox.stateset.app';
+process.env.VITE_DURABLE_ENGINE_URL ??= 'https://api.workstream.stateset.com';
+process.env.VITE_POLICY_API_URL ??= 'https://api.nsr.stateset.com';
 process.env.VITE_CSP_CONNECT_SRC ??= '';
 
 export default defineConfig({
@@ -31,7 +33,7 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'react-vendor': ['react', 'react-dom', 'react-router'],
           'ui-vendor': ['framer-motion', 'lucide-react'],
           'data-vendor': ['@tanstack/react-query', 'zustand', 'date-fns'],
         },
@@ -54,7 +56,7 @@ export default defineConfig({
     include: ['src/**/*.test.ts', 'src/**/*.test.tsx', 'electron/**/*.test.ts'],
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'json', 'html'],
+      reporter: ['text', 'json', 'json-summary', 'html'],
       include: [
         'src/lib/**/*.ts',
         'src/stores/**/*.ts',
@@ -67,10 +69,10 @@ export default defineConfig({
       exclude: ['**/*.test.*', '**/*.spec.*', '**/*.stories.*'],
       // Regression floor. Bump these up as coverage grows — never down.
       thresholds: {
-        lines: 60,
-        functions: 60,
-        branches: 50,
-        statements: 60,
+        lines: 75,
+        functions: 76,
+        branches: 66,
+        statements: 75,
       },
     },
   },

@@ -894,7 +894,7 @@ export const agentApi = {
       const response = validateResponse(StreamTokenResponseSchema, raw);
       return response.token ?? null;
     } catch (error) {
-      console.warn('[API] Failed to get stream token:', error);
+      apiLogger.warn('Failed to get stream token', { error: String(error) });
       return null;
     }
   },

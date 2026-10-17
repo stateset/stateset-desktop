@@ -2,18 +2,35 @@
 
 import type { Tenant, Brand } from './types';
 
-interface ImportMetaEnv {
-  readonly VITE_API_URL: string;
-  readonly VITE_SANDBOX_API_URL?: string;
-  readonly VITE_ALLOW_STREAM_API_KEY?: string;
-}
-
-interface ImportMeta {
-  readonly env: ImportMetaEnv;
-}
-
 // Electron API types
+export type McpProbeResult =
+  | {
+      ok: true;
+      serverName: string;
+      serverVersion: string;
+      protocolVersion: string;
+      toolCount: number;
+      tools: string[];
+    }
+  | { ok: false; error: string; status?: number; unreachable?: boolean };
+
 interface ElectronAPI {
+  computerChat?: {
+    getConnection: () => Promise<{ engineUrl: string; revision: string }>;
+    request: (request: {
+      engineUrl: string;
+      revision: string;
+      path: string;
+      method: 'GET' | 'POST';
+      tenantId: string;
+      body?: unknown;
+    }) => Promise<{ ok: boolean; status: number; body: unknown }>;
+    saveArtifact: (request: {
+      filename: string;
+      contentBase64: string;
+      sha256: string;
+    }) => Promise<boolean>;
+  };
   store: {
     get: (key: string) => Promise<unknown>;
     set: (key: string, value: unknown) => Promise<boolean>;
@@ -46,6 +63,12 @@ interface ElectronAPI {
     setSandboxApiKey: (apiKey: string) => Promise<boolean>;
     getSandboxApiKey: () => Promise<string | undefined>;
     clearSandboxApiKey: () => Promise<boolean>;
+    setDurableEngineApiKey: (apiKey: string) => Promise<boolean>;
+    getDurableEngineApiKey: () => Promise<string | undefined>;
+    clearDurableEngineApiKey: () => Promise<boolean>;
+  };
+  mcp: {
+    probe: (request: { endpoint: string; authToken?: string }) => Promise<McpProbeResult>;
   };
   secrets: {
     getLocal: () => Promise<string | undefined>;
@@ -65,6 +88,7 @@ interface ElectronAPI {
       version?: string;
       error?: string;
       message?: string;
+      snapshot: UpdateStatusSnapshot;
     }>;
     installUpdate: () => Promise<boolean>;
     getUpdateStatus: () => Promise<UpdateStatusSnapshot>;
@@ -100,7 +124,8 @@ interface UpdateProgress {
 }
 
 interface UpdateStatusSnapshot {
-  status: 'idle' | 'checking' | 'available' | 'downloading' | 'ready' | 'error' | 'disabled';
+  status:
+    'idle' | 'current' | 'checking' | 'available' | 'downloading' | 'ready' | 'error' | 'disabled';
   checking: boolean;
   available: boolean;
   progress: number;
@@ -110,6 +135,18 @@ interface UpdateStatusSnapshot {
 }
 
 declare global {
+  interface ImportMetaEnv {
+    readonly VITE_API_URL: string;
+    readonly VITE_SANDBOX_API_URL?: string;
+    readonly VITE_DURABLE_ENGINE_URL?: string;
+    readonly VITE_POLICY_API_URL?: string;
+    readonly VITE_ALLOW_STREAM_API_KEY?: string;
+  }
+
+  interface ImportMeta {
+    readonly env: ImportMetaEnv;
+  }
+
   interface Window {
     electronAPI?: ElectronAPI;
     __E2E_AUTH__?: { tenant: Tenant; brands: Brand[] };

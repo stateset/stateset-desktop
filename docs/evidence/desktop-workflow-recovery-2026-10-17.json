@@ -1,0 +1,149 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-17T12:42:41.461892+00:00",
+  "source_parent_commit": "5337acae24929d7bc86211b41c8155f6b17eadeb",
+  "scope": "Recover saved workflow configuration safely after local read failures; preserve connection identity, saved workflows and newer settings edits. Correct Electron accessibility scan setup and verify native recovery behavior.",
+  "implementation": [
+    "Keep atomic initialization failed/unready with sanitized recoverable status; retry works after async or synchronous local bridge failure",
+    "Drain every pending native configuration write before snapshot; preserve later writes through generation guard",
+    "Block generic/native chat requests, local chat creation/mutations and all collection persistence until saved settings are loaded",
+    "Shared semantic-theme loading/error/Retry notice in workflows, chat and connection settings",
+    "Hydrate untouched endpoint drafts on recovery; preserve URL/key edits during loading and earlier saves",
+    "Use the established Electron-compatible accessibility scan mode for both updater cases; no accessibility rules disabled.",
+    "Native owned-profile test retains a saved custom engine and completed workflow through a simulated credential read failure, explicit Retry and successful recovery."
+  ],
+  "baseline": {
+    "job": {
+      "id": "a571e6612fc0",
+      "state": "failed",
+      "exit_code": 1,
+      "wait_seconds": 0.016810894012451172,
+      "elapsed_seconds": 2.666029691696167,
+      "log_path": "/home/dom/.local/state/agent-builds/logs/a571e6612fc0.log"
+    },
+    "result": {
+      "passed": 14,
+      "failed": 6,
+      "scope": "Async store/keyring/native rejection, missing atomic drain, unread-array mutation, fallback recovery polling"
+    },
+    "qualification": "Six expected application regression failures in the pre-fix isolated baseline, not queue failures. Loader/test-fixture failures are separately retained in isolated evidence.",
+    "original_ci": {
+      "commit": "5337acae24929d7bc86211b41c8155f6b17eadeb",
+      "build_run": 39032485512,
+      "independent_run": 39032485509,
+      "native_per_suite": {
+        "passed": 75,
+        "live_skipped": 3,
+        "failed": 2
+      },
+      "cause": "Both new updater scans used browser Target.createTarget, unsupported by Electron. The corrected native runs use the existing legacy scan mode.",
+      "qualification": "The original commit did not pass full CI. Original failures and corrected source acceptance are separate records."
+    }
+  },
+  "verification": {
+    "jobs": {
+      "isolated": {
+        "id": "322376e4e9c2",
+        "state": "succeeded",
+        "exit_code": 0,
+        "command_display": "bash /tmp/stateset-desktop-workflow-recovery-focused-w1-p0.sh",
+        "wait_seconds": 0.3140525817871094,
+        "elapsed_seconds": 59.36840462684631
+      },
+      "integrated": {
+        "id": "874768c24d5f",
+        "state": "succeeded",
+        "exit_code": 0,
+        "command_display": "bash /tmp/stateset-desktop-workflow-recovery-quick.sh",
+        "wait_seconds": 0.013408422470092773,
+        "elapsed_seconds": 46.60353994369507
+      },
+      "native": {
+        "id": "9378018f7a09",
+        "state": "succeeded",
+        "exit_code": 0,
+        "command_display": "bash /tmp/stateset-desktop-workflow-recovery-native.sh",
+        "wait_seconds": 97.4900393486023,
+        "elapsed_seconds": 37.766939640045166
+      },
+      "earlier_scan_correction": {
+        "id": "b407c8063c35",
+        "state": "succeeded",
+        "exit_code": 0,
+        "command_display": "bash /tmp/stateset-desktop-updater-native-corrected.sh",
+        "wait_seconds": 0.017761945724487305,
+        "elapsed_seconds": 28.667093753814697
+      }
+    },
+    "unit_tests": 207,
+    "unit_files": 11,
+    "checks": [
+      "Renderer typecheck",
+      "Desktop-test typecheck",
+      "Uncached strict lint; rules unchanged",
+      "Real repository Vite test configuration for integrated tests"
+    ],
+    "native": {
+      "passed": 3,
+      "skipped": 0,
+      "retries": 0,
+      "flaky": 0,
+      "accessibility_violations": 0
+    },
+    "native_report_sha256": "605386a2036d9a4e218f82eb9e9b1bc1196703230d944dfa1e8f7201a09c960c",
+    "source_guard": {
+      "inputs": 645,
+      "manifest_sha256": "4563197d07a1139401188a744136f2e9a11449db15744bed02b0292eaf72809d",
+      "qualification": "Manual before/after hashes, not an immutable queue snapshot."
+    },
+    "dependency_audit": {
+      "production": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 0,
+        "critical": 0,
+        "total": 0
+      },
+      "all": {
+        "info": 0,
+        "low": 0,
+        "moderate": 10,
+        "high": 5,
+        "critical": 0,
+        "total": 15
+      },
+      "qualification": "Unchanged package/lock bytes retain the prior source-bound audit (production 0, development 15 affected-package entries). This is not a fresh full audit; the new exact-head CI production gate is required."
+    },
+    "full_ci": "Required on the next committed source. Focused checks do not establish all platform/bundle/installer acceptance."
+  },
+  "changed_source_sha256": {
+    "src/components/WorkflowInitializationNotice.test.tsx": "52a56de77a715834f13d90e23f227979d7f16ef796b4cf05394a7ea646768758",
+    "src/components/WorkflowInitializationNotice.tsx": "97426cfc1df196003b464bbf54b5d4571edeced7d8d0c1f6f8c5c713ead4fb4f",
+    "src/stores/durableWorkflows.initialization.test.ts": "dd3defa66bc67acfa96bbcc90cb5c22c46d5c6ff8435b96886c8f18eb623d1b6",
+    "CHANGELOG.md": "548ae3c3dd403c0b95d0f6ca317a30489c52581614d6a3775bccd69d7068e370",
+    "e2e/electron.spec.ts": "234ea59561c3e7e32659ffda049b829e2cf9ee4437abdc99660741d5e5f2a905",
+    "src/features/computer-chat/ComputerChat.test.tsx": "27523b09897768f0677fdbcd13122352f728a74f8d17413df9009f3e5df74ba6",
+    "src/features/computer-chat/ComputerChat.tsx": "c920d63d371416e691cfaf4cf906f81bb8c911d7f8743988d3a13cf7037a73b8",
+    "src/features/computer-chat/ComputerChatSettings.tsx": "336f50284bffac7b84685ba5eb3d5ddcf0b60a10abee2b886c48df5221a9519d",
+    "src/features/computer-chat/DurableChatSetup.test.tsx": "80ede48f8f7e42a5978e3a5a26db522749c0dff5b4ae447c52315f3ef6c95d84",
+    "src/features/computer-chat/DurableChatSetup.tsx": "83a24405ea2c61dd1b2a74a431a254b47b71843bea1b1643e61b225145e194d4",
+    "src/features/computer-chat/DurableComputerChat.tsx": "42965b4b5d97001cf595dfb1ee48e3f41c9520b8279985c6fea066013b0ece5e",
+    "src/features/computer-chat/durable.test.ts": "b0a43c741466f1b6f9c0a1c92060b6a2c4075023d385b11623fc81dca7e2ebbe",
+    "src/features/computer-chat/durable.ts": "5ff7254e4bc0091ee6feb51a23419c60a2efe08d863ce77c78080b5a783cc726",
+    "src/features/settings/components/DurableWorkflowSettings.test.tsx": "c89813e0bd383b6598f6250f25013e57e86196b5d6f607c14d6061d195857f30",
+    "src/features/settings/components/DurableWorkflowSettings.tsx": "514fb7414848d6c26c7c6ae1c01b964bcdd888eac944f2edbeebc068b34395df",
+    "src/hooks/useComputerChatRecovery.test.tsx": "415073f25c5d29dd1ffd0cb53adc3988a1dcefe137ef4d4bebfa1266094724fa",
+    "src/hooks/useComputerChatRecovery.ts": "d839b39785190eceb518fd52f8ca2227981c45865a9b758394af8bd4b223a32c",
+    "src/lib/durableWorkflows.test.ts": "96c39c55630df3aa689c5dedee8f8269393b52728be11ac6c067ab2c106ec661",
+    "src/lib/durableWorkflows.ts": "510ef7a6c9429db08debd781d9e1e904ca2d63cfd05da3b80d9200f59a737cce",
+    "src/pages/Workflows.test.tsx": "4ffda5be3a09b5c9eeba6cee6f7af53cd327e77d045cf51e03c5843e3f1b6279",
+    "src/pages/Workflows.tsx": "facd2502ef6d00ea258bd2e4ed000fd414161b2837649383ace62fcc86496bd1",
+    "src/stores/durableWorkflows.ts": "e3af3e0548e757f6876868910474ca424185f6a5087bf8e7efe14760337aa2ac"
+  },
+  "limitations": [
+    "Native credential failures and updater IPC responses are controlled fixtures; no live engine/Temporal/sandbox/provider/NSR execution or real update installation is established.",
+    "Required release signing remains gated. Immutable v1.1.20 stays at fe2f9d6; this work is unreleased.",
+    "Existing isolated native 093c0ee630e5 and Storybook c6b81f3c0d87 jobs were preserved. Their original frozen source does not qualify this integrated candidate."
+  ]
+}

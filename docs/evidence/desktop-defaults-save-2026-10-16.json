@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-16T21:35:07.645424+00:00",
+  "source_parent_commit": "c8a7e00ba45bb736f9910ecf481bb7101f992c66",
+  "scope": "Preserve newer chat-default edits through delayed or failed saves, retain each brand\u2019s committed defaults and restore keyboard focus after removing criteria.",
+  "regression": {
+    "baseline": {
+      "id": "9f30ca9c3a49",
+      "state": "failed",
+      "exit_code": 1,
+      "reason": "",
+      "command_display": "/home/dom/.nvm/versions/node/v22.18.0/bin/node node_modules/vitest/vitest.mjs run src/features/computer-chat/store.test.ts src/features/computer-chat/DurableChatSetup.test.tsx src/features/computer-chat/DurableComputerChat.test.tsx --maxWorkers=1 --no-file-parallelism",
+      "wait_seconds": 256.3627932071686,
+      "elapsed_seconds": 27.884941339492798
+    },
+    "result": "Ten regression tests failed while 66 tests passed across three files. Reproductions included draft replacement, stale success, duplicate writes, cross-brand lost updates, late old-brand errors and lost focus after removal.",
+    "type_correction": {
+      "job": {
+        "id": "6468d87c80e2",
+        "state": "failed",
+        "exit_code": 2,
+        "reason": "",
+        "command_display": "bash /tmp/stateset-desktop-defaults-focused.sh",
+        "wait_seconds": 62.52861261367798,
+        "elapsed_seconds": 81.97856068611145
+      },
+      "result": "Initial verification stopped at three new test queries using an unsupported Testing Library option. Those queries were corrected; no pass is claimed for that attempt."
+    }
+  },
+  "implementation": [
+    "Serialize defaults writes and merge each snapshot with the latest committed brands when its turn starts. Failed or rejected acknowledgements preserve the committed map and allow the next write/retry.",
+    "Keep edits in the form when preferences are acknowledged. Load stored defaults on workspace entry and initial storage recovery.",
+    "Bind success/error feedback to the submitted draft and scope, prevent duplicate submissions, and ignore stale completions after navigation. Show progress and unsaved changes without replacing the draft.",
+    "Keep save failures inline with a retry message. Return focus to Add criterion after removing a check, including when the eight-check limit had disabled that button."
+  ],
+  "verification": {
+    "focused": {
+      "id": "782cbd6a981c",
+      "state": "succeeded",
+      "exit_code": 0,
+      "reason": "",
+      "command_display": "bash /tmp/stateset-desktop-defaults-focused.sh",
+      "wait_seconds": 247.01719546318054,
+      "elapsed_seconds": 318.11738777160645
+    },
+    "unit_tests": 77,
+    "unit_files": 3,
+    "checks": "Root/E2E types, lint, Electron/renderer builds, unit regressions and four native flows without retries.",
+    "native_stats": {
+      "startTime": "2026-10-16T21:33:42.505Z",
+      "duration": 69276.074,
+      "expected": 4,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "native_method": "Two theme flows gate/fail preference writes only in owned temporary profiles. Successful writes delegate to the actual production IPC storage handler; both retry and survive process restart. Two existing criteria flows check layout, accessibility and keyboard focus after removal.",
+    "native_screenshots_sha256": {
+      "dist/verification/native-defaults-save-dark.png": "eba28a5b6a50a63d35db812e215d33578b3d1ad4691f346a72b68e2d15cf0d36",
+      "dist/verification/native-defaults-save-light.png": "d126941f27babbee3d8626da7d18c8df5286941d1f60939e5f4d9f78d646253c"
+    },
+    "source_guard": {
+      "inputs": 627,
+      "manifest_sha256": "3542cf2114249f49cbded46de9e95e3a780eba938d19905a35b739c884c27058",
+      "qualification": "Manual hashes sealed after lint/format preparation and compared after checks; not an immutable queue snapshot."
+    },
+    "full_validation": "Pending exact-head CI after normal-hook commit and push; parent CI does not qualify this change."
+  },
+  "changed_source_sha256": {
+    "src/features/computer-chat/store.ts": "07890cfb81c582a5bc7ec6f684807a864fc7cdab5cfe77588aad6293203bb3ec",
+    "src/features/computer-chat/store.test.ts": "f5f65a076cbe7d3c0e1c3997ea9fa45a0d4ac5a485503afcff93dd64ac042ce0",
+    "src/features/computer-chat/DurableChatSetup.tsx": "75a918257feba6394eccbf9166b6f8cb243d829bf0897b481b07669af623d34d",
+    "src/features/computer-chat/DurableChatSetup.test.tsx": "09c31b66bbc2700324e85e1f916dd18bdeab7529396b921b10a2e58c6cb92a57",
+    "src/features/computer-chat/DurableComputerChat.tsx": "e727b2849628bcd97eb3e1931b19a51fadb97a95acb3aca68dbbd128a06e3170",
+    "src/features/computer-chat/DurableComputerChat.test.tsx": "c0ca12759503df85fec2c091b93d0954a1f93d38dd3cedaa276911563307ac78",
+    "e2e/computer-chat.spec.ts": "b8ed579e6ba336dc4d8236bd2ecad568d9320653efbc34d9511b5991dbb86da9",
+    "docs/COMPUTER_CHATS.md": "fd89e3891a19a794df138ed788afb5dedd7f5225f99fdc77bd519c3ff01500ec",
+    "CHANGELOG.md": "6877b41ef450237908e7868d2f5cbe0820cb87d822627fa30fd9c3e45e0145c2"
+  },
+  "limitations": [
+    "Storage delays/failures are deliberately injected test conditions; the real main-process handler normally returns true or throws. The false-ack test is a compatibility boundary check, not an observed native disk error.",
+    "No live engine/Temporal/sandbox/NSR acceptance. A designated CHAT_TEST workspace is still required.",
+    "No version/tag/release or update publication; v1.1.19 unchanged."
+  ]
+}

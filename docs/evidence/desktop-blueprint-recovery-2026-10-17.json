@@ -1,0 +1,339 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-17T15:55:43.194215+00:00",
+  "source_parent_commit": "3acb2f1b15ef53c1fa6083f5b18b6cbdb01a5dff",
+  "scope": "Preserve saved workflow blueprints through concurrent writes and failed imports; keep workflow controls readable at smaller window sizes.",
+  "baseline": {
+    "commit": "3acb2f1b15ef53c1fa6083f5b18b6cbdb01a5dff",
+    "ci_counts": {
+      "unit_files": 227,
+      "unit": 2861,
+      "native_per_suite": 79,
+      "live_skipped_per_suite": 3,
+      "linux_bundle": 1,
+      "linux_installers": 3
+    },
+    "workflows": {
+      "build": {
+        "databaseId": 39042542584,
+        "url": "https://github.com/stateset/stateset-desktop/actions/runs/39042542584",
+        "conclusion": "success"
+      },
+      "e2e": {
+        "databaseId": 39042542727,
+        "url": "https://github.com/stateset/stateset-desktop/actions/runs/39042542727",
+        "conclusion": "success"
+      }
+    },
+    "qualification": "Previous exact-head CI passed. Blueprint lost-update and false-success risks were identified through code review; no separate pre-fix failing baseline run was performed."
+  },
+  "implementation": [
+    "Serialize blueprint saves, removals and atomic batch upserts on one recoverable queue; merge against the latest acknowledged collection and deep-copy inputs before enqueue.",
+    "Validate the whole batch, duplicate IDs and inline secrets before writing. Require a native setter and reject false acknowledgements; publish only after accepted persistence, retaining legacy undefined acknowledgements from a real setter.",
+    "Import a validated bundle in one write; preserve input ordering and unrelated saved rows. Rejected imports do not leave partial rows.",
+    "Guard blueprint actions before awaits and release in finally. Keep selection/name stable while pending, retain newer goal/command edits, and catch save/import/delete/export failures without false success.",
+    "Stack workflow title/actions below the wide-screen breakpoint, keep full labels and icons, and use consistent button height.",
+    "Native save/import and actual process restart retain all three blueprint identities and ordering; deletion preserves the working goal and commands.",
+    "Native scheduled-run recovery retains its original identity and zero launch POSTs while checking layouts and scoped Axe in both themes at standard and actual minimum native window sizes.",
+    "Associate Commands with a separate visible label so its exact label remains stable when a saved multi-step definition populates the textarea."
+  ],
+  "verification": {
+    "jobs": {
+      "integrated": {
+        "id": "568a20c9ebd2",
+        "state": "succeeded",
+        "exit_code": 0,
+        "command_display": "bash /tmp/stateset-desktop-blueprint-final.sh",
+        "wait_seconds": 0.9630105495452881,
+        "elapsed_seconds": 131.09140276908875
+      }
+    },
+    "queue_qualification": "Unit/static checks and the native phases share one sequential Buildr admission.",
+    "earlier_attempt": {
+      "job": "508630d23aaf",
+      "result": "failed",
+      "passed_checks": ["Both typechecks", "Uncached strict lint", "158 focused tests in 10 files"],
+      "native_failures": [
+        "The expanded four theme/window passes with page reloads exceeded the scheduled case's 60-second budget under shared workstation load. The revised case uses the actual theme switch, retaining all layout, accessibility and recovery assertions.",
+        "The exact Commands label included the nested populated textarea's text. Native snapshots and the screenshot already showed successful restoration. A separate explicit label fixes the semantic association while retaining exact label assertions."
+      ],
+      "qualification": "Observed test/harness failures, not attributed to Buildr. Failed reports, traces, screenshots and source hashes retained under dist/verification/blueprint-508630d23aaf-failure."
+    },
+    "intermediate_static_failure": {
+      "job": "ece84a611f0d",
+      "result": "failed",
+      "reason": "An unsupported exact option in a new Testing Library getByRole assertion failed the renderer typecheck. Removed the option; string name matching remains exact by default.",
+      "passed_checks": [
+        "Desktop-test typecheck",
+        "Uncached strict lint",
+        "158 focused tests in 10 files"
+      ],
+      "native_phase": "Not run after static gate failure.",
+      "evidence_directory": "dist/verification/blueprint-ece84a611f0d-typecheck-failure",
+      "qualification": "Test-source type error, not a Buildr failure."
+    },
+    "unit_tests": 158,
+    "unit_files": 10,
+    "checks": [
+      "Renderer typecheck",
+      "Desktop-test typecheck",
+      "Uncached strict lint; rules unchanged",
+      "Real repository Vite test configuration; single worker"
+    ],
+    "native": {
+      "passed": 2,
+      "skipped": 0,
+      "retries": 0,
+      "flaky": 0,
+      "scoped_axe_violations": 0,
+      "scope": "Workflow header and pending schedule, dark/light at standard/minimum native window sizes",
+      "receipts": {
+        "scheduled_recovery": {
+          "attachment_sha256": "f09a9f2604910c402add84a4a4817a93c43e989613a9cf5d74ae7e15cf0614fb",
+          "status_path": "/v1/workflows/active-horizon-agent/active-horizon-agent-22222222222242228222222222222222-33333333333343338333333333333333/status",
+          "status_get_count": 2,
+          "ambient_root_probe_count": 0,
+          "primary_styles": {
+            "dark": {
+              "beforeScan": {
+                "text": " New workflow",
+                "color": "rgb(255, 255, 255)",
+                "textFillColor": "rgb(255, 255, 255)",
+                "background": "rgb(3, 105, 161)",
+                "opacity": "1",
+                "visibility": "visible"
+              },
+              "afterScan": {
+                "text": " New workflow",
+                "color": "rgb(255, 255, 255)",
+                "textFillColor": "rgb(255, 255, 255)",
+                "background": "rgb(3, 105, 161)",
+                "opacity": "1",
+                "visibility": "visible"
+              }
+            },
+            "light": {
+              "beforeScan": {
+                "text": " New workflow",
+                "color": "rgb(255, 255, 255)",
+                "textFillColor": "rgb(255, 255, 255)",
+                "background": "rgb(3, 105, 161)",
+                "opacity": "1",
+                "visibility": "visible"
+              },
+              "afterScan": {
+                "text": " New workflow",
+                "color": "rgb(255, 255, 255)",
+                "textFillColor": "rgb(255, 255, 255)",
+                "background": "rgb(3, 105, 161)",
+                "opacity": "1",
+                "visibility": "visible"
+              }
+            }
+          },
+          "viewport_layouts": {
+            "standard-dark": {
+              "viewportWidth": 1024,
+              "viewportHeight": 768,
+              "stacked": true,
+              "viewportFits": true,
+              "headerFits": true,
+              "buttons": [
+                {
+                  "name": "Agents",
+                  "lines": 1,
+                  "fits": true
+                },
+                {
+                  "name": "Track existing",
+                  "lines": 1,
+                  "fits": true
+                },
+                {
+                  "name": "New workflow",
+                  "lines": 1,
+                  "fits": true
+                }
+              ]
+            },
+            "standard-light": {
+              "viewportWidth": 1024,
+              "viewportHeight": 768,
+              "stacked": true,
+              "viewportFits": true,
+              "headerFits": true,
+              "buttons": [
+                {
+                  "name": "Agents",
+                  "lines": 1,
+                  "fits": true
+                },
+                {
+                  "name": "Track existing",
+                  "lines": 1,
+                  "fits": true
+                },
+                {
+                  "name": "New workflow",
+                  "lines": 1,
+                  "fits": true
+                }
+              ]
+            },
+            "minimum-dark": {
+              "viewportWidth": 1000,
+              "viewportHeight": 673,
+              "stacked": true,
+              "viewportFits": true,
+              "headerFits": true,
+              "buttons": [
+                {
+                  "name": "Agents",
+                  "lines": 1,
+                  "fits": true
+                },
+                {
+                  "name": "Track existing",
+                  "lines": 1,
+                  "fits": true
+                },
+                {
+                  "name": "New workflow",
+                  "lines": 1,
+                  "fits": true
+                }
+              ]
+            },
+            "minimum-light": {
+              "viewportWidth": 1000,
+              "viewportHeight": 673,
+              "stacked": true,
+              "viewportFits": true,
+              "headerFits": true,
+              "buttons": [
+                {
+                  "name": "Agents",
+                  "lines": 1,
+                  "fits": true
+                },
+                {
+                  "name": "Track existing",
+                  "lines": 1,
+                  "fits": true
+                },
+                {
+                  "name": "New workflow",
+                  "lines": 1,
+                  "fits": true
+                }
+              ]
+            }
+          },
+          "qualification": "Computed style checks preserve visible button text before/after the scoped Axe scan; this does not replace the test's accessibility analysis."
+        },
+        "blueprint_persistence": {
+          "attachment_sha256": "0d9bfe4492df6622418dd4cdf0595bc42a1986e387d731fa9896662232fbf390",
+          "before_restart": [
+            {
+              "id": "blueprint-83c86dca-8d66-42fa-aa92-3d0bf57ee09d",
+              "name": "Orders audit"
+            },
+            {
+              "id": "blueprint-96c3d3eb-5eeb-499f-891d-edc09a22b25d",
+              "name": "Returns audit"
+            },
+            {
+              "id": "blueprint-3b0cb1a3-8314-47ea-82f6-ad1af21e0c7d",
+              "name": "Weekly inventory"
+            }
+          ],
+          "after_restart": [
+            {
+              "id": "blueprint-83c86dca-8d66-42fa-aa92-3d0bf57ee09d",
+              "name": "Orders audit"
+            },
+            {
+              "id": "blueprint-96c3d3eb-5eeb-499f-891d-edc09a22b25d",
+              "name": "Returns audit"
+            },
+            {
+              "id": "blueprint-3b0cb1a3-8314-47ea-82f6-ad1af21e0c7d",
+              "name": "Weekly inventory"
+            }
+          ],
+          "after_delete": [
+            {
+              "id": "blueprint-96c3d3eb-5eeb-499f-891d-edc09a22b25d",
+              "name": "Returns audit"
+            },
+            {
+              "id": "blueprint-3b0cb1a3-8314-47ea-82f6-ad1af21e0c7d",
+              "name": "Weekly inventory"
+            }
+          ],
+          "working_draft_preserved": true
+        }
+      },
+      "qualification": "Owned native profiles and controlled HTTP fixture; real memory-only credential fallback, encrypted configuration storage and normal native bridges. Not host keyring or live engine/Temporal/sandbox/provider/NSR acceptance."
+    },
+    "unit_report_sha256": "00dfc9ff74410618f4ff15762b7e319f45fa2aa1df7dcd95749b78b05715dcd6",
+    "native_report_sha256": "68661ee5b546b81eebd5c38d163815f492e4d21b5f2ef9104f4f6e454745344c",
+    "source_guard": {
+      "inputs": 650,
+      "manifest_sha256": "9a6ea76cd8aca5b920b57f756dcd922cd4923c94dddce2e56a7f97f7419c9847",
+      "qualification": "Manual before/after hashes, not an immutable queue snapshot."
+    },
+    "screenshots": {
+      "schedule-pending-dark.png": {
+        "path": "dist/verification/blueprint-native/schedule-pending-dark.png",
+        "sha256": "a269c6326ffd63633eb0304afc39886b3c3b58ed0ef104274958359ad1ed6e54"
+      },
+      "schedule-pending-light.png": {
+        "path": "dist/verification/blueprint-native/schedule-pending-light.png",
+        "sha256": "0f8ecdc36d9429ed3e983b8816b0a6141691a9a90b300cbaf26ec25ff3742606"
+      },
+      "schedule-pending-minimum-dark.png": {
+        "path": "dist/verification/blueprint-native/schedule-pending-minimum-dark.png",
+        "sha256": "681bd45f9aa4e1271bfdfc2364e053525fbdcabbfbcead6b539987da5bf568da"
+      },
+      "schedule-pending-minimum-light.png": {
+        "path": "dist/verification/blueprint-native/schedule-pending-minimum-light.png",
+        "sha256": "2dccd3b49f23069c0c8a945282c0208ea16aac98b5e73699b03cfd50b207e580"
+      }
+    },
+    "dependency_audit": {
+      "production": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 0,
+        "critical": 0,
+        "total": 0
+      },
+      "all": {
+        "info": 0,
+        "low": 0,
+        "moderate": 10,
+        "high": 5,
+        "critical": 0,
+        "total": 15
+      },
+      "qualification": "Unchanged package/lock bytes retain the prior source-bound audit (production 0, development 15 affected-package entries). This is not a fresh full audit; the new exact-head CI production gate is required."
+    },
+    "full_ci": "Required on the next committed source. Focused/native checks do not establish full platform/bundle/installer acceptance."
+  },
+  "changed_source_sha256": {
+    "docs/DESKTOP_STORAGE.md": "0e1469518ff14c34c09fe3c34c7991f0dae6251d102be1e7944226a021cca6bf",
+    "e2e/startup.spec.ts": "8ae4052f5f69ad0f499840b6522c3cc03605354464de8a92a104d3295817e011",
+    "src/pages/Workflows.test.tsx": "688823bf30533b46f37a4dee0ddf8ece669b7f13735d2e0925091e9cded818fb",
+    "src/pages/Workflows.tsx": "1a5ae341d24f9da41fa79ccfd9e8031d0558d577b83fd5fe5ae4c34394675e6e",
+    "src/stores/durableWorkflowBlueprintPersistence.test.ts": "5183cae05cd798e2bc8817f99ffa95d6e41043a78b9805d452faea689cd149ef",
+    "src/stores/durableWorkflows.ts": "fdfd7ab28b3dc7f4e423850a04e23ea7566c528057d7922a48b1de0699c0a398"
+  },
+  "limitations": [
+    "The batch is one local collection write; tests do not establish a cross-device transaction or live workflow execution.",
+    "Repeated imports after successful persistence intentionally create new copies; failed atomic imports can be retried without partial local rows.",
+    "Scoped Axe and controlled screenshots do not establish whole-application accessibility certification.",
+    "Signed release and live service acceptance remain gated; immutable v1.1.20 stays at fe2f9d6 and this is unreleased branch work."
+  ]
+}

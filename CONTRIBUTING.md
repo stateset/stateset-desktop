@@ -53,6 +53,8 @@ npm run test:e2e
 
 All of these run automatically in CI on every PR.
 
+For what to test, where tests live, and the conventions (happy-dom directive, provider helpers, logger assertions, coverage thresholds), see [docs/TESTING.md](docs/TESTING.md).
+
 ### Code Style
 
 - **ESLint** and **Prettier** are enforced via pre-commit hooks (Husky + lint-staged)

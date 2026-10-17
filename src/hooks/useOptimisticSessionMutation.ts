@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../stores/auth';
 import { queryKeys } from '../lib/queryKeys';
@@ -29,42 +30,84 @@ export function useOptimisticSessionMutation({
 }: UseOptimisticSessionMutationOptions) {
   const tenant = useAuthStore((s) => s.tenant);
   const currentBrand = useAuthStore((s) => s.currentBrand);
+  const apiKey = useAuthStore((s) => s.apiKey);
   const queryClient = useQueryClient();
   const listKey = queryKeys.sessions.list(tenant?.id, currentBrand?.id);
+  const credential = useRef({ value: apiKey, version: 0 });
+  if (credential.current.value !== apiKey) {
+    credential.current = { value: apiKey, version: credential.current.version + 1 };
+  }
+  const isCurrentContext = () => {
+    const auth = useAuthStore.getState();
+    return (
+      auth.tenant?.id === tenant?.id &&
+      auth.currentBrand?.id === currentBrand?.id &&
+      auth.apiKey === apiKey
+    );
+  };
+  const requireContext = () => {
+    const tenantId = tenant?.id;
+    const brandId = currentBrand?.id;
+    if (!tenantId) throw new Error('No tenant selected');
+    if (!brandId) throw new Error('No brand selected');
+    if (!isCurrentContext()) throw new Error('Workspace changed. Please try again.');
+    return { tenantId, brandId };
+  };
 
   return useMutation({
+    // A scope change detaches the observer from an in-flight mutation, keeping
+    // its callbacks bound to the original operation. Never put credentials in keys.
+    mutationKey: [
+      'session-lifecycle',
+      tenant?.id,
+      currentBrand?.id,
+      credential.current.version,
+      optimisticStatus,
+    ],
     mutationFn: (sessionId: string) => {
-      if (!tenant?.id) throw new Error('No tenant selected');
-      if (!currentBrand?.id) throw new Error('No brand selected');
-      return mutationFn(tenant.id, currentBrand.id, sessionId);
+      const { tenantId, brandId } = requireContext();
+      return mutationFn(tenantId, brandId, sessionId);
     },
     onMutate: async (sessionId: string) => {
-      await queryClient.cancelQueries({ queryKey: listKey });
+      requireContext();
+      await queryClient.cancelQueries({ queryKey: listKey, exact: true });
+      requireContext();
 
       const previousSessions = queryClient.getQueryData<AgentSession[]>(listKey);
+      let optimisticSessions: AgentSession[] | undefined;
 
       if (previousSessions) {
-        queryClient.setQueryData<AgentSession[]>(
+        optimisticSessions = queryClient.setQueryData<AgentSession[]>(
           listKey,
           previousSessions.map((s) => (s.id === sessionId ? { ...s, status: optimisticStatus } : s))
         );
         uiLogger.debug(`Optimistic update: session ${optimisticStatus}`, { sessionId });
       }
 
-      return { previousSessions };
+      return { listKey, previousSessions, optimisticSessions };
     },
     onError: (error, sessionId, context) => {
-      if (context?.previousSessions) {
-        queryClient.setQueryData(listKey, context.previousSessions);
+      if (
+        context?.previousSessions &&
+        useAuthStore.getState().apiKey === apiKey &&
+        queryClient.getQueryData(context.listKey) === context.optimisticSessions
+      ) {
+        // Preserve a newer response, another optimistic update, or a cleared cache.
+        queryClient.setQueryData(context.listKey, context.previousSessions);
         uiLogger.warn('Rolled back optimistic update', { sessionId });
       }
-      onError?.(error);
+      if (isCurrentContext()) onError?.(error);
     },
     onSuccess: () => {
-      onSuccess?.();
+      if (isCurrentContext()) onSuccess?.();
     },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.sessions.all });
+    onSettled: (_data, _error, _sessionId, context) => {
+      if (!tenant?.id || !currentBrand?.id) return;
+      return queryClient.invalidateQueries({
+        queryKey: context?.listKey ?? listKey,
+        exact: true,
+        refetchType: isCurrentContext() ? 'active' : 'none',
+      });
     },
   });
 }

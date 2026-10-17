@@ -1,6 +1,7 @@
 /** @vitest-environment happy-dom */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen, waitFor, fireEvent } from '@testing-library/react';
+import { MotionConfig } from 'framer-motion';
 import { renderWithProviders, mockElectronAPI } from '../test-utils';
 
 vi.mock('../hooks/usePageTitle', () => ({
@@ -36,6 +37,21 @@ const loadSettings = async () => {
 };
 
 describe('Settings page', () => {
+  it('keeps sections fully visible immediately when the app requests reduced motion', async () => {
+    const Settings = await loadSettings();
+    renderWithProviders(
+      <MotionConfig reducedMotion="always">
+        <Settings />
+      </MotionConfig>
+    );
+    const section = () => screen.getByTestId('account-settings').parentElement!;
+    expect(getComputedStyle(section()).opacity || '1').toBe('1');
+    fireEvent.click(screen.getByRole('button', { name: 'Appearance' }));
+    const appearance = screen.getByTestId('appearance-settings').parentElement!;
+    expect(getComputedStyle(appearance).opacity || '1').toBe('1');
+    await waitFor(() => expect(window.electronAPI!.app.getVersion).toHaveBeenCalled());
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     mockElectronAPI();

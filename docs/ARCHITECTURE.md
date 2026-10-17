@@ -117,6 +117,8 @@ src/
 
 - All network-backed entities (sessions, connections, webhooks, etc.) live in React Query caches.
 - Query keys are centralized in `src/lib/queryKeys.ts`.
+- Optimistic agent lifecycle mutations retain their originating tenant, brand and credential context. Changing that context detaches the pending observer and prevents a deferred request from using the newly selected workspace.
+- Rollbacks target the original list only when its optimistic snapshot is still current and the credential has not changed. They preserve newer server data and do not recreate caches cleared by logout. Late notifications are suppressed outside the originating context; refreshes invalidate that exact list without refetching a previous workspace.
 - Mutations invalidate/refetch affected keys after writes.
 
 ### Client/App State (Zustand)
@@ -154,7 +156,7 @@ This is the end-to-end path for pressing **Start** on Dashboard and then observi
 3. Mutation calls `agentApi.startSession(tenantId, brandId, sessionId)`.
 4. `agentApi.startSession` issues `POST /api/v1/tenants/:tenantId/brands/:brandId/agents/:sessionId/start`.
 5. `apiRequest()` applies timeout/retry/circuit-breaker + metrics instrumentation.
-6. On success, React Query invalidates sessions and refetches canonical state.
+6. On completion, React Query invalidates the originating session list and refetches it only while its auth context is still current.
 7. Session status transitions to running in refreshed query data.
 8. Agent Console (`src/pages/AgentConsole.tsx`) uses `useAgentStream()` to connect to SSE endpoint.
 9. Stream events are parsed and normalized in `src/hooks/useAgentStream.ts`.

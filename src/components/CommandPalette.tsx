@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import { useNavigate } from 'react-router';
 import { createPortal } from 'react-dom';
 import {
   Search,
@@ -19,9 +19,10 @@ import {
   Mic,
   PlayCircle,
   AlertCircle,
+  Workflow,
 } from 'lucide-react';
 import clsx from 'clsx';
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotionConfig } from 'framer-motion';
 
 interface CommandItem {
   id: string;
@@ -30,7 +31,14 @@ interface CommandItem {
   icon: React.ElementType;
   shortcut?: string;
   action: () => void;
-  category: 'navigation' | 'actions' | 'agents';
+  category: 'navigation' | 'actions' | 'chats' | 'agents';
+}
+
+export interface CommandPaletteChat {
+  id: string;
+  title: string;
+  status: string;
+  archived?: boolean;
 }
 
 interface CommandPaletteProps {
@@ -39,6 +47,7 @@ interface CommandPaletteProps {
   onCreateAgent?: () => void;
   onRefresh?: () => void;
   agents?: Array<{ id: string; agent_type: string; status: string; name?: string | null }>;
+  chats?: CommandPaletteChat[];
 }
 
 export function CommandPalette({
@@ -47,17 +56,19 @@ export function CommandPalette({
   onCreateAgent,
   onRefresh,
   agents = [],
+  chats = [],
 }: CommandPaletteProps) {
   const [query, setQuery] = useState('');
-  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [selection, setSelection] = useState<string>();
   const inputRef = useRef<HTMLInputElement>(null);
+  const closeButton = useRef<HTMLButtonElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
   const isOpenRef = useRef(isOpen);
   const filteredCommandsRef = useRef<CommandItem[]>([]);
   const selectedIndexRef = useRef(0);
   const onCloseRef = useRef(onClose);
   const navigate = useNavigate();
-  const reduceMotion = useReducedMotion();
+  const reduceMotion = useReducedMotionConfig();
   const dur = reduceMotion ? 0 : 0.2;
 
   const statusRank = (status: string): number => {
@@ -136,8 +147,8 @@ export function CommandPalette({
     },
     {
       id: 'playground',
-      label: 'Go to Playground',
-      description: 'Chat with agents directly',
+      label: 'Go to Chats',
+      description: 'Open a sandbox computer conversation',
       icon: MessageSquare,
       shortcut: 'Ctrl/Cmd+Shift+P',
       action: () => {
@@ -153,6 +164,17 @@ export function CommandPalette({
       icon: Webhook,
       action: () => {
         navigate('/webhooks');
+        onClose();
+      },
+      category: 'navigation',
+    },
+    {
+      id: 'workflows',
+      label: 'Go to Workflows',
+      description: 'Open durable workflow runs',
+      icon: Workflow,
+      action: () => {
+        navigate('/workflows');
         onClose();
       },
       category: 'navigation',
@@ -252,6 +274,17 @@ export function CommandPalette({
           },
         ]
       : []),
+    ...chats.map((chat) => ({
+      id: `chat-${chat.id}`,
+      label: chat.title,
+      description: `${chat.archived ? 'Archived conversation' : 'Computer chat'} · ${chat.status.replace(/_/g, ' ')}`,
+      icon: MessageSquare,
+      action: () => {
+        navigate(`/playground?chat=${encodeURIComponent(chat.id)}`);
+        onClose();
+      },
+      category: 'chats' as const,
+    })),
     ...sortedAgents.map((agent) => ({
       id: `agent-${agent.id}`,
       label: agent.name?.trim()
@@ -271,27 +304,28 @@ export function CommandPalette({
     })),
   ];
 
-  const filteredCommands = commands.filter(
-    (cmd) =>
-      cmd.label.toLowerCase().includes(query.toLowerCase()) ||
-      cmd.description?.toLowerCase().includes(query.toLowerCase())
+  const terms = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
+  let matchedChats = 0;
+  const filteredCommands = commands.filter((cmd) => {
+    const text = `${cmd.label} ${cmd.description ?? ''}`.toLocaleLowerCase();
+    if (!terms.every((term) => text.includes(term))) return false;
+    return cmd.category !== 'chats' || ++matchedChats <= 30;
+  });
+
+  const selectedIndex = Math.max(
+    0,
+    filteredCommands.findIndex((command) => command.id === selection)
   );
-
-  useEffect(() => {
+  const selectedId = filteredCommands[selectedIndex]?.id;
+  useLayoutEffect(() => {
     isOpenRef.current = isOpen;
-  }, [isOpen]);
-
-  useEffect(() => {
     filteredCommandsRef.current = filteredCommands;
-  }, [filteredCommands]);
-
-  useEffect(() => {
     selectedIndexRef.current = selectedIndex;
-  }, [selectedIndex]);
-
-  useEffect(() => {
     onCloseRef.current = onClose;
-  }, [onClose]);
+    // Retain identity through live reordering and establish an explicit first
+    // result after a new query or removal, including when that first id is unchanged.
+    if (selection !== selectedId) setSelection(selectedId);
+  }, [filteredCommands, isOpen, onClose, selectedIndex, selectedId, selection]);
 
   useEffect(() => {
     if (isOpen && document.activeElement instanceof HTMLElement) {
@@ -310,7 +344,8 @@ export function CommandPalette({
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (!isOpenRef.current) return;
+      if (!isOpenRef.current || e.defaultPrevented || e.isComposing) return;
+      if (e.key !== 'Escape' && e.target !== inputRef.current) return;
 
       const currentCommands = filteredCommandsRef.current;
       if (currentCommands.length === 0) {
@@ -324,11 +359,24 @@ export function CommandPalette({
       switch (e.key) {
         case 'ArrowDown':
           e.preventDefault();
-          setSelectedIndex((i) => (i + 1) % currentCommands.length);
+          setSelection((current) => {
+            const index = Math.max(
+              0,
+              currentCommands.findIndex((command) => command.id === current)
+            );
+            return currentCommands[(index + 1) % currentCommands.length]?.id;
+          });
           break;
         case 'ArrowUp':
           e.preventDefault();
-          setSelectedIndex((i) => (i - 1 < 0 ? Math.max(currentCommands.length - 1, 0) : i - 1));
+          setSelection((current) => {
+            const index = Math.max(
+              0,
+              currentCommands.findIndex((command) => command.id === current)
+            );
+            return currentCommands[(index + currentCommands.length - 1) % currentCommands.length]
+              ?.id;
+          });
           break;
         case 'Enter':
           e.preventDefault();
@@ -348,43 +396,36 @@ export function CommandPalette({
   useEffect(() => {
     if (isOpen) {
       setQuery('');
-      setSelectedIndex(0);
-      setTimeout(() => inputRef.current?.focus(), 50);
+      setSelection(undefined);
+      inputRef.current?.focus();
     }
   }, [isOpen]);
 
   useEffect(() => {
-    setSelectedIndex((previousIndex) => {
-      if (filteredCommands.length === 0) {
-        return 0;
-      }
-      if (previousIndex >= filteredCommands.length) {
-        return Math.max(filteredCommands.length - 1, 0);
-      }
-      return previousIndex;
-    });
-  }, [query, filteredCommands.length]);
-
-  useEffect(() => {
-    const selectedId = filteredCommands[selectedIndex]?.id;
     if (!isOpen || !selectedId) return;
-
-    const selectedElement = document.getElementById(`command-option-${selectedId}`);
-    selectedElement?.scrollIntoView({
+    document.getElementById(`command-option-${selectedId}`)?.scrollIntoView({
       block: 'nearest',
-      behavior: 'smooth',
+      behavior: reduceMotion ? 'instant' : 'smooth',
     });
-  }, [filteredCommands, selectedIndex, isOpen]);
+  }, [selectedId, selectedIndex, isOpen, query, reduceMotion]);
 
-  const selectedId = filteredCommands[selectedIndex]?.id;
+  const selectIndex = (index: number) => setSelection(filteredCommands[index]?.id);
 
   const groupedCommands = {
     navigation: filteredCommands.filter((c) => c.category === 'navigation'),
     actions: filteredCommands.filter((c) => c.category === 'actions'),
+    chats: filteredCommands.filter((c) => c.category === 'chats'),
     agents: filteredCommands.filter((c) => c.category === 'agents'),
   };
 
   const handleDialogKeyDownCapture = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.nativeEvent.isComposing) return;
+    if (event.key === 'Tab') {
+      event.preventDefault();
+      if (document.activeElement === inputRef.current) closeButton.current?.focus();
+      else inputRef.current?.focus();
+      return;
+    }
     if (event.key !== 'Escape') {
       return;
     }
@@ -399,22 +440,22 @@ export function CommandPalette({
     <AnimatePresence>
       {isOpen ? (
         <motion.div
-          initial={{ opacity: 0 }}
+          initial={reduceMotion ? false : { opacity: 0 }}
           animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
+          exit={reduceMotion ? undefined : { opacity: 0 }}
           transition={{ duration: dur }}
           className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh] bg-slate-950/60 backdrop-blur-md"
           onClick={onClose}
         >
           <motion.div
-            initial={{ opacity: 0, scale: 0.96, y: -16 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.96, y: -16 }}
+            initial={reduceMotion ? false : { opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={reduceMotion ? undefined : { opacity: 0 }}
             transition={{ duration: dur, ease: [0.16, 1, 0.3, 1] }}
             role="dialog"
             aria-modal="true"
             aria-labelledby="command-palette-title"
-            className="w-[min(92vw,36rem)] bg-slate-900/80 backdrop-blur-xl border border-slate-700/60 rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+            className="command-palette w-[min(92vw,36rem)] border border-slate-700/60 rounded-xl shadow-xl overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
             onKeyDownCapture={handleDialogKeyDownCapture}
           >
@@ -427,26 +468,32 @@ export function CommandPalette({
               <input
                 id="command-palette-search"
                 ref={inputRef}
-                role="searchbox"
+                role="combobox"
                 autoComplete="off"
                 spellCheck={false}
                 aria-autocomplete="list"
+                aria-expanded={isOpen}
+                aria-activedescendant={selectedId ? `command-option-${selectedId}` : undefined}
                 aria-controls="command-palette-results"
                 aria-label="Search commands"
                 type="text"
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setSelection(undefined);
+                }}
                 placeholder="Search commands..."
-                className="flex-1 bg-transparent text-gray-100 placeholder-gray-500 focus:outline-none text-lg font-medium"
+                className="min-w-0 flex-1 bg-transparent text-gray-100 placeholder-gray-400 focus:outline-none text-sm"
               />
-              <kbd className="hidden sm:flex items-center gap-1 px-2 py-1 text-xs font-bold text-gray-500 bg-slate-800/80 border border-slate-700 rounded-md">
+              <kbd className="hidden sm:flex items-center gap-1 px-2 py-1 text-xs font-bold text-gray-400 bg-slate-800/80 border border-slate-700 rounded-md">
                 <Command className="w-3 h-3" aria-hidden="true" />K
               </kbd>
               <button
+                ref={closeButton}
                 type="button"
                 onClick={onClose}
                 aria-label="Close command palette"
-                className="rounded-lg p-1.5 text-gray-500 hover:text-gray-300 hover:bg-slate-800/80 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
+                className="rounded-lg p-1.5 text-gray-400 hover:text-gray-300 hover:bg-slate-800/80 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
               >
                 <X className="w-5 h-5" aria-hidden="true" />
               </button>
@@ -460,11 +507,12 @@ export function CommandPalette({
             <div
               id="command-palette-results"
               role="listbox"
+              aria-label="Commands and conversations"
               aria-activedescendant={selectedId ? `command-option-${selectedId}` : undefined}
-              className="max-h-[60vh] overflow-y-auto p-2 scroll-smooth"
+              className="max-h-[60vh] overflow-y-auto p-2 scroll-smooth motion-reduce:scroll-auto"
             >
               {filteredCommands.length === 0 ? (
-                <div className="px-4 py-12 text-center text-gray-500">
+                <div className="px-4 py-12 text-center text-gray-400">
                   <p className="text-sm">No commands found for "{query}"</p>
                 </div>
               ) : (
@@ -475,7 +523,7 @@ export function CommandPalette({
                       commands={groupedCommands.navigation}
                       selectedIndex={selectedIndex}
                       startIndex={0}
-                      onHoverIndex={(nextIndex) => setSelectedIndex(nextIndex)}
+                      onHoverIndex={selectIndex}
                     />
                   )}
                   {groupedCommands.actions.length > 0 && (
@@ -484,7 +532,20 @@ export function CommandPalette({
                       commands={groupedCommands.actions}
                       selectedIndex={selectedIndex}
                       startIndex={groupedCommands.navigation.length}
-                      onHoverIndex={(nextIndex) => setSelectedIndex(nextIndex)}
+                      onHoverIndex={selectIndex}
+                    />
+                  )}
+                  {groupedCommands.chats.length > 0 && (
+                    <CommandGroup
+                      title={
+                        matchedChats > 30 ? 'Conversations · first 30 matches' : 'Conversations'
+                      }
+                      commands={groupedCommands.chats}
+                      selectedIndex={selectedIndex}
+                      startIndex={
+                        groupedCommands.navigation.length + groupedCommands.actions.length
+                      }
+                      onHoverIndex={selectIndex}
                     />
                   )}
                   {groupedCommands.agents.length > 0 && (
@@ -493,9 +554,11 @@ export function CommandPalette({
                       commands={groupedCommands.agents}
                       selectedIndex={selectedIndex}
                       startIndex={
-                        groupedCommands.navigation.length + groupedCommands.actions.length
+                        groupedCommands.navigation.length +
+                        groupedCommands.actions.length +
+                        groupedCommands.chats.length
                       }
-                      onHoverIndex={(nextIndex) => setSelectedIndex(nextIndex)}
+                      onHoverIndex={selectIndex}
                     />
                   )}
                 </>
@@ -503,7 +566,7 @@ export function CommandPalette({
             </div>
 
             {/* Footer */}
-            <div className="flex items-center justify-between px-4 py-2.5 border-t border-slate-700/60 bg-slate-900/50 text-[11px] font-medium text-gray-500">
+            <div className="flex items-center justify-between px-4 py-2.5 border-t border-slate-700/60 bg-slate-900/50 text-[11px] font-medium text-gray-400">
               <div className="flex items-center gap-4">
                 <span className="flex items-center gap-1.5">
                   <kbd className="px-1.5 py-0.5 bg-slate-800/80 border border-slate-700 rounded-md">
@@ -550,7 +613,7 @@ function CommandGroup({
 }: CommandGroupProps) {
   return (
     <div role="presentation" className="mb-2.5">
-      <div className="px-4 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-widest bg-slate-900/50 sticky top-0 backdrop-blur-md z-10">
+      <div className="px-4 py-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest bg-slate-900/50 sticky top-0 backdrop-blur-md z-10">
         {title}
       </div>
       <div className="px-2 space-y-0.5 mt-1">
@@ -560,44 +623,48 @@ function CommandGroup({
           return (
             <button
               type="button"
+              tabIndex={-1}
               key={cmd.id}
               id={`command-option-${cmd.id}`}
               onClick={cmd.action}
               role="option"
               aria-selected={isSelected}
               aria-label={cmd.label}
+              aria-describedby={
+                cmd.description ? `command-option-${cmd.id}-description` : undefined
+              }
               onMouseEnter={() => onHoverIndex(startIndex + i)}
               onFocus={() => onHoverIndex(startIndex + i)}
               className={clsx(
                 'w-full flex items-center gap-3.5 px-3 py-2.5 rounded-xl transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40',
                 isSelected
-                  ? 'bg-brand-500/15 text-brand-300 border border-brand-500/20 border-l-2 border-l-brand-400 shadow-sm shadow-brand-500/5'
+                  ? 'bg-slate-800/60 text-gray-100 border border-transparent'
                   : 'hover:bg-slate-800/60 text-gray-300 border border-transparent hover:border-slate-700/50'
               )}
             >
               <div
                 className={clsx(
-                  'p-1.5 rounded-lg transition-colors',
-                  isSelected ? 'bg-brand-500/20 text-brand-400' : 'bg-slate-800/80 text-gray-400'
+                  'shrink-0 p-1.5 rounded-lg transition-colors',
+                  isSelected ? 'text-gray-300' : 'text-gray-400'
                 )}
               >
                 <Icon className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
               </div>
-              <div className="flex-1 text-left">
+              <div className="min-w-0 flex-1 text-left">
                 <div
+                  title={cmd.label}
                   className={clsx(
-                    'font-medium text-sm',
-                    isSelected ? 'text-white' : 'text-gray-200'
+                    'line-clamp-2 break-words font-medium text-sm',
+                    isSelected ? 'text-gray-100' : 'text-gray-200'
                   )}
                 >
                   {cmd.label}
                 </div>
                 {cmd.description && (
                   <div
-                    className={clsx(
-                      'text-xs mt-0.5',
-                      isSelected ? 'text-brand-200/80' : 'text-gray-500'
-                    )}
+                    id={`command-option-${cmd.id}-description`}
+                    title={cmd.description}
+                    className="mt-0.5 truncate text-xs text-gray-400"
                   >
                     {cmd.description}
                   </div>
@@ -606,10 +673,10 @@ function CommandGroup({
               {cmd.shortcut && (
                 <kbd
                   className={clsx(
-                    'px-2 py-1 text-[10px] font-bold rounded-md border',
+                    'shrink-0 px-2 py-1 text-[10px] font-bold rounded-md border',
                     isSelected
-                      ? 'bg-brand-500/20 text-brand-300 border-brand-500/30'
-                      : 'bg-slate-800/80 text-gray-500 border-slate-700'
+                      ? 'bg-slate-800/80 text-gray-300 border-slate-700'
+                      : 'bg-slate-800/80 text-gray-400 border-slate-700'
                   )}
                 >
                   {cmd.shortcut}

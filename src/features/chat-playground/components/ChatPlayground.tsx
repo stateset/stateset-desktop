@@ -7,9 +7,12 @@ import { useChatHistory } from '../hooks/useChatHistory';
 import { useAgentStream } from '../../../hooks/useAgentStream';
 import { ConversationList } from './ConversationList';
 import { ChatMessageBubble } from './ChatMessageBubble';
+import { ToolActivityBubble } from './ToolActivityBubble';
 import { ChatInput } from './ChatInput';
 import { QuickConfigBar } from './QuickConfigBar';
+import { McpServerStatusNotice } from '../../connections/components/McpServerStatusNotice';
 import { EmptyState } from '../../../components/EmptyState';
+import { toToolPreview } from '../toolActivity';
 import type { ChatConversation, ChatMessage } from '../../../types';
 
 const SUGGESTED_PROMPTS = [
@@ -42,6 +45,7 @@ export function ChatPlayground() {
   const currentBrand = useAuthStore((s) => s.currentBrand);
   const [model, setModel] = useState('claude-sonnet-4-6');
   const [temperature, setTemperature] = useState(0.7);
+  const [mcpServers, setMcpServers] = useState<string[]>([]);
   const [activeConvoId, setActiveConvoId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const processedStreamIdsRef = useRef<Set<string>>(new Set());
@@ -56,6 +60,7 @@ export function ChatPlayground() {
     activeSessionId,
     sendMessage,
     appendMessage,
+    updateMessage,
     loadConversation,
     startNewChat,
     currentConversation,
@@ -63,6 +68,7 @@ export function ChatPlayground() {
     onError: (msg) => showToast({ variant: 'error', title: 'Chat error', message: msg }),
     model,
     temperature,
+    mcpServers,
   });
 
   const tenantId = tenant?.id ?? '';
@@ -104,9 +110,53 @@ export function ChatPlayground() {
         };
         appendMessage(chatMsg);
         setIsLoading(false);
+      } else if (event.type === 'tool_call') {
+        const id = `tool-${event.id}`;
+        const call: ChatMessage = {
+          id,
+          role: 'tool',
+          content: event.tool_name,
+          timestamp: event._timestamp,
+          tool: { name: event.tool_name, status: 'running', arguments: event.arguments },
+        };
+        // A reconnect can replay a call, and its result may already be here;
+        // upserting keeps one bubble per call and never a duplicate key.
+        updateMessage(
+          id,
+          (message) => ({
+            ...message,
+            content: call.content,
+            // Keep a result that already arrived, but the call knows the name.
+            tool: {
+              ...call.tool!,
+              ...message.tool,
+              name: event.tool_name,
+              arguments: event.arguments,
+            },
+          }),
+          call
+        );
+      } else if (event.type === 'tool_result') {
+        const id = `tool-${event.tool_call_id}`;
+        updateMessage(
+          id,
+          (message) => ({
+            ...message,
+            tool: {
+              name: message.tool?.name ?? message.content,
+              status: event.success ? 'success' : 'error',
+              arguments: message.tool?.arguments,
+              resultPreview: toToolPreview(event.result),
+              durationMs: event.duration_ms,
+            },
+          }),
+          // The matching tool_call may never have reached this component, so
+          // the name is genuinely unknown rather than being "tool".
+          { id, role: 'tool', content: 'unknown tool', timestamp: event._timestamp }
+        );
       }
     }
-  }, [stream.messages, appendMessage, setIsLoading]);
+  }, [stream.messages, appendMessage, updateMessage, setIsLoading]);
 
   // Auto-scroll on new messages or typing
   useEffect(() => {
@@ -135,13 +185,14 @@ export function ChatPlayground() {
         id: `chat-${Date.now()}`,
         title: currentConversation.title,
         agentType: currentConversation.agentType,
-        messages,
+        // Stripped of tool arguments and results before it reaches disk.
+        messages: currentConversation.messages,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
       addConversation(convo);
     } else if (messages.length > 0 && activeConvoId) {
-      updateConversation(activeConvoId, { messages });
+      updateConversation(activeConvoId, { messages: currentConversation.messages });
     }
 
     stream.disconnect();
@@ -163,14 +214,18 @@ export function ChatPlayground() {
     if (messages.length === 0) return;
 
     if (activeConvoId) {
-      updateConversation(activeConvoId, { messages, title: currentConversation.title });
+      updateConversation(activeConvoId, {
+        messages: currentConversation.messages,
+        title: currentConversation.title,
+      });
       showToast({ variant: 'success', title: 'Saved', message: 'Conversation updated.' });
     } else {
       const convo: ChatConversation = {
         id: `chat-${Date.now()}`,
         title: currentConversation.title,
         agentType: currentConversation.agentType,
-        messages,
+        // Stripped of tool arguments and results before it reaches disk.
+        messages: currentConversation.messages,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -214,9 +269,13 @@ export function ChatPlayground() {
             <QuickConfigBar
               model={model}
               temperature={temperature}
+              mcpServers={mcpServers}
               onModelChange={setModel}
               onTemperatureChange={setTemperature}
+              onMcpServersChange={setMcpServers}
             />
+
+            <McpServerStatusNotice servers={mcpServers} />
 
             {/* Save button in header */}
             <div className="px-4 py-2.5 border-b border-slate-700/45 flex items-center justify-between bg-slate-900/20">
@@ -273,9 +332,13 @@ export function ChatPlayground() {
                 </div>
               ) : (
                 <>
-                  {messages.map((msg) => (
-                    <ChatMessageBubble key={msg.id} message={msg} />
-                  ))}
+                  {messages.map((msg) =>
+                    msg.role === 'tool' ? (
+                      <ToolActivityBubble key={msg.id} message={msg} />
+                    ) : (
+                      <ChatMessageBubble key={msg.id} message={msg} />
+                    )
+                  )}
                   {(isLoading || stream.isTyping) && <TypingIndicator />}
                   <div ref={messagesEndRef} />
                 </>

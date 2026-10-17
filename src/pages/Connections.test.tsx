@@ -1,9 +1,10 @@
 /** @vitest-environment happy-dom */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen } from '@testing-library/react';
+import { screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { renderWithProviders, mockElectronAPI } from '../test-utils';
 import { useAuthStore } from '../stores/auth';
 import type { Platform } from '../features/connections/platforms';
+import { hasMissingRequiredFields } from '../features/connections/utils';
 
 // --- Mocks ---
 
@@ -18,6 +19,42 @@ vi.mock('../features/connections/hooks/useConnectionMutations', () => ({
   useConnectionMutations: () => mockUseConnectionMutations(),
 }));
 
+const mockVerifyAll = vi.fn();
+
+vi.mock('../features/connections/hooks/useMcpServerOptions', () => ({
+  useMcpServerOptions: () => [
+    {
+      id: 'stateset-sync',
+      name: 'StateSet Sync',
+      connected: true,
+      isLocalOnly: false,
+      isMcpServer: true,
+      toolCount: 2,
+      tools: ['list_orders', 'get_order'],
+      verifiedAt: new Date().toISOString(),
+    },
+  ],
+  useMcpServerOptionsState: () => ({
+    options: [
+      {
+        id: 'stateset-sync',
+        name: 'StateSet Sync',
+        connected: true,
+        isLocalOnly: false,
+        isMcpServer: true,
+        toolCount: 2,
+        tools: ['list_orders', 'get_order'],
+        verifiedAt: new Date().toISOString(),
+      },
+    ],
+    isLoading: false,
+  }),
+}));
+
+vi.mock('../features/connections/hooks/useVerifyAllMcpServers', () => ({
+  useVerifyAllMcpServers: () => ({ verifyAll: mockVerifyAll, isVerifying: false }),
+}));
+
 vi.mock('../hooks/usePageTitle', () => ({
   usePageTitle: vi.fn(),
 }));
@@ -30,8 +67,40 @@ vi.mock('../hooks/useConfirmDialog', () => ({
 }));
 
 vi.mock('../features/connections/components/PlatformCard', () => ({
-  PlatformCard: ({ platform }: { platform: Platform }) => (
-    <div data-testid={`platform-card-${platform.id}`}>{platform.name}</div>
+  PlatformCard: ({
+    platform,
+    formExtra,
+    onCredentialChange,
+    onSaveCredentials,
+    onTest,
+    onDisconnect,
+    verification,
+  }: {
+    platform: Platform;
+    formExtra?: React.ReactNode;
+    onCredentialChange: (key: string, value: string) => void;
+    onSaveCredentials: () => void;
+    onTest: () => void;
+    onDisconnect: () => void;
+    verification?: unknown;
+  }) => (
+    <div data-testid={`platform-card-${platform.id}`}>
+      <span>{platform.name}</span>
+      {formExtra}
+      <button type="button" onClick={() => onCredentialChange('auth_token', 'sk_test')}>
+        fill-{platform.id}
+      </button>
+      <button type="button" onClick={onSaveCredentials}>
+        save-{platform.id}
+      </button>
+      <button type="button" onClick={onTest}>
+        test-{platform.id}
+      </button>
+      <button type="button" onClick={onDisconnect}>
+        disconnect-{platform.id}
+      </button>
+      {verification ? <span data-testid={`verified-${platform.id}`} /> : null}
+    </div>
   ),
 }));
 
@@ -196,5 +265,160 @@ describe('Connections page', () => {
     renderWithProviders(<Connections />);
 
     expect(screen.getByText('Add custom MCP server')).toBeInTheDocument();
+  });
+
+  describe('StateSet MCP servers', () => {
+    it('renders a card for every StateSet MCP server', async () => {
+      const Connections = await loadConnections();
+      renderWithProviders(<Connections />);
+
+      expect(screen.getByRole('heading', { name: 'StateSet MCP servers' })).toBeInTheDocument();
+      for (const id of ['stateset-response', 'stateset-engine', 'stateset-sync']) {
+        expect(screen.getByTestId(`platform-card-${id}`)).toBeInTheDocument();
+      }
+      for (const name of ['StateSet NSR', 'StateSet Commerce', 'StateSet Voice', 'StateSet EDI']) {
+        expect(screen.getByRole('heading', { name })).toBeInTheDocument();
+      }
+    });
+
+    it('hides the StateSet cards while connections load', async () => {
+      mockUseConnections.mockReturnValue({ ...defaultConnectionState, isLoading: true });
+
+      const Connections = await loadConnections();
+      renderWithProviders(<Connections />);
+
+      expect(screen.getByRole('heading', { name: 'StateSet MCP servers' })).toBeInTheDocument();
+      expect(screen.queryByTestId('platform-card-stateset-response')).not.toBeInTheDocument();
+      expect(screen.queryByRole('heading', { name: 'StateSet NSR' })).not.toBeInTheDocument();
+    });
+
+    it('stores the server endpoint with the api key on save', async () => {
+      const Connections = await loadConnections();
+      renderWithProviders(<Connections />);
+
+      fireEvent.click(screen.getByText('fill-stateset-response'));
+      fireEvent.click(screen.getByText('save-stateset-response'));
+
+      await waitFor(() =>
+        expect(defaultMutations.storeCredentials.mutateAsync).toHaveBeenCalledWith({
+          platform: 'stateset-response',
+          creds: {
+            endpoint: 'https://response.stateset.com/api/mcp',
+            auth_token: 'sk_test',
+          },
+        })
+      );
+    });
+
+    it('does not save when required fields are missing', async () => {
+      vi.mocked(hasMissingRequiredFields).mockReturnValueOnce(true);
+      const Connections = await loadConnections();
+      renderWithProviders(<Connections />);
+
+      fireEvent.click(screen.getByText('save-stateset-engine'));
+
+      expect(
+        await screen.findByText('Please fill out all StateSet Engine credentials before saving.')
+      ).toBeInTheDocument();
+      expect(defaultMutations.storeCredentials.mutateAsync).not.toHaveBeenCalled();
+    });
+  });
+
+  it('offers a live server test on hosted StateSet cards only', async () => {
+    mockUseConnections.mockReturnValue({
+      ...defaultConnectionState,
+      displayedPlatforms: [makePlatform()],
+    });
+    const Connections = await loadConnections();
+    renderWithProviders(<Connections />);
+
+    const statesetCard = screen.getByTestId('platform-card-stateset-response');
+    expect(within(statesetCard).getByRole('button', { name: 'Test server' })).toBeInTheDocument();
+    expect(
+      within(screen.getByTestId('platform-card-shopify')).queryByRole('button', {
+        name: 'Test server',
+      })
+    ).not.toBeInTheDocument();
+  });
+
+  it('tests a connection locally when the vault is unavailable', async () => {
+    defaultMutations.testConnection.mutateAsync.mockResolvedValue({
+      success: true,
+      message: 'stateset-sync 2.1.0 · 3 tools',
+    });
+    mockUseConnections.mockReturnValue({
+      ...defaultConnectionState,
+      isLocalMode: true,
+      displayedPlatforms: [makePlatform()],
+    });
+    const Connections = await loadConnections();
+    renderWithProviders(<Connections />);
+
+    fireEvent.click(screen.getByText('test-shopify'));
+
+    await waitFor(() =>
+      expect(defaultMutations.testConnection.mutateAsync).toHaveBeenCalledWith('shopify')
+    );
+    expect(await screen.findByText('stateset-sync 2.1.0 · 3 tools')).toBeInTheDocument();
+  });
+
+  describe('testing every local server at once', () => {
+    it('is offered only when credentials are stored locally', async () => {
+      const Connections = await loadConnections();
+      const { unmount } = renderWithProviders(<Connections />);
+      expect(screen.queryByRole('button', { name: 'Test all servers' })).not.toBeInTheDocument();
+      unmount();
+
+      mockUseConnections.mockReturnValue({ ...defaultConnectionState, isLocalMode: true });
+      renderWithProviders(<Connections />);
+      expect(screen.getByRole('button', { name: 'Test all servers' })).toBeInTheDocument();
+    });
+
+    it('summarises the results', async () => {
+      mockVerifyAll.mockResolvedValue({ verified: 2, failed: 1, total: 3 });
+      mockUseConnections.mockReturnValue({ ...defaultConnectionState, isLocalMode: true });
+      const Connections = await loadConnections();
+      renderWithProviders(<Connections />);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Test all servers' }));
+
+      expect(await screen.findByText('2 of 3 responded, 1 failed.')).toBeInTheDocument();
+    });
+
+    it('says when there is nothing stored to test', async () => {
+      mockVerifyAll.mockResolvedValue({ verified: 0, failed: 0, total: 0 });
+      mockUseConnections.mockReturnValue({ ...defaultConnectionState, isLocalMode: true });
+      const Connections = await loadConnections();
+      renderWithProviders(<Connections />);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Test all servers' }));
+
+      expect(
+        await screen.findByText('No MCP servers are stored on this device.')
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('hides a stored verification once the server is disconnected', async () => {
+    mockUseConnections.mockReturnValue({
+      ...defaultConnectionState,
+      displayedPlatforms: [makePlatform()],
+      isConnected: () => false,
+    });
+    const Connections = await loadConnections();
+    renderWithProviders(<Connections />);
+
+    expect(screen.queryByTestId('verified-shopify')).not.toBeInTheDocument();
+  });
+
+  it('offers the tool catalog for connected MCP servers', async () => {
+    const Connections = await loadConnections();
+    renderWithProviders(<Connections />);
+
+    const toggle = screen.getByRole('button', { name: /Tool catalog/ });
+    expect(toggle).toHaveTextContent('2 tools');
+
+    fireEvent.click(toggle);
+    expect(screen.getByText('list_orders')).toBeInTheDocument();
   });
 });

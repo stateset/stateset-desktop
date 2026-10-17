@@ -74,6 +74,7 @@ export function AppLoadingScreen({
           {error ? (
             <motion.div
               key="error"
+              role="alert"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
@@ -103,13 +104,14 @@ export function AppLoadingScreen({
           ) : (
             <motion.div
               key="loading"
+              role="status"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               className="flex flex-col items-center"
             >
               {/* Loading spinner */}
-              <div className="relative mb-4">
+              <div className="relative mb-4" aria-hidden="true">
                 <div className="w-10 h-10 rounded-full border-2 border-gray-800/60" />
                 <div className="absolute inset-0 w-10 h-10 rounded-full border-2 border-brand-500 border-t-transparent border-r-transparent animate-spin" />
                 <div
@@ -123,7 +125,6 @@ export function AppLoadingScreen({
                 key={status}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                aria-live="polite"
                 className="text-gray-400 text-sm"
               >
                 {statusMessages[status]}

@@ -1,6 +1,8 @@
 import type { AgentSessionConfig } from '../../../types';
 import { Modal } from '../../../components/Modal';
 import { Button } from '../../../components/Button';
+import { McpServerPicker } from '../../connections/components/McpServerPicker';
+import { useMcpServerOptions } from '../../connections/hooks/useMcpServerOptions';
 
 interface ConfigModalProps {
   configDraft: AgentSessionConfig | null;
@@ -19,6 +21,7 @@ export function ConfigModal({
   onReset,
   onClose,
 }: ConfigModalProps) {
+  const mcpServerOptions = useMcpServerOptions();
   const inputClass =
     'w-full px-3 py-2.5 bg-slate-900/80 border border-slate-700 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 focus-visible:border-brand-400/80 transition-all';
 
@@ -93,22 +96,11 @@ export function ConfigModal({
           </label>
         </div>
 
-        <label className="space-y-1 block">
-          <span className="text-sm text-gray-300">MCP Servers (comma or newline separated)</span>
-          <textarea
-            rows={3}
-            value={(configDraft?.mcp_servers || []).join('\n')}
-            onChange={(e) =>
-              onUpdate({
-                mcp_servers: e.target.value
-                  .split(/[,\n]/)
-                  .map((v) => v.trim())
-                  .filter(Boolean),
-              })
-            }
-            className={`${inputClass} min-h-24`}
-          />
-        </label>
+        <McpServerPicker
+          value={configDraft?.mcp_servers || []}
+          options={mcpServerOptions}
+          onChange={(mcpServers) => onUpdate({ mcp_servers: mcpServers })}
+        />
 
         <label className="space-y-1 block">
           <span className="text-sm text-gray-300">Custom Instructions</span>

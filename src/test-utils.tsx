@@ -1,6 +1,6 @@
 import { type ReactElement } from 'react';
 import { render, type RenderOptions } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi } from 'vitest';
 import { ToastProvider } from './components/ToastProvider';
@@ -9,11 +9,6 @@ interface RenderWithProvidersOptions extends Omit<RenderOptions, 'wrapper'> {
   route?: string;
   queryClient?: QueryClient;
 }
-
-const routerFutureFlags = {
-  v7_startTransition: true,
-  v7_relativeSplatPath: true,
-} as const;
 
 export function renderWithProviders(
   ui: ReactElement,
@@ -31,7 +26,7 @@ export function renderWithProviders(
   function Wrapper({ children }: { children: React.ReactNode }) {
     return (
       <QueryClientProvider client={testQueryClient}>
-        <MemoryRouter initialEntries={[route]} future={routerFutureFlags}>
+        <MemoryRouter initialEntries={[route]}>
           <ToastProvider>{children}</ToastProvider>
         </MemoryRouter>
       </QueryClientProvider>
@@ -50,6 +45,9 @@ export function mockElectronAPI() {
       getSandboxApiKey: vi.fn().mockResolvedValue(null),
       setSandboxApiKey: vi.fn().mockResolvedValue(undefined),
       clearSandboxApiKey: vi.fn().mockResolvedValue(undefined),
+      getDurableEngineApiKey: vi.fn().mockResolvedValue(null),
+      setDurableEngineApiKey: vi.fn().mockResolvedValue(undefined),
+      clearDurableEngineApiKey: vi.fn().mockResolvedValue(undefined),
       isSecureStorageAvailable: vi.fn().mockResolvedValue(true),
     },
     store: {

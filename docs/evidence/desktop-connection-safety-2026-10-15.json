@@ -1,0 +1,100 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-16T03:32:00.116793+00:00",
+  "scope": "Bind chat operations, status observations, readiness and approval trust to their original workflow connection across asynchronous persistence and credential changes",
+  "source_parent_commit": "a0f4c599f1abc41df919a50d2c516565ca4c7b3b",
+  "qualification": "Local Linux acceptance; real sandbox/Temporal/NSR and signed platform release gates remain pending",
+  "regressions": {
+    "before_job": "74ee97629858",
+    "before_result": "Five newly added connection-race regressions failed against the parent implementation",
+    "focused_job": "de2483bdbcf9",
+    "focused_tests": 148,
+    "focused_files": 7,
+    "root_types": "passed",
+    "e2e_types": "passed"
+  },
+  "verification": {
+    "job": "0e7093de264f",
+    "state": "succeeded",
+    "command": "bash /tmp/stateset-desktop-connection-acceptance.sh",
+    "wait_seconds": 971.75,
+    "runtime_seconds": 581.58,
+    "unit_tests": 2632,
+    "unit_files": 220,
+    "coverage": {
+      "lines": {
+        "total": 12359,
+        "covered": 10106,
+        "skipped": 0,
+        "pct": 81.77
+      },
+      "statements": {
+        "total": 13513,
+        "covered": 10929,
+        "skipped": 0,
+        "pct": 80.87
+      },
+      "functions": {
+        "total": 3309,
+        "covered": 2688,
+        "skipped": 0,
+        "pct": 81.23
+      },
+      "branches": {
+        "total": 10617,
+        "covered": 7996,
+        "skipped": 0,
+        "pct": 75.31
+      },
+      "branchesTrue": {
+        "total": 0,
+        "covered": 0,
+        "skipped": 0,
+        "pct": 100
+      }
+    },
+    "native_passed": 56,
+    "live_skipped": 3,
+    "visual_comparisons": 11,
+    "visual_references_changed": false,
+    "packaged_linux_startup_restart": 1,
+    "harness_and_release_fixtures": 21,
+    "lint": "passed",
+    "electron_and_renderer_builds": "passed",
+    "native_connection_boundary": "Two owned local engines; old URL and credential revisions rejected with409 before forwarding, fresh binding reaches only the selected engine",
+    "source_guard": {
+      "method": "Manual SHA256 of all tracked input files before and after verification, not an immutable Buildr snapshot",
+      "inputs": 612,
+      "manifest_sha256": "154a5993bc8a7fa2bafc3eb94c35e61116a71a7dcdab9ddbd5d92deaee28da30"
+    }
+  },
+  "limitations": [
+    "Three opt-in live checks were skipped; staging configuration was absent. Owned HTTP fixtures do not prove live sandbox provisioning, Temporal continuation or NSR verification.",
+    "Packaged startup and restart were verified on Linux. Signed macOS/Windows installers and update publication need protected platform CI.",
+    "A connection revision is opaque, process-local and never sent to the workflow service. Changing the connection does not undo work already accepted by the original server.",
+    "Dependencies and package version are unchanged from the parent; existing advisory findings remain documented in desktop-security-2026-10-15.json.",
+    "These changes are for the review branch. The existing v1.1.19 tag and release remain unchanged."
+  ],
+  "changed_source_sha256": {
+    "CHANGELOG.md": "b0dcb7bef47bcf59192bd47995b3a0bbe75cc41a001c12cab9c8b07758115e61",
+    "docs/COMPUTER_CHATS.md": "4cdbeb9eb2aa947f3140ed73798af546f2bd370bf885152016a378e1db6abcad",
+    "e2e/computer-chat.spec.ts": "4f261f9d9fbd780bf31749717f8e81fd1202ea6a8846b6e2eee1a7c5efc20548",
+    "electron/computer-chat-bridge.test.ts": "45d3b9072f58b8b65b3897eabe7735f3f05888ca2c2b470b273b7d67416d9cac",
+    "electron/computer-chat-bridge.ts": "0062d1383e5b485d0802add4ec328c12a3f7e077428578030821b84569bf65ac",
+    "electron/main.ts": "d7d281c6012b6009a072af187dfe6c52d5c040c87cafd81c564a355735957c34",
+    "electron/preload.ts": "8f585d0648d109eb76d2ea1dd5aeafa2fadadc67738f1980d22417d6604628af",
+    "src/features/computer-chat/DurableChatSetup.test.tsx": "ac9a6a9f0dbd52f4df01c4d266306dd12f711687cd48c4e175a032ed17997acf",
+    "src/features/computer-chat/DurableChatSetup.tsx": "e13f5b0fb881c7976e9ef00999fab1d244a367e68dc10d114ea055b68d62ed83",
+    "src/features/computer-chat/DurableComputerChat.tsx": "9e514197af46c2ea6203658435c97309358f7815e151aaee40f85be6b869c749",
+    "src/features/computer-chat/durable.test.ts": "01c990d6443bbb0a83c4ccfcca1417c06d49aaef7d040fbd005926920294a048",
+    "src/features/computer-chat/durable.ts": "9ee2824bd4a5e44b7f14ec21531c78d5afc8dec613a67c2b5fad88fd73e89e92",
+    "src/features/computer-chat/setup.test.ts": "eedf1dfd2bc470bc4bbafeade0dcb9a6dad7ea396a4e1e3e90553537c5d9c954",
+    "src/features/computer-chat/setup.ts": "83aa813294e75ad9c7c8ece1a7dbb9f850feb521ee92e8a2ebaa35fb3b90683a",
+    "src/hooks/useComputerChatRecovery.test.tsx": "9e444e733ed45d5b6c7406875a70cb3ff189c6612b25b96f21336e8e3aba1d16",
+    "src/hooks/useComputerChatRecovery.ts": "514766b62de837a43803fd39e40e5b3fdef58ba565ec81d3ec87e712057d6f24",
+    "src/lib/durableWorkflows.ts": "050f9500276410894b0d161bd8fd1f881feff8319f9ba581b761e74599571fa7",
+    "src/stores/durableWorkflows.test.ts": "3cb90522b49f53f2f5da396a5983eaa4f1dfca081660ad1987c581525c50a82b",
+    "src/stores/durableWorkflows.ts": "e09755c062e53f352698744bb70a930c8803b9a8aa43cce99ce0bfd9dd4033b4",
+    "src/vite-env.d.ts": "062ff75d07aaf4d790a218d2db59179ed940f383f7c82c78ddbff081a4aeb5ee"
+  }
+}

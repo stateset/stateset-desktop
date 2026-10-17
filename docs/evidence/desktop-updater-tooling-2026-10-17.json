@@ -1,0 +1,166 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-17T12:24:53.989779+00:00",
+  "source_parent_commit": "3d23e0f3158400910e394d82c03e3591fab36102",
+  "scope": "Accurate updater status and recoverable actions, cleaner accessible Updates surface, package-derived version identity, and fewer vulnerable development dependencies without relaxing lint rules.",
+  "implementation": [
+    "Use electron-updater availability instead of treating any returned version as an update. Distinguish unchecked/current states and preserve ready/download state across startup, hourly, tray and Settings checks.",
+    "Return authoritative snapshots on every manual check, retain Restart when no new event fires, ignore stale initial responses and late checks after native events, recover failed check/restart requests and prevent duplicate actions.",
+    "Use shared theme surfaces/buttons, semantic status colors, accessible progress and wrapped layouts. Remove pulsing restart decoration and duplicate error text.",
+    "Use the built package version in renderer startup diagnostics and Settings fallbacks.",
+    "Upgrade TypeScript ESLint7 to8.71.2 with existing ESLint8/rules, remove unused Storybook actions/essentials, correct global ImportMeta types and remove an unused catch binding.",
+    "Require component-documentation builds in CI and retain both-theme updater screenshots in native artifacts."
+  ],
+  "baseline": {
+    "native_check_job": {
+      "id": "90d3c4bb0b49",
+      "state": "failed",
+      "exit_code": 1,
+      "command_display": "/home/dom/.nvm/versions/node/v22.18.0/bin/node --test --test-concurrency=1 /tmp/stateset-desktop-updater-baseline.mjs",
+      "wait_seconds": 0.019039392471313477,
+      "elapsed_seconds": 0.240889310836792
+    },
+    "native_check_result": "Three expected application regression failures; not queue failures. Exact old IPC handler extraction tested with controlled updater responses; no production updater contact.",
+    "native_source": {
+      "parent": "fe2f9d69535ea0c21bebd181ffdc5d16aecda6cd",
+      "source": "electron/main.ts",
+      "handler_sha256": "5e5c50fe764e68fbfee9c45a1de399ef3f7c9417cea0e69181810283dd3f5406"
+    },
+    "review_finding": "An early manual check could invalidate an initial ready lookup, then hide Restart indefinitely because native availability alone emitted no new event. Added two deferred-response regressions and both native fixture cases."
+  },
+  "verification": {
+    "jobs": {
+      "install": {
+        "id": "a2763b5521b7",
+        "state": "succeeded",
+        "exit_code": 0,
+        "command_display": "bash /tmp/stateset-desktop-composed-install.sh",
+        "wait_seconds": 3.9636459350585938,
+        "elapsed_seconds": 60.127599000930786
+      },
+      "composed": {
+        "id": "8992efbc7cb4",
+        "state": "succeeded",
+        "exit_code": 0,
+        "command_display": "bash /tmp/stateset-desktop-composed-quick.sh",
+        "wait_seconds": 40.18676733970642,
+        "elapsed_seconds": 64.37944054603577
+      },
+      "test_hygiene": {
+        "id": "e7e48213969e",
+        "state": "succeeded",
+        "exit_code": 0,
+        "command_display": "bash /tmp/stateset-desktop-updater-test-hygiene.sh",
+        "wait_seconds": 0.6257181167602539,
+        "elapsed_seconds": 7.1025214195251465
+      },
+      "isolated_updater": {
+        "id": "f1a9c7f489e4",
+        "state": "succeeded",
+        "exit_code": 0,
+        "command_display": "bash /tmp/stateset-desktop-updater-quick.sh",
+        "wait_seconds": 0.6141812801361084,
+        "elapsed_seconds": 63.841580629348755
+      },
+      "isolated_lint": {
+        "id": "d1d525a1d5d5",
+        "state": "succeeded",
+        "exit_code": 0,
+        "command_display": "bash /tmp/stateset-desktop-lint-security-final-quick-w1-p0.sh",
+        "wait_seconds": 0.027283430099487305,
+        "elapsed_seconds": 65.82422637939453
+      },
+      "dependency_copy": {
+        "id": "b8365107799b",
+        "state": "succeeded",
+        "exit_code": 0,
+        "command_display": "python3 /tmp/stateset-desktop-updater-isolate-dependencies.py",
+        "wait_seconds": 6.402777910232544,
+        "elapsed_seconds": 19.84154510498047
+      }
+    },
+    "composed_unit_tests": 67,
+    "composed_unit_files": 5,
+    "test_hygiene": {
+      "tests": 25,
+      "files": 1,
+      "qualification": "Only the existing ready/restart test changed after the67-test pass, to await its action in async act. All application/configuration bytes stayed unchanged; the targeted file rerun removed its React warning."
+    },
+    "checks": [
+      "Renderer and desktop-test typechecks",
+      "Uncached strict lint with unchanged warning/rule gates",
+      "Updater/preload/About/telemetry regression tests",
+      "Actionlint with default ShellCheck for both modified workflows; release input YAML checks",
+      "Exact lockfile install with unchanged package metadata and source guards"
+    ],
+    "production_audit": {
+      "info": 0,
+      "low": 0,
+      "moderate": 0,
+      "high": 0,
+      "critical": 0,
+      "total": 0
+    },
+    "complete_audit": {
+      "info": 0,
+      "low": 0,
+      "moderate": 10,
+      "high": 5,
+      "critical": 0,
+      "total": 15
+    },
+    "audit_qualification": "Affected-package entries fell24 to15 and high entries11 to5; production remains0. Remaining development findings are not resolved. Package/lock hashes equal the audited candidate.",
+    "source_guard": {
+      "inputs": 641,
+      "manifest_sha256": "2355c4137fa943a5e152b85a2cf90b8cbc99b5979be2cff595aa666353a5d668",
+      "qualification": "Manual hashes sealed after formatting; not an immutable queue snapshot."
+    },
+    "isolated_native": {
+      "id": "093c0ee630e5",
+      "state": "queued",
+      "exit_code": null,
+      "command_display": "bash /tmp/stateset-desktop-updater-native.sh",
+      "wait_seconds": 28038.948024511337,
+      "elapsed_seconds": 0
+    },
+    "isolated_storybook": {
+      "id": "c6b81f3c0d87",
+      "state": "queued",
+      "exit_code": null,
+      "command_display": "bash /tmp/stateset-desktop-lint-security-verify-w1-p0.sh",
+      "wait_seconds": 24647.972321987152,
+      "elapsed_seconds": 0
+    },
+    "full_ci": "Required after this integration. Parent3d23e0f CI is green but does not establish acceptance for these new changes."
+  },
+  "dependency_isolation": {
+    "receipt_sha256": "89cab51322c4633090cd092b9bfc3dc6275b7de57dd3575f4aea7a83fb2f91a1",
+    "qualification": "Pending isolated native job has an independent byte-identical dependency copy. Main npm ci cannot mutate its dependencies. No caches deleted or queue jobs cancelled."
+  },
+  "changed_source_sha256": {
+    ".github/workflows/build-release.yml": "1e6ec69fb66c979f56bb29b7828523e81d3d95aa9b08e7cc5e6aa2ecacafb599",
+    ".github/workflows/e2e.yml": "f57b8bfe54f0ca44a9df3e2ac18879bb52d7d8f11e84fd36935cd3b6ed5b3f84",
+    "CHANGELOG.md": "b8f8149a6f04678cadbb545f938a8840722f65378f3c8b1918ae643b90c99b08",
+    "e2e/electron.spec.ts": "442a4fc067ef0a1fae92e90367b6f84e2a7724fe4d2de0068a886cac44b44176",
+    "electron/main.ts": "15bd72a3fb9de9f713f85c02e99cd2a3d3eaf1a25d96ffa32e4417ac7a888999",
+    "electron/preload.ts": "3aab2f22711d18062ae3c8fb00cedf59c4791d2203f92976a16194385cd2e52d",
+    "electron/update-check.test.ts": "d943b1e37225b04d139699dc8c403b5e42473e2500bb1cbbe79c9ace388dbfd6",
+    "electron/update-check.ts": "238ad5c7c842b559b47786a5b5c07ea210dfe543d0f28790c5e506713ea1ef52",
+    "package-lock.json": "ec7484e25cb2c47d1f9b53dde2c54bff6ecbc32f22f05650133535d39662ab65",
+    "package.json": "69b0a77f4ece9b1f9551e7a028aceddbe8e4a1a4cbd3087c7057be053a711b7d",
+    "src/features/settings/components/AboutSettings.test.tsx": "b8b299f80172c53a44181de1d507bcb9868de59de0710a1349830a7ce40e234c",
+    "src/features/settings/components/AboutSettings.tsx": "c27a24fb57799ac2d1c259b08d2f6ec4c9c8e1a2cbb2d53a4678ea2f8711ec20",
+    "src/features/settings/components/UpdateSettings.test.tsx": "d0b630d11762554c695c533c38c955e8c29cab71ae6e28386d20c4973dfb12ef",
+    "src/features/settings/components/UpdateSettings.tsx": "cf99bbd20e6d64e199119b38b75558f0dee60b4c9020e9c534c17388261b73e0",
+    "src/lib/appVersion.ts": "d22438b7e52360f0437f5e4cb8791f83a9a75c12459bc403c509833f4fbb2de2",
+    "src/lib/telemetry.ts": "a8a8c33bf3fdb6e566acc4a319e22d30357358034349b7c75f5de85bef7cdd1c",
+    "src/main.tsx": "cc0ca0b3dea91caf2e59c60899d4dfe3e6bc7c75ffa9499e0828ee46c893242f",
+    "src/vite-env.d.ts": "f26e93ec36c2a25fee538d4418cbf9d14813a3627086a244255bf60ab2dbaa77"
+  },
+  "limitations": [
+    "Local native theme/build and isolated Storybook jobs remain pending unless their receipts explicitly show success. No pass is inferred from the short gates. Full integrated unit/native/build/Storybook and platform verification is required in CI.",
+    "Updater fixtures do not establish real installer download, signature validation, restart installation or successful auto-update.",
+    "Live engine/Temporal/sandbox/NSR acceptance remains unconfigured.",
+    "v1.1.20 remains immutable at fe2f9d6; these changes are unreleased. Signed publication remains gated by required credentials."
+  ]
+}

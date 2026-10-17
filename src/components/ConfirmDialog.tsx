@@ -1,6 +1,4 @@
 import { useState, useCallback } from 'react';
-import { AlertTriangle, Info, HelpCircle, XCircle } from 'lucide-react';
-import clsx from 'clsx';
 import { Modal } from './Modal';
 import { Button } from './Button';
 
@@ -18,36 +16,12 @@ interface ConfirmDialogProps {
   isLoading?: boolean;
 }
 
-const variantConfig = {
-  danger: {
-    icon: XCircle,
-    iconColor: 'text-red-400',
-    iconBg: 'bg-gradient-to-br from-red-900/40 to-red-900/20',
-    iconBorder: 'border border-red-500/20 shadow-lg shadow-red-500/10',
-    confirmVariant: 'danger' as const,
-  },
-  warning: {
-    icon: AlertTriangle,
-    iconColor: 'text-amber-400',
-    iconBg: 'bg-gradient-to-br from-amber-900/40 to-amber-900/20',
-    iconBorder: 'border border-amber-500/20 shadow-lg shadow-amber-500/10',
-    confirmVariant: 'primary' as const,
-  },
-  info: {
-    icon: Info,
-    iconColor: 'text-blue-400',
-    iconBg: 'bg-gradient-to-br from-blue-900/40 to-blue-900/20',
-    iconBorder: 'border border-blue-500/20 shadow-lg shadow-blue-500/10',
-    confirmVariant: 'primary' as const,
-  },
-  question: {
-    icon: HelpCircle,
-    iconColor: 'text-brand-400',
-    iconBg: 'bg-gradient-to-br from-brand-900/40 to-brand-900/20',
-    iconBorder: 'border border-brand-500/20 shadow-lg shadow-brand-500/10',
-    confirmVariant: 'primary' as const,
-  },
-};
+const confirmVariants = {
+  danger: 'danger',
+  warning: 'primary',
+  info: 'primary',
+  question: 'primary',
+} as const;
 
 export function ConfirmDialog({
   isOpen,
@@ -60,9 +34,6 @@ export function ConfirmDialog({
   variant = 'danger',
   isLoading = false,
 }: ConfirmDialogProps) {
-  const config = variantConfig[variant];
-  const Icon = config.icon;
-
   return (
     <Modal
       isOpen={isOpen}
@@ -72,23 +43,11 @@ export function ConfirmDialog({
       role="alertdialog"
       preventClose={isLoading}
     >
-      <div className="flex items-start gap-4 -mt-3">
-        <div
-          className={clsx(
-            'w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 animate-scale-in',
-            config.iconBg,
-            config.iconBorder
-          )}
-        >
-          <Icon className={clsx('w-6 h-6', config.iconColor)} />
-        </div>
-      </div>
-
-      <div className="flex items-center justify-end gap-3 pt-5 mt-5 border-t border-slate-700/60">
+      <div className="flex items-center justify-end gap-3 pt-4 border-t ui-modal-divider">
         <Button variant="secondary" onClick={onClose} disabled={isLoading}>
           {cancelLabel}
         </Button>
-        <Button variant={config.confirmVariant} onClick={onConfirm} loading={isLoading}>
+        <Button variant={confirmVariants[variant]} onClick={onConfirm} loading={isLoading}>
           {confirmLabel}
         </Button>
       </div>

@@ -1,0 +1,189 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-16T19:41:20.177390+00:00",
+  "scope": "Start continued computer chats with multilingual history that satisfies the workflow engine UTF-8 message contract, without resending instructions or changing the original transcript.",
+  "source_parent_commit": "4778ffeaf4fdd824fd7843251a21f90618b3c61e",
+  "regression": {
+    "baseline": {
+      "id": "4b23c8e592b1",
+      "state": "failed",
+      "exit_code": 1,
+      "reason": "",
+      "command_display": "/home/dom/.nvm/versions/node/v22.18.0/bin/node node_modules/vitest/vitest.mjs run src/features/computer-chat/durable.test.ts --maxWorkers=1 --no-file-parallelism",
+      "wait_seconds": 0.017922163009643555,
+      "elapsed_seconds": 2.5989797115325928
+    },
+    "observed": "The imported assistant message was 16,895 UTF-8 bytes, exceeding the actual engine limit of 8,000. The new regression failed while 51 existing durable tests passed.",
+    "cause": "JavaScript slice(0,7500) bounded UTF-16 code units; Rust String::len validates UTF-8 bytes."
+  },
+  "implementation": [
+    "Build imported context with a bounded UTF-8 buffer, including the role prefix, without splitting Unicode code points.",
+    "Keep the latest thirty user and assistant messages, retain the original conversation and persist stable imported message identities before provisioning.",
+    "Exercise real Electron UI, IPC and HTTP continuation in dark and light themes. Assert separate workflow, session and sandbox identities, and no automatic instruction signal."
+  ],
+  "verification": {
+    "acceptance": {
+      "id": "8ea844fc2b6c",
+      "state": "succeeded",
+      "exit_code": 0,
+      "reason": "",
+      "command_display": "bash /tmp/stateset-desktop-engine-acceptance.sh",
+      "wait_seconds": 127.92283272743225,
+      "elapsed_seconds": 755.9245300292969
+    },
+    "native_and_contract": {
+      "id": "190842f37a0f",
+      "state": "succeeded",
+      "exit_code": 0,
+      "reason": "",
+      "command_display": "bash /tmp/stateset-desktop-engine-native.sh",
+      "wait_seconds": 9.42434811592102,
+      "elapsed_seconds": 72.90735626220703
+    },
+    "unit_tests": 2665,
+    "unit_files": 221,
+    "coverage": {
+      "lines": {
+        "total": 12438,
+        "covered": 10186,
+        "skipped": 0,
+        "pct": 81.89
+      },
+      "statements": {
+        "total": 13606,
+        "covered": 11020,
+        "skipped": 0,
+        "pct": 80.99
+      },
+      "functions": {
+        "total": 3327,
+        "covered": 2706,
+        "skipped": 0,
+        "pct": 81.33
+      },
+      "branches": {
+        "total": 10694,
+        "covered": 8067,
+        "skipped": 0,
+        "pct": 75.43
+      },
+      "branchesTrue": {
+        "total": 0,
+        "covered": 0,
+        "skipped": 0,
+        "pct": 100
+      }
+    },
+    "native": {
+      "startTime": "2026-10-16T19:33:14.345Z",
+      "duration": 415050.621,
+      "expected": 67,
+      "skipped": 3,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "packaged_linux_startup_restart": {
+      "startTime": "2026-10-16T19:40:51.230Z",
+      "duration": 13317.605,
+      "expected": 1,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "packaged_outputs": "Fresh Electron/renderer builds and a fresh unpacked Linux application, with startup and encrypted-setting retention across restart.",
+    "native_evidence_files_preserved": 3,
+    "source_guard": {
+      "inputs": 622,
+      "helper_inputs": 6,
+      "manifest_sha256": "2a7f1351da880e49ee6dd22db4316093d5968f742949e3b3ef471a3ab458e4d5",
+      "method": "Manual SHA256 before and after verification, not an immutable queue snapshot. This evidence file was written afterward."
+    },
+    "interrupted_attempt": {
+      "job": {
+        "id": "596bdd5580dd",
+        "state": "lost",
+        "exit_code": null,
+        "reason": "owner exited; inspect logs before retrying",
+        "command_display": "bash /tmp/stateset-desktop-engine-focused.sh",
+        "wait_seconds": 0.021529197692871094,
+        "elapsed_seconds": 143.81207156181335
+      },
+      "qualification": "Queue owner exited after types, lint and 62 focused unit passes were printed. No Rust result was recorded. Host owner, child and process group had exited before retry; no cancellation or budget changes. The final native job and full acceptance completed successfully."
+    }
+  },
+  "engine_contract": {
+    "source": {
+      "engine_repository": "/home/dom/next-temporal-rs",
+      "head": "a1aff037db85dc5c304c4e15b6f2864dd08c778d",
+      "source": "/home/dom/next-temporal-rs/crates/engine-types/src/computer_chat.rs",
+      "sha256": "777292a66e47f2cb924727784c626d04b69c41f96574e82420666488b950698b",
+      "qualification": "Exact copied Rust contract module; deserialization and validation only, without running Temporal, sandbox provisioning, inference or NSR."
+    },
+    "accepted": [
+      "mixed-language continuation",
+      "ASCII at the engine byte boundary",
+      "latest thirty user and assistant messages",
+      "actual native dark continuation request",
+      "actual native light continuation request"
+    ],
+    "rejected": ["negative control: oversized imported message"],
+    "method": "Deserialize generated desktop start requests and invoke ComputerChatStart::validate using the exact copied engine Rust module. Two accepted requests were captured from actual native HTTP starts. This is contract validation, not live workflow execution.",
+    "request_cases_sha256": "20ae80798a3aff2536732dc2b929b2c5d7edba2298c5e7152cdb8e4b09a49436"
+  },
+  "backend_source_review": {
+    "qualification": "Read-only source inspection. Route presence and matching fields do not establish deployed service readiness, authentication, capacity, inference or policy acceptance.",
+    "files": {
+      "engine_chat_types": {
+        "path": "/home/dom/next-temporal-rs/crates/engine-types/src/computer_chat.rs",
+        "sha256": "777292a66e47f2cb924727784c626d04b69c41f96574e82420666488b950698b"
+      },
+      "engine_chat_api": {
+        "path": "/home/dom/next-temporal-rs/crates/engine-api/src/workflows/computer_chat.rs",
+        "sha256": "8b5460d45be9de5d607499e81e168ecebe6201a0b8b127c77ae424bb7d270838"
+      },
+      "engine_workflow": {
+        "path": "/home/dom/next-temporal-rs/crates/engine-workflows/src/computer_chat.rs",
+        "sha256": "5d6c68efdf8a0873b69fb619a3344d8e8b91b107269089e8cc8beef765814dbe"
+      },
+      "sandbox_session_routes": {
+        "path": "/home/dom/stateset-sandbox/controller/src/routes/agent-sessions.routes.ts",
+        "sha256": "60f26ab900e4727c6a22ae0a792111ba9e74f83bed0f2180f98406c97c327e6b"
+      },
+      "sandbox_workspace": {
+        "path": "/home/dom/stateset-sandbox/controller/src/services/computer-workspace.ts",
+        "sha256": "6df8126df839e2c61995cc9356b72e053e1b8041eafa54bc1fe6972495d263c8"
+      },
+      "nsr_routes": {
+        "path": "/home/dom/stateset-nsr/src/api/routes.rs",
+        "sha256": "0b4c4cadffbd93a704071fb3fd249558c4660892a490821e8f903b50c7694140"
+      },
+      "nsr_computer_evidence": {
+        "path": "/home/dom/stateset-nsr/src/policy/computer_evidence.rs",
+        "sha256": "4219292f16cbddb1e0f5d7b6da8243e390c8bf34e9ce67d67dfbc1168775477d"
+      }
+    },
+    "review": [
+      "Desktop durable requests use engine /v1/computer-chats paths, stable workflow identities and tenant headers.",
+      "Engine diagnostics resolve brand-scoped sandbox and NSR connectors and call the capabilities routes present in both services.",
+      "Engine workflow provisions a dedicated durable computer-use sandbox session and sends admission/output checks through NSR.",
+      "NSR exact-byte verification supports the desktop criteria kinds contains, equals, json, sha256 and png.",
+      "Real end-to-end acceptance requires configured service endpoints, test identity, credentials and the live acceptance harness."
+    ]
+  },
+  "limitations": [
+    "Real sandbox provisioning, Temporal worker execution, provider inference and deployed NSR acceptance remain unproved.",
+    "CHAT_TEST connection settings are absent. A user question about the target test environment is pending; local contract fixtures do not replace live acceptance.",
+    "Three opt-in live checks remain skipped.",
+    "No signed release or update publication; v1.1.19 unchanged.",
+    "Remaining dependency findings are documented in desktop-security-2026-10-15.json."
+  ],
+  "changed_source_sha256": {
+    "src/features/computer-chat/history.ts": "682dd10d9de36481705aa9bf26a6a70ce5456d8fe9ee3cbee5a72afcc0b88999",
+    "src/features/computer-chat/history.test.ts": "d45a2668b4f07222c1753ffab9d505c648c5a4033a2daeefdb9f669ecb1608ea",
+    "src/features/computer-chat/durable.ts": "d630ffd17112b251064b132717b014e54d0b254da34de145df6c4bb75d43d120",
+    "src/features/computer-chat/durable.test.ts": "a1263be866b6a051db89b763b8768c860523045763bea44955cba0675c4fd026",
+    "e2e/computer-chat.spec.ts": "b3c1c9d42a36bd08c6a089fb161866546ac78423d383a822920946d5d9b60447",
+    "docs/COMPUTER_CHATS.md": "c3f5c3944912819b6c6f336f5b9de047a552cdd9a314b4d34d3e56f8e0d849d9",
+    "CHANGELOG.md": "360e5aebb05717d9a11090c3dbd077afdbf9b7da55f31489515b208bcdcdfc2e"
+  }
+}

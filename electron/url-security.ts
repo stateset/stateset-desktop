@@ -32,6 +32,7 @@ const configuredApiHost = new URL(configuredApiOrigin).hostname.toLowerCase();
 export const ALLOWED_EXTERNAL_HOSTNAMES = new Set([
   'api.sandbox.stateset.app',
   'engine.stateset.cloud.stateset.app',
+  'api.workstream.stateset.com',
   configuredApiHost,
   'stateset.io',
   'github.com',

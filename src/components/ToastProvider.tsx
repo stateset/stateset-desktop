@@ -3,13 +3,13 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
 } from 'react';
 import { X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import clsx from 'clsx';
 import { SEVERITY_CONFIG, type Severity } from '../lib/severityStyles';
 
 type ToastVariant = Severity;
@@ -19,8 +19,7 @@ interface Toast {
   title?: string;
   message: string;
   variant: ToastVariant;
-  progress: number;
-  isPaused: boolean;
+  progress: number | null;
   actionLabel?: string;
   onAction?: () => void;
 }
@@ -46,33 +45,22 @@ interface ToastContextValue {
 
 const ToastContext = createContext<ToastContextValue | null>(null);
 
-const VARIANT_STYLES: Record<ToastVariant, string> = {
-  info: 'border-blue-500/40 bg-blue-950/80 border-l-2 border-l-blue-400',
-  success: 'border-emerald-500/40 bg-emerald-950/80 border-l-2 border-l-emerald-400',
-  error: 'border-rose-500/40 bg-rose-950/80 border-l-2 border-l-rose-400',
-  warning: 'border-amber-500/40 bg-amber-950/80 border-l-2 border-l-amber-400',
-};
+interface ToastClock {
+  duration: number | null;
+  remaining: number;
+  startedAt: number;
+  hovered: boolean;
+  focused: boolean;
+  timeout?: ReturnType<typeof setTimeout>;
+  interval?: ReturnType<typeof setInterval>;
+}
 
-const VARIANT_ICONS: Record<ToastVariant, (typeof SEVERITY_CONFIG)[ToastVariant]['icon']> = {
-  info: SEVERITY_CONFIG.info.icon,
-  success: SEVERITY_CONFIG.success.icon,
-  error: SEVERITY_CONFIG.error.icon,
-  warning: SEVERITY_CONFIG.warning.icon,
-};
-
-const VARIANT_ICON_COLORS: Record<ToastVariant, string> = {
-  info: 'text-blue-400 bg-blue-500/15 p-1 rounded-lg',
-  success: 'text-emerald-400 bg-emerald-500/15 p-1 rounded-lg',
-  error: 'text-rose-400 bg-rose-500/15 p-1 rounded-lg',
-  warning: 'text-amber-400 bg-amber-500/15 p-1 rounded-lg',
-};
-
-const PROGRESS_COLORS: Record<ToastVariant, string> = {
-  info: 'bg-blue-500/80',
-  success: 'bg-emerald-500/80',
-  error: 'bg-rose-500/80',
-  warning: 'bg-amber-500/80',
-};
+function clearScheduled(clock: ToastClock) {
+  clearTimeout(clock.timeout);
+  clearInterval(clock.interval);
+  clock.timeout = undefined;
+  clock.interval = undefined;
+}
 
 function createToastId(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
@@ -85,86 +73,57 @@ const MAX_TOASTS = 5;
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
-  const timeoutMap = useRef(new Map<string, ReturnType<typeof setTimeout>>());
-  const durationMap = useRef(new Map<string, number>());
-  const startTimeMap = useRef(new Map<string, number>());
-  const progressIntervalMap = useRef(new Map<string, ReturnType<typeof setInterval>>());
+  const clocks = useRef(new Map<string, ToastClock>());
 
   const removeToast = useCallback((id: string) => {
+    const clock = clocks.current.get(id);
+    if (clock) clearScheduled(clock);
+    clocks.current.delete(id);
     setToasts((prev) => prev.filter((toast) => toast.id !== id));
-    const timeoutId = timeoutMap.current.get(id);
-    if (timeoutId) {
-      clearTimeout(timeoutId);
-      timeoutMap.current.delete(id);
-    }
-    const progressInterval = progressIntervalMap.current.get(id);
-    if (progressInterval) {
-      clearInterval(progressInterval);
-      progressIntervalMap.current.delete(id);
-    }
-    durationMap.current.delete(id);
-    startTimeMap.current.delete(id);
   }, []);
 
   const dismissAll = useCallback(() => {
+    clocks.current.forEach(clearScheduled);
+    clocks.current.clear();
     setToasts([]);
-    timeoutMap.current.forEach((timeoutId) => clearTimeout(timeoutId));
-    timeoutMap.current.clear();
-    progressIntervalMap.current.forEach((interval) => clearInterval(interval));
-    progressIntervalMap.current.clear();
-    durationMap.current.clear();
-    startTimeMap.current.clear();
   }, []);
 
-  const pauseToast = useCallback((id: string) => {
-    const timeoutId = timeoutMap.current.get(id);
-    if (timeoutId) {
-      clearTimeout(timeoutId);
-      timeoutMap.current.delete(id);
-    }
-    const progressInterval = progressIntervalMap.current.get(id);
-    if (progressInterval) {
-      clearInterval(progressInterval);
-      progressIntervalMap.current.delete(id);
-    }
-    setToasts((prev) =>
-      prev.map((toast) => (toast.id === id ? { ...toast, isPaused: true } : toast))
-    );
-  }, []);
-
-  const resumeToast = useCallback(
-    (id: string) => {
-      setToasts((prev) => {
-        const toast = prev.find((t) => t.id === id);
-        if (!toast || !toast.isPaused) return prev;
-
-        const duration = durationMap.current.get(id);
-        if (!duration) return prev;
-
-        const remainingTime = duration * (toast.progress / 100);
-
-        if (remainingTime > 0) {
-          const timeoutId = setTimeout(() => removeToast(id), remainingTime);
-          timeoutMap.current.set(id, timeoutId);
-
-          const interval = setInterval(() => {
-            setToasts((current) =>
-              current.map((t) => {
-                if (t.id !== id || t.isPaused) return t;
-                const elapsed = Date.now() - (startTimeMap.current.get(id) || Date.now());
-                const totalDuration = durationMap.current.get(id) || 5000;
-                const progress = Math.max(0, 100 - (elapsed / totalDuration) * 100);
-                return { ...t, progress };
-              })
-            );
-          }, 50);
-          progressIntervalMap.current.set(id, interval);
-        }
-
-        return prev.map((t) => (t.id === id ? { ...t, isPaused: false } : t));
-      });
+  const scheduleToast = useCallback(
+    (id: string, clock: ToastClock) => {
+      if (clock.duration === null) return;
+      clock.startedAt = Date.now();
+      clock.timeout = setTimeout(() => removeToast(id), clock.remaining);
+      clock.interval = setInterval(() => {
+        const remaining = Math.max(0, clock.remaining - (Date.now() - clock.startedAt));
+        const progress = clock.duration ? (remaining / clock.duration) * 100 : 0;
+        setToasts((prev) =>
+          prev.map((toast) => (toast.id === id ? { ...toast, progress } : toast))
+        );
+      }, 50);
     },
     [removeToast]
+  );
+
+  const updatePause = useCallback(
+    (id: string, reason: 'hovered' | 'focused', paused: boolean) => {
+      const clock = clocks.current.get(id);
+      if (!clock || clock.duration === null) return;
+      const wasPaused = clock.hovered || clock.focused;
+      clock[reason] = paused;
+      const isPaused = clock.hovered || clock.focused;
+      if (wasPaused === isPaused) return;
+      if (isPaused) {
+        clearScheduled(clock);
+        clock.remaining = Math.max(0, clock.remaining - (Date.now() - clock.startedAt));
+        const progress = clock.duration ? (clock.remaining / clock.duration) * 100 : 0;
+        setToasts((prev) =>
+          prev.map((toast) => (toast.id === id ? { ...toast, progress } : toast))
+        );
+      } else {
+        scheduleToast(id, clock);
+      }
+    },
+    [scheduleToast]
   );
 
   const showToast = useCallback(
@@ -178,76 +137,63 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       onAction,
     }: ToastInput) => {
       const id = createToastId();
-
-      setToasts((prev) => {
-        // Limit the number of toasts
-        const toasts = [
-          ...prev,
-          { id, title, message, variant, progress: 100, isPaused: false, actionLabel, onAction },
-        ];
-        if (toasts.length > MAX_TOASTS) {
-          const removed = toasts.shift();
-          if (removed) {
-            const timeoutId = timeoutMap.current.get(removed.id);
-            if (timeoutId) clearTimeout(timeoutId);
-            timeoutMap.current.delete(removed.id);
-            const interval = progressIntervalMap.current.get(removed.id);
-            if (interval) clearInterval(interval);
-            progressIntervalMap.current.delete(removed.id);
-          }
-        }
-        return toasts;
-      });
-
-      if (!persistent) {
-        durationMap.current.set(id, durationMs);
-        startTimeMap.current.set(id, Date.now());
-
-        const timeoutId = setTimeout(() => removeToast(id), durationMs);
-        timeoutMap.current.set(id, timeoutId);
-
-        // Progress bar animation
-        const interval = setInterval(() => {
-          setToasts((prev) =>
-            prev.map((toast) => {
-              if (toast.id !== id || toast.isPaused) return toast;
-              const elapsed = Date.now() - (startTimeMap.current.get(id) || Date.now());
-              const progress = Math.max(0, 100 - (elapsed / durationMs) * 100);
-              return { ...toast, progress };
-            })
-          );
-        }, 50);
-        progressIntervalMap.current.set(id, interval);
+      // Keep timer work outside React state updaters, which can run more than once.
+      if (clocks.current.size >= MAX_TOASTS) {
+        const oldest = clocks.current.keys().next().value;
+        if (oldest) removeToast(oldest);
       }
-
+      const duration = Number.isFinite(durationMs) ? Math.max(0, durationMs) : 5000;
+      const clock: ToastClock = {
+        duration: persistent ? null : duration,
+        remaining: duration,
+        startedAt: Date.now(),
+        hovered: false,
+        focused: false,
+      };
+      clocks.current.set(id, clock);
+      setToasts((prev) => [
+        ...prev,
+        {
+          id,
+          title,
+          message,
+          variant,
+          progress: persistent ? null : 100,
+          actionLabel,
+          onAction,
+        },
+      ]);
+      scheduleToast(id, clock);
       return id;
     },
-    [removeToast]
+    [removeToast, scheduleToast]
   );
 
   useEffect(() => {
-    const map = timeoutMap.current;
-    const intervals = progressIntervalMap.current;
+    const active = clocks.current;
     return () => {
-      map.forEach((timeoutId) => clearTimeout(timeoutId));
-      map.clear();
-      intervals.forEach((interval) => clearInterval(interval));
-      intervals.clear();
+      active.forEach(clearScheduled);
+      active.clear();
     };
   }, []);
 
+  const context = useMemo(
+    () => ({ showToast, dismissToast: removeToast, dismissAll }),
+    [showToast, removeToast, dismissAll]
+  );
+
   return (
-    <ToastContext.Provider value={{ showToast, dismissToast: removeToast, dismissAll }}>
+    <ToastContext.Provider value={context}>
       {children}
       <div
         className="fixed right-0 top-4 z-50 flex w-full max-w-sm flex-col gap-2 pointer-events-none px-4 sm:right-4 sm:px-0"
-        aria-live="assertive"
+        aria-live="polite"
         role="region"
         aria-label="Notifications"
       >
         <AnimatePresence mode="popLayout">
           {toasts.map((toast) => {
-            const Icon = VARIANT_ICONS[toast.variant];
+            const Icon = SEVERITY_CONFIG[toast.variant].icon;
             return (
               <motion.div
                 key={toast.id}
@@ -256,28 +202,24 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 animate={{ opacity: 1, x: 0, scale: 1 }}
                 exit={{ opacity: 0, x: 50, scale: 0.9 }}
                 transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                onMouseEnter={() => pauseToast(toast.id)}
-                onMouseLeave={() => resumeToast(toast.id)}
-                className={clsx(
-                  'pointer-events-auto flex flex-col overflow-hidden rounded-2xl border shadow-2xl backdrop-blur-xl',
-                  VARIANT_STYLES[toast.variant]
-                )}
+                onMouseEnter={() => updatePause(toast.id, 'hovered', true)}
+                onMouseLeave={() => updatePause(toast.id, 'hovered', false)}
+                onFocusCapture={() => updatePause(toast.id, 'focused', true)}
+                onBlurCapture={(event) => {
+                  if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                    updatePause(toast.id, 'focused', false);
+                  }
+                }}
+                data-variant={toast.variant}
+                role={toast.variant === 'error' ? 'alert' : 'status'}
+                aria-atomic="true"
+                className="toast pointer-events-auto flex flex-col overflow-hidden rounded-xl border shadow-lg"
               >
                 <div className="flex items-start gap-3 px-4 py-3">
-                  <Icon
-                    className={clsx(
-                      'h-5 w-5 flex-shrink-0 mt-0.5',
-                      VARIANT_ICON_COLORS[toast.variant]
-                    )}
-                    aria-hidden="true"
-                  />
+                  <Icon className="toast-icon h-5 w-5 flex-shrink-0 mt-0.5" aria-hidden="true" />
                   <div className="flex-1 text-sm min-w-0">
-                    {toast.title && (
-                      <div className="font-semibold text-white truncate">{toast.title}</div>
-                    )}
-                    <div className="text-gray-200/95 break-words leading-relaxed">
-                      {toast.message}
-                    </div>
+                    {toast.title && <div className="toast-title font-semibold">{toast.title}</div>}
+                    <div className="toast-message break-words leading-relaxed">{toast.message}</div>
                     {toast.actionLabel && toast.onAction && (
                       <button
                         type="button"
@@ -285,7 +227,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                           toast.onAction!();
                           removeToast(toast.id);
                         }}
-                        className="mt-1 text-xs font-medium underline hover:no-underline transition-colors text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900 rounded"
+                        className="toast-action mt-1 text-xs font-medium underline underline-offset-2 hover:no-underline transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 rounded"
                       >
                         {toast.actionLabel}
                       </button>
@@ -294,21 +236,22 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                   <button
                     type="button"
                     onClick={() => removeToast(toast.id)}
-                    className="text-gray-400 hover:text-gray-100 hover:rotate-90 transition-all duration-200 p-1 -m-1 rounded-lg hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900"
+                    className="toast-dismiss transition-colors p-1 -m-1 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
                     aria-label="Dismiss notification"
                   >
                     <X className="h-4 w-4" aria-hidden="true" />
                   </button>
                 </div>
-                {/* Progress bar */}
-                <div className="h-1 w-full bg-black/20">
-                  <motion.div
-                    className={clsx('h-full', PROGRESS_COLORS[toast.variant])}
-                    initial={{ width: '100%' }}
-                    animate={{ width: `${toast.progress}%` }}
-                    transition={{ duration: 0.05, ease: 'linear' }}
-                  />
-                </div>
+                {toast.progress !== null && (
+                  <div className="toast-progress-track h-0.5 w-full" aria-hidden="true">
+                    <motion.div
+                      className="toast-progress h-full"
+                      initial={{ width: '100%' }}
+                      animate={{ width: `${toast.progress}%` }}
+                      transition={{ duration: 0.05, ease: 'linear' }}
+                    />
+                  </div>
+                )}
               </motion.div>
             );
           })}

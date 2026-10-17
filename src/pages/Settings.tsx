@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
-import { useSearchParams } from 'react-router-dom';
+import { motion, useReducedMotionConfig } from 'framer-motion';
+import { useSearchParams } from 'react-router';
 import { User, FlaskConical, RefreshCw, Palette, Bell, Download, Info } from 'lucide-react';
 import clsx from 'clsx';
 import { usePageTitle } from '../hooks/usePageTitle';
@@ -32,7 +32,7 @@ const sectionVariants = {
 
 export default function Settings() {
   usePageTitle('Settings');
-  const reduceMotion = useReducedMotion();
+  const reduceMotion = useReducedMotionConfig();
   const [searchParams, setSearchParams] = useSearchParams();
   const initialTab = (searchParams.get('tab') as TabId) || 'account';
   const [activeTab, setActiveTab] = useState<TabId>(
@@ -101,7 +101,7 @@ export default function Settings() {
                 type="button"
                 onClick={() => handleTabChange(tab.id)}
                 className={clsx(
-                  'w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40',
+                  'settings-nav-item w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40',
                   isActive
                     ? 'bg-brand-500/15 text-brand-300 border border-brand-500/20'
                     : 'text-gray-400 hover:text-gray-200 hover:bg-slate-800/50 border border-transparent'

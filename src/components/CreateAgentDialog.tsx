@@ -3,6 +3,9 @@ import { X, Bot } from 'lucide-react';
 import clsx from 'clsx';
 import { TemplatePicker } from '../features/templates';
 import { BUILT_IN_TEMPLATES } from '../lib/agentTemplates';
+import { McpServerPicker } from '../features/connections/components/McpServerPicker';
+import { McpServerStatusNotice } from '../features/connections/components/McpServerStatusNotice';
+import { useMcpServerOptions } from '../features/connections/hooks/useMcpServerOptions';
 import type { AgentSessionConfig, AgentTemplate } from '../types';
 
 interface CreateAgentDialogProps {
@@ -18,6 +21,7 @@ export function CreateAgentDialog({
   onCreateAgent,
   isCreating,
 }: CreateAgentDialogProps) {
+  const mcpServerOptions = useMcpServerOptions();
   const [selectedTemplate, setSelectedTemplate] = useState<AgentTemplate>(BUILT_IN_TEMPLATES[0]);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [customConfig, setCustomConfig] = useState<Partial<AgentSessionConfig>>({});
@@ -33,7 +37,18 @@ export function CreateAgentDialog({
     }
   }, [isOpen]);
 
+  // Close on Escape
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   const finalConfig = { ...selectedTemplate.config, ...customConfig };
+  const selectedMcpServers = finalConfig.mcp_servers ?? [];
 
   const handleCreate = () => {
     onCreateAgent(selectedTemplate.agentType, finalConfig, sessionName || undefined);
@@ -119,9 +134,13 @@ export function CreateAgentDialog({
           <button
             onClick={() => setShowAdvanced(!showAdvanced)}
             type="button"
+            aria-expanded={showAdvanced}
             className="flex items-center gap-2 text-sm text-gray-400 hover:text-gray-300 mb-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 rounded"
           >
-            <span className={clsx('transition-transform', showAdvanced && 'rotate-90')}>
+            <span
+              className={clsx('transition-transform', showAdvanced && 'rotate-90')}
+              aria-hidden="true"
+            >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path
                   strokeLinecap="round"
@@ -210,6 +229,12 @@ export function CreateAgentDialog({
                 />
               </label>
 
+              <McpServerPicker
+                value={selectedMcpServers}
+                options={mcpServerOptions}
+                onChange={(servers) => updateCustomConfig({ mcp_servers: servers })}
+              />
+
               <label className="flex items-center gap-3">
                 <input
                   type="checkbox"
@@ -227,16 +252,9 @@ export function CreateAgentDialog({
             </div>
           )}
 
-          {/* MCP Warning */}
-          {finalConfig.mcp_servers && finalConfig.mcp_servers.length > 0 && (
-            <div className="mt-4 p-3 bg-amber-900/20 border border-amber-800 rounded-lg">
-              <p className="text-sm text-amber-300">
-                <strong>Note:</strong> This template uses MCP servers (
-                {finalConfig.mcp_servers.join(', ')}) which require platform credentials to be
-                configured in the Connections page.
-              </p>
-            </div>
-          )}
+          {/* Warns about servers this agent could not actually call. Shared with
+              the agent console, so the rules stay in one place. */}
+          <McpServerStatusNotice servers={selectedMcpServers} />
         </div>
 
         {/* Footer */}
@@ -251,7 +269,7 @@ export function CreateAgentDialog({
               onClick={onClose}
               disabled={isCreating}
               type="button"
-              className="px-4 py-2 bg-gray-800/90 hover:bg-gray-700 rounded-lg border border-gray-800/80 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 disabled:focus-visible:ring-0 disabled:focus-visible:ring-offset-0"
+              className="ui-button ui-button-secondary px-4 py-2 rounded-lg text-sm"
             >
               Cancel
             </button>
@@ -259,7 +277,7 @@ export function CreateAgentDialog({
               onClick={handleCreate}
               disabled={isCreating}
               type="button"
-              className="flex items-center gap-2 px-4 py-2 bg-brand-600/95 hover:bg-brand-500 disabled:bg-gray-700 disabled:text-gray-400 rounded-lg font-medium border border-brand-600/50 transition-all duration-200 shadow-md shadow-brand-500/20 hover:shadow-lg hover:shadow-brand-500/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 disabled:focus-visible:ring-0 disabled:focus-visible:ring-offset-0 disabled:shadow-none"
+              className="ui-button ui-button-primary flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm"
             >
               {isCreating ? (
                 <>

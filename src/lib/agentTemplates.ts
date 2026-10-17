@@ -161,6 +161,66 @@ export const BUILT_IN_TEMPLATES: AgentTemplate[] = [
         'Analyze sales trends, customer behavior, and product performance. Provide actionable insights with supporting data.',
     },
   },
+  {
+    id: 'sync-operations',
+    name: 'Sync Operations',
+    description: 'Watches order and inventory sync for stalled jobs and discrepancies',
+    icon: 'RefreshCw',
+    color: 'bg-cyan-700',
+    category: 'commerce',
+    agentType: 'autonomous',
+    config: {
+      mcp_servers: ['stateset-sync'],
+      model: 'claude-sonnet-4-6',
+      temperature: 0.3,
+      loop_interval_ms: 60000,
+      max_iterations: 100,
+      iteration_timeout_secs: 300,
+      pause_on_error: true,
+      custom_instructions:
+        'Monitor sync health: stalled orders, failed jobs, dead-letter items, and inventory discrepancies. Report what is stuck, since when, and the likely cause. Do not retry or mutate anything without being asked.',
+    },
+  },
+  {
+    id: 'knowledge-curator',
+    name: 'Knowledge Curator',
+    description: 'Keeps agent rules, knowledge, and evals current in ResponseCX',
+    icon: 'BookOpen',
+    color: 'bg-brand-600',
+    category: 'support',
+    agentType: 'interactive',
+    config: {
+      mcp_servers: ['stateset-response'],
+      model: 'claude-sonnet-4-6',
+      temperature: 0.4,
+      loop_interval_ms: 5000,
+      max_iterations: 50,
+      iteration_timeout_secs: 300,
+      pause_on_error: false,
+      custom_instructions:
+        'Review support conversations for gaps in the knowledge base, propose rules and knowledge entries, and run evals after a change. Show the proposed wording before writing anything.',
+    },
+  },
+  {
+    id: 'workstream-ops',
+    name: 'Workstream Ops',
+    description: 'Runs engine workflows and reports on sessions and their outcomes',
+    icon: 'Workflow',
+    color: 'bg-slate-600',
+    category: 'automation',
+    agentType: 'autonomous',
+    config: {
+      mcp_servers: ['stateset-engine'],
+      model: 'claude-sonnet-4-6',
+      temperature: 0.3,
+      loop_interval_ms: 30000,
+      max_iterations: 100,
+      iteration_timeout_secs: 600,
+      pause_on_error: true,
+      custom_instructions:
+        'Track engine workflows and agent sessions. Summarize what ran, what failed, and what needs attention. Escalate repeated failures rather than restarting them yourself.',
+    },
+  },
 ];
 
 /** Map icon name strings to lucide-react component names */
@@ -174,6 +234,9 @@ export const TEMPLATE_ICON_MAP: Record<string, string> = {
   RotateCcw: 'RotateCcw',
   BarChart3: 'BarChart3',
   Bot: 'Bot',
+  RefreshCw: 'RefreshCw',
+  BookOpen: 'BookOpen',
+  Workflow: 'Workflow',
 };
 
 export const TEMPLATE_CATEGORIES = [

@@ -3,6 +3,13 @@ import { contextBridge, ipcRenderer } from 'electron';
 // Expose protected methods that allow the renderer process to use
 // the ipcRenderer without exposing the entire object
 contextBridge.exposeInMainWorld('electronAPI', {
+  computerChat: {
+    getConnection: () => ipcRenderer.invoke('computer-chat:getConnection'),
+    request: (request: import('./computer-chat-bridge').ComputerChatRequest) =>
+      ipcRenderer.invoke('computer-chat:request', request),
+    saveArtifact: (request: { filename: string; contentBase64: string; sha256: string }) =>
+      ipcRenderer.invoke('computer-chat:saveArtifact', request),
+  },
   // Store operations
   store: {
     get: (key: string) => ipcRenderer.invoke('store:get', key),
@@ -64,8 +71,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
     setSandboxApiKey: (apiKey: string) => ipcRenderer.invoke('auth:setSandboxApiKey', apiKey),
     getSandboxApiKey: () => ipcRenderer.invoke('auth:getSandboxApiKey'),
     clearSandboxApiKey: () => ipcRenderer.invoke('auth:clearSandboxApiKey'),
+    setDurableEngineApiKey: (apiKey: string) =>
+      ipcRenderer.invoke('auth:setDurableEngineApiKey', apiKey),
+    getDurableEngineApiKey: () => ipcRenderer.invoke('auth:getDurableEngineApiKey'),
+    clearDurableEngineApiKey: () => ipcRenderer.invoke('auth:clearDurableEngineApiKey'),
   },
 
+  mcp: {
+    probe: (request: { endpoint: string; authToken?: string }) =>
+      ipcRenderer.invoke('mcp:probe', request),
+  },
   secrets: {
     getLocal: () => ipcRenderer.invoke('secrets:getLocal'),
     setLocal: (payload: string) => ipcRenderer.invoke('secrets:setLocal', payload),
@@ -151,7 +166,8 @@ interface UpdateProgress {
 }
 
 interface UpdateStatusSnapshot {
-  status: 'idle' | 'checking' | 'available' | 'downloading' | 'ready' | 'error' | 'disabled';
+  status:
+    'idle' | 'current' | 'checking' | 'available' | 'downloading' | 'ready' | 'error' | 'disabled';
   checking: boolean;
   available: boolean;
   progress: number;
@@ -162,6 +178,17 @@ interface UpdateStatusSnapshot {
 
 // Type definitions for the exposed API
 export interface ElectronAPI {
+  computerChat: {
+    getConnection: () => Promise<import('./computer-chat-bridge').ComputerChatConnection>;
+    request: (
+      request: import('./computer-chat-bridge').ComputerChatRequest
+    ) => Promise<{ ok: boolean; status: number; body: unknown }>;
+    saveArtifact: (request: {
+      filename: string;
+      contentBase64: string;
+      sha256: string;
+    }) => Promise<boolean>;
+  };
   store: {
     get: (key: string) => Promise<unknown>;
     set: (key: string, value: unknown) => Promise<boolean>;
@@ -194,6 +221,15 @@ export interface ElectronAPI {
     setSandboxApiKey: (apiKey: string) => Promise<boolean>;
     getSandboxApiKey: () => Promise<string | undefined>;
     clearSandboxApiKey: () => Promise<boolean>;
+    setDurableEngineApiKey: (apiKey: string) => Promise<boolean>;
+    getDurableEngineApiKey: () => Promise<string | undefined>;
+    clearDurableEngineApiKey: () => Promise<boolean>;
+  };
+  mcp: {
+    probe: (request: {
+      endpoint: string;
+      authToken?: string;
+    }) => Promise<import('./mcp-probe').McpProbeResult>;
   };
   secrets: {
     getLocal: () => Promise<string | undefined>;
@@ -213,6 +249,7 @@ export interface ElectronAPI {
       version?: string;
       error?: string;
       message?: string;
+      snapshot: UpdateStatusSnapshot;
     }>;
     installUpdate: () => Promise<boolean>;
     getUpdateStatus: () => Promise<UpdateStatusSnapshot>;

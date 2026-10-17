@@ -1,29 +1,41 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import type { AgentSession } from '../types';
+import type { AgentSession, Brand, PlatformConnection, Tenant } from '../types';
 
-// Mock IndexedDB for testing
+type CacheModule = typeof import('./cache');
+
+interface StoredEntry {
+  key: string;
+  data: unknown;
+  timestamp: number;
+  expiresAt: number;
+}
+
+// ============================================
+// Functional in-memory IndexedDB mock
+// ============================================
+
 class MockIDBRequest<T> {
   result: T | undefined;
   error: Error | null = null;
   onsuccess: (() => void) | null = null;
   onerror: (() => void) | null = null;
+  onupgradeneeded: ((event: unknown) => void) | null = null;
 
   succeed(result: T) {
     this.result = result;
-    if (this.onsuccess) this.onsuccess();
+    this.onsuccess?.();
   }
 
   fail(error: Error) {
     this.error = error;
-    if (this.onerror) this.onerror();
+    this.onerror?.();
   }
 }
 
 class MockIDBObjectStore {
-  data = new Map<string, unknown>();
-  indexes = new Map<string, MockIDBIndex>();
+  data = new Map<string, StoredEntry>();
 
-  put(value: { key: string }) {
+  put(value: StoredEntry) {
     const request = new MockIDBRequest<void>();
     setTimeout(() => {
       this.data.set(value.key, value);
@@ -66,239 +78,455 @@ class MockIDBObjectStore {
     return request;
   }
 
-  createIndex(name: string) {
-    const index = new MockIDBIndex(this);
-    this.indexes.set(name, index);
-    return index;
+  createIndex(_name: string, _keyPath: string, _options?: unknown) {
+    return new MockIDBIndex(this);
   }
 
-  index(name: string) {
-    return this.indexes.get(name) || new MockIDBIndex(this);
+  index(_name: string) {
+    return new MockIDBIndex(this);
   }
 }
 
+// Supports the `expiresAt` index used by cleanupExpiredEntries.
 class MockIDBIndex {
-  constructor(_store: MockIDBObjectStore) {}
+  constructor(private store: MockIDBObjectStore) {}
 
-  openCursor() {
-    const request = new MockIDBRequest<null>();
-    setTimeout(() => {
-      request.succeed(null);
-    }, 0);
+  openCursor(range: { upper: number }) {
+    const request = new MockIDBRequest<unknown>();
+    const expired = [...this.store.data.values()].filter((entry) => entry.expiresAt <= range.upper);
+    let i = 0;
+
+    const advance = () => {
+      setTimeout(() => {
+        if (i < expired.length) {
+          const entry = expired[i++];
+          request.succeed({
+            delete: () => this.store.data.delete(entry.key),
+            continue: advance,
+          });
+        } else {
+          request.succeed(null);
+        }
+      }, 0);
+    };
+
+    advance();
     return request;
   }
 }
 
-class MockIDBTransaction {
-  stores = new Map<string, MockIDBObjectStore>();
-
-  constructor(storeNames: string[]) {
-    storeNames.forEach((name) => {
-      if (!this.stores.has(name)) {
-        this.stores.set(name, new MockIDBObjectStore());
-      }
-    });
-  }
-
-  objectStore(name: string) {
-    if (!this.stores.has(name)) {
-      this.stores.set(name, new MockIDBObjectStore());
-    }
-    return this.stores.get(name)!;
-  }
-}
-
 class MockIDBDatabase {
-  objectStoreNames = {
-    _names: new Set<string>(),
-    contains(name: string) {
-      return this._names.has(name);
-    },
-  };
   stores = new Map<string, MockIDBObjectStore>();
+  objectStoreNames = {
+    contains: (name: string) => this.stores.has(name),
+  };
 
-  createObjectStore(name: string) {
+  createObjectStore(name: string, _options?: unknown) {
     const store = new MockIDBObjectStore();
     this.stores.set(name, store);
-    this.objectStoreNames._names.add(name);
     return store;
   }
 
-  transaction(storeNames: string | string[]) {
-    const names = Array.isArray(storeNames) ? storeNames : [storeNames];
-    const tx = new MockIDBTransaction(names);
-    names.forEach((name) => {
-      if (this.stores.has(name)) {
-        tx.stores.set(name, this.stores.get(name)!);
-      }
-    });
-    return tx;
+  transaction(_storeNames: string | string[], _mode?: string) {
+    return {
+      objectStore: (name: string) => {
+        if (!this.stores.has(name)) {
+          this.stores.set(name, new MockIDBObjectStore());
+        }
+        return this.stores.get(name)!;
+      },
+    };
   }
 }
 
+function installMockIndexedDB(db: MockIDBDatabase, options: { failOpen?: boolean } = {}) {
+  (globalThis as Record<string, unknown>).indexedDB = {
+    open: vi.fn(() => {
+      const request = new MockIDBRequest<MockIDBDatabase>();
+      setTimeout(() => {
+        if (options.failOpen) {
+          request.fail(new Error('open denied'));
+          return;
+        }
+        request.onupgradeneeded?.({ target: { result: db } });
+        request.succeed(db);
+      }, 0);
+      return request;
+    }),
+  };
+  (globalThis as Record<string, unknown>).IDBKeyRange = {
+    upperBound: (upper: number) => ({ upper }),
+  };
+}
+
+// Loads a fresh copy of the cache module so its module-level db handle
+// picks up the mock installed by the current test.
+async function loadCache(): Promise<CacheModule> {
+  vi.resetModules();
+  return import('./cache');
+}
+
+// ============================================
+// Fixtures
+// ============================================
+
+const mockSession: AgentSession = {
+  id: 'session_1',
+  tenant_id: 'tenant_1',
+  brand_id: 'brand_1',
+  agent_type: 'response',
+  status: 'running',
+  config: {
+    loop_interval_ms: 1000,
+    max_iterations: 100,
+    iteration_timeout_secs: 30,
+    pause_on_error: false,
+    mcp_servers: [],
+    model: 'claude-3-opus',
+    temperature: 0.7,
+  },
+  metrics: {
+    loop_count: 10,
+    tokens_used: 1000,
+    tool_calls: 50,
+    errors: 0,
+    messages_sent: 20,
+    uptime_seconds: 3600,
+  },
+  created_at: '2026-01-01T00:00:00Z',
+  updated_at: '2026-01-01T00:00:00Z',
+};
+
+const mockBrand: Brand = {
+  id: 'brand_1',
+  tenant_id: 'tenant_1',
+  slug: 'acme',
+  name: 'Acme',
+  support_platform: 'zendesk',
+  ecommerce_platform: 'shopify',
+  config: {},
+  mcp_servers: [],
+  enabled: true,
+  created_at: '2026-01-01T00:00:00Z',
+};
+
+const mockTenant: Tenant = {
+  id: 'tenant_1',
+  name: 'Acme Inc',
+  slug: 'acme-inc',
+  tier: 'pro',
+  created_at: '2026-01-01T00:00:00Z',
+};
+
+const mockConnection: PlatformConnection = {
+  platform: 'shopify',
+  connected: true,
+  fields: [],
+};
+
+// ============================================
+// Tests
+// ============================================
+
 describe('cache', () => {
   let mockDB: MockIDBDatabase;
-  let originalIndexedDB: typeof indexedDB;
+  let originalIndexedDB: typeof indexedDB | undefined;
+  let originalIDBKeyRange: typeof IDBKeyRange | undefined;
 
   beforeEach(() => {
-    mockDB = new MockIDBDatabase();
     originalIndexedDB = globalThis.indexedDB;
-
-    // Mock indexedDB
-    (globalThis as Record<string, unknown>).indexedDB = {
-      open: vi.fn(() => {
-        const request = new MockIDBRequest<MockIDBDatabase>();
-        setTimeout(() => {
-          // Trigger upgrade to create stores
-          const upgradeEvent = {
-            target: { result: mockDB },
-          };
-          if ((request as unknown as Record<string, unknown>).onupgradeneeded) {
-            ((request as unknown as Record<string, unknown>).onupgradeneeded as CallableFunction)(
-              upgradeEvent
-            );
-          }
-          request.succeed(mockDB);
-        }, 0);
-        return request;
-      }),
-    };
+    originalIDBKeyRange = globalThis.IDBKeyRange;
+    mockDB = new MockIDBDatabase();
+    installMockIndexedDB(mockDB);
   });
 
   afterEach(() => {
-    globalThis.indexedDB = originalIndexedDB;
+    (globalThis as Record<string, unknown>).indexedDB = originalIndexedDB;
+    (globalThis as Record<string, unknown>).IDBKeyRange = originalIDBKeyRange;
     vi.restoreAllMocks();
   });
 
   describe('sessionsCache', () => {
-    it('should return null when no data is cached', async () => {
-      // Dynamic import to get fresh module with mocked IndexedDB
-      const { sessionsCache } = await import('./cache');
+    it('returns null when no data is cached', async () => {
+      const { sessionsCache } = await loadCache();
       const result = await sessionsCache.get('tenant_1', 'brand_1');
       expect(result).toBeNull();
     });
-  });
 
-  describe('cache key generation', () => {
-    it('should generate correct cache keys for sessions', () => {
-      // Test cache key format by checking it includes tenant and brand
-      const tenantId = 'tenant_123';
-      const brandId = 'brand_456';
+    it('round-trips session lists keyed by tenant and brand', async () => {
+      const { sessionsCache } = await loadCache();
 
-      // The key should be in format: sessions:{tenantId}:{brandId}
-      const expectedKeyPattern = `sessions:${tenantId}:${brandId}`;
-      expect(expectedKeyPattern).toBe('sessions:tenant_123:brand_456');
+      await sessionsCache.set('tenant_1', 'brand_1', [mockSession]);
+
+      expect(await sessionsCache.get('tenant_1', 'brand_1')).toEqual([mockSession]);
+      expect(mockDB.stores.get('sessions')?.data.has('sessions:tenant_1:brand_1')).toBe(true);
+      // Different tenant/brand combinations do not collide
+      expect(await sessionsCache.get('tenant_1', 'brand_2')).toBeNull();
+      expect(await sessionsCache.get('tenant_2', 'brand_1')).toBeNull();
     });
 
-    it('should generate correct cache keys without brand', () => {
-      const tenantId = 'tenant_123';
+    it('round-trips tenant-only session lists', async () => {
+      const { sessionsCache } = await loadCache();
 
-      // The key should be in format: sessions:{tenantId}
-      const expectedKeyPattern = `sessions:${tenantId}`;
-      expect(expectedKeyPattern).toBe('sessions:tenant_123');
+      await sessionsCache.set('tenant_1', undefined, [mockSession]);
+
+      expect(await sessionsCache.get('tenant_1')).toEqual([mockSession]);
+      expect(mockDB.stores.get('sessions')?.data.has('sessions:tenant_1')).toBe(true);
+    });
+
+    it('round-trips single sessions by id', async () => {
+      const { sessionsCache } = await loadCache();
+
+      await sessionsCache.setSession(mockSession);
+
+      expect(await sessionsCache.getSession('session_1')).toEqual(mockSession);
+      expect(await sessionsCache.getSession('missing')).toBeNull();
+    });
+
+    it('invalidate removes only the targeted entry', async () => {
+      const { sessionsCache } = await loadCache();
+      await sessionsCache.set('tenant_1', 'brand_1', [mockSession]);
+      await sessionsCache.set('tenant_1', undefined, [mockSession]);
+
+      await sessionsCache.invalidate('tenant_1', 'brand_1');
+
+      expect(await sessionsCache.get('tenant_1', 'brand_1')).toBeNull();
+      expect(await sessionsCache.get('tenant_1')).toEqual([mockSession]);
+    });
+
+    it('clear empties the sessions store', async () => {
+      const { sessionsCache } = await loadCache();
+      await sessionsCache.set('tenant_1', 'brand_1', [mockSession]);
+      await sessionsCache.setSession(mockSession);
+
+      await sessionsCache.clear();
+
+      expect(await sessionsCache.get('tenant_1', 'brand_1')).toBeNull();
+      expect(await sessionsCache.getSession('session_1')).toBeNull();
+    });
+  });
+
+  describe('brandsCache', () => {
+    it('round-trips, invalidates, and clears brand lists', async () => {
+      const { brandsCache } = await loadCache();
+
+      await brandsCache.set('tenant_1', [mockBrand]);
+      expect(await brandsCache.get('tenant_1')).toEqual([mockBrand]);
+
+      await brandsCache.invalidate('tenant_1');
+      expect(await brandsCache.get('tenant_1')).toBeNull();
+
+      await brandsCache.set('tenant_1', [mockBrand]);
+      await brandsCache.clear();
+      expect(await brandsCache.get('tenant_1')).toBeNull();
+    });
+  });
+
+  describe('connectionsCache', () => {
+    it('round-trips connections keyed by tenant and brand', async () => {
+      const { connectionsCache } = await loadCache();
+
+      await connectionsCache.set('tenant_1', 'brand_1', [mockConnection]);
+
+      expect(await connectionsCache.get('tenant_1', 'brand_1')).toEqual([mockConnection]);
+      expect(await connectionsCache.get('tenant_1', 'brand_2')).toBeNull();
+
+      await connectionsCache.invalidate('tenant_1', 'brand_1');
+      expect(await connectionsCache.get('tenant_1', 'brand_1')).toBeNull();
+    });
+  });
+
+  describe('authContextCache', () => {
+    it('round-trips and clears the auth context', async () => {
+      const { authContextCache } = await loadCache();
+      const context = { tenant: mockTenant, brands: [mockBrand] };
+
+      await authContextCache.set(context);
+      expect(await authContextCache.get()).toEqual(context);
+
+      await authContextCache.clear();
+      expect(await authContextCache.get()).toBeNull();
     });
   });
 
   describe('TTL expiration', () => {
-    it('should define correct TTL values', () => {
-      // These are the expected TTL values in milliseconds
-      const SESSIONS_TTL = 5 * 60 * 1000; // 5 minutes
-      const BRANDS_TTL = 30 * 60 * 1000; // 30 minutes
-      const CONNECTIONS_TTL = 15 * 60 * 1000; // 15 minutes
+    it('returns null for expired entries and deletes them lazily', async () => {
+      const cache = await loadCache();
+      const { __testing__ } = cache;
 
-      expect(SESSIONS_TTL).toBe(300000);
-      expect(BRANDS_TTL).toBe(1800000);
-      expect(CONNECTIONS_TTL).toBe(900000);
+      await __testing__.set('sessions', 'expired-key', { value: 1 }, -10);
+      const result = await __testing__.get('sessions', 'expired-key');
+
+      expect(result).toBeNull();
+      // Lazy delete is fired asynchronously
+      await vi.waitFor(() => {
+        expect(mockDB.stores.get('sessions')?.data.has('expired-key')).toBe(false);
+      });
+    });
+
+    it('returns data for entries that have not expired', async () => {
+      const { __testing__ } = await loadCache();
+
+      await __testing__.set('sessions', 'fresh-key', { value: 42 }, 60_000);
+
+      expect(await __testing__.get('sessions', 'fresh-key')).toEqual({ value: 42 });
+      const entry = mockDB.stores.get('sessions')?.data.get('fresh-key');
+      expect(entry?.expiresAt).toBeGreaterThan(Date.now());
+      expect(entry?.timestamp).toBeLessThanOrEqual(Date.now());
+    });
+
+    it('cleanupExpiredEntries removes only expired rows', async () => {
+      const { __testing__ } = await loadCache();
+
+      await __testing__.set('sessions', 'stale', { value: 1 }, -10);
+      await __testing__.set('sessions', 'live', { value: 2 }, 60_000);
+      await __testing__.set('brands', 'stale-brand', { value: 3 }, -10);
+
+      await __testing__.cleanupExpiredEntries();
+
+      expect(mockDB.stores.get('sessions')?.data.has('stale')).toBe(false);
+      expect(mockDB.stores.get('sessions')?.data.has('live')).toBe(true);
+      expect(mockDB.stores.get('brands')?.data.has('stale-brand')).toBe(false);
     });
   });
 
-  describe('cache entry structure', () => {
-    it('should create properly structured cache entries', () => {
-      const mockSession: AgentSession = {
-        id: 'session_1',
-        tenant_id: 'tenant_1',
-        brand_id: 'brand_1',
-        agent_type: 'response',
-        status: 'running',
-        config: {
-          loop_interval_ms: 1000,
-          max_iterations: 100,
-          iteration_timeout_secs: 30,
-          pause_on_error: false,
-          mcp_servers: [],
-          model: 'claude-3-opus',
-          temperature: 0.7,
-        },
-        metrics: {
-          loop_count: 10,
-          tokens_used: 1000,
-          tool_calls: 50,
-          errors: 0,
-          messages_sent: 20,
-          uptime_seconds: 3600,
-        },
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
+  describe('clearAllCaches', () => {
+    it('clears every store', async () => {
+      const cache = await loadCache();
 
-      const cacheEntry = {
-        key: 'sessions:tenant_1:brand_1',
-        data: [mockSession],
-        timestamp: Date.now(),
-        expiresAt: Date.now() + 5 * 60 * 1000,
-      };
+      await cache.sessionsCache.set('tenant_1', 'brand_1', [mockSession]);
+      await cache.brandsCache.set('tenant_1', [mockBrand]);
+      await cache.connectionsCache.set('tenant_1', 'brand_1', [mockConnection]);
+      await cache.authContextCache.set({ tenant: mockTenant, brands: [mockBrand] });
 
-      expect(cacheEntry.key).toBeTruthy();
-      expect(cacheEntry.data).toHaveLength(1);
-      expect(cacheEntry.timestamp).toBeLessThanOrEqual(Date.now());
-      expect(cacheEntry.expiresAt).toBeGreaterThan(Date.now());
+      await cache.clearAllCaches();
+
+      expect(await cache.sessionsCache.get('tenant_1', 'brand_1')).toBeNull();
+      expect(await cache.brandsCache.get('tenant_1')).toBeNull();
+      expect(await cache.connectionsCache.get('tenant_1', 'brand_1')).toBeNull();
+      expect(await cache.authContextCache.get()).toBeNull();
     });
   });
 
-  describe('isIndexedDBAvailable', () => {
-    it('should return true when indexedDB is available', () => {
-      expect(typeof indexedDB).toBe('object');
-    });
+  describe('getCacheStats', () => {
+    it('reports per-store entry counts', async () => {
+      const cache = await loadCache();
 
-    it('should handle undefined indexedDB', () => {
-      const savedIndexedDB = globalThis.indexedDB;
+      await cache.sessionsCache.set('tenant_1', 'brand_1', [mockSession]);
+      await cache.sessionsCache.setSession(mockSession);
+      await cache.brandsCache.set('tenant_1', [mockBrand]);
+
+      const stats = await cache.getCacheStats();
+
+      expect(stats.available).toBe(true);
+      expect(stats.stores).toEqual({
+        sessions: 2,
+        brands: 1,
+        connections: 0,
+        metadata: 0,
+      });
+    });
+  });
+
+  describe('error resilience', () => {
+    it('degrades gracefully when indexedDB is unavailable', async () => {
       (globalThis as Record<string, unknown>).indexedDB = undefined;
+      const cache = await loadCache();
 
-      // Function should handle this gracefully
-      const available =
-        typeof globalThis.indexedDB !== 'undefined' && globalThis.indexedDB !== null;
-      expect(available).toBe(false);
+      await expect(
+        cache.sessionsCache.set('tenant_1', 'brand_1', [mockSession])
+      ).resolves.toBeUndefined();
+      expect(await cache.sessionsCache.get('tenant_1', 'brand_1')).toBeNull();
+      await expect(cache.clearAllCaches()).resolves.toBeUndefined();
+      expect(await cache.getCacheStats()).toEqual({ available: false, stores: {} });
+    });
 
-      (globalThis as Record<string, unknown>).indexedDB = savedIndexedDB;
+    it('degrades gracefully when opening the database fails', async () => {
+      installMockIndexedDB(mockDB, { failOpen: true });
+      const cache = await loadCache();
+
+      expect(await cache.sessionsCache.get('tenant_1', 'brand_1')).toBeNull();
+      await expect(
+        cache.sessionsCache.set('tenant_1', 'brand_1', [mockSession])
+      ).resolves.toBeUndefined();
+      expect(await cache.getCacheStats()).toEqual({ available: false, stores: {} });
+    });
+
+    it('resolves null/void when a transaction throws', async () => {
+      const cache = await loadCache();
+      // Ensure the db handle is initialized before sabotaging transactions
+      await cache.sessionsCache.get('tenant_1');
+
+      mockDB.transaction = () => {
+        throw new Error('transaction unavailable');
+      };
+
+      expect(await cache.sessionsCache.get('tenant_1', 'brand_1')).toBeNull();
+      await expect(
+        cache.sessionsCache.set('tenant_1', 'brand_1', [mockSession])
+      ).resolves.toBeUndefined();
+      await expect(cache.sessionsCache.invalidate('tenant_1', 'brand_1')).resolves.toBeUndefined();
+      await expect(cache.sessionsCache.clear()).resolves.toBeUndefined();
+      await expect(cache.__testing__.cleanupExpiredEntries()).resolves.toBeUndefined();
+      expect(await cache.getCacheStats()).toEqual({
+        available: true,
+        stores: { sessions: 0, brands: 0, connections: 0, metadata: 0 },
+      });
+    });
+
+    it('resolves null when a get request errors', async () => {
+      const cache = await loadCache();
+      await cache.sessionsCache.get('tenant_1');
+
+      const store = mockDB.stores.get('sessions')!;
+      store.get = () => {
+        const request = new MockIDBRequest<unknown>();
+        setTimeout(() => request.fail(new Error('read error')), 0);
+        return request;
+      };
+
+      expect(await cache.sessionsCache.get('tenant_1', 'brand_1')).toBeNull();
+    });
+
+    it('resolves when a put request errors', async () => {
+      const cache = await loadCache();
+      await cache.sessionsCache.get('tenant_1');
+
+      const store = mockDB.stores.get('sessions')!;
+      store.put = () => {
+        const request = new MockIDBRequest<void>();
+        setTimeout(() => request.fail(new Error('write error')), 0);
+        return request;
+      };
+
+      await expect(
+        cache.sessionsCache.set('tenant_1', 'brand_1', [mockSession])
+      ).resolves.toBeUndefined();
+      expect(await cache.sessionsCache.get('tenant_1', 'brand_1')).toBeNull();
     });
   });
-});
 
-describe('cache statistics', () => {
-  it('should return expected stats structure', () => {
-    const mockStats = {
-      available: true,
-      stores: {
-        sessions: 5,
-        brands: 2,
-        connections: 3,
-        metadata: 1,
-      },
-    };
+  describe('schema initialization', () => {
+    it('creates the expected object stores on upgrade', async () => {
+      const cache = await loadCache();
+      await cache.sessionsCache.get('tenant_1');
 
-    expect(mockStats.available).toBe(true);
-    expect(Object.keys(mockStats.stores)).toContain('sessions');
-    expect(Object.keys(mockStats.stores)).toContain('brands');
-    expect(Object.keys(mockStats.stores)).toContain('connections');
-  });
+      expect(mockDB.objectStoreNames.contains('sessions')).toBe(true);
+      expect(mockDB.objectStoreNames.contains('brands')).toBe(true);
+      expect(mockDB.objectStoreNames.contains('connections')).toBe(true);
+      expect(mockDB.objectStoreNames.contains('metadata')).toBe(true);
+    });
 
-  it('should return unavailable when IndexedDB is not present', () => {
-    const mockStats = {
-      available: false,
-      stores: {},
-    };
+    it('reuses the database handle across operations (single open)', async () => {
+      const cache = await loadCache();
 
-    expect(mockStats.available).toBe(false);
-    expect(Object.keys(mockStats.stores)).toHaveLength(0);
+      await cache.sessionsCache.get('tenant_1');
+      await cache.brandsCache.get('tenant_1');
+      await cache.getCacheStats();
+
+      const openMock = (globalThis.indexedDB as unknown as { open: ReturnType<typeof vi.fn> }).open;
+      expect(openMock).toHaveBeenCalledTimes(1);
+      expect(openMock).toHaveBeenCalledWith('stateset-cache', 1);
+    });
   });
 });

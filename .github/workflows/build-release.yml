@@ -13,10 +13,15 @@ on:
         description: 'Create a release'
         required: false
         type: boolean
-        default: true
+        default: false
+      source_sha:
+        description: 'Expected source commit for a manual release'
+        required: false
+        type: string
 
 env:
   NODE_VERSION: '22'
+  RELEASE_REQUESTED: ${{ (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) || (github.event_name == 'workflow_dispatch' && inputs.release == true) }}
 
 jobs:
   # Run tests first
@@ -32,8 +37,29 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
 
+      - name: Validate release source
+        if: env.RELEASE_REQUESTED == 'true'
+        run: node scripts/validate-release-source.mjs
+        env:
+          EXPECTED_RELEASE_SHA: ${{ inputs.source_sha }}
+
+      - name: Check required signing settings
+        if: env.RELEASE_REQUESTED == 'true'
+        run: node scripts/validate-release-signing.mjs
+        env:
+          MAC_CERTS: ${{ secrets.MAC_CERTS }}
+          MAC_CERTS_PASSWORD: ${{ secrets.MAC_CERTS_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+
       - name: Install dependencies
         run: npm ci
+
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=moderate
 
       - name: Run linter
         run: npm run lint
@@ -41,14 +67,45 @@ jobs:
       - name: Run type check
         run: npm run typecheck
 
+      - name: Verify release source validation
+        run: npm run test:release-source
+
+      - name: Verify release asset validation
+        run: npm run test:release-assets
+
+      - name: Verify computer chat acceptance harness
+        run: npm run test:computer-chat:harness
+
+      - name: Verify Playwright evidence retention
+        run: npm run test:playwright:evidence
+
       - name: Run unit tests with coverage
         run: npm run test:coverage
+
+      - name: Publish coverage summary
+        if: always()
+        run: |
+          if [ -f coverage/coverage-summary.json ]; then
+            node -e "
+              const t = require('./coverage/coverage-summary.json').total;
+              const rows = ['lines', 'statements', 'functions', 'branches']
+                .map((k) => '| ' + k + ' | ' + t[k].pct + '% (' + t[k].covered + '/' + t[k].total + ') |')
+                .join('\n');
+              require('fs').appendFileSync(
+                process.env.GITHUB_STEP_SUMMARY,
+                '## Unit Test Coverage\n\n| Metric | Coverage |\n|---|---|\n' + rows + '\n'
+              );
+            "
+          fi
 
       - name: Build Electron (tsc)
         run: npm run build:electron
 
       - name: Build Renderer (Vite)
         run: npm run build:vite
+
+      - name: Build component documentation
+        run: npm run build-storybook -- --output-dir dist/component-docs --quiet --disable-telemetry
 
   e2e:
     needs: test
@@ -71,6 +128,9 @@ jobs:
       - name: Install Playwright dependencies
         run: npx playwright install --with-deps
 
+      - name: Typecheck desktop tests
+        run: npm run typecheck:e2e
+
       - name: Run E2E tests
         run: xvfb-run -a npm run test:e2e
         env:
@@ -86,6 +146,9 @@ jobs:
           path: |
             playwright-report
             test-results
+            e2e/*-results.json
+            dist/verification/updater-*.png
+            dist/verification/schedule-pending-*.png
 
   # Build for macOS
   build-macos:
@@ -109,22 +172,40 @@ jobs:
         id: signing
         run: |
           if [ -n "$CSC_LINK" ]; then
-            echo "has_certs=true" >> $GITHUB_OUTPUT
+            echo "has_certs=true" >> "$GITHUB_OUTPUT"
           else
-            echo "has_certs=false" >> $GITHUB_OUTPUT
+            echo "has_certs=false" >> "$GITHUB_OUTPUT"
           fi
         env:
           CSC_LINK: ${{ secrets.MAC_CERTS }}
 
+      - name: Require signing and notarization credentials for releases
+        if: env.RELEASE_REQUESTED == 'true'
+        run: |
+          for name in CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Release requires $name. Configure the macOS signing and notarization secrets."
+              exit 1
+            fi
+          done
+        shell: bash
+        env:
+          CSC_LINK: ${{ secrets.MAC_CERTS }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTS_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
       - name: Build Electron app (signed)
         if: steps.signing.outputs.has_certs == 'true'
-        run: npm run build:mac -- --publish never
+        run: npm run build:mac -- --publish never --config.forceCodeSigning=true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_LINK: ${{ secrets.MAC_CERTS }}
           CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTS_PASSWORD }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
       - name: Build Electron app (unsigned)
@@ -133,6 +214,18 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - name: Verify release signatures and notarization tickets
+        if: env.RELEASE_REQUESTED == 'true'
+        shell: bash
+        run: |
+          found=0
+          while IFS= read -r -d '' app; do
+            codesign --verify --deep --strict --verbose=2 "$app"
+            xcrun stapler validate "$app"
+            found=$((found + 1))
+          done < <(find release -maxdepth 3 -name '*.app' -type d -print0)
+          test "$found" -gt 0
 
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
@@ -168,16 +261,28 @@ jobs:
         shell: bash
         run: |
           if [ -n "$WIN_CSC_LINK" ]; then
-            echo "has_certs=true" >> $GITHUB_OUTPUT
+            echo "has_certs=true" >> "$GITHUB_OUTPUT"
           else
-            echo "has_certs=false" >> $GITHUB_OUTPUT
+            echo "has_certs=false" >> "$GITHUB_OUTPUT"
           fi
         env:
           WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
 
+      - name: Require code signing credentials for releases
+        if: env.RELEASE_REQUESTED == 'true'
+        shell: bash
+        run: |
+          if [ -z "$WIN_CSC_LINK" ] || [ -z "$WIN_CSC_KEY_PASSWORD" ]; then
+            echo "::error::Release requires WIN_CSC_LINK and WIN_CSC_KEY_PASSWORD signing secrets."
+            exit 1
+          fi
+        env:
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+
       - name: Build Electron app (signed)
         if: steps.signing.outputs.has_certs == 'true'
-        run: npm run build:win -- --publish never
+        run: npm run build:win -- --publish never --config.forceCodeSigning=true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
@@ -194,6 +299,17 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - name: Verify release installer signatures
+        if: env.RELEASE_REQUESTED == 'true'
+        shell: pwsh
+        run: |
+          $installers = @(Get-ChildItem release -Filter *.exe)
+          if ($installers.Count -eq 0) { throw 'No Windows installers found' }
+          foreach ($installer in $installers) {
+            $signature = Get-AuthenticodeSignature $installer.FullName
+            if ($signature.Status -ne 'Valid') { throw "Invalid installer signature: $($installer.Name)" }
+          }
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
@@ -228,6 +344,21 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Install desktop smoke test dependencies
+        run: npx playwright install --with-deps chromium
+
+      - name: Verify packaged Linux startup and restart
+        run: xvfb-run -a npm run test:e2e:bundle
+        env:
+          CI: true
+          STATESET_PACKAGED_EXECUTABLE: release/linux-unpacked/stateset-desktop
+
+      - name: Verify Linux installer contents, updater metadata and startup
+        run: xvfb-run -a npm run test:e2e:distribution
+        env:
+          CI: true
+          STATESET_LINUX_ARTIFACTS_DIR: release
+
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -257,44 +388,33 @@ jobs:
           path: artifacts
           merge-multiple: false
 
-      - name: Collect release files
-        id: collect_release_files
-        run: |
-          mkdir -p release-assets
-          while IFS= read -r -d '' file; do
-            artifact_dir=${file#artifacts/}
-            artifact_name=${artifact_dir%%/*}
-            base_name=${artifact_dir##*/}
-            if [[ "$base_name" == *.yml ]]; then
-              cp "$file" "release-assets/$base_name"
-            else
-              cp "$file" "release-assets/${artifact_name}-${base_name}"
-            fi
-          done < <(find artifacts -type f \
-            \( -name "*.dmg" -o -name "*.zip" -o -name "*.exe" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.yml" -o -name "*.blockmap" \) \
-            -print0)
-          echo "Release assets:"
-          ls -lh release-assets/
-          {
-            echo "files<<EOF"
-            find release-assets -type f -print
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
 
-      - name: Get version from tag
+      - name: Install release validation dependencies
+        run: npm ci
+
+      - name: Get and validate release version
         id: version
-        run: |
-          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
-            echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
-          else
-            echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
-          fi
+        env:
+          EXPECTED_RELEASE_SHA: ${{ inputs.source_sha }}
+        run: node scripts/validate-release-source.mjs
+
+      - name: Validate updater manifests and collect release files
+        id: collect_release_files
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+        run: node scripts/collect-release-assets.mjs artifacts release-assets "$RELEASE_VERSION"
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           name: StateSet Desktop v${{ steps.version.outputs.version }}
-          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('v{0}', steps.version.outputs.version) }}
+          tag_name: ${{ steps.version.outputs.tag }}
+          target_commitish: ${{ steps.version.outputs.commit }}
           draft: false
           prerelease: ${{ contains(steps.version.outputs.version, 'beta') || contains(steps.version.outputs.version, 'alpha') }}
           generate_release_notes: true
@@ -307,13 +427,15 @@ jobs:
 
             ### Downloads
 
-            | Platform | Download |
-            |----------|----------|
-            | **macOS (Intel)** | StateSet-${{ steps.version.outputs.version }}-mac-x64.dmg |
-            | **macOS (Apple Silicon)** | StateSet-${{ steps.version.outputs.version }}-mac-arm64.dmg |
-            | **Windows** | StateSet-${{ steps.version.outputs.version }}-win-x64.exe |
-            | **Linux (AppImage)** | StateSet-${{ steps.version.outputs.version }}-x86_64.AppImage |
-            | **Linux (Debian)** | StateSet-${{ steps.version.outputs.version }}-linux-amd64.deb |
+            Choose the matching architecture from the assets below:
+
+            | Platform | Package |
+            |----------|---------|
+            | **macOS (Intel / Apple Silicon)** | `.dmg` installer or `.zip` |
+            | **Windows (x64 / ARM64)** | `.exe` installer; the x64 portable build includes `-portable` in its name |
+            | **Linux** | `.AppImage` or `.deb` |
+
+            `SHA256SUMS` contains checksums for the installers and updater manifests.
 
             ### Installation
 

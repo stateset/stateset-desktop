@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router';
 import { useAuthStore, normalizeSandboxApiKey, type AuthError } from '../stores/auth';
 import {
   Bot,
@@ -16,7 +16,7 @@ import { loginWithEmail } from '../lib/registration';
 import clsx from 'clsx';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { Spinner } from '../components/Spinner';
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { AnimatePresence, motion, useReducedMotionConfig } from 'framer-motion';
 
 type LoginMethod = 'email' | 'apikey';
 
@@ -64,7 +64,7 @@ function getErrorDisplay(error: AuthError | null) {
 
 export default function Login() {
   usePageTitle('Login');
-  const reduceMotion = useReducedMotion();
+  const reduceMotion = useReducedMotionConfig();
   const [loginMethod, setLoginMethod] = useState<LoginMethod>('email');
   const [apiKey, setApiKey] = useState('');
   const [email, setEmail] = useState('');
@@ -222,7 +222,11 @@ export default function Login() {
             <p className="text-gray-400 text-sm mb-6">Sign in to connect to StateSet</p>
 
             {/* Login Method Tabs */}
-            <div className="flex gap-1 p-1 bg-gray-800/60 rounded-lg mb-6 border border-gray-700/30">
+            <div
+              role="group"
+              aria-label="Sign-in method"
+              className="auth-methods flex gap-1 p-1 rounded-lg mb-6"
+            >
               <button
                 type="button"
                 onClick={() => {
@@ -230,13 +234,7 @@ export default function Login() {
                   setLocalError('');
                   clearError();
                 }}
-                className={clsx(
-                  'flex-1 flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40',
-                  'focus-visible:ring-offset-1',
-                  loginMethod === 'email'
-                    ? 'bg-gray-700/90 text-white shadow-sm'
-                    : 'text-gray-400 hover:text-white hover:bg-gray-800/40'
-                )}
+                className="auth-method flex-1 flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-1"
                 aria-pressed={loginMethod === 'email'}
               >
                 <Mail className="w-4 h-4" aria-hidden="true" />
@@ -249,13 +247,7 @@ export default function Login() {
                   setLocalError('');
                   clearError();
                 }}
-                className={clsx(
-                  'flex-1 flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40',
-                  'focus-visible:ring-offset-1',
-                  loginMethod === 'apikey'
-                    ? 'bg-gray-700/90 text-white shadow-sm'
-                    : 'text-gray-400 hover:text-white hover:bg-gray-800/40'
-                )}
+                className="auth-method flex-1 flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-1"
                 aria-pressed={loginMethod === 'apikey'}
               >
                 <Key className="w-4 h-4" aria-hidden="true" />
@@ -455,7 +447,7 @@ export default function Login() {
                   isLoading ||
                   (loginMethod === 'email' ? !email.trim() || !password : !apiKey.trim())
                 }
-                className="w-full flex items-center justify-center gap-2 py-2.5 bg-brand-600 hover:bg-brand-500 disabled:bg-gray-700 disabled:text-gray-400 rounded-lg font-medium border border-brand-600/40 transition-all duration-200 shadow-md shadow-brand-500/20 hover:shadow-lg hover:shadow-brand-500/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 disabled:focus-visible:ring-0 disabled:focus-visible:ring-offset-0 disabled:shadow-none"
+                className="auth-submit w-full flex items-center justify-center gap-2 py-2.5 rounded-lg font-medium border border-brand-600/40 transition-all duration-200 shadow-md shadow-brand-500/20 hover:shadow-lg hover:shadow-brand-500/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 disabled:focus-visible:ring-0 disabled:focus-visible:ring-offset-0 disabled:shadow-none"
               >
                 {isLoading ? (
                   <Spinner size="md" />
@@ -474,7 +466,7 @@ export default function Login() {
             Don't have an account?{' '}
             <Link
               to="/register"
-              className="text-brand-400 hover:text-brand-300 underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:rounded-sm focus-visible:ring-offset-1"
+              className="auth-signup-link underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:rounded-sm focus-visible:ring-offset-1"
             >
               Create one free
             </Link>

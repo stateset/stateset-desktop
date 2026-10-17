@@ -8,6 +8,9 @@ import {
   RotateCcw,
   BarChart3,
   Bot,
+  RefreshCw,
+  BookOpen,
+  Workflow,
   Trash2,
 } from 'lucide-react';
 import clsx from 'clsx';
@@ -23,6 +26,9 @@ const ICON_MAP: Record<string, React.ElementType> = {
   RotateCcw,
   BarChart3,
   Bot,
+  RefreshCw,
+  BookOpen,
+  Workflow,
 };
 
 interface TemplateCardProps {
@@ -35,59 +41,63 @@ interface TemplateCardProps {
 export function TemplateCard({ template, isSelected, onSelect, onDelete }: TemplateCardProps) {
   const Icon = ICON_MAP[template.icon] || Bot;
 
+  const canDelete = template.isCustom && Boolean(onDelete);
+
   return (
-    <button
-      type="button"
-      onClick={onSelect}
-      className={clsx(
-        'flex items-start gap-3 p-4 rounded-xl border-2 text-left transition-all relative group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1',
-        isSelected
-          ? 'border-brand-500 bg-brand-500/10'
-          : 'border-gray-800 hover:border-gray-700 bg-gray-800/50'
-      )}
-    >
-      <div
+    <div className="relative">
+      <button
+        type="button"
+        onClick={onSelect}
+        aria-pressed={isSelected}
         className={clsx(
-          'w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0',
-          template.color
+          'template-choice flex h-full w-full items-start gap-3 p-4 rounded-xl border-2 text-left transition-colors',
+          canDelete && 'pr-12',
+          isSelected ? 'border-brand-500' : 'border-gray-800 hover:border-gray-700'
         )}
       >
-        <Icon className="w-5 h-5 text-white" aria-hidden="true" />
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <p className="font-medium">{template.name}</p>
-          {template.isCustom && (
-            <span className="px-1.5 py-0.5 text-[10px] bg-brand-600/30 text-brand-300 rounded">
-              Custom
+        <span
+          className={clsx(
+            'w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0',
+            template.color
+          )}
+        >
+          <Icon className="w-5 h-5 text-white" aria-hidden="true" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center gap-2 flex-wrap">
+            <span className="font-medium">{template.name}</span>
+            {template.isCustom && (
+              <span className="template-custom-badge px-1.5 py-0.5 text-[10px] rounded">
+                Custom
+              </span>
+            )}
+          </span>
+          <span className="block text-sm text-gray-400 mt-0.5">{template.description}</span>
+          {template.config.mcp_servers && template.config.mcp_servers.length > 0 && (
+            <span className="flex flex-wrap gap-1 mt-2">
+              {template.config.mcp_servers.map((server) => (
+                <span
+                  key={server}
+                  className="px-2 py-0.5 text-xs bg-gray-700 text-gray-300 rounded"
+                >
+                  {server}
+                </span>
+              ))}
             </span>
           )}
-        </div>
-        <p className="text-sm text-gray-400 mt-0.5">{template.description}</p>
-        {template.config.mcp_servers && template.config.mcp_servers.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-2">
-            {template.config.mcp_servers.map((server) => (
-              <span key={server} className="px-2 py-0.5 text-xs bg-gray-700 text-gray-300 rounded">
-                {server}
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
-      {template.isCustom && onDelete && (
+        </span>
+      </button>
+      {canDelete && (
         <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete();
-          }}
+          onClick={onDelete}
           type="button"
-          className="absolute top-2 right-2 p-1.5 rounded-lg bg-gray-800 hover:bg-red-900/50 text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40 focus-visible:ring-offset-1"
+          className="template-delete absolute top-2 right-2 flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-red-900/50 hover:text-red-400 transition-colors"
           aria-label={`Delete template ${template.name}`}
           title="Delete template"
         >
           <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
         </button>
       )}
-    </button>
+    </div>
   );
 }
