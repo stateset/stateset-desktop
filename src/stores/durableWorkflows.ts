@@ -539,13 +539,34 @@ export const useDurableWorkflowsStore = create<DurableWorkflowsState>((set, get)
   },
 
   clearApiKey: async () => {
+    assertWorkflowSettingsLoaded();
     await writeConfiguration(
       async () => {
-        await window.electronAPI?.auth?.clearDurableEngineApiKey?.();
+        assertWorkflowSettingsLoaded();
+        const auth = window.electronAPI?.auth;
+        if (typeof auth?.clearDurableEngineApiKey !== 'function')
+          throw new Error(
+            'Desktop credential storage is unavailable. Reopen the desktop app before removing the key.'
+          );
+        let cleared: boolean | undefined;
+        try {
+          cleared = await auth.clearDurableEngineApiKey();
+        } catch (error) {
+          throw new Error(
+            `The workflow credential could not be removed. Try again. ${error instanceof Error ? error.message : String(error)}`
+          );
+        }
+        if (cleared === false)
+          throw new Error('The workflow credential could not be removed. Try again.');
         set({ apiKey: null, connectionRevision: null });
-        const connection = await nativeConnection();
-        if (connection)
-          set({ engineUrl: connection.engineUrl, connectionRevision: connection.revision });
+        try {
+          const connection = await nativeConnection();
+          if (connection)
+            set({ engineUrl: connection.engineUrl, connectionRevision: connection.revision });
+        } catch {
+          // Removal was acknowledged. Keep its success and leave the connection
+          // revision untrusted until a later configuration refresh succeeds.
+        }
       },
       (configuring) => set({ configuring })
     );

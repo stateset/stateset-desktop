@@ -1,8 +1,16 @@
 // @vitest-environment happy-dom
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { useDurableWorkflowsStore } from './durableWorkflows';
+import { getWorkflowConnectionGeneration, useDurableWorkflowsStore } from './durableWorkflows';
 import type { DurableAgentProfile } from '../lib/durableAgentProfiles';
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((finish) => {
+    resolve = finish;
+  });
+  return { promise, resolve };
+}
 
 describe('useDurableWorkflowsStore', () => {
   const storeSet = vi.fn().mockResolvedValue(true);
@@ -145,6 +153,203 @@ describe('useDurableWorkflowsStore', () => {
     expect(window.electronAPI!.auth.clearDurableEngineApiKey).toHaveBeenCalledOnce();
     expect(useDurableWorkflowsStore.getState()).toMatchObject({ apiKey: null, configuring: false });
   });
+  it('keeps the configured key and revision until removal is acknowledged, then refreshes the native connection', async () => {
+    const pending = deferred<boolean>();
+    const clear = vi.fn().mockReturnValue(pending.promise);
+    window.electronAPI!.auth.clearDurableEngineApiKey = clear;
+    const connection = vi.fn().mockResolvedValue({
+      engineUrl: 'https://actual.example',
+      revision: 'removed-key-revision',
+    });
+    window.electronAPI!.computerChat = { getConnection: connection } as never;
+    useDurableWorkflowsStore.setState({ connectionRevision: 'configured-revision' });
+    const generation = getWorkflowConnectionGeneration();
+    const clearing = useDurableWorkflowsStore.getState().clearApiKey();
+
+    expect(getWorkflowConnectionGeneration()).toBe(generation + 1);
+    expect(useDurableWorkflowsStore.getState()).toMatchObject({
+      apiKey: 'key',
+      connectionRevision: 'configured-revision',
+      configuring: true,
+    });
+    await vi.waitFor(() => expect(clear).toHaveBeenCalledOnce());
+    expect(connection).not.toHaveBeenCalled();
+    pending.resolve(true);
+    await clearing;
+    expect(connection).toHaveBeenCalledOnce();
+    expect(useDurableWorkflowsStore.getState()).toMatchObject({
+      apiKey: null,
+      engineUrl: 'https://actual.example',
+      connectionRevision: 'removed-key-revision',
+      configuring: false,
+    });
+  });
+
+  it('keeps acknowledged removal successful when refreshing the connection fails and permits a later save', async () => {
+    const connection = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('Temporary connection refresh failure'))
+      .mockResolvedValue({
+        engineUrl: 'https://refreshed.example',
+        revision: 'refreshed-revision',
+      });
+    window.electronAPI!.computerChat = { getConnection: connection } as never;
+    useDurableWorkflowsStore.setState({ connectionRevision: 'configured-revision' });
+    await expect(useDurableWorkflowsStore.getState().clearApiKey()).resolves.toBeUndefined();
+    expect(useDurableWorkflowsStore.getState()).toMatchObject({
+      apiKey: null,
+      connectionRevision: null,
+      configuring: false,
+    });
+    vi.mocked(window.electronAPI!.auth.getDurableEngineApiKey).mockResolvedValueOnce(
+      'replacement-key'
+    );
+    await useDurableWorkflowsStore
+      .getState()
+      .setConfiguration('https://refreshed.example', 'replacement-key');
+    expect(useDurableWorkflowsStore.getState()).toMatchObject({
+      apiKey: 'replacement-key',
+      engineUrl: 'https://refreshed.example',
+      connectionRevision: 'refreshed-revision',
+      configuring: false,
+    });
+  });
+
+  it.each(['rejection', 'false acknowledgement'] as const)(
+    'preserves the key on removal %s and continues with an already queued save and later removal',
+    async (failure) => {
+      const pending = deferred<boolean>();
+      const clear = vi
+        .fn()
+        .mockImplementationOnce(() =>
+          pending.promise.then((acknowledgement) => {
+            if (failure === 'rejection') throw new Error('Keyring unavailable.');
+            return acknowledgement;
+          })
+        )
+        .mockResolvedValue(true);
+      window.electronAPI!.auth.clearDurableEngineApiKey = clear;
+      useDurableWorkflowsStore.setState({ connectionRevision: 'configured-revision' });
+      const clearing = useDurableWorkflowsStore.getState().clearApiKey();
+      const rejected = expect(clearing).rejects.toThrow('could not be removed. Try again.');
+      const observed: Array<{ key: string | null; revision: string | null }> = [];
+      storeSet.mockImplementationOnce(async () => {
+        const state = useDurableWorkflowsStore.getState();
+        observed.push({ key: state.apiKey, revision: state.connectionRevision });
+        return true;
+      });
+      const saving = useDurableWorkflowsStore
+        .getState()
+        .setConfiguration('https://new.example', 'replacement-key');
+
+      await vi.waitFor(() => expect(clear).toHaveBeenCalledOnce());
+      expect(storeSet).not.toHaveBeenCalled();
+      expect(useDurableWorkflowsStore.getState()).toMatchObject({
+        apiKey: 'key',
+        connectionRevision: 'configured-revision',
+        configuring: true,
+      });
+      pending.resolve(false);
+      await rejected;
+      await saving;
+      expect(observed).toEqual([{ key: 'key', revision: 'configured-revision' }]);
+      expect(useDurableWorkflowsStore.getState()).toMatchObject({
+        apiKey: 'replacement-key',
+        engineUrl: 'https://new.example',
+        configuring: false,
+      });
+      await useDurableWorkflowsStore.getState().clearApiKey();
+      expect(clear).toHaveBeenCalledTimes(2);
+      expect(useDurableWorkflowsStore.getState()).toMatchObject({
+        apiKey: null,
+        configuring: false,
+      });
+    }
+  );
+
+  it.each(['bridge', 'method'] as const)(
+    'refuses removal without a native %s and preserves the configured connection for retry',
+    async (missing) => {
+      const nativeApi = window.electronAPI;
+      Object.defineProperty(window, 'electronAPI', {
+        configurable: true,
+        value: missing === 'bridge' ? undefined : { auth: {} },
+      });
+      useDurableWorkflowsStore.setState({ connectionRevision: 'configured-revision' });
+
+      await expect(useDurableWorkflowsStore.getState().clearApiKey()).rejects.toThrow(
+        'Desktop credential storage is unavailable'
+      );
+      expect(useDurableWorkflowsStore.getState()).toMatchObject({
+        apiKey: 'key',
+        connectionRevision: 'configured-revision',
+        configuring: false,
+      });
+      Object.defineProperty(window, 'electronAPI', { configurable: true, value: nativeApi });
+      await useDurableWorkflowsStore.getState().clearApiKey();
+      expect(useDurableWorkflowsStore.getState().apiKey).toBeNull();
+    }
+  );
+
+  it('accepts a legacy undefined acknowledgement from an actual native clear method', async () => {
+    const clear = vi.fn().mockResolvedValue(undefined);
+    window.electronAPI!.auth.clearDurableEngineApiKey = clear;
+    useDurableWorkflowsStore.setState({ connectionRevision: 'configured-revision' });
+    await useDurableWorkflowsStore.getState().clearApiKey();
+    expect(clear).toHaveBeenCalledOnce();
+    expect(useDurableWorkflowsStore.getState()).toMatchObject({
+      apiKey: null,
+      connectionRevision: null,
+      configuring: false,
+    });
+  });
+
+  it('refuses removal before queueing when saved settings have not loaded', async () => {
+    useDurableWorkflowsStore.setState({
+      initialized: false,
+      connectionRevision: 'configured-revision',
+    });
+    const generation = getWorkflowConnectionGeneration();
+    await expect(useDurableWorkflowsStore.getState().clearApiKey()).rejects.toThrow(
+      'Saved workflow settings are not loaded'
+    );
+    expect(getWorkflowConnectionGeneration()).toBe(generation);
+    expect(window.electronAPI!.auth.clearDurableEngineApiKey).not.toHaveBeenCalled();
+    expect(useDurableWorkflowsStore.getState()).toMatchObject({
+      apiKey: 'key',
+      connectionRevision: 'configured-revision',
+      configuring: false,
+    });
+  });
+
+  it('rechecks trusted initialization before executing a queued removal', async () => {
+    const pending = deferred<boolean>();
+    window.electronAPI!.auth.clearDurableEngineApiKey = vi
+      .fn()
+      .mockReturnValueOnce(pending.promise)
+      .mockResolvedValue(true);
+    useDurableWorkflowsStore.setState({ connectionRevision: 'configured-revision' });
+    const first = useDurableWorkflowsStore.getState().clearApiKey();
+    const second = useDurableWorkflowsStore.getState().clearApiKey();
+    const rejected = expect(second).rejects.toThrow('Saved workflow settings are not loaded');
+    await vi.waitFor(() =>
+      expect(window.electronAPI!.auth.clearDurableEngineApiKey).toHaveBeenCalledOnce()
+    );
+    pending.resolve(false);
+    const firstRejected = expect(first).rejects.toThrow('could not be removed');
+    useDurableWorkflowsStore.setState({ initialized: false });
+    await Promise.all([firstRejected, rejected]);
+    expect(window.electronAPI!.auth.clearDurableEngineApiKey).toHaveBeenCalledOnce();
+    expect(useDurableWorkflowsStore.getState()).toMatchObject({
+      apiKey: 'key',
+      connectionRevision: 'configured-revision',
+      configuring: false,
+    });
+    useDurableWorkflowsStore.setState({ initialized: true });
+    await useDurableWorkflowsStore.getState().clearApiKey();
+    expect(useDurableWorkflowsStore.getState().apiKey).toBeNull();
+  });
+
   it('reconciles the actual native connection after a partial save fails', async () => {
     window.electronAPI!.computerChat = {
       getConnection: vi.fn().mockResolvedValue({

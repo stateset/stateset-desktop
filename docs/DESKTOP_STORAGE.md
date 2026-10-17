@@ -24,6 +24,22 @@ atomic configuration storage on startup. Configuration writes use owner-only
 permissions. Release bundles include the runtime and built renderer, excluding
 Electron unit test files and `dist/verification` artifacts.
 
+## Engine connection settings
+
+Connection tests use the saved engine URL and credential. Save edited values
+before testing; changing a draft does not silently update the saved connection.
+Health feedback is scoped to the current workspace, saved connection and draft.
+An obsolete response cannot replace a newer result, including when settings are
+changed and then restored while a check is pending.
+
+Credential removal requires an actual native handler and an accepted
+acknowledgement. A rejected or false acknowledgement leaves the configured key
+available and shows an error for retry. If deletion succeeds but refreshing the
+connection fails, the key stays removed and its connection revision remains
+unavailable until a later configuration refresh. Saving, testing and removal do not overlap
+through the settings controls. Fields remain editable during a save so a newer
+draft can be retained; completion feedback never clears that newer draft.
+
 ## Scheduled workflow recovery
 
 Schedules are managed by the open desktop application. Before sending a scheduled
