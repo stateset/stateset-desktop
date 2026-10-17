@@ -974,3 +974,214 @@ test('oversized multilingual agent instructions remain editable until they fit e
     await application?.close();
   }
 });
+
+test('agent save errors stay visible above the open editor in both themes', async ({ desktop }) => {
+  const tenant = {
+    id: '11111111-1111-4111-8111-111111111111',
+    name: 'Agent feedback workspace',
+    slug: 'agent-feedback-workspace',
+    tier: 'pro',
+  };
+  const brand = {
+    id: '22222222-2222-4222-8222-222222222222',
+    tenant_id: tenant.id,
+    name: 'Agent feedback brand',
+    slug: 'agent-feedback-brand',
+    enabled: true,
+  };
+  const draft = {
+    name: 'Evidence reviewer',
+    instructions: 'Review the supplied evidence and describe any missing confirmations.',
+  };
+  const workflowRequests: Array<{ theme: string; method: string; path: string }> = [];
+  const themes: Record<string, unknown> = {};
+  await mkdir('dist/verification', { recursive: true });
+  for (const theme of ['dark', 'light'] as const) {
+    let application: ElectronApplication | undefined;
+    try {
+      const profile = await desktop.createProfile({ memoryOnlyCredentials: true });
+      application = await desktop.launch(profile);
+      const page = await application.firstWindow();
+      await page.waitForURL(`${DESKTOP_TEST_ORIGIN}/**`);
+      await page.route(
+        (url) => url.pathname === '/v1/workflows' || url.pathname.startsWith('/v1/workflows/'),
+        (route) => {
+          workflowRequests.push({
+            theme,
+            method: route.request().method(),
+            path: new URL(route.request().url()).pathname,
+          });
+          return route.abort('blockedbyclient');
+        }
+      );
+      await page.evaluate(async (theme) => {
+        await window.electronAPI!.store.set('theme', theme);
+        await window.electronAPI!.store.set('onboardingCompleted', true);
+        // This credential exists only in this owned app, with no host keyring access.
+        await window.electronAPI!.auth.setDurableEngineApiKey('custom-agent-feedback-fixture-key');
+      }, theme);
+      await installDesktopApiFixture(application, page, { tenant, brand, sessions: [] });
+      await page.context().addInitScript(
+        ({ tenant, brand }) => {
+          window.__E2E_AUTH__ = { tenant, brands: [brand] } as any;
+        },
+        { tenant, brand }
+      );
+      await page.reload();
+      await expect
+        .poll(() => page.evaluate(() => document.documentElement.dataset.theme))
+        .toBe(theme);
+      await page.getByRole('link', { name: 'Workflows', exact: true }).click();
+      await page.getByRole('button', { name: 'Agents', exact: true }).click();
+      const manager = page.getByRole('dialog', { name: 'Background agents', exact: true });
+      await manager.getByLabel('Name', { exact: true }).fill(draft.name);
+      await manager.getByLabel('Instructions', { exact: true }).fill(draft.instructions);
+      await expect(
+        manager.getByRole('button', { name: 'Create agent', exact: true })
+      ).toBeEnabled();
+      // Replace only the public IPC handler in this disposable process, after
+      // startup/settings writes finish. Native reads and production source stay intact.
+      await application.evaluate(({ ipcMain }) => {
+        ipcMain.removeHandler('store:set');
+        ipcMain.handle('store:set', () => false);
+      });
+      await manager.getByRole('button', { name: 'Create agent', exact: true }).click();
+      const toast = page
+        .getByRole('region', { name: 'Notifications', exact: true })
+        .getByRole('alert');
+      await expect(toast).toBeVisible();
+      await expect(toast.locator('.toast-title')).toHaveText('Unable to save agent');
+      await expect(toast.locator('.toast-message')).toHaveText(
+        'Custom agent profiles could not be saved. Try again.'
+      );
+      await expect(manager).toBeVisible();
+      await expect(manager.getByLabel('Name', { exact: true })).toHaveValue(draft.name);
+      await expect(manager.getByLabel('Instructions', { exact: true })).toHaveValue(
+        draft.instructions
+      );
+      const savedProfiles = await page.evaluate(
+        async () =>
+          (await window.electronAPI!.store.get('durableCustomAgentProfiles')) as
+            DurableAgentProfile[] | undefined
+      );
+      expect(savedProfiles ?? []).toEqual([]);
+      await expect(
+        page.getByRole('dialog', { name: 'New background workflow', exact: true })
+      ).toHaveCount(0);
+      const readFeedback = () =>
+        toast.evaluate((element) => {
+          const toastStyle = getComputedStyle(element);
+          const inspect = (target: HTMLElement) => {
+            const rect = target.getBoundingClientRect();
+            const style = getComputedStyle(target);
+            const hit = document.elementFromPoint(
+              rect.left + rect.width / 2,
+              rect.top + rect.height / 2
+            );
+            return {
+              text: target.getAttribute('aria-label') ?? target.textContent?.trim(),
+              unobscured: hit !== null && target.contains(hit),
+              hitTag: hit?.tagName ?? null,
+              bounds: {
+                left: rect.left,
+                top: rect.top,
+                right: rect.right,
+                bottom: rect.bottom,
+              },
+              inViewport:
+                rect.width > 0 &&
+                rect.height > 0 &&
+                rect.left >= 0 &&
+                rect.top >= 0 &&
+                rect.right <= innerWidth &&
+                rect.bottom <= innerHeight,
+              color: style.color,
+              textFillColor: style.webkitTextFillColor,
+              opacity: style.opacity,
+              visibility: style.visibility,
+            };
+          };
+          return {
+            viewport: { width: innerWidth, height: innerHeight },
+            background: toastStyle.backgroundColor,
+            opacity: toastStyle.opacity,
+            visibility: toastStyle.visibility,
+            title: inspect(element.querySelector<HTMLElement>('.toast-title')!),
+            message: inspect(element.querySelector<HTMLElement>('.toast-message')!),
+            dismiss: inspect(
+              element.querySelector<HTMLElement>('[aria-label="Dismiss notification"]')!
+            ),
+          };
+        });
+      await expect.poll(async () => (await readFeedback()).opacity).toBe('1');
+      const observed = await readFeedback();
+      // Retain the real obscured probes even when the pre-fix baseline fails next.
+      await test.info().attach(`custom-agent-error-feedback-observed-${theme}`, {
+        body: Buffer.from(
+          JSON.stringify({
+            theme,
+            ...observed,
+            draftPreserved: true,
+            persistedProfileCount: (savedProfiles ?? []).length,
+            workflowRequests,
+          })
+        ),
+        contentType: 'application/json',
+      });
+      await page.screenshot({
+        path: `dist/verification/agent-error-${theme}.png`,
+        animations: 'disabled',
+      });
+      await expect
+        .poll(
+          async () => {
+            const feedback = await readFeedback();
+            return {
+              title: feedback.title.unobscured,
+              message: feedback.message.unobscured,
+              dismiss: feedback.dismiss.unobscured,
+            };
+          },
+          { timeout: 2500 }
+        )
+        .toEqual({ title: true, message: true, dismiss: true });
+      const feedback = await readFeedback();
+      expect(feedback.visibility).toBe('visible');
+      for (const probe of [feedback.title, feedback.message, feedback.dismiss]) {
+        expect(probe.inViewport).toBe(true);
+        expect(probe.opacity).toBe('1');
+        expect(probe.visibility).toBe('visible');
+        expect(probe.color).not.toBe(feedback.background);
+        expect(probe.textFillColor).not.toBe(feedback.background);
+      }
+      await toast.getByRole('button', { name: 'Dismiss notification', exact: true }).click();
+      await expect(toast).toHaveCount(0);
+      await expect(manager).toBeVisible();
+      await expect(manager.getByLabel('Name', { exact: true })).toHaveValue(draft.name);
+      await expect(manager.getByLabel('Instructions', { exact: true })).toHaveValue(
+        draft.instructions
+      );
+      themes[theme] = {
+        ...feedback,
+        draftPreserved: true,
+        draftAfterDismissalPreserved: true,
+        managerStayedOpen: true,
+        dismissed: true,
+        persistedProfileCount: (savedProfiles ?? []).length,
+      };
+    } finally {
+      await application?.close();
+    }
+  }
+  expect(workflowRequests).toEqual([]);
+  await test.info().attach('custom-agent-error-feedback', {
+    body: Buffer.from(
+      JSON.stringify({
+        themes,
+        noWorkflowRequests: workflowRequests.length === 0,
+        workflowRequests,
+      })
+    ),
+    contentType: 'application/json',
+  });
+});

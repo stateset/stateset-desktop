@@ -207,7 +207,7 @@ describe('DurableAgentManager', () => {
     expect(screen.getByLabelText('Instructions')).toHaveValue(
       'Inspect inventory evidence and report discrepancies.'
     );
-    expect(screen.getByLabelText('Name')).toHaveFocus();
+    await waitFor(() => expect(screen.getByLabelText('Name')).toHaveFocus());
     expect(onCreated).not.toHaveBeenCalled();
   });
 

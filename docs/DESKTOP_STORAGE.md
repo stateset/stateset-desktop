@@ -59,6 +59,8 @@ pending. Failed creation retains the draft; failed removal retains the saved
 profile. Removing a profile leaves an unrelated new-agent draft intact. Existing
 workflows keep their agent snapshots and are unaffected by profile removal.
 Saved-agent status and mutations remain unavailable until settings load.
+Save and removal errors appear above the open editor so their feedback stays
+readable and dismissible while the draft remains available for retry.
 
 New profiles and workflow launch requests validate engine-bound model, connector
 key and instruction limits using UTF-8 bytes. The editor keeps oversized
