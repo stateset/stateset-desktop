@@ -60,6 +60,14 @@ profile. Removing a profile leaves an unrelated new-agent draft intact. Existing
 workflows keep their agent snapshots and are unaffected by profile removal.
 Saved-agent status and mutations remain unavailable until settings load.
 
+New profiles and workflow launch requests validate engine-bound model, connector
+key and instruction limits using UTF-8 bytes. The editor keeps oversized
+instructions editable with a byte count and field error. It does not truncate the
+draft. Existing saved profiles, blueprints and schedules remain available even
+when an older agent definition exceeds current engine limits; a new launch asks
+for a corrected definition before sending work. A submitted scheduled occurrence
+can still be recovered by its original workflow identity.
+
 ## Workflow blueprints
 
 Blueprint saves, removals and imports share one write queue. Each operation merges

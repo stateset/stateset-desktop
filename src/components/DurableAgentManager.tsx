@@ -3,7 +3,11 @@ import { Bot, Loader2, Plus, Trash2 } from 'lucide-react';
 import { Modal } from './Modal';
 import { useToast } from './ToastProvider';
 import { useConfirmDialog } from '../hooks/useConfirmDialog';
-import { DURABLE_AGENT_EXECUTABLES, type DurableAgentProfile } from '../lib/durableAgentProfiles';
+import {
+  DURABLE_AGENT_EXECUTABLES,
+  DURABLE_AGENT_PROMPT_MAX_BYTES,
+  type DurableAgentProfile,
+} from '../lib/durableAgentProfiles';
 import { useDurableWorkflowsStore } from '../stores/durableWorkflows';
 import { WorkflowInitializationNotice } from './WorkflowInitializationNotice';
 
@@ -36,6 +40,11 @@ export function DurableAgentManager({ isOpen, onClose, onCreated }: DurableAgent
   const statusRef = useRef<HTMLParagraphElement>(null);
   const nameRef = useRef<HTMLInputElement>(null);
   const instructionsId = useId();
+  const instructionsBytes = new TextEncoder().encode(instructions.trim()).length;
+  const instructionsError =
+    instructionsBytes > DURABLE_AGENT_PROMPT_MAX_BYTES
+      ? `Instructions use ${instructionsBytes.toLocaleString()} UTF-8 bytes. Shorten them to ${DURABLE_AGENT_PROMPT_MAX_BYTES.toLocaleString()} bytes or fewer.`
+      : null;
   const busy = action !== null;
   const disabled = !initialized || busy;
 
@@ -76,7 +85,14 @@ export function DurableAgentManager({ isOpen, onClose, onCreated }: DurableAgent
   };
 
   const save = async () => {
-    if (!name.trim() || !instructions.trim() || !tools.length || !beginAction('save')) return;
+    if (
+      !name.trim() ||
+      !instructions.trim() ||
+      instructionsError ||
+      !tools.length ||
+      !beginAction('save')
+    )
+      return;
     try {
       const profile: DurableAgentProfile = {
         id: `custom-${crypto.randomUUID()}`,
@@ -249,12 +265,26 @@ export function DurableAgentManager({ isOpen, onClose, onCreated }: DurableAgent
                 id={instructionsId}
                 value={instructions}
                 onChange={(event) => setInstructions(event.target.value)}
-                maxLength={12_000}
+                aria-invalid={Boolean(instructionsError)}
+                aria-describedby={`${instructionsId}-limit${instructionsError ? ` ${instructionsId}-error` : ''}`}
                 disabled={disabled}
                 rows={4}
                 className={`${PROFILE_INPUT_CLASS} resize-none leading-5`}
                 placeholder="Describe the role, operating rules, and definition of done."
               />
+              <p id={`${instructionsId}-limit`} className="mt-1.5 text-xs text-[var(--ui-muted)]">
+                {instructionsBytes.toLocaleString()} /{' '}
+                {DURABLE_AGENT_PROMPT_MAX_BYTES.toLocaleString()} bytes
+              </p>
+              {instructionsError && (
+                <p
+                  id={`${instructionsId}-error`}
+                  role="alert"
+                  className="mt-1 text-xs text-[var(--ui-negative)]"
+                >
+                  {instructionsError}
+                </p>
+              )}
             </div>
             <fieldset>
               <legend className="text-xs text-[var(--ui-muted)]">Allowed tools</legend>
@@ -312,7 +342,13 @@ export function DurableAgentManager({ isOpen, onClose, onCreated }: DurableAgent
               <button
                 type="button"
                 onClick={() => void save()}
-                disabled={disabled || !name.trim() || !instructions.trim() || !tools.length}
+                disabled={
+                  disabled ||
+                  !name.trim() ||
+                  !instructions.trim() ||
+                  Boolean(instructionsError) ||
+                  !tools.length
+                }
                 aria-busy={action === 'save'}
                 className="ui-button ui-button-primary inline-flex h-9 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg px-3.5 py-2 text-sm font-medium"
               >

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { DurableWorkflowStatus } from '../lib/durableWorkflows';
 import {
+  assertDurableAgentEngineLimits,
   isValidCustomAgentProfile,
   isValidDurableAgentProfile,
   type DurableAgentProfile,
@@ -642,6 +643,7 @@ export const useDurableWorkflowsStore = create<DurableWorkflowsState>((set, get)
     assertWorkflowSettingsLoaded();
     const snapshot: unknown = structuredClone(profile);
     if (!isValidCustomAgentProfile(snapshot)) throw new Error('Agent profile is invalid.');
+    assertDurableAgentEngineLimits(snapshot);
     await writeCustomAgents(async () => {
       assertWorkflowSettingsLoaded();
       const customAgents = [

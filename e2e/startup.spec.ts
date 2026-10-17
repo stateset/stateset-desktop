@@ -849,3 +849,128 @@ test('custom background agents survive restart and removing a profile preserves 
     await application?.close();
   }
 });
+
+test('oversized multilingual agent instructions remain editable until they fit engine byte limits', async ({
+  desktop,
+}) => {
+  const tenant = {
+    id: '11111111-1111-4111-8111-111111111111',
+    name: 'Agent limits workspace',
+    slug: 'agent-limits-workspace',
+    tier: 'pro',
+  };
+  const brand = {
+    id: '22222222-2222-4222-8222-222222222222',
+    tenant_id: tenant.id,
+    name: 'Agent limits brand',
+    slug: 'agent-limits-brand',
+    enabled: true,
+  };
+  const workflowRequests: Array<{ method: string; path: string }> = [];
+  const rejectedInstructions = '界'.repeat(4001);
+  const acceptedInstructions = '界'.repeat(4000);
+  let application: ElectronApplication | undefined;
+  try {
+    const profile = await desktop.createProfile({ memoryOnlyCredentials: true });
+    application = await desktop.launch(profile);
+    const page = await application.firstWindow();
+    await page.waitForURL(`${DESKTOP_TEST_ORIGIN}/**`);
+    await page.route(
+      (url) => url.pathname === '/v1/workflows' || url.pathname.startsWith('/v1/workflows/'),
+      (route) => {
+        workflowRequests.push({
+          method: route.request().method(),
+          path: new URL(route.request().url()).pathname,
+        });
+        return route.abort('blockedbyclient');
+      }
+    );
+    await page.evaluate(async () => {
+      await window.electronAPI!.store.set('onboardingCompleted', true);
+      // The owned profile uses memory-only credentials and never consults the host keyring.
+      await window.electronAPI!.auth.setDurableEngineApiKey('custom-agent-limits-fixture-key');
+    });
+    await installDesktopApiFixture(application, page, { tenant, brand, sessions: [] });
+    await page.context().addInitScript(
+      ({ tenant, brand }) => {
+        window.__E2E_AUTH__ = { tenant, brands: [brand] } as any;
+      },
+      { tenant, brand }
+    );
+    await page.reload();
+    await page.getByRole('link', { name: 'Workflows', exact: true }).click();
+    const savedAgents = () =>
+      page.evaluate(
+        async () =>
+          (await window.electronAPI!.store.get('durableCustomAgentProfiles')) as
+            DurableAgentProfile[] | undefined
+      );
+    await page.getByRole('button', { name: 'Agents', exact: true }).click();
+    const manager = page.getByRole('dialog', { name: 'Background agents', exact: true });
+    const instructions = manager.getByLabel('Instructions', { exact: true });
+    const createAgent = manager.getByRole('button', { name: 'Create agent', exact: true });
+    const workflowDialog = page.getByRole('dialog', {
+      name: 'New background workflow',
+      exact: true,
+    });
+    await manager.getByLabel('Name', { exact: true }).fill('Multilingual evidence reviewer');
+    await instructions.fill(rejectedInstructions);
+    await expect(instructions).toHaveValue(rejectedInstructions);
+    await expect(instructions).toHaveAttribute('aria-invalid', 'true');
+    await expect(manager.getByRole('alert')).toBeVisible();
+    await expect(manager.getByRole('alert')).toContainText('12,003 UTF-8 bytes');
+    await expect(createAgent).toBeDisabled();
+    await expect(workflowDialog).toHaveCount(0);
+    await expect.poll(async () => (await savedAgents()) ?? []).toEqual([]);
+    const draftPreserved = (await instructions.inputValue()) === rejectedInstructions;
+    const rejectedBytes = Buffer.byteLength(await instructions.inputValue(), 'utf8');
+    expect(draftPreserved).toBe(true);
+    expect(rejectedBytes).toBe(12_003);
+
+    await instructions.fill(acceptedInstructions);
+    await expect(instructions).toHaveValue(acceptedInstructions);
+    await expect(instructions).toHaveAttribute('aria-invalid', 'false');
+    await expect(manager.getByRole('alert')).toHaveCount(0);
+    await expect(createAgent).toBeEnabled();
+    const acceptedBytes = Buffer.byteLength(await instructions.inputValue(), 'utf8');
+    expect(acceptedBytes).toBe(12_000);
+    await createAgent.click();
+    await expect(manager).toHaveCount(0);
+    await expect.poll(savedAgents).toEqual([
+      expect.objectContaining({
+        name: 'Multilingual evidence reviewer',
+        systemPrompt: acceptedInstructions,
+      }),
+    ]);
+    const records = await savedAgents();
+    if (!records || records.length !== 1) throw new Error('Expected one saved custom agent');
+    const stored = records[0];
+    expect(stored.id).toMatch(
+      /^custom-[\da-f]{8}-[\da-f]{4}-4[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}$/
+    );
+    expect(stored.systemPrompt).toBe(acceptedInstructions);
+    const storedBytes = Buffer.byteLength(stored.systemPrompt, 'utf8');
+    expect(storedBytes).toBe(12_000);
+    await expect(workflowDialog).toBeVisible();
+    await expect(workflowDialog.locator(`[data-agent-id="${stored.id}"]`)).toHaveAttribute(
+      'aria-checked',
+      'true'
+    );
+    expect(workflowRequests).toEqual([]);
+    await test.info().attach('custom-agent-byte-limits', {
+      body: Buffer.from(
+        JSON.stringify({
+          rejectedBytes,
+          acceptedBytes,
+          draftPreserved,
+          profileId: stored.id,
+          storedBytes,
+          workflowRequests,
+        })
+      ),
+      contentType: 'application/json',
+    });
+  } finally {
+    await application?.close();
+  }
+});

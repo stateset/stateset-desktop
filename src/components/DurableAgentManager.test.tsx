@@ -79,6 +79,32 @@ describe('DurableAgentManager', () => {
     expect(useDurableWorkflowsStore.getState().customAgents[0].name).toBe('Inventory investigator');
   });
 
+  it('preserves oversized multilingual instructions with a field error and saves after correction', async () => {
+    const electron = mockElectronAPI();
+    const onCreated = vi.fn();
+    renderWithProviders(<DurableAgentManager isOpen onClose={vi.fn()} onCreated={onCreated} />);
+    fillDraft();
+    const instructions = screen.getByRole('textbox', { name: 'Instructions' });
+    const oversized = '界'.repeat(4001);
+    fireEvent.change(instructions, { target: { value: oversized } });
+    expect(instructions).toHaveValue(oversized);
+    expect(instructions).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByRole('alert')).toHaveTextContent('12,003 UTF-8 bytes');
+    expect(instructions).toHaveAccessibleDescription(expect.stringContaining('12,003 UTF-8 bytes'));
+    expect(screen.getByRole('button', { name: 'Create agent' })).toBeDisabled();
+    expect(electron.store.set).not.toHaveBeenCalled();
+    expect(onCreated).not.toHaveBeenCalled();
+
+    const boundary = '界'.repeat(4000);
+    fireEvent.change(instructions, { target: { value: boundary } });
+    expect(instructions).toHaveAttribute('aria-invalid', 'false');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.getByText('12,000 / 12,000 bytes')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Create agent' }));
+    await waitFor(() => expect(onCreated).toHaveBeenCalledTimes(1));
+    expect(useDurableWorkflowsStore.getState().customAgents[0].systemPrompt).toBe(boundary);
+  });
+
   it('guards a pending save, preserves the draft after a failed acknowledgement, and permits retry', async () => {
     const electron = mockElectronAPI();
     const pending = deferredWrite();

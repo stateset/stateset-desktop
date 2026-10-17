@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useDurableWorkflowsStore as workflows } from './durableWorkflows';
+import { DURABLE_AGENT_PROFILES } from '../lib/durableAgentProfiles';
 
 const savedUrl = 'https://saved-engine.example';
 const savedWorkflow = {
@@ -65,6 +66,76 @@ beforeEach(() => {
 });
 
 describe('saved workflow initialization recovery', () => {
+  it('retains legacy agent byte overflows in profiles, blueprints and pending schedules', async () => {
+    const legacy = {
+      ...DURABLE_AGENT_PROFILES[0],
+      id: 'custom-legacy',
+      systemPrompt: '界'.repeat(4001),
+      model: '界'.repeat(43),
+      connectorKey: '界'.repeat(43),
+    };
+    const definition = {
+      steps: [['inspect-inventory']],
+      agent: legacy,
+      activeWindowSeconds: 3600,
+      maxFailures: 3,
+      perCommandTimeoutSeconds: 300,
+    };
+    const at = '2026-10-17T12:00:00.000Z';
+    const blueprint = {
+      id: 'blueprint-legacy',
+      name: 'Legacy review',
+      goal: 'Review inventory',
+      definition,
+      createdAt: at,
+      updatedAt: at,
+    };
+    const schedule = {
+      id: 'schedule-legacy',
+      name: 'Legacy scheduled review',
+      tenantId: 'tenant',
+      brandId: '22222222-2222-4222-8222-222222222222',
+      goal: 'Review inventory',
+      definition,
+      frequency: 'once',
+      nextRunAt: at,
+      enabled: false,
+      createdAt: at,
+      updatedAt: at,
+      pendingOccurrence: {
+        requestId: '33333333-3333-4333-8333-333333333333',
+        dueAt: at,
+        engineUrl: savedUrl,
+        tenantId: 'tenant',
+        brandId: '22222222-2222-4222-8222-222222222222',
+        goal: 'Review inventory',
+        definition,
+        claimedAt: at,
+        workflowId:
+          'active-horizon-agent-22222222222242228222222222222222-33333333333343338333333333333333',
+        submitted: true,
+        needsAttention: true,
+      },
+    };
+    get.mockImplementation(async (name: string) => {
+      if (name === 'durableWorkflowEngineUrl') return savedUrl;
+      if (name === 'durableTrackedWorkflows') return [savedWorkflow];
+      if (name === 'durableCustomAgentProfiles') return [legacy];
+      if (name === 'durableWorkflowBlueprints') return [blueprint];
+      if (name === 'durableWorkflowSchedules') return [schedule];
+      return [];
+    });
+    await initialize();
+    expect(workflows.getState()).toMatchObject({
+      initialized: true,
+      initializationError: null,
+      customAgents: [legacy],
+      blueprints: [blueprint],
+      schedules: [schedule],
+    });
+    expect(set).not.toHaveBeenCalled();
+  });
+
   it.each(['store', 'keyring', 'native connection'])(
     'retries an atomic load after a transient %s read rejection',
     async (source) => {

@@ -1,5 +1,5 @@
 import { assertWorkflowSettingsLoaded, useDurableWorkflowsStore } from '../stores/durableWorkflows';
-import type { DurableAgentProfile } from './durableAgentProfiles';
+import { assertDurableAgentEngineLimits, type DurableAgentProfile } from './durableAgentProfiles';
 import { assertNoInlineSecrets } from './workflowCommandSecurity';
 export { assertNoInlineSecrets } from './workflowCommandSecurity';
 
@@ -241,6 +241,7 @@ function sandboxTask(params: {
   timeoutSeconds: number;
   agent?: DurableAgentProfile;
 }) {
+  if (params.agent) assertDurableAgentEngineLimits(params.agent);
   const timeoutSeconds = clamp(params.timeoutSeconds, 30, 1_800);
   const commands = params.commands.map((command) => ['sh', '-lc', command]);
   return {
@@ -376,6 +377,14 @@ export const durableWorkflowApi = {
   enqueueStep: async (input: EnqueueDurableStepInput) => {
     if (!input.commands.length) throw new Error('The new step must include at least one command.');
     assertNoInlineSecrets(input.commands);
+    const task = sandboxTask({
+      taskId: `desktop-added-${input.requestId.slice(0, 12)}`,
+      description: input.goal,
+      sessionName: `desktop-added-${input.requestId}`,
+      commands: input.commands,
+      timeoutSeconds: input.timeoutSeconds,
+      agent: input.agent,
+    });
     // Enqueued work consumes one additional supervisor turn. Extend the turn
     // budget first so the task cannot be accepted but left permanently starved.
     await durableWorkflowApi.extendBudget({
@@ -388,14 +397,7 @@ export const durableWorkflowApi = {
       {
         method: 'POST',
         tenantId: input.tenantId,
-        body: sandboxTask({
-          taskId: `desktop-added-${input.requestId.slice(0, 12)}`,
-          description: input.goal,
-          sessionName: `desktop-added-${input.requestId}`,
-          commands: input.commands,
-          timeoutSeconds: input.timeoutSeconds,
-          agent: input.agent,
-        }),
+        body: task,
       }
     );
   },

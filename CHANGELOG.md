@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Fixed
 
+- Validate agent instructions, models and connector keys against engine UTF-8 byte limits before saving new profiles or submitting work. Preserve oversized drafts and legacy saved definitions, and keep local validation failures distinct from uncertain scheduled launches.
 - Preserve custom background agents through concurrent saves and storage failures. Keep drafts available for retry, guard pending creation and removal, and use readable agent-editor surfaces in both themes.
 - Keep dialogs above page clipping and sidebar stacking so their titles, saved profiles, and form controls remain fully visible.
 

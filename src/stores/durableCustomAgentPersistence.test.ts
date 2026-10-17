@@ -46,6 +46,20 @@ beforeEach(() => {
 });
 
 describe('serialized custom agent persistence', () => {
+  it.each(['systemPrompt', 'model', 'connectorKey'] as const)(
+    'rejects an engine-bound %s byte overflow before writing and keeps the queue usable',
+    async (field) => {
+      const invalid = profile('custom-oversized');
+      invalid[field] = '界'.repeat(field === 'systemPrompt' ? 4001 : 43);
+      await expect(store.getState().saveCustomAgent(invalid)).rejects.toThrow('UTF-8 bytes');
+      expect(nativeSet).not.toHaveBeenCalled();
+      expect(store.getState().customAgents).toEqual([profile()]);
+      const valid = profile('custom-valid');
+      await store.getState().saveCustomAgent(valid);
+      expect(store.getState().customAgents).toEqual([valid, profile()]);
+    }
+  );
+
   it('retains concurrent saves and publishes each profile only after its acknowledgement', async () => {
     const firstWrite = deferred<boolean>();
     const secondWrite = deferred<boolean>();

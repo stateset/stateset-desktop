@@ -1,7 +1,25 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { assertNoInlineSecrets, durableWorkflowApi } from './durableWorkflows';
+import {
+  assertNoInlineSecrets,
+  durableWorkflowApi,
+  type StartDurableWorkflowInput,
+} from './durableWorkflows';
 import { DURABLE_AGENT_PROFILES } from './durableAgentProfiles';
 import { useDurableWorkflowsStore } from '../stores/durableWorkflows';
+
+function startInput(overrides: Partial<StartDurableWorkflowInput> = {}): StartDurableWorkflowInput {
+  return {
+    tenantId: 'tenant-1',
+    brandId: '29324d30-9571-4f50-bbc2-17b214b74ec7',
+    requestId: '0aa616a8-1241-4b8a-a3ae-2f79fa72b1e7',
+    goal: 'Review inventory evidence',
+    steps: [['cat /workspace/inventory.json']],
+    activeWindowSeconds: 3600,
+    maxFailures: 3,
+    perCommandTimeoutSeconds: 300,
+    ...overrides,
+  };
+}
 
 describe('durableWorkflowApi', () => {
   beforeEach(() => {
@@ -121,6 +139,135 @@ describe('durableWorkflowApi', () => {
     expect(body.tasks[0].payload.agent.system_prompt).toContain('data analyst');
     expect(body.tasks[1].payload.agent.system_prompt).toContain('quality reviewer');
     expect(body.tasks[0].payload.session.name).not.toBe(body.tasks[1].payload.session.name);
+  });
+
+  describe('engine agent request limits', () => {
+    it.each([
+      ['system prompt', { systemPrompt: '界'.repeat(4001) }],
+      ['model', { model: 'é'.repeat(65) }],
+      ['connector key', { connectorKey: 'é'.repeat(65) }],
+    ] as const)(
+      'rejects an over-limit UTF-8 %s before starting work',
+      async (_field, overrides) => {
+        const fetchMock = vi.fn();
+        vi.stubGlobal('fetch', fetchMock);
+        const agent = { ...DURABLE_AGENT_PROFILES[0], ...overrides };
+
+        await expect(durableWorkflowApi.start(startInput({ agent }))).rejects.toThrow();
+        expect(fetchMock).not.toHaveBeenCalled();
+      }
+    );
+
+    it('rejects an over-limit appended agent before changing the workflow budget', async () => {
+      const fetchMock = vi.fn();
+      vi.stubGlobal('fetch', fetchMock);
+
+      await expect(
+        durableWorkflowApi.enqueueStep({
+          tenantId: 'tenant-1',
+          workflowId: 'workflow-1',
+          requestId: 'request-1',
+          goal: 'Inspect the next inventory report',
+          commands: ['cat /workspace/report.json'],
+          timeoutSeconds: 300,
+          agent: { ...DURABLE_AGENT_PROFILES[0], systemPrompt: '界'.repeat(4001) },
+        })
+      ).rejects.toThrow();
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('validates later step agents before posting any part of a workflow', async () => {
+      const fetchMock = vi.fn();
+      vi.stubGlobal('fetch', fetchMock);
+
+      await expect(
+        durableWorkflowApi.start(
+          startInput({
+            steps: [['cat input.json'], ['jq . input.json'], ['cat report.json']],
+            stepAgents: [
+              DURABLE_AGENT_PROFILES[0],
+              null,
+              { ...DURABLE_AGENT_PROFILES[1], systemPrompt: '界'.repeat(4001) },
+            ],
+          })
+        )
+      ).rejects.toThrow();
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it.each(['start', 'append'] as const)(
+      'preserves raw agent strings at the exact UTF-8 limits during %s',
+      async (operation) => {
+        const fetchMock = vi
+          .fn()
+          .mockImplementation(async () => new Response('{}', { status: 200 }));
+        vi.stubGlobal('fetch', fetchMock);
+        const agent = {
+          ...DURABLE_AGENT_PROFILES[0],
+          systemPrompt: ` ${'界'.repeat(3999)} \n`,
+          model: ` ${'é'.repeat(63)} `,
+          connectorKey: ` ${'é'.repeat(63)} `,
+        };
+
+        if (operation === 'start') {
+          await durableWorkflowApi.start(startInput({ agent }));
+        } else {
+          await durableWorkflowApi.enqueueStep({
+            tenantId: 'tenant-1',
+            workflowId: 'workflow-1',
+            requestId: 'request-1',
+            goal: 'Inspect the next inventory report',
+            commands: ['cat /workspace/report.json'],
+            timeoutSeconds: 300,
+            agent,
+          });
+        }
+
+        expect(fetchMock).toHaveBeenCalledTimes(operation === 'start' ? 1 : 2);
+        const [, init] = fetchMock.mock.calls[operation === 'start' ? 0 : 1] as [
+          string,
+          RequestInit,
+        ];
+        expect(init.method).toBe('POST');
+        const body = JSON.parse(String(init.body));
+        const wireAgent = (operation === 'start' ? body.tasks[0] : body).payload.agent;
+        expect(wireAgent).toMatchObject({
+          system_prompt: agent.systemPrompt,
+          model: agent.model,
+          connector_key: agent.connectorKey,
+        });
+        const encoder = new TextEncoder();
+        for (const [field, original, expectedBytes] of [
+          ['system_prompt', agent.systemPrompt, 12_000],
+          ['model', agent.model, 128],
+          ['connector_key', agent.connectorKey, 128],
+        ] as const) {
+          const wireBytes = encoder.encode(wireAgent[field]);
+          expect(wireBytes).toEqual(encoder.encode(original));
+          expect(wireBytes.byteLength).toBe(expectedBytes);
+        }
+      }
+    );
+
+    it('keeps command-runner steps independent of an unused default agent', async () => {
+      const fetchMock = vi.fn().mockResolvedValue(new Response('{}', { status: 200 }));
+      vi.stubGlobal('fetch', fetchMock);
+
+      await durableWorkflowApi.start(
+        startInput({
+          agent: { ...DURABLE_AGENT_PROFILES[0], systemPrompt: '界'.repeat(4001) },
+          stepAgents: [null],
+        })
+      );
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+      expect(body.tasks[0].payload).not.toHaveProperty('agent');
+      expect(body.tasks[0].payload.commands).toEqual([
+        ['sh', '-lc', 'cat /workspace/inventory.json'],
+      ]);
+      expect(body.tasks[0].payload.session.budget.iteration_limit).toBe(3);
+    });
   });
 
   it('retries authentication with ApiKey after a Bearer 401', async () => {
