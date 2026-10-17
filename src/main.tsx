@@ -1,3 +1,4 @@
+import { APP_VERSION } from './lib/appVersion';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -82,7 +83,7 @@ function sanitizeStringRecord(value: Record<string, string>): Record<string, str
 // Initialize structured logging
 initializeLogger();
 log.info('Application starting', {
-  version: import.meta.env.VITE_APP_VERSION || '1.0.1',
+  version: APP_VERSION,
   environment: import.meta.env.MODE,
 });
 

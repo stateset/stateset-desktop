@@ -10,6 +10,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 - Bind published installers to the exact pushed version-tag commit, reject branch publication, and route local release requests through the signed multi-platform workflow. Report missing signing settings before build work.
 - Move production routing to patched React Router 7, use its direct package, and remove obsolete migration flags while preserving browser and packaged hash navigation.
+- Update TypeScript ESLint on its supported release line and remove unused Storybook addons to reduce vulnerable development dependencies while retaining strict lint rules.
+
+### Fixed
+
+- Report updates only after a completed check, preserve download and restart actions across late replies, and recover failed check and restart requests with clear retry feedback. Simplify the Updates surface and make progress available to assistive technology.
+- Use the built package version in renderer startup diagnostics and Settings fallbacks.
 
 ## [1.1.20] - 2026-10-16
 

@@ -1,4 +1,5 @@
 /** @vitest-environment happy-dom */
+import { version as packageVersion } from '../../../../package.json';
 import { describe, it, expect } from 'vitest';
 import { renderWithProviders, screen } from '../../../test-utils';
 import { AboutSettings } from './AboutSettings';
@@ -15,7 +16,7 @@ describe('AboutSettings', () => {
   it('falls back to defaults when version and platform are empty', () => {
     renderWithProviders(<AboutSettings appVersion="" platform="" />);
 
-    expect(screen.getByText('1.0.1')).toBeInTheDocument();
+    expect(screen.getByText(packageVersion)).toBeInTheDocument();
     expect(screen.getByText('Unknown')).toBeInTheDocument();
   });
 

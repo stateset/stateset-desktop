@@ -235,6 +235,135 @@ test.describe('Electron UI', () => {
     }
   });
 
+  for (const theme of ['dark', 'light'] as const) {
+    test(`updater outcomes remain accurate and accessible in ${theme} theme`, async ({
+      desktop,
+    }) => {
+      test.setTimeout(120_000);
+      const { electronApp, page } = await launchWithMocks(desktop);
+      try {
+        await page.evaluate(async (nextTheme) => {
+          await window.electronAPI!.store.set('theme', nextTheme);
+        }, theme);
+        await page.reload();
+        await expect
+          .poll(() => page.evaluate(() => document.documentElement.dataset.theme))
+          .toBe(theme);
+        await electronApp.evaluate(({ ipcMain, BrowserWindow }) => {
+          BrowserWindow.getAllWindows()[0].setContentSize(1024, 768);
+          ipcMain.removeHandler('app:getUpdateStatus');
+          ipcMain.handle(
+            'app:getUpdateStatus',
+            () =>
+              new Promise((resolve) => {
+                (globalThis as any).__UPDATER_INITIAL__ = resolve;
+              })
+          );
+          ipcMain.removeHandler('app:installUpdate');
+          ipcMain.handle('app:installUpdate', () => false);
+          ipcMain.removeHandler('app:checkForUpdates');
+          ipcMain.handle('app:checkForUpdates', () => ({
+            available: true,
+            version: '1.1.21',
+            snapshot: {
+              status: 'ready',
+              checking: false,
+              available: true,
+              progress: 100,
+              version: '1.1.21',
+            },
+          }));
+        });
+        await page.getByRole('link', { name: 'Settings', exact: true }).click();
+        await page
+          .getByRole('navigation', { name: 'Settings sections' })
+          .getByRole('button', { name: 'Updates', exact: true })
+          .click();
+        const updates = page.getByRole('region', { name: 'Updates', exact: true });
+        await expect(
+          updates.getByText('Check for updates to see if a newer version is available.')
+        ).toBeVisible();
+        await expect(updates.getByText("You're on the latest version")).toHaveCount(0);
+        await expect
+          .poll(() => electronApp.evaluate(() => typeof (globalThis as any).__UPDATER_INITIAL__))
+          .toBe('function');
+        // A check that reuses a ready download emits no new native event.
+        // Its response must retain the restart action while the initial lookup waits.
+        await updates.getByRole('button', { name: 'Check for Updates', exact: true }).click();
+        await expect(updates.getByText('Version 1.1.21 ready to install')).toBeVisible();
+        await electronApp.evaluate(() => {
+          (globalThis as any).__UPDATER_INITIAL__({
+            status: 'idle',
+            checking: false,
+            available: false,
+            progress: 0,
+          });
+          delete (globalThis as any).__UPDATER_INITIAL__;
+        });
+        await expect(
+          updates.getByRole('button', { name: 'Restart to Update', exact: true })
+        ).toBeEnabled();
+        await updates.getByRole('button', { name: 'Restart to Update', exact: true }).click();
+        await expect(updates.getByRole('alert')).toHaveText(
+          'Unable to restart for the update. Please try again.'
+        );
+        await expect(
+          updates.getByRole('button', { name: 'Restart to Update', exact: true })
+        ).toBeEnabled();
+        expect(
+          (
+            await new AxeBuilder({ page })
+              .include('[aria-labelledby="update-settings-heading"]')
+              .analyze()
+          ).violations
+        ).toEqual([]);
+        await mkdir('dist/verification', { recursive: true });
+        await page.screenshot({
+          path: `dist/verification/updater-ready-${theme}.png`,
+          animations: 'disabled',
+        });
+        await electronApp.evaluate(({ BrowserWindow }) => {
+          BrowserWindow.getAllWindows()[0].webContents.send('updater:progress', {
+            percent: 63,
+            bytesPerSecond: 1048576,
+            total: 104857600,
+            transferred: 66060288,
+          });
+        });
+        await expect(updates.getByRole('progressbar', { name: 'Update download' })).toHaveAttribute(
+          'aria-valuenow',
+          '63'
+        );
+        await expect(
+          updates.getByRole('button', { name: 'Check for Updates', exact: true })
+        ).toBeDisabled();
+        expect(
+          (
+            await new AxeBuilder({ page })
+              .include('[aria-labelledby="update-settings-heading"]')
+              .analyze()
+          ).violations
+        ).toEqual([]);
+        const overflow = await updates.evaluate(
+          (element) => element.scrollWidth - element.clientWidth
+        );
+        expect(overflow).toBeLessThanOrEqual(1);
+        await mkdir('dist/verification', { recursive: true });
+        await page.screenshot({
+          path: `dist/verification/updater-${theme}.png`,
+          animations: 'disabled',
+        });
+        await electronApp.evaluate(({ BrowserWindow }) => {
+          BrowserWindow.getAllWindows()[0].webContents.send('updater:not-available');
+        });
+        await expect(updates.getByText("You're on the latest version")).toBeVisible();
+        await expect(updates.getByRole('alert')).toHaveCount(0);
+      } finally {
+        await electronApp.close();
+      }
+    });
+  }
+
   test('settings toggles persist', async ({ desktop }) => {
     const { electronApp, page } = await launchWithMocks(desktop);
 

@@ -104,6 +104,9 @@ jobs:
       - name: Build Renderer (Vite)
         run: npm run build:vite
 
+      - name: Build component documentation
+        run: npm run build-storybook -- --output-dir dist/component-docs --quiet --disable-telemetry
+
   e2e:
     needs: test
     runs-on: ubuntu-latest
@@ -144,6 +147,7 @@ jobs:
             playwright-report
             test-results
             e2e/*-results.json
+            dist/verification/updater-*.png
 
   # Build for macOS
   build-macos:

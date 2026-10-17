@@ -393,7 +393,7 @@ class TelemetryCollector {
     try {
       this.flushPromise = this.sendEvents(eventsToFlush);
       await this.flushPromise;
-    } catch (error) {
+    } catch {
       // If flush fails, add events back to the queue (up to a limit)
       const maxRetrySize = 100;
       const eventsToRetry = eventsToFlush.slice(-maxRetrySize);

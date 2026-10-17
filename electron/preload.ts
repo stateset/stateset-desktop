@@ -166,7 +166,8 @@ interface UpdateProgress {
 }
 
 interface UpdateStatusSnapshot {
-  status: 'idle' | 'checking' | 'available' | 'downloading' | 'ready' | 'error' | 'disabled';
+  status:
+    'idle' | 'current' | 'checking' | 'available' | 'downloading' | 'ready' | 'error' | 'disabled';
   checking: boolean;
   available: boolean;
   progress: number;
@@ -248,6 +249,7 @@ export interface ElectronAPI {
       version?: string;
       error?: string;
       message?: string;
+      snapshot: UpdateStatusSnapshot;
     }>;
     installUpdate: () => Promise<boolean>;
     getUpdateStatus: () => Promise<UpdateStatusSnapshot>;

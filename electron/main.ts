@@ -15,6 +15,7 @@ import * as path from 'path';
 import Store from 'electron-store';
 import { resolveStoreKey, isPlaintextConfiguration } from './store-key';
 import { autoUpdater } from 'electron-updater';
+import { checkForDesktopUpdates, type UpdateStatusSnapshot } from './update-check';
 import * as Sentry from '@sentry/electron/main';
 import { ShopifyOAuth } from './oauth/shopify';
 import { GorgiasOAuth } from './oauth/gorgias';
@@ -314,19 +315,6 @@ if (migratePlaintext) {
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let isQuitting = false;
-
-type UpdateLifecycleState =
-  'idle' | 'checking' | 'available' | 'downloading' | 'ready' | 'error' | 'disabled';
-
-type UpdateStatusSnapshot = {
-  status: UpdateLifecycleState;
-  checking: boolean;
-  available: boolean;
-  progress: number;
-  version?: string;
-  error?: string;
-  message?: string;
-};
 
 function createInitialUpdateStatusSnapshot(): UpdateStatusSnapshot {
   const updaterStatus = getAutoUpdaterStatus();
@@ -714,7 +702,7 @@ function setupAutoUpdater() {
   autoUpdater.on('update-not-available', () => {
     console.log('No updates available');
     setUpdateStatusSnapshot({
-      status: 'idle',
+      status: 'current',
       checking: false,
       available: false,
       progress: 0,
@@ -779,7 +767,7 @@ function setupAutoUpdater() {
   // Check for updates on startup (after a short delay to let the app initialize)
   setTimeout(() => {
     if (app.isPackaged) {
-      autoUpdater.checkForUpdates().catch((err) => {
+      checkForAppUpdates().catch((err) => {
         console.error('Failed to check for updates:', err);
       });
     }
@@ -789,7 +777,7 @@ function setupAutoUpdater() {
   setInterval(
     () => {
       if (app.isPackaged) {
-        autoUpdater.checkForUpdates().catch((err) => {
+        checkForAppUpdates().catch((err) => {
           console.error('Failed to check for updates:', err);
         });
       }
@@ -856,7 +844,7 @@ function createTray() {
       enabled: updaterStatus.enabled,
       click: () => {
         if (updaterStatus.enabled) {
-          autoUpdater.checkForUpdates().catch((error) => {
+          checkForAppUpdates().catch((error) => {
             console.error('Failed to check for updates:', error);
             Sentry.captureException(error);
           });
@@ -1410,7 +1398,7 @@ ipcMain.handle('app:getPlatform', () => {
   return process.platform;
 });
 
-ipcMain.handle('app:checkForUpdates', async () => {
+async function checkForAppUpdates() {
   const updaterStatus = getAutoUpdaterStatus();
   if (!updaterStatus.enabled) {
     setUpdateStatusSnapshot({
@@ -1422,55 +1410,23 @@ ipcMain.handle('app:checkForUpdates', async () => {
       error: undefined,
       version: undefined,
     });
-    return { available: false, message: updaterStatus.reason || 'Updates disabled in this build' };
+    return {
+      available: false,
+      message: updaterStatus.reason || 'Updates disabled in this build',
+      snapshot: { ...updateStatusSnapshot },
+    };
   }
 
-  setUpdateStatusSnapshot({
-    status: 'checking',
-    checking: true,
-    available: false,
-    progress: 0,
-    message: undefined,
-    error: undefined,
-    version: undefined,
+  return checkForDesktopUpdates(autoUpdater, {
+    get: () => updateStatusSnapshot,
+    set: setUpdateStatusSnapshot,
   });
+}
 
-  try {
-    const result = await autoUpdater.checkForUpdates();
-    const version = result?.updateInfo?.version;
-    const available = Boolean(version);
-
-    if (available) {
-      setUpdateStatusSnapshot({
-        status: 'available',
-        checking: false,
-        available: true,
-        progress: 0,
-        version,
-      });
-    } else {
-      setUpdateStatusSnapshot({
-        status: 'idle',
-        checking: false,
-        available: false,
-        progress: 0,
-        version: undefined,
-      });
-    }
-
-    return { available, version };
-  } catch (error) {
-    setUpdateStatusSnapshot({
-      status: 'error',
-      checking: false,
-      error: String(error),
-    });
-    return { available: false, error: String(error) };
-  }
-});
+ipcMain.handle('app:checkForUpdates', checkForAppUpdates);
 
 ipcMain.handle('app:installUpdate', () => {
-  if (!getAutoUpdaterStatus().enabled) {
+  if (!getAutoUpdaterStatus().enabled || updateStatusSnapshot.status !== 'ready') {
     return false;
   }
   autoUpdater.quitAndInstall();
