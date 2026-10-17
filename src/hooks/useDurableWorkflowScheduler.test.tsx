@@ -8,6 +8,7 @@ import {
 } from '../stores/durableWorkflows';
 import { usePreferencesStore } from '../stores/preferences';
 import { useDurableWorkflowScheduler } from './useDurableWorkflowScheduler';
+import { DURABLE_AGENT_PROFILES } from '../lib/durableAgentProfiles';
 
 const startMock = vi.fn();
 const statusMock = vi.fn();
@@ -116,6 +117,64 @@ describe('useDurableWorkflowScheduler', () => {
     cleanup();
     vi.useRealTimers();
     vi.unstubAllGlobals();
+  });
+
+  it.each([false, true])(
+    'keeps a locally invalid agent known unsent (existing claim: %s)',
+    async (claimed) => {
+      const legacy = { ...DURABLE_AGENT_PROFILES[0], systemPrompt: '界'.repeat(4001) };
+      useDurableWorkflowsStore.setState((state) => ({
+        schedules: state.schedules.map((schedule) => ({
+          ...schedule,
+          definition: { ...schedule.definition, stepAgents: [legacy] },
+        })),
+      }));
+      const pending = claimed ? seedPending(false) : undefined;
+      renderHook(() => useDurableWorkflowScheduler());
+      await waitFor(() =>
+        expect(useDurableWorkflowsStore.getState().schedules[0].lastError).toContain(
+          '12003 UTF-8 bytes'
+        )
+      );
+      expect(startMock).not.toHaveBeenCalled();
+      expect(statusMock).not.toHaveBeenCalled();
+      const schedule = useDurableWorkflowsStore.getState().schedules[0];
+      expect(schedule.lastError).not.toContain('Launch could not be confirmed');
+      expect(schedule.lastRunAt).toBeUndefined();
+      if (pending)
+        expect(schedule.pendingOccurrence).toMatchObject({
+          requestId: pending.requestId,
+          submitted: false,
+          needsAttention: true,
+        });
+      else expect(schedule.pendingOccurrence).toBeUndefined();
+      expect(window.electronAPI!.store.set).not.toHaveBeenCalledWith(
+        'durableWorkflowSchedules',
+        expect.arrayContaining([
+          expect.objectContaining({
+            pendingOccurrence: expect.objectContaining({ submitted: true }),
+          }),
+        ])
+      );
+    }
+  );
+
+  it('still checks a submitted legacy occurrence even when its saved agent now exceeds engine byte limits', async () => {
+    const legacy = { ...DURABLE_AGENT_PROFILES[0], systemPrompt: '界'.repeat(4001) };
+    useDurableWorkflowsStore.setState((state) => ({
+      schedules: state.schedules.map((schedule) => ({
+        ...schedule,
+        definition: { ...schedule.definition, stepAgents: [legacy] },
+      })),
+    }));
+    seedPending(true);
+    renderHook(() => useDurableWorkflowScheduler());
+    await waitFor(() =>
+      expect(useDurableWorkflowsStore.getState().schedules[0].lastWorkflowId).toBe(workflowId)
+    );
+    expect(statusMock).toHaveBeenCalledWith('tenant-1', workflowId);
+    expect(startMock).not.toHaveBeenCalled();
+    expect(useDurableWorkflowsStore.getState().schedules[0].pendingOccurrence).toBeUndefined();
   });
 
   it('persists the request and dispatch marker before POST, and advances only after tracking', async () => {

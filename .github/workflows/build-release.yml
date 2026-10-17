@@ -149,6 +149,8 @@ jobs:
             e2e/*-results.json
             dist/verification/updater-*.png
             dist/verification/schedule-pending-*.png
+            dist/verification/agent-manager-*.png
+            dist/verification/agent-error-*.png
 
   # Build for macOS
   build-macos:

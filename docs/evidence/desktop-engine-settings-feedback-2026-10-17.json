@@ -1,0 +1,417 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-17T18:31:04.080721+00:00",
+  "source_parent_commit": "85712738260cb2927cb62a4d528b7654182b02b5",
+  "scope": "Keep engine settings feedback accurate across edited drafts, configuration changes and workspace switches, and require acknowledged native credential removal.",
+  "baseline": {
+    "source_commit": "85712738260cb2927cb62a4d528b7654182b02b5",
+    "prior_source_evidence": "docs/evidence/desktop-modal-notifications-2026-10-17.json",
+    "ci": {
+      "status": "passed",
+      "counts": {
+        "unit_files": 229,
+        "unit": 2928,
+        "native_per_suite": 83,
+        "live_skipped_per_suite": 3,
+        "linux_bundle": 1,
+        "linux_installers": 3
+      },
+      "workflows": {
+        "build": "https://github.com/stateset/stateset-desktop/actions/runs/39055551447",
+        "e2e": "https://github.com/stateset/stateset-desktop/actions/runs/39055551461"
+      }
+    },
+    "qualification": "The unconditional health completion and ignored removal acknowledgement were identified in source review. No separate pre-fix failing runtime baseline was performed for these settings changes."
+  },
+  "prior_verification_attempts": [
+    {
+      "job": "e007427c8bfc",
+      "state": "succeeded",
+      "unit_tests": 372,
+      "native_passed": 5,
+      "qualification": "Passed before the acknowledged-removal/failed-refresh refinement. Peer review identified an uncovered misleading-outcome path; no pre-fix failing runtime test was performed for that refinement. Original report, manifest, trace packet and log retained in dist/verification/engine-settings-before-refresh-fix."
+    },
+    {
+      "job": "b28322b3e5b4",
+      "state": "failed",
+      "unit_tests": 373,
+      "native_passed": 3,
+      "native_failed": 2,
+      "qualification": "The new post-removal UI reconfiguration used an anchored label regex that missed leading whitespace; only that locator was corrected. The unchanged restart case exhausted its cumulative 60-second budget at its second process launch, after slow startup/navigation without a failed product assertion. Timeout and assertions were retained. Complete failed reports, traces, original manifest, assessment and log are preserved in dist/verification/engine-settings-b28322b3e5b4-failure."
+    }
+  ],
+  "implementation": [
+    "Bind each connection check and completed result to its tenant, draft revision, saved URL/key/revision, initialization state and connection generation; observe context transitions synchronously, including A-to-B-to-A changes.",
+    "Release an obsolete health check so a new one can run, while preventing its old completion/finally from overwriting feedback or unlocking a newer action. Ignore completion after unmount.",
+    "Explain that edited settings must be saved before testing the saved connection. Preserve newer drafts after asynchronous save completion and do not save as a testing side effect.",
+    "Use synchronous action guards and configuration pending state to prevent overlapping saves, tests and key removals. Announce current successes as status and failures as alerts.",
+    "Require trusted initialization before enqueue and again inside queued credential removal. Require a real native clear method, reject false acknowledgements, and preserve the known configured key/revision after failure; accept legacy undefined only from a real method.",
+    "Publish key removal only after acknowledgement and refresh the native connection revision. If that refresh fails after deletion, removal still succeeds with a null untrusted revision. A failed removal does not poison queued configuration changes or later retries.",
+    "Exercise deferred authenticated localhost health requests through the native app, discard the old result after a URL edit, retain the unsaved/native URL distinction, then verify a fresh check.",
+    "Verify two controlled false native removal acknowledgements retain the actual key and retry UI, then use a fresh owned process and the untouched native handler to confirm actual key removal, including after a controlled post-deletion connection refresh failure."
+  ],
+  "verification": {
+    "jobs": {
+      "integrated": {
+        "id": "115cee027702",
+        "state": "succeeded",
+        "exit_code": 0,
+        "command_display": "bash /tmp/stateset-desktop-engine-settings-final.sh",
+        "wait_seconds": 542.3357288837433,
+        "elapsed_seconds": 103.15041875839233
+      }
+    },
+    "unit_tests": 373,
+    "unit_files": 17,
+    "checks": [
+      "Renderer typecheck",
+      "Desktop-test typecheck",
+      "Uncached strict lint with unchanged rules",
+      "Single-worker Vite tests including settings, credential queue, scheduling and computer-chat recovery"
+    ],
+    "native": {
+      "passed": 5,
+      "skipped": 0,
+      "retries": 0,
+      "flaky": 0,
+      "receipts": {
+        "profile_persistence": {
+          "attachment_sha256": "a0f9e95b7cd69174d80e0cf7b6ffab8221da6131db415ee17619eb73b0d3e35b",
+          "before_restart": [
+            {
+              "id": "custom-2fdb94ab-69c4-4dea-8652-004b4f09ebff",
+              "name": "Inventory investigator",
+              "description": "Checks inventory exports against saved evidence",
+              "provider": "openai",
+              "connectorKey": "openai-primary",
+              "model": "gpt-5.4",
+              "systemPrompt": "Inspect the inventory export, report mismatches, and preserve the source files.",
+              "maxIterations": 10,
+              "allowedExecutables": ["rg", "jq", "cat", "head", "tail", "wc", "sort"],
+              "maxTokens": 1024,
+              "maxTotalTokens": 20000
+            }
+          ],
+          "after_restart": [
+            {
+              "id": "custom-2fdb94ab-69c4-4dea-8652-004b4f09ebff",
+              "name": "Inventory investigator",
+              "description": "Checks inventory exports against saved evidence",
+              "provider": "openai",
+              "connectorKey": "openai-primary",
+              "model": "gpt-5.4",
+              "systemPrompt": "Inspect the inventory export, report mismatches, and preserve the source files.",
+              "maxIterations": 10,
+              "allowedExecutables": ["rg", "jq", "cat", "head", "tail", "wc", "sort"],
+              "maxTokens": 1024,
+              "maxTotalTokens": 20000
+            }
+          ],
+          "after_delete": [],
+          "after_second_save": [
+            {
+              "id": "custom-ede98fac-fe83-4177-ad12-af429587ad85",
+              "name": "Delivery evidence reviewer",
+              "description": "Reviews delivery receipts and reports missing evidence",
+              "provider": "openai",
+              "connectorKey": "openai-primary",
+              "model": "gpt-5.4",
+              "systemPrompt": "Inspect the delivery receipts and explain every missing confirmation before finishing.",
+              "maxIterations": 10,
+              "allowedExecutables": ["rg", "jq", "cat", "head", "tail", "wc", "sort"],
+              "maxTokens": 1024,
+              "maxTotalTokens": 20000
+            }
+          ],
+          "draft_preserved": true,
+          "workflow_requests": [],
+          "manager_layouts": {
+            "dark": {
+              "viewportWidth": 1024,
+              "viewportHeight": 768,
+              "inViewport": true,
+              "centered": true,
+              "coversViewport": true,
+              "bodyOverlay": true,
+              "unobscured": true,
+              "input": {
+                "color": "rgb(241, 245, 249)",
+                "background": "rgb(21, 22, 24)",
+                "opacity": "1",
+                "disabled": false
+              }
+            },
+            "light": {
+              "viewportWidth": 1024,
+              "viewportHeight": 768,
+              "inViewport": true,
+              "centered": true,
+              "coversViewport": true,
+              "bodyOverlay": true,
+              "unobscured": true,
+              "input": {
+                "color": "rgb(15, 23, 42)",
+                "background": "rgb(255, 255, 255)",
+                "opacity": "1",
+                "disabled": false
+              }
+            }
+          }
+        },
+        "byte_limits": {
+          "rejectedBytes": 12003,
+          "acceptedBytes": 12000,
+          "draftPreserved": true,
+          "profileId": "custom-29bf6282-56b8-41de-8852-4b3ca11f868c",
+          "storedBytes": 12000,
+          "workflowRequests": [],
+          "attachment_sha256": "4d41391ba506e048e79269fd060e8d63c6f20551881851bd2b396be0bca222fe"
+        },
+        "error_feedback": {
+          "themes": {
+            "dark": {
+              "viewport": {
+                "width": 1400,
+                "height": 873
+              },
+              "background": "rgb(23, 30, 41)",
+              "opacity": "1",
+              "visibility": "visible",
+              "title": {
+                "text": "Unable to save agent",
+                "unobscured": true,
+                "hitTag": "DIV",
+                "bounds": {
+                  "left": 1051,
+                  "top": 29,
+                  "right": 1339,
+                  "bottom": 49
+                },
+                "inViewport": true,
+                "color": "rgb(248, 250, 252)",
+                "textFillColor": "rgb(248, 250, 252)",
+                "opacity": "1",
+                "visibility": "visible"
+              },
+              "message": {
+                "text": "Custom agent profiles could not be saved. Try again.",
+                "unobscured": true,
+                "hitTag": "DIV",
+                "bounds": {
+                  "left": 1051,
+                  "top": 49,
+                  "right": 1339,
+                  "bottom": 94.5
+                },
+                "inViewport": true,
+                "color": "rgb(226, 232, 240)",
+                "textFillColor": "rgb(226, 232, 240)",
+                "opacity": "1",
+                "visibility": "visible"
+              },
+              "dismiss": {
+                "text": "Dismiss notification",
+                "unobscured": true,
+                "hitTag": "path",
+                "bounds": {
+                  "left": 1347,
+                  "top": 25,
+                  "right": 1371,
+                  "bottom": 49
+                },
+                "inViewport": true,
+                "color": "rgb(203, 213, 225)",
+                "textFillColor": "rgb(203, 213, 225)",
+                "opacity": "1",
+                "visibility": "visible"
+              },
+              "draftPreserved": true,
+              "draftAfterDismissalPreserved": true,
+              "managerStayedOpen": true,
+              "dismissed": true,
+              "persistedProfileCount": 0
+            },
+            "light": {
+              "viewport": {
+                "width": 1400,
+                "height": 873
+              },
+              "background": "rgb(255, 255, 255)",
+              "opacity": "1",
+              "visibility": "visible",
+              "title": {
+                "text": "Unable to save agent",
+                "unobscured": true,
+                "hitTag": "DIV",
+                "bounds": {
+                  "left": 1051,
+                  "top": 29,
+                  "right": 1339,
+                  "bottom": 49
+                },
+                "inViewport": true,
+                "color": "rgb(17, 24, 39)",
+                "textFillColor": "rgb(17, 24, 39)",
+                "opacity": "1",
+                "visibility": "visible"
+              },
+              "message": {
+                "text": "Custom agent profiles could not be saved. Try again.",
+                "unobscured": true,
+                "hitTag": "DIV",
+                "bounds": {
+                  "left": 1051,
+                  "top": 49,
+                  "right": 1339,
+                  "bottom": 94.5
+                },
+                "inViewport": true,
+                "color": "rgb(51, 65, 85)",
+                "textFillColor": "rgb(51, 65, 85)",
+                "opacity": "1",
+                "visibility": "visible"
+              },
+              "dismiss": {
+                "text": "Dismiss notification",
+                "unobscured": true,
+                "hitTag": "path",
+                "bounds": {
+                  "left": 1347,
+                  "top": 25,
+                  "right": 1371,
+                  "bottom": 49
+                },
+                "inViewport": true,
+                "color": "rgb(71, 85, 105)",
+                "textFillColor": "rgb(71, 85, 105)",
+                "opacity": "1",
+                "visibility": "visible"
+              },
+              "draftPreserved": true,
+              "draftAfterDismissalPreserved": true,
+              "managerStayedOpen": true,
+              "dismissed": true,
+              "persistedProfileCount": 0
+            }
+          },
+          "noWorkflowRequests": true,
+          "workflowRequests": [],
+          "attachment_sha256": "1b9619b8f51f192eb2f18acd7107262a257a55aef092b79a542fe72a6918e636"
+        },
+        "health": {
+          "healthRequests": [
+            {
+              "method": "GET",
+              "path": "/health",
+              "tenantMatches": true,
+              "authenticated": true
+            },
+            {
+              "method": "GET",
+              "path": "/health",
+              "tenantMatches": true,
+              "authenticated": true
+            }
+          ],
+          "firstResponseFinished": true,
+          "staleResponseDiscarded": true,
+          "editedDraftPreserved": true,
+          "dirtyTestDisabled": true,
+          "savedUrlUnchanged": true,
+          "freshTestSucceeded": true,
+          "ambientRootProbeCount": 0,
+          "noWorkflowRequests": true,
+          "workflowRequests": [],
+          "attachment_sha256": "44b07c106fdabdf338d36d7d35099255dd36e97d18124c2236c186ff917429ed"
+        },
+        "removal": {
+          "phases": {
+            "failed": {
+              "attempts": 2,
+              "caughtErrorVisible": true,
+              "nativeKeyRetained": true,
+              "retryEnabled": true,
+              "pageErrorCount": 0
+            },
+            "successful": {
+              "nativeKeyRemoved": true,
+              "nativeKeyRemovedAfterRefreshFailure": true,
+              "refreshFailureRemovalSucceeded": true,
+              "ordinaryRemovalConfirmed": true,
+              "noKeyConfigured": true,
+              "testDisabled": true,
+              "pageErrorCount": 0,
+              "originalHandlerUsed": true
+            }
+          },
+          "noWorkflowRequests": true,
+          "workflowRequests": [],
+          "attachment_sha256": "220448f3c1ee7367e4b29547abb8b0eff8f48fca13b65f0a51c1b331c802b6cf"
+        }
+      },
+      "qualification": "Owned memory-only profiles and controlled local HTTP/IPC fixtures. Failed removal is injected through public IPC; success uses the untouched clear handler in a separate owned process, including a controlled failure of the subsequent connection read. No actual credential values are retained in these settings receipts."
+    },
+    "source_guard": {
+      "inputs": 656,
+      "manifest_sha256": "d6a99e984a387bb098305a45389155393ad817494f0f6bc29e316f578da2bfc5",
+      "qualification": "Manual before/after hashes, not an immutable queue snapshot."
+    },
+    "unit_report_sha256": "ba74b33f1f7b1b59fd1dabc55cf739f8cde7f4627528ec27ed20c00adeec60eb",
+    "native_report_sha256": "0eacbcf0a909446c0e59bcccc7231cbca1706782f81facf45bb2b457dc1ff9df",
+    "screenshots": {
+      "agent-manager-dark.png": {
+        "path": "dist/verification/engine-settings-native/agent-manager-dark.png",
+        "sha256": "1f2c127e02b0d36fac777caa515cc8a553b597c62140a563db3f034fb03c787a"
+      },
+      "agent-manager-light.png": {
+        "path": "dist/verification/engine-settings-native/agent-manager-light.png",
+        "sha256": "ab79251f1a7a23dfd08f756d7164904311794dab96247a25ccd30a289fe49c02"
+      },
+      "agent-error-dark.png": {
+        "path": "dist/verification/engine-settings-native/agent-error-dark.png",
+        "sha256": "64415d757fcfaf1e9ac6b6d1323991d0abae59fd8afe32db01828045d9cd4cfe"
+      },
+      "agent-error-light.png": {
+        "path": "dist/verification/engine-settings-native/agent-error-light.png",
+        "sha256": "15df25174cf8afc537b5d6141ce307485cf9a679c2d41f5703c3246485c1a83b"
+      }
+    },
+    "dependency_audit": {
+      "production": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 0,
+        "critical": 0,
+        "total": 0
+      },
+      "all": {
+        "info": 0,
+        "low": 0,
+        "moderate": 10,
+        "high": 5,
+        "critical": 0,
+        "total": 15
+      },
+      "qualification": "Unchanged package/lock bytes retain the prior source-bound audit (production 0, development 15 affected-package entries). This is not a fresh full audit; the new exact-head CI production gate is required."
+    },
+    "dependency_audit_qualification": "Package and lockfile are unchanged. Production zero and development findings refer to the earlier source-bound audit of this graph; fresh exact-head CI production audit remains required.",
+    "full_ci": "Required on the next committed source. Focused/local evidence does not establish exact new-head full-suite or platform acceptance."
+  },
+  "changed_source_sha256": {
+    "CHANGELOG.md": "46d87fdbf3d1a53431f7dd11150b6c1acf4fe634c3188428e9347118e58e537f",
+    "docs/DESKTOP_STORAGE.md": "762afdb8b3a29bbb650f4437c5d4a4b29adef41e0c143e953c4bbbed40a89745",
+    "e2e/startup.spec.ts": "3b07da0fad4b8eac8b1dedd5eec06312c7b01fb08caeb655995dae58e682fcfc",
+    "src/features/settings/components/BackgroundSettings.test.tsx": "0bfd8c9b003b8410797a3463340e02b56a6ce8060d73ba6bb98a1480c7d2befe",
+    "src/features/settings/components/DurableWorkflowSettings.test.tsx": "e7e466eaaa9ac441eaaae0a6db14fe9a940b4b7acd9af71aac27719f9b0f85e7",
+    "src/features/settings/components/DurableWorkflowSettings.tsx": "687c3ba70a4d9bbc69b8e7ecf6130a9c3368d1c85df0d9e2228f9cf887e3b731",
+    "src/stores/durableWorkflows.test.ts": "43821f94ff5f1a713440263ae2f4dcbbd9226aa57563fe674324c0d400a8b110",
+    "src/stores/durableWorkflows.ts": "d7b239cadfdc92de6e51af66858af8a26e57f10748d2fdbd1d00cb893d251296"
+  },
+  "limitations": [
+    "Packaged custom engine origins remain a source-confirmed transport gap: fixed CSP does not follow saved URLs for renderer workflow requests. This feedback change does not resolve that transport gap; a native workflow bridge including streaming is the next integration priority.",
+    "A stale health request may still complete at the network layer; its result is discarded and it cannot affect current feedback.",
+    "Controlled native tests do not prove deployed engine/Temporal/sandbox/provider/NSR readiness, host OS keyring behavior, or whole-app accessibility.",
+    "The v1.1.21 tag stays at 4189d16. Signed publication remains blocked by missing signing/notarization settings; these are subsequent unreleased changes."
+  ]
+}

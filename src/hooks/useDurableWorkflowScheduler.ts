@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
+import { assertDurableAgentEngineLimits } from '../lib/durableAgentProfiles';
 import { durableWorkflowApi, type DurableWorkflowStatus } from '../lib/durableWorkflows';
 import { nextScheduledRun, shouldWaitForPreviousRun } from '../lib/durableWorkflowSchedules';
 import {
@@ -161,6 +162,16 @@ export function useDurableWorkflowScheduler() {
               item.pendingOccurrence?.requestId === pending?.requestId
           );
         try {
+          // A local validation error proves that no launch was sent. Check it
+          // before claiming or marking a new occurrence as submitted, while
+          // still allowing status recovery for an already submitted identity.
+          if (!pending?.submitted) {
+            const definition = pending?.definition ?? schedule.definition;
+            definition.steps.forEach((_, index) => {
+              const agent = definition.stepAgents ? definition.stepAgents[index] : definition.agent;
+              if (agent) assertDurableAgentEngineLimits(agent);
+            });
+          }
           if (!pending) {
             const requestId = crypto.randomUUID();
             const claim: PendingScheduledOccurrence = {

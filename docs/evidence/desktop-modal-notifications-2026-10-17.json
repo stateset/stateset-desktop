@@ -1,0 +1,403 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-17T17:40:19.280670+00:00",
+  "source_parent_commit": "2d8e8952c14794481d2477fecfa3871032909a84",
+  "scope": "Keep notifications readable and dismissible above portaled dialogs, preserving failure feedback while an agent draft remains open.",
+  "baseline": {
+    "job": "c413de3273fc",
+    "state": "failed",
+    "exit_code": 1,
+    "report_sha256": "fd222bc5921cdb4ec3f6a1b61fe5e4cb5370f1b69fb2c58367591d4f18011752",
+    "observed_dark": {
+      "theme": "dark",
+      "viewport": {
+        "width": 1400,
+        "height": 873
+      },
+      "background": "rgb(23, 30, 41)",
+      "opacity": "1",
+      "visibility": "visible",
+      "title": {
+        "text": "Unable to save agent",
+        "unobscured": false,
+        "hitTag": "DIV",
+        "bounds": {
+          "left": 1051,
+          "top": 29,
+          "right": 1339,
+          "bottom": 49
+        },
+        "inViewport": true,
+        "color": "rgb(248, 250, 252)",
+        "textFillColor": "rgb(248, 250, 252)",
+        "opacity": "1",
+        "visibility": "visible"
+      },
+      "message": {
+        "text": "Custom agent profiles could not be saved. Try again.",
+        "unobscured": false,
+        "hitTag": "DIV",
+        "bounds": {
+          "left": 1051,
+          "top": 49,
+          "right": 1339,
+          "bottom": 94.5
+        },
+        "inViewport": true,
+        "color": "rgb(226, 232, 240)",
+        "textFillColor": "rgb(226, 232, 240)",
+        "opacity": "1",
+        "visibility": "visible"
+      },
+      "dismiss": {
+        "text": "Dismiss notification",
+        "unobscured": false,
+        "hitTag": "DIV",
+        "bounds": {
+          "left": 1347,
+          "top": 25,
+          "right": 1371,
+          "bottom": 49
+        },
+        "inViewport": true,
+        "color": "rgb(203, 213, 225)",
+        "textFillColor": "rgb(203, 213, 225)",
+        "opacity": "1",
+        "visibility": "visible"
+      },
+      "draftPreserved": true,
+      "persistedProfileCount": 0,
+      "workflowRequests": []
+    },
+    "qualification": "An intentional native regression test against the original notification layer failed because title/message/dismiss hit targets were all covered by the modal overlay. This is an observed application failure, not a queue failure. Original JSON, screenshot and trace retained in dist/verification/agent-toast-before-fix."
+  },
+  "implementation": [
+    "Raise the existing notification region above modal overlays without changing its live-region, timer, dismissal or focus behavior.",
+    "Retain dark/light failure screenshots in both native CI workflows.",
+    "Exercise a controlled false storage acknowledgement through public IPC in each disposable memory-only app. Preserve the draft and empty native profile collection, check visible unobscured error text and dismiss control, dismiss with a real click and keep the editor open."
+  ],
+  "previous_source_evidence": "docs/evidence/desktop-agent-byte-limits-2026-10-17.json",
+  "prior_verification_attempts": [
+    {
+      "job": "d56c965faf48",
+      "state": "failed",
+      "unit_passed": 229,
+      "unit_failed": 1,
+      "native": "not run",
+      "qualification": "Final focus assertion ran immediately after asynchronous removal and saw body before the passive restoration effect. It now awaits the same Name focus condition with the existing waitFor timeout, without sleeps or a product focus change. Original report, source manifest and log retained in dist/verification/agent-toast-d56c965faf48-unit-failure."
+    }
+  ],
+  "verification": {
+    "jobs": {
+      "integrated": {
+        "id": "4d216830d3b2",
+        "state": "succeeded",
+        "exit_code": 0,
+        "command_display": "bash /tmp/stateset-desktop-agent-toast-final.sh",
+        "wait_seconds": 0.31846046447753906,
+        "elapsed_seconds": 99.62899899482727
+      }
+    },
+    "unit_tests": 230,
+    "unit_files": 13,
+    "checks": [
+      "Renderer typecheck",
+      "Desktop-test typecheck",
+      "Uncached strict lint with unchanged rules",
+      "Single-worker Vite tests including notification timer/accessibility and agent recovery coverage"
+    ],
+    "native": {
+      "passed": 3,
+      "skipped": 0,
+      "retries": 0,
+      "flaky": 0,
+      "receipts": {
+        "profile_persistence": {
+          "attachment_sha256": "9247730a2130387b70bec57c19ed6e24fd29627ae92d9856b4b56737ddc58489",
+          "before_restart": [
+            {
+              "id": "custom-4fd04564-cc2e-4b7c-97d8-337960276bc0",
+              "name": "Inventory investigator",
+              "description": "Checks inventory exports against saved evidence",
+              "provider": "openai",
+              "connectorKey": "openai-primary",
+              "model": "gpt-5.4",
+              "systemPrompt": "Inspect the inventory export, report mismatches, and preserve the source files.",
+              "maxIterations": 10,
+              "allowedExecutables": ["rg", "jq", "cat", "head", "tail", "wc", "sort"],
+              "maxTokens": 1024,
+              "maxTotalTokens": 20000
+            }
+          ],
+          "after_restart": [
+            {
+              "id": "custom-4fd04564-cc2e-4b7c-97d8-337960276bc0",
+              "name": "Inventory investigator",
+              "description": "Checks inventory exports against saved evidence",
+              "provider": "openai",
+              "connectorKey": "openai-primary",
+              "model": "gpt-5.4",
+              "systemPrompt": "Inspect the inventory export, report mismatches, and preserve the source files.",
+              "maxIterations": 10,
+              "allowedExecutables": ["rg", "jq", "cat", "head", "tail", "wc", "sort"],
+              "maxTokens": 1024,
+              "maxTotalTokens": 20000
+            }
+          ],
+          "after_delete": [],
+          "after_second_save": [
+            {
+              "id": "custom-efeaeb75-5b8b-4c46-adf5-9b4609844824",
+              "name": "Delivery evidence reviewer",
+              "description": "Reviews delivery receipts and reports missing evidence",
+              "provider": "openai",
+              "connectorKey": "openai-primary",
+              "model": "gpt-5.4",
+              "systemPrompt": "Inspect the delivery receipts and explain every missing confirmation before finishing.",
+              "maxIterations": 10,
+              "allowedExecutables": ["rg", "jq", "cat", "head", "tail", "wc", "sort"],
+              "maxTokens": 1024,
+              "maxTotalTokens": 20000
+            }
+          ],
+          "draft_preserved": true,
+          "workflow_requests": [],
+          "manager_layouts": {
+            "dark": {
+              "viewportWidth": 1024,
+              "viewportHeight": 768,
+              "inViewport": true,
+              "centered": true,
+              "coversViewport": true,
+              "bodyOverlay": true,
+              "unobscured": true,
+              "input": {
+                "color": "rgb(241, 245, 249)",
+                "background": "rgb(21, 22, 24)",
+                "opacity": "1",
+                "disabled": false
+              }
+            },
+            "light": {
+              "viewportWidth": 1024,
+              "viewportHeight": 768,
+              "inViewport": true,
+              "centered": true,
+              "coversViewport": true,
+              "bodyOverlay": true,
+              "unobscured": true,
+              "input": {
+                "color": "rgb(15, 23, 42)",
+                "background": "rgb(255, 255, 255)",
+                "opacity": "1",
+                "disabled": false
+              }
+            }
+          }
+        },
+        "byte_limits": {
+          "rejectedBytes": 12003,
+          "acceptedBytes": 12000,
+          "draftPreserved": true,
+          "profileId": "custom-91d625c8-22f0-468b-8a23-43eda4bdffab",
+          "storedBytes": 12000,
+          "workflowRequests": [],
+          "attachment_sha256": "9040c98e7c83f340e35ca07e577c177e13effb2f7c2a1fc8dae4e6d0c2d01627"
+        },
+        "error_feedback": {
+          "themes": {
+            "dark": {
+              "viewport": {
+                "width": 1400,
+                "height": 873
+              },
+              "background": "rgb(23, 30, 41)",
+              "opacity": "1",
+              "visibility": "visible",
+              "title": {
+                "text": "Unable to save agent",
+                "unobscured": true,
+                "hitTag": "DIV",
+                "bounds": {
+                  "left": 1051,
+                  "top": 29,
+                  "right": 1339,
+                  "bottom": 49
+                },
+                "inViewport": true,
+                "color": "rgb(248, 250, 252)",
+                "textFillColor": "rgb(248, 250, 252)",
+                "opacity": "1",
+                "visibility": "visible"
+              },
+              "message": {
+                "text": "Custom agent profiles could not be saved. Try again.",
+                "unobscured": true,
+                "hitTag": "DIV",
+                "bounds": {
+                  "left": 1051,
+                  "top": 49,
+                  "right": 1339,
+                  "bottom": 94.5
+                },
+                "inViewport": true,
+                "color": "rgb(226, 232, 240)",
+                "textFillColor": "rgb(226, 232, 240)",
+                "opacity": "1",
+                "visibility": "visible"
+              },
+              "dismiss": {
+                "text": "Dismiss notification",
+                "unobscured": true,
+                "hitTag": "path",
+                "bounds": {
+                  "left": 1347,
+                  "top": 25,
+                  "right": 1371,
+                  "bottom": 49
+                },
+                "inViewport": true,
+                "color": "rgb(203, 213, 225)",
+                "textFillColor": "rgb(203, 213, 225)",
+                "opacity": "1",
+                "visibility": "visible"
+              },
+              "draftPreserved": true,
+              "draftAfterDismissalPreserved": true,
+              "managerStayedOpen": true,
+              "dismissed": true,
+              "persistedProfileCount": 0
+            },
+            "light": {
+              "viewport": {
+                "width": 1400,
+                "height": 873
+              },
+              "background": "rgb(255, 255, 255)",
+              "opacity": "1",
+              "visibility": "visible",
+              "title": {
+                "text": "Unable to save agent",
+                "unobscured": true,
+                "hitTag": "DIV",
+                "bounds": {
+                  "left": 1051,
+                  "top": 29,
+                  "right": 1339,
+                  "bottom": 49
+                },
+                "inViewport": true,
+                "color": "rgb(17, 24, 39)",
+                "textFillColor": "rgb(17, 24, 39)",
+                "opacity": "1",
+                "visibility": "visible"
+              },
+              "message": {
+                "text": "Custom agent profiles could not be saved. Try again.",
+                "unobscured": true,
+                "hitTag": "DIV",
+                "bounds": {
+                  "left": 1051,
+                  "top": 49,
+                  "right": 1339,
+                  "bottom": 94.5
+                },
+                "inViewport": true,
+                "color": "rgb(51, 65, 85)",
+                "textFillColor": "rgb(51, 65, 85)",
+                "opacity": "1",
+                "visibility": "visible"
+              },
+              "dismiss": {
+                "text": "Dismiss notification",
+                "unobscured": true,
+                "hitTag": "path",
+                "bounds": {
+                  "left": 1347,
+                  "top": 25,
+                  "right": 1371,
+                  "bottom": 49
+                },
+                "inViewport": true,
+                "color": "rgb(71, 85, 105)",
+                "textFillColor": "rgb(71, 85, 105)",
+                "opacity": "1",
+                "visibility": "visible"
+              },
+              "draftPreserved": true,
+              "draftAfterDismissalPreserved": true,
+              "managerStayedOpen": true,
+              "dismissed": true,
+              "persistedProfileCount": 0
+            }
+          },
+          "noWorkflowRequests": true,
+          "workflowRequests": [],
+          "attachment_sha256": "1b9619b8f51f192eb2f18acd7107262a257a55aef092b79a542fe72a6918e636"
+        }
+      },
+      "qualification": "Owned memory-only profiles and controlled HTTP/IPC fixtures. Store write rejection is injected through public IPC in disposable processes; normal store reads remain real. This does not establish live workflow execution, host keyring persistence or un-injected storage failure behavior."
+    },
+    "accessibility_scope": "Ordinary agent editor scoped Axe in both themes; failure notifications use native hit testing, computed colors and actual dismissal. No whole-app or failure-state Axe certification is claimed.",
+    "unit_report_sha256": "2a5e1eb10638bc440520df1d480a44c93dd5c123a840337dde7bb5f2b90ee3db",
+    "native_report_sha256": "05d06c89da8a59e76b11a8b809e2a8a056f110bdaded1fee9a4b4a711b73034c",
+    "source_guard": {
+      "inputs": 655,
+      "manifest_sha256": "3d34311aaa3f3944854dacee979cce52618e7cf9d2261f7ea6ca618e69e4bdd2",
+      "qualification": "Manual before/after hashes, not an immutable queue snapshot."
+    },
+    "screenshots": {
+      "agent-manager-dark.png": {
+        "path": "dist/verification/agent-toast-native/agent-manager-dark.png",
+        "sha256": "1f2c127e02b0d36fac777caa515cc8a553b597c62140a563db3f034fb03c787a"
+      },
+      "agent-manager-light.png": {
+        "path": "dist/verification/agent-toast-native/agent-manager-light.png",
+        "sha256": "ab79251f1a7a23dfd08f756d7164904311794dab96247a25ccd30a289fe49c02"
+      },
+      "agent-error-dark.png": {
+        "path": "dist/verification/agent-toast-native/agent-error-dark.png",
+        "sha256": "cfcb5e1d10e1927da083dc09246d4ac64b961018d99d2ea73fcbbf0f001cfd6a"
+      },
+      "agent-error-light.png": {
+        "path": "dist/verification/agent-toast-native/agent-error-light.png",
+        "sha256": "735b4c5666f5a0ba39c3de1c9a64662920663c3003f20c1add70e0ee555272d9"
+      }
+    },
+    "dependency_audit": {
+      "production": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 0,
+        "critical": 0,
+        "total": 0
+      },
+      "all": {
+        "info": 0,
+        "low": 0,
+        "moderate": 10,
+        "high": 5,
+        "critical": 0,
+        "total": 15
+      },
+      "qualification": "Unchanged package/lock bytes retain the prior source-bound audit (production 0, development 15 affected-package entries). This is not a fresh full audit; the new exact-head CI production gate is required."
+    },
+    "dependency_audit_qualification": "Unchanged package and lockfile. Production zero and development findings refer to the earlier source-bound audit of this same graph; a fresh exact-head CI production audit remains required.",
+    "full_ci": "Required on the next committed source; focused/native evidence does not establish exact new-head full-suite or platform acceptance."
+  },
+  "changed_source_sha256": {
+    ".github/workflows/build-release.yml": "22da698006fe7a9f2c08a1e55367885746e47c09db465fa9ef2d4d2c30717e7f",
+    ".github/workflows/e2e.yml": "64ba719e3b06ca92e6771bdd3e37c15d5b2e0cd3f6fc32518e3409d42324f069",
+    "CHANGELOG.md": "7a7aae66da7e2f2dad16269c6d2ec6ee65a2ef0a360b4a12f8ab942ef8d65d09",
+    "docs/DESKTOP_STORAGE.md": "209479ca11a616cc98624432cf4a26ef3f1c61dead118a99601b77caf3af007f",
+    "e2e/startup.spec.ts": "f33578887870df9b28709d0fac6f34567c046d2e0a32cbd9b2184b986953df08",
+    "src/components/DurableAgentManager.test.tsx": "06af0eba8778bf8dceacdf346d596d3425382fa0f7e1cba5fb9b559f538af88c",
+    "src/components/ToastProvider.tsx": "495744fb09d8edc6b3961ae13c775da43509112f27d9539a36b3fc250f92f5e8"
+  },
+  "limitations": [
+    "Previous exact-head CI remains running and is allowed to finish normally; it does not prove this follow-up.",
+    "Designated live engine/Temporal/sandbox/provider/NSR acceptance and OS keyring persistence remain unproven.",
+    "The v1.1.21 tag stays at 4189d16. Signed publication is blocked by missing signing/notarization settings; these are subsequent unreleased changes."
+  ]
+}

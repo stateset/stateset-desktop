@@ -24,6 +24,22 @@ atomic configuration storage on startup. Configuration writes use owner-only
 permissions. Release bundles include the runtime and built renderer, excluding
 Electron unit test files and `dist/verification` artifacts.
 
+## Engine connection settings
+
+Connection tests use the saved engine URL and credential. Save edited values
+before testing; changing a draft does not silently update the saved connection.
+Health feedback is scoped to the current workspace, saved connection and draft.
+An obsolete response cannot replace a newer result, including when settings are
+changed and then restored while a check is pending.
+
+Credential removal requires an actual native handler and an accepted
+acknowledgement. A rejected or false acknowledgement leaves the configured key
+available and shows an error for retry. If deletion succeeds but refreshing the
+connection fails, the key stays removed and its connection revision remains
+unavailable until a later configuration refresh. Saving, testing and removal do not overlap
+through the settings controls. Fields remain editable during a save so a newer
+draft can be retained; completion feedback never clears that newer draft.
+
 ## Scheduled workflow recovery
 
 Schedules are managed by the open desktop application. Before sending a scheduled
@@ -46,6 +62,29 @@ identity needed for recovery. A known unsent occurrence can be retried or edited
 Malformed saved pending records stop workflow settings from loading so they cannot
 be silently discarded by a later save. Keep the original profile and restore a
 valid backup if retrying cannot recover its records.
+
+## Custom background agents
+
+Custom agent saves and removals share a write queue. Each operation uses the
+latest acknowledged collection, and submitted profiles are copied before they
+wait. Missing desktop storage, rejected writes and false acknowledgements leave
+the previous profiles available for retry.
+
+The agent editor keeps its fields and actions stable while a save or removal is
+pending. Failed creation retains the draft; failed removal retains the saved
+profile. Removing a profile leaves an unrelated new-agent draft intact. Existing
+workflows keep their agent snapshots and are unaffected by profile removal.
+Saved-agent status and mutations remain unavailable until settings load.
+Save and removal errors appear above the open editor so their feedback stays
+readable and dismissible while the draft remains available for retry.
+
+New profiles and workflow launch requests validate engine-bound model, connector
+key and instruction limits using UTF-8 bytes. The editor keeps oversized
+instructions editable with a byte count and field error. It does not truncate the
+draft. Existing saved profiles, blueprints and schedules remain available even
+when an older agent definition exceeds current engine limits; a new launch asks
+for a corrected definition before sending work. A submitted scheduled occurrence
+can still be recovered by its original workflow identity.
 
 ## Workflow blueprints
 

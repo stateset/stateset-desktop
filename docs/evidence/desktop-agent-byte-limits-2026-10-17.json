@@ -1,0 +1,222 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-17T17:32:15.054978+00:00",
+  "source_parent_commit": "cd08361c43ac8b4d8fca15782014a9c9d033cab7",
+  "scope": "Match engine-bound custom-agent strings to raw UTF-8 byte limits without discarding legacy saved profiles or confusing local validation with an uncertain launch.",
+  "baseline": {
+    "commit": "cd08361c43ac8b4d8fca15782014a9c9d033cab7",
+    "counts": {
+      "unit_files": 229,
+      "unit": 2899,
+      "native_per_suite": 81,
+      "live_skipped_per_suite": 3,
+      "linux_bundle": 1,
+      "linux_installers": 3
+    },
+    "workflows": {
+      "build": "https://github.com/stateset/stateset-desktop/actions/runs/39053020757",
+      "e2e": "https://github.com/stateset/stateset-desktop/actions/runs/39053020696"
+    },
+    "qualification": "Previous exact-head persistence/dialog CI passed. The UTF-8 mismatch was identified by comparing desktop and engine source; no pre-fix failing runtime baseline was performed."
+  },
+  "engine_contract_reference": {
+    "head": "a1aff037db85dc5c304c4e15b6f2864dd08c778d",
+    "files": {
+      "crates/engine-api/src/workflows/native.rs": "af18f90d432a07199139a9f06ca58d753e0b44d778077aaece3aa6e41653e54f",
+      "crates/engine-types/src/lib.rs": "e8698dca29469165e3f0e3e4b24dc511b2cbda39dd3b6236e744362cd4fbb5c8",
+      "crates/engine-activities/src/connector_resolve.rs": "c38e9cab684820b61a72380c4ce72905a3d71db3ce943045bb372113ae619db6"
+    },
+    "qualification": "Read-only source observations at recording time, not an immutable cross-repository snapshot or proof of the deployed engine version."
+  },
+  "implementation": [
+    "Keep persisted profile and nested workflow validators unchanged; separately validate engine-bound prompt/model/connector fields in raw UTF-8 bytes. Do not trim or rewrite serialized connector identity.",
+    "Validate cloned new custom profiles before enqueue and all selected start tasks before POST. Validate appended tasks before extending the remote workflow budget, preserving zero network mutations on local failure.",
+    "Show an instruction byte count and associated inline error; preserve complete oversized drafts for correction and accept the exact 12,000-byte multilingual boundary.",
+    "Validate known-unsent scheduled task agents before creating or marking an occurrence submitted. Keep local errors known unsent and retain status-only recovery for already submitted legacy identities.",
+    "Retain oversized legacy profiles, blueprints and pending schedules during initialization without writes, filtering or truncation.",
+    "Use the actual native bridge to reject a 12,003-byte draft without persisting or starting work, correct it to 12,000 bytes, save it and select the resulting profile."
+  ],
+  "verification": {
+    "jobs": {
+      "integrated": {
+        "id": "a83608fa843e",
+        "state": "succeeded",
+        "exit_code": 0,
+        "command_display": "bash /tmp/stateset-desktop-agent-limits-final.sh",
+        "wait_seconds": 2.141676902770996,
+        "elapsed_seconds": 153.84958600997925
+      }
+    },
+    "unit_tests": 215,
+    "unit_files": 12,
+    "checks": [
+      "Renderer typecheck",
+      "Desktop-test typecheck",
+      "Uncached strict lint with unchanged rules",
+      "Real Vite unit configuration, single worker"
+    ],
+    "queue_qualification": "Static/unit checks and native verification share one sequential Buildr admission in an isolated checkout using the already installed pinned dependencies.",
+    "native": {
+      "passed": 2,
+      "skipped": 0,
+      "retries": 0,
+      "flaky": 0,
+      "receipts": {
+        "profile_persistence": {
+          "attachment_sha256": "fe198b69ef17d0fe0b621cc375455195a43e2c51deb0d079fb5260667b6e9241",
+          "before_restart": [
+            {
+              "id": "custom-5362190c-4639-486d-a879-5f326f45cafd",
+              "name": "Inventory investigator",
+              "description": "Checks inventory exports against saved evidence",
+              "provider": "openai",
+              "connectorKey": "openai-primary",
+              "model": "gpt-5.4",
+              "systemPrompt": "Inspect the inventory export, report mismatches, and preserve the source files.",
+              "maxIterations": 10,
+              "allowedExecutables": ["rg", "jq", "cat", "head", "tail", "wc", "sort"],
+              "maxTokens": 1024,
+              "maxTotalTokens": 20000
+            }
+          ],
+          "after_restart": [
+            {
+              "id": "custom-5362190c-4639-486d-a879-5f326f45cafd",
+              "name": "Inventory investigator",
+              "description": "Checks inventory exports against saved evidence",
+              "provider": "openai",
+              "connectorKey": "openai-primary",
+              "model": "gpt-5.4",
+              "systemPrompt": "Inspect the inventory export, report mismatches, and preserve the source files.",
+              "maxIterations": 10,
+              "allowedExecutables": ["rg", "jq", "cat", "head", "tail", "wc", "sort"],
+              "maxTokens": 1024,
+              "maxTotalTokens": 20000
+            }
+          ],
+          "after_delete": [],
+          "after_second_save": [
+            {
+              "id": "custom-2ffa81fa-0a67-41e8-b0a3-8f46ddbe833f",
+              "name": "Delivery evidence reviewer",
+              "description": "Reviews delivery receipts and reports missing evidence",
+              "provider": "openai",
+              "connectorKey": "openai-primary",
+              "model": "gpt-5.4",
+              "systemPrompt": "Inspect the delivery receipts and explain every missing confirmation before finishing.",
+              "maxIterations": 10,
+              "allowedExecutables": ["rg", "jq", "cat", "head", "tail", "wc", "sort"],
+              "maxTokens": 1024,
+              "maxTotalTokens": 20000
+            }
+          ],
+          "draft_preserved": true,
+          "workflow_requests": [],
+          "manager_layouts": {
+            "dark": {
+              "viewportWidth": 1024,
+              "viewportHeight": 768,
+              "inViewport": true,
+              "centered": true,
+              "coversViewport": true,
+              "bodyOverlay": true,
+              "unobscured": true,
+              "input": {
+                "color": "rgb(241, 245, 249)",
+                "background": "rgb(21, 22, 24)",
+                "opacity": "1",
+                "disabled": false
+              }
+            },
+            "light": {
+              "viewportWidth": 1024,
+              "viewportHeight": 768,
+              "inViewport": true,
+              "centered": true,
+              "coversViewport": true,
+              "bodyOverlay": true,
+              "unobscured": true,
+              "input": {
+                "color": "rgb(15, 23, 42)",
+                "background": "rgb(255, 255, 255)",
+                "opacity": "1",
+                "disabled": false
+              }
+            }
+          }
+        },
+        "byte_limits": {
+          "rejectedBytes": 12003,
+          "acceptedBytes": 12000,
+          "draftPreserved": true,
+          "profileId": "custom-0ac8ffae-d15a-4739-ad13-5f0e59204480",
+          "storedBytes": 12000,
+          "workflowRequests": [],
+          "attachment_sha256": "b425d5363d2b7baa565b1a89e6c54d2c7db726412ea508f13a75e3e3ded7a7b5"
+        }
+      },
+      "qualification": "Owned profile and controlled API fixture, normal native storage and actual memory-only credential fallback. No workflow execution or live engine/sandbox/Temporal/provider/NSR acceptance is claimed."
+    },
+    "scoped_axe_violations": 0,
+    "accessibility_scope": "Ordinary custom-agent dialog in dark and light themes; invalid-field association and draft behavior covered separately. Not whole-app certification.",
+    "unit_report_sha256": "eca20f95ede5076152e4f5a35d240b35cdc6c981361f63aa36e40a47a2d50869",
+    "native_report_sha256": "f4174b6871ba1a716aec6acefb72b233ea8e38fa635fa8bb01c180b685fed7c1",
+    "source_guard": {
+      "inputs": 654,
+      "manifest_sha256": "46b256692fc1d104c08435e388df242f241a076d56e4227147784bf2235a2074",
+      "qualification": "Manual before/after hashes, not an immutable Buildr snapshot."
+    },
+    "screenshots": {
+      "agent-manager-dark.png": {
+        "path": "dist/verification/agent-limits-native/agent-manager-dark.png",
+        "sha256": "1f2c127e02b0d36fac777caa515cc8a553b597c62140a563db3f034fb03c787a"
+      },
+      "agent-manager-light.png": {
+        "path": "dist/verification/agent-limits-native/agent-manager-light.png",
+        "sha256": "ab79251f1a7a23dfd08f756d7164904311794dab96247a25ccd30a289fe49c02"
+      }
+    },
+    "dependency_audit": {
+      "production": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 0,
+        "critical": 0,
+        "total": 0
+      },
+      "all": {
+        "info": 0,
+        "low": 0,
+        "moderate": 10,
+        "high": 5,
+        "critical": 0,
+        "total": 15
+      },
+      "qualification": "Unchanged package/lock bytes retain the prior source-bound audit (production 0, development 15 affected-package entries). This is not a fresh full audit; the new exact-head CI production gate is required."
+    },
+    "dependency_audit_qualification": "Package and lockfile are unchanged; baseline exact-head CI had zero production findings. Development-tool findings refer to the prior complete audit of the same graph, not a new complete audit.",
+    "full_ci": "Required after committing this follow-up; the baseline acceptance and focused checks do not establish exact new-head platform acceptance."
+  },
+  "changed_source_sha256": {
+    "CHANGELOG.md": "723911248ea83b590e66770e4b0cbfd909c4c6bdb648cd8117e246343ca8e56b",
+    "docs/DESKTOP_STORAGE.md": "bb461e92a9c4abed938a6ac17d4ab9d5f4e908c2c92d29e7976adb041ba772f5",
+    "e2e/startup.spec.ts": "daf5ee27fb9f402f2e5371d730984016d11702e9bb243af19cf4a893273ffbcb",
+    "src/components/DurableAgentManager.test.tsx": "11080b5f9ca16b924c680b7640719751d4120d98272514e810a3d6dde307e0ed",
+    "src/components/DurableAgentManager.tsx": "cfe00d483b252bf91035465eac9892a9270bc253ca78c6510df972bb578a8937",
+    "src/hooks/useDurableWorkflowScheduler.test.tsx": "c4534def46a8d578b1d948edffb164a9dec026e75e54e6ad994254eb871003f3",
+    "src/hooks/useDurableWorkflowScheduler.ts": "3bd19e74e50cc9cea05646c4e8643bfc84583d2b259742ff741a95c8032b55cc",
+    "src/lib/durableAgentProfiles.test.ts": "d53ae4fbaead698f279886fb64bb1b9398ca3754977f63e00bab8ce0b058a297",
+    "src/lib/durableAgentProfiles.ts": "1e91ecb61bfd14d74edf9fdb8b8b4cce0b88370a39458177b2257b6d50405ddc",
+    "src/lib/durableWorkflows.test.ts": "572bc61136cb057bab6d4cb9806faa775c84a12e6d474c0238d8b0a356275304",
+    "src/lib/durableWorkflows.ts": "054b0aa5248f6756e227d5f63b2f87582a3f041551b333ec4c78315966be1cfd",
+    "src/stores/durableCustomAgentPersistence.test.ts": "f3a6ced68c706bddf5f62f17a85c45002c334998c7151ba134a8841f2912d71d",
+    "src/stores/durableWorkflows.initialization.test.ts": "2dc910391d85db8e4a6ffaf37e05975dc91fd87de04e50e87d69352eb5ecca68",
+    "src/stores/durableWorkflows.ts": "eb8123b29df5dbe1004ba28bff01ea77e00707011c25f228a870cdde27da2d9d"
+  },
+  "limitations": [
+    "Legacy persisted values remain intact. Invalid definitions must be corrected or replaced before a new launch; submitted runs retain their original recovery identity.",
+    "Source-level engine compatibility is not designated live acceptance or provider-connector readiness.",
+    "The v1.1.21 tag remains at 4189d16; signed publication is blocked by missing signing/notarization settings. These are subsequent unreleased changes."
+  ]
+}

@@ -1,5 +1,6 @@
 /** @vitest-environment happy-dom */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { act } from '@testing-library/react';
 import {
   renderWithProviders,
   mockElectronAPI,
@@ -10,6 +11,12 @@ import {
 import { usePreferencesStore } from '../../../stores/preferences';
 import { BackgroundSettings } from './BackgroundSettings';
 import { useDurableWorkflowsStore } from '../../../stores/durableWorkflows';
+
+async function renderSettings() {
+  await act(async () => {
+    renderWithProviders(<BackgroundSettings />);
+  });
+}
 
 describe('BackgroundSettings', () => {
   let electronAPI: ReturnType<typeof mockElectronAPI> & {
@@ -35,8 +42,8 @@ describe('BackgroundSettings', () => {
     });
   });
 
-  it('renders the background mode section with both toggles', () => {
-    renderWithProviders(<BackgroundSettings />);
+  it('renders the background mode section with both toggles', async () => {
+    await renderSettings();
 
     expect(screen.getByText('Background Mode')).toBeInTheDocument();
     expect(screen.getByRole('checkbox', { name: 'Minimize to System Tray' })).toBeChecked();
@@ -44,16 +51,16 @@ describe('BackgroundSettings', () => {
     expect(screen.getByText(/minimize StateSet to the system tray/)).toBeInTheDocument();
   });
 
-  it('reflects disabled store values', () => {
+  it('reflects disabled store values', async () => {
     usePreferencesStore.setState({ minimizeToTray: false, autoStartAgentsOnLaunch: false });
-    renderWithProviders(<BackgroundSettings />);
+    await renderSettings();
 
     expect(screen.getByRole('checkbox', { name: 'Minimize to System Tray' })).not.toBeChecked();
     expect(screen.getByRole('checkbox', { name: 'Auto-start Agents on Launch' })).not.toBeChecked();
   });
 
   it('toggles minimize to tray and notifies the main process', async () => {
-    renderWithProviders(<BackgroundSettings />);
+    await renderSettings();
 
     fireEvent.click(screen.getByRole('checkbox', { name: 'Minimize to System Tray' }));
 
@@ -64,7 +71,7 @@ describe('BackgroundSettings', () => {
   });
 
   it('toggles auto-start agents and persists the change', async () => {
-    renderWithProviders(<BackgroundSettings />);
+    await renderSettings();
 
     fireEvent.click(screen.getByRole('checkbox', { name: 'Auto-start Agents on Launch' }));
 

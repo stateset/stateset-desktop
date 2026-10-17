@@ -13,6 +13,7 @@ export interface DurableAgentProfile {
 }
 
 export const COMMAND_RUNNER_ID = 'command-runner';
+export const DURABLE_AGENT_PROMPT_MAX_BYTES = 12_000;
 export const DURABLE_AGENT_EXECUTABLES = [
   'rg',
   'jq',
@@ -127,4 +128,34 @@ export function isValidCustomAgentProfile(value: unknown): value is DurableAgent
   return (
     isValidDurableAgentProfile(value) && (value as DurableAgentProfile).id.startsWith('custom-')
   );
+}
+
+/** Engine request limits stay separate so saved legacy profiles remain readable. */
+export function assertDurableAgentEngineLimits(profile: DurableAgentProfile): void {
+  const encoder = new TextEncoder();
+  const promptBytes = encoder.encode(profile.systemPrompt).byteLength;
+  if (promptBytes > DURABLE_AGENT_PROMPT_MAX_BYTES)
+    throw new Error(
+      `Agent system prompt uses ${promptBytes} UTF-8 bytes; the limit is ${DURABLE_AGENT_PROMPT_MAX_BYTES}. Shorten it before saving or starting.`
+    );
+  const modelBytes = encoder.encode(profile.model).byteLength;
+  if (!profile.model.trim())
+    throw new Error(
+      `Agent model uses ${modelBytes} UTF-8 bytes but is blank. Enter a model of 1–128 UTF-8 bytes before saving or starting.`
+    );
+  if (modelBytes > 128)
+    throw new Error(
+      `Agent model uses ${modelBytes} UTF-8 bytes; the limit is 128. Shorten it before saving or starting.`
+    );
+  if (profile.connectorKey !== undefined) {
+    const connectorBytes = encoder.encode(profile.connectorKey).byteLength;
+    if (!profile.connectorKey.trim())
+      throw new Error(
+        `Agent connector key uses ${connectorBytes} UTF-8 bytes but is blank. Enter a key of 1–128 UTF-8 bytes or leave it unset.`
+      );
+    if (connectorBytes > 128)
+      throw new Error(
+        `Agent connector key uses ${connectorBytes} UTF-8 bytes; the limit is 128. Shorten it before saving or starting.`
+      );
+  }
 }
