@@ -1,9 +1,13 @@
 /** @vitest-environment happy-dom */
-import { act } from '@testing-library/react';
+import { act, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, mockElectronAPI, renderWithProviders, screen, waitFor } from '../test-utils';
 import { useAuthStore } from '../stores/auth';
-import { useDurableWorkflowsStore } from '../stores/durableWorkflows';
+import {
+  getScheduleIntentGeneration,
+  useDurableWorkflowsStore,
+  type DurableWorkflowSchedule,
+} from '../stores/durableWorkflows';
 import Workflows from './Workflows';
 
 const startMock = vi.fn();
@@ -11,6 +15,54 @@ const statusMock = vi.fn();
 const signalMock = vi.fn();
 const reprioritizeMock = vi.fn();
 const terminateMock = vi.fn();
+const enqueueMock = vi.fn();
+
+function scheduleFixture(
+  overrides: Partial<DurableWorkflowSchedule> = {}
+): DurableWorkflowSchedule {
+  return {
+    id: 'schedule-pending',
+    name: 'Inventory schedule',
+    tenantId: 'tenant-1',
+    brandId: '29324d30-9571-4f50-bbc2-17b214b74ec7',
+    goal: 'Inventory',
+    definition: {
+      steps: [['python3 /workspace/inventory.py']],
+      activeWindowSeconds: 3600,
+      maxFailures: 3,
+      perCommandTimeoutSeconds: 300,
+    },
+    frequency: 'once',
+    nextRunAt: '2026-09-02T02:00:30.000Z',
+    enabled: true,
+    createdAt: '2026-09-01T00:00:00.000Z',
+    updatedAt: '2026-09-01T00:00:00.000Z',
+    ...overrides,
+  };
+}
+
+function pendingSchedule(
+  overrides: Partial<DurableWorkflowSchedule> = {}
+): DurableWorkflowSchedule {
+  const schedule = scheduleFixture(overrides);
+  return {
+    ...schedule,
+    pendingOccurrence: {
+      requestId: '0aa616a8-1241-4b8a-a3ae-2f79fa72b1e7',
+      dueAt: schedule.nextRunAt,
+      engineUrl: 'https://api.workstream.stateset.com',
+      tenantId: schedule.tenantId,
+      brandId: schedule.brandId,
+      goal: schedule.goal,
+      definition: schedule.definition,
+      claimedAt: '2026-09-02T02:00:31.000Z',
+      workflowId:
+        'active-horizon-agent-29324d3095714f50bbc217b214b74ec7-0aa616a812414b8aa3ae2f79fa72b1e7',
+      submitted: true,
+      needsAttention: true,
+    },
+  };
+}
 
 vi.mock('../lib/durableWorkflows', () => ({
   assertNoInlineSecrets: vi.fn(),
@@ -25,7 +77,7 @@ vi.mock('../lib/durableWorkflows', () => ({
     ),
     signal: (...args: unknown[]) => signalMock(...args),
     steer: vi.fn(),
-    enqueueStep: vi.fn(),
+    enqueueStep: (...args: unknown[]) => enqueueMock(...args),
     extendBudget: vi.fn(),
     reprioritize: (...args: unknown[]) => reprioritizeMock(...args),
     terminate: (...args: unknown[]) => terminateMock(...args),
@@ -40,6 +92,7 @@ describe('Workflows', () => {
     signalMock.mockResolvedValue(undefined);
     reprioritizeMock.mockResolvedValue(undefined);
     terminateMock.mockResolvedValue(undefined);
+    enqueueMock.mockResolvedValue(undefined);
     statusMock.mockResolvedValue({
       goal: 'Imported reconciliation',
       status: 'running',
@@ -145,6 +198,66 @@ describe('Workflows', () => {
       perCommandTimeoutSeconds: 600,
       stepAgents: [null, null],
     });
+  });
+
+  it('recovers a confirmed launch by its original ID when local tracking fails', async () => {
+    let uuidCount = 0;
+    vi.stubGlobal('crypto', {
+      randomUUID: () => {
+        uuidCount++;
+        return uuidCount === 1
+          ? '0aa616a8-1241-4b8a-a3ae-2f79fa72b1e7'
+          : `00000000-0000-4000-8000-${String(uuidCount).padStart(12, '0')}`;
+      },
+    });
+    const electron = mockElectronAPI();
+    let failTracking!: () => void;
+    electron.store.set.mockImplementationOnce(
+      () =>
+        new Promise<false>((resolve) => {
+          failTracking = () => resolve(false);
+        })
+    );
+    startMock.mockResolvedValueOnce({ workflow_id: 'workflow-confirmed', run_id: null });
+    renderWithProviders(<Workflows />);
+    fireEvent.click(screen.getByRole('button', { name: 'New workflow' }));
+    fireEvent.change(screen.getByLabelText('Goal'), { target: { value: 'Reconcile once' } });
+    fireEvent.change(screen.getByLabelText('Commands'), { target: { value: 'reconcile-orders' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Start workflow' }));
+
+    await waitFor(() => expect(electron.store.set).toHaveBeenCalledTimes(1));
+    expect(
+      screen.queryByRole('dialog', { name: 'New background workflow' })
+    ).not.toBeInTheDocument();
+    expect(useDurableWorkflowsStore.getState().workflows).toHaveLength(0);
+    expect(electron.store.set).toHaveBeenCalledWith('durableTrackedWorkflows', [
+      expect.objectContaining({
+        workflowId: 'workflow-confirmed',
+        runId: '',
+        requestId: '0aa616a8-1241-4b8a-a3ae-2f79fa72b1e7',
+      }),
+    ]);
+
+    act(() => failTracking());
+    expect(
+      await screen.findByText('Workflow started; tracking needs attention')
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Unable to start workflow')).not.toBeInTheDocument();
+    expect(screen.queryByText('Workflow started', { exact: true })).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Workflow ID')).toHaveValue('workflow-confirmed');
+    expect(useDurableWorkflowsStore.getState().workflows).toHaveLength(0);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Track workflow' }));
+    await waitFor(() =>
+      expect(useDurableWorkflowsStore.getState().workflows[0]?.workflowId).toBe(
+        'workflow-confirmed'
+      )
+    );
+    expect(statusMock).toHaveBeenCalledWith('tenant-1', 'workflow-confirmed');
+    expect(startMock).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('button', { name: 'New workflow' }));
+    expect(screen.getByLabelText('Goal')).toHaveValue('');
+    expect(screen.getByLabelText('Commands')).toHaveValue('');
   });
 
   it('launches a specialized agent with the background workflow', async () => {
@@ -356,6 +469,114 @@ describe('Workflows', () => {
     expect(signalMock).not.toHaveBeenCalledWith('tenant-1', 'workflow-paused', 'pause');
   });
 
+  it('keeps a failed row action usable when its error cannot be saved', async () => {
+    const electron = mockElectronAPI();
+    electron.store.set.mockRejectedValueOnce(new Error('Local storage is unavailable.'));
+    signalMock.mockRejectedValueOnce(new Error('The engine is offline.'));
+    useDurableWorkflowsStore.setState({
+      workflows: [
+        {
+          workflowId: 'workflow-retry',
+          runId: 'run-retry',
+          requestId: 'request-retry',
+          tenantId: 'tenant-1',
+          brandId: 'brand-1',
+          goal: 'Retry this workflow',
+          status: 'running',
+          createdAt: '2026-01-01T00:00:00.000Z',
+          updatedAt: '2026-01-01T00:00:00.000Z',
+        },
+      ],
+    });
+    renderWithProviders(<Workflows />);
+    fireEvent.click(screen.getByText('Retry this workflow'));
+    fireEvent.click(screen.getByRole('button', { name: 'Pause' }));
+
+    expect(await screen.findByText('Workflow action failed')).toBeInTheDocument();
+    const notification = screen.getByRole('alert');
+    expect(notification).toHaveTextContent('The engine is offline.');
+    expect(notification).toHaveTextContent(
+      'Local details could not be saved: Local storage is unavailable.'
+    );
+    expect(screen.getByRole('button', { name: 'Pause' })).toBeEnabled();
+    expect(useDurableWorkflowsStore.getState().workflows[0].lastError).toBeUndefined();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Pause' }));
+    await waitFor(() =>
+      expect(useDurableWorkflowsStore.getState().workflows[0].details?.status).toBe('running')
+    );
+    expect(statusMock).toHaveBeenCalledWith('tenant-1', 'workflow-retry');
+    expect(signalMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('clears an accepted step draft when saving its refreshed status fails', async () => {
+    const electron = mockElectronAPI();
+    electron.store.set.mockResolvedValue(false);
+    useDurableWorkflowsStore.setState({
+      workflows: [
+        {
+          workflowId: 'workflow-enqueue',
+          runId: 'run',
+          requestId: 'request',
+          tenantId: 'tenant-1',
+          brandId: 'brand-1',
+          goal: 'Review inventory',
+          status: 'running',
+          createdAt: '2026-01-01T00:00:00.000Z',
+          updatedAt: '2026-01-01T00:00:00.000Z',
+        },
+      ],
+    });
+    renderWithProviders(<Workflows />);
+    fireEvent.click(screen.getByText('Review inventory'));
+    fireEvent.click(screen.getByText('Adjust workflow'));
+    const draft = screen.getByPlaceholderText('One command per line');
+    fireEvent.change(draft, { target: { value: 'python3 /workspace/review.py' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add step' }));
+    expect(await screen.findByText('Action accepted; status needs attention')).toBeInTheDocument();
+    await waitFor(() => expect(draft).toHaveValue(''));
+    expect(screen.getByRole('button', { name: 'Add step' })).toBeDisabled();
+    expect(enqueueMock).toHaveBeenCalledTimes(1);
+    expect(useDurableWorkflowsStore.getState().workflows[0].details).toBeUndefined();
+    expect(screen.getByRole('status')).toHaveTextContent('The engine accepted this action.');
+  });
+
+  it('retains accepted fleet counts when status and error persistence fail', async () => {
+    const electron = mockElectronAPI();
+    electron.store.set.mockRejectedValue(new Error('Local storage is unavailable.'));
+    signalMock.mockImplementation((_tenantId: string, workflowId: string) =>
+      workflowId === 'workflow-accepted'
+        ? Promise.resolve()
+        : Promise.reject(new Error('Signal rejected.'))
+    );
+    statusMock.mockRejectedValue(new Error('Status is unavailable.'));
+    useDurableWorkflowsStore.setState({
+      workflows: ['accepted', 'rejected'].map((id) => ({
+        workflowId: `workflow-${id}`,
+        runId: `run-${id}`,
+        requestId: `request-${id}`,
+        tenantId: 'tenant-1',
+        brandId: 'brand-1',
+        goal: `Workflow ${id}`,
+        status: 'running',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      })),
+    });
+    renderWithProviders(<Workflows />);
+    fireEvent.click(screen.getByRole('button', { name: 'Pause active' }));
+
+    expect(await screen.findByText('Fleet action partially completed')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('1 succeeded and 1 failed.');
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Local details could not be saved: Local storage is unavailable.'
+    );
+    expect(screen.getByRole('button', { name: 'Pause active' })).toBeEnabled();
+    expect(signalMock).toHaveBeenCalledTimes(2);
+    expect(statusMock).toHaveBeenCalledTimes(1);
+    expect(electron.store.set).toHaveBeenCalledTimes(2);
+  });
+
   it('saves a workflow to run later from the desktop tray', async () => {
     renderWithProviders(<Workflows />);
     fireEvent.click(screen.getByRole('button', { name: 'New workflow' }));
@@ -433,6 +654,151 @@ describe('Workflows', () => {
       })
     );
     expect(useDurableWorkflowsStore.getState().schedules[0].definition).toEqual(definition);
+  });
+
+  it('keeps a submitted launch unconfirmed and checks it while the schedule is paused', async () => {
+    const schedule = pendingSchedule({
+      enabled: false,
+      lastRunAt: '2026-09-02T02:00:31.000Z',
+      lastError: 'Confirmation timed out.',
+    });
+    useDurableWorkflowsStore.setState({ schedules: [schedule] });
+    const intent = getScheduleIntentGeneration(schedule.id);
+    renderWithProviders(<Workflows />);
+    const row = within(screen.getByRole('group', { name: 'Schedule Inventory schedule' }));
+
+    expect(row.getByText('Launch confirmation needs attention')).toBeInTheDocument();
+    expect(row.queryByText(/Completed|Run launched/)).not.toBeInTheDocument();
+    expect(row.getByRole('button', { name: 'Run now' })).toBeDisabled();
+    expect(row.getByRole('button', { name: 'Delete Inventory schedule' })).toBeDisabled();
+    fireEvent.click(row.getByRole('button', { name: 'Check pending run' }));
+
+    await waitFor(() =>
+      expect(
+        useDurableWorkflowsStore.getState().schedules[0].pendingOccurrence?.needsAttention
+      ).toBe(false)
+    );
+    expect(useDurableWorkflowsStore.getState().schedules[0]).toMatchObject({
+      enabled: false,
+      pendingOccurrence: { ...schedule.pendingOccurrence, needsAttention: false },
+    });
+    expect(useDurableWorkflowsStore.getState().schedules[0].lastError).toBeUndefined();
+    expect(getScheduleIntentGeneration(schedule.id)).toBe(intent);
+    expect(row.getByRole('button', { name: 'Checking…' })).toBeDisabled();
+    expect(startMock).not.toHaveBeenCalled();
+    expect(statusMock).not.toHaveBeenCalled();
+  });
+
+  it('requires the original engine before checking a pending launch', () => {
+    const schedule = pendingSchedule();
+    schedule.pendingOccurrence!.engineUrl = 'https://original-engine.example.com';
+    useDurableWorkflowsStore.setState({ schedules: [schedule] });
+    renderWithProviders(<Workflows />);
+    const row = within(screen.getByRole('group', { name: 'Schedule Inventory schedule' }));
+    expect(
+      row.getByText(/Pending run belongs to https:\/\/original-engine.example.com/)
+    ).toBeInTheDocument();
+    expect(row.getByRole('button', { name: 'Check pending run' })).toBeDisabled();
+
+    act(() =>
+      useDurableWorkflowsStore.setState({ engineUrl: 'https://original-engine.example.com' })
+    );
+    expect(row.getByRole('button', { name: 'Check pending run' })).toBeEnabled();
+    expect(startMock).not.toHaveBeenCalled();
+  });
+
+  it('retries a known unsent occurrence without changing its frozen identity', async () => {
+    const schedule = pendingSchedule();
+    schedule.pendingOccurrence!.submitted = false;
+    useDurableWorkflowsStore.setState({ schedules: [schedule] });
+    const intent = getScheduleIntentGeneration(schedule.id);
+    renderWithProviders(<Workflows />);
+    fireEvent.click(screen.getByRole('button', { name: 'Retry scheduled run' }));
+
+    await waitFor(() =>
+      expect(
+        useDurableWorkflowsStore.getState().schedules[0].pendingOccurrence?.needsAttention
+      ).toBe(false)
+    );
+    expect(useDurableWorkflowsStore.getState().schedules[0].pendingOccurrence).toEqual({
+      ...schedule.pendingOccurrence,
+      needsAttention: false,
+    });
+    expect(getScheduleIntentGeneration(schedule.id)).toBe(intent);
+    expect(screen.getByText('Preparing scheduled run')).toBeInTheDocument();
+    expect(startMock).not.toHaveBeenCalled();
+  });
+
+  it('shows a recoverable error when a pending check cannot be persisted', async () => {
+    const electron = mockElectronAPI();
+    electron.store.set.mockRejectedValueOnce(new Error('Local storage is unavailable.'));
+    const schedule = pendingSchedule();
+    useDurableWorkflowsStore.setState({ schedules: [schedule] });
+    renderWithProviders(<Workflows />);
+    fireEvent.click(screen.getByRole('button', { name: 'Check pending run' }));
+
+    expect(await screen.findByText('Unable to check pending run')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Check pending run' })).toBeEnabled();
+    expect(useDurableWorkflowsStore.getState().schedules[0]).toEqual(schedule);
+    expect(startMock).not.toHaveBeenCalled();
+  });
+
+  it('catches a schedule save failure and allows the same action to be retried', async () => {
+    const electron = mockElectronAPI();
+    electron.store.set.mockRejectedValueOnce(new Error('Local storage is unavailable.'));
+    useDurableWorkflowsStore.setState({ schedules: [scheduleFixture()] });
+    renderWithProviders(<Workflows />);
+    fireEvent.click(screen.getByRole('button', { name: 'Pause' }));
+
+    expect(await screen.findByText('Unable to update schedule')).toBeInTheDocument();
+    expect(useDurableWorkflowsStore.getState().schedules[0].enabled).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Pause' }));
+    await waitFor(() =>
+      expect(useDurableWorkflowsStore.getState().schedules[0].enabled).toBe(false)
+    );
+  });
+
+  it('catches a delete failure without removing the schedule or reporting success', async () => {
+    const electron = mockElectronAPI();
+    electron.store.set.mockRejectedValueOnce(new Error('Local storage is unavailable.'));
+    const schedule = scheduleFixture();
+    useDurableWorkflowsStore.setState({ schedules: [schedule] });
+    renderWithProviders(<Workflows />);
+    fireEvent.click(screen.getByRole('button', { name: 'Delete Inventory schedule' }));
+    fireEvent.click(
+      within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete schedule' })
+    );
+
+    expect(await screen.findByText('Unable to delete schedule')).toBeInTheDocument();
+    expect(useDurableWorkflowsStore.getState().schedules).toEqual([schedule]);
+    expect(screen.queryByText('Schedule deleted')).not.toBeInTheDocument();
+  });
+
+  it('preserves a background launch when only the name is edited in an open dialog', async () => {
+    const schedule = scheduleFixture();
+    useDurableWorkflowsStore.setState({ schedules: [schedule] });
+    renderWithProviders(<Workflows />);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    const current = pendingSchedule({
+      enabled: false,
+      nextRunAt: '2026-09-03T04:30:45.000Z',
+      lastError: 'Confirmation timed out.',
+    });
+    act(() => useDurableWorkflowsStore.setState({ schedules: [current] }));
+    fireEvent.change(screen.getByLabelText('Edit schedule name'), {
+      target: { value: 'Renamed schedule' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    await waitFor(() =>
+      expect(useDurableWorkflowsStore.getState().schedules[0].name).toBe('Renamed schedule')
+    );
+    expect(useDurableWorkflowsStore.getState().schedules[0]).toMatchObject({
+      enabled: false,
+      nextRunAt: current.nextRunAt,
+      pendingOccurrence: current.pendingOccurrence,
+      lastError: current.lastError,
+    });
   });
 
   it('reprioritizes upcoming durable agent handoffs', async () => {

@@ -227,14 +227,18 @@ export function DurableChatSetup({
         <label className="text-xs text-gray-400">
           Workflow engine URL
           <input
-            value={url}
+            value={engine.initialized || urlEdited.current ? url : ''}
             onChange={(e) => {
               urlEdited.current = true;
               setUrl(e.target.value);
               invalidate(true);
             }}
             className="minimal-input mt-1 w-full"
-            placeholder="https://api.workstream.stateset.com"
+            placeholder={
+              engine.initialized
+                ? 'https://api.workstream.stateset.com'
+                : 'Saved connection not loaded'
+            }
           />
         </label>
         <label className="text-xs text-gray-400">
@@ -247,7 +251,13 @@ export function DurableChatSetup({
               setKey(e.target.value);
               invalidate(true);
             }}
-            placeholder={engine.apiKey ? 'Use current key' : 'Enter your API key'}
+            placeholder={
+              !engine.initialized
+                ? 'Key status unavailable'
+                : engine.apiKey
+                  ? 'Use current key'
+                  : 'Enter your API key'
+            }
             className="minimal-input mt-1 w-full"
           />
         </label>
@@ -260,7 +270,7 @@ export function DurableChatSetup({
           {checking ? 'Checking…' : 'Save connection and check'}
         </button>
       </div>
-      {secureStorageAvailable === false && (
+      {engine.initialized && secureStorageAvailable === false && (
         <p role="status" className="chat-setup-warning mt-2 text-xs">
           Your system keyring is unavailable. The API key lasts until you quit the app. Enter it
           again after restarting to reconnect your computers. Running workflows continue on the

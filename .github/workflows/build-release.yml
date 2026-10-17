@@ -148,6 +148,7 @@ jobs:
             test-results
             e2e/*-results.json
             dist/verification/updater-*.png
+            dist/verification/schedule-pending-*.png
 
   # Build for macOS
   build-macos:

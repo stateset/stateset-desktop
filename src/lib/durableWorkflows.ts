@@ -59,7 +59,7 @@ export interface StartDurableWorkflowInput {
 
 export interface StartDurableWorkflowResult {
   workflow_id: string;
-  run_id: string;
+  run_id: string | null;
 }
 
 export interface EnqueueDurableStepInput {

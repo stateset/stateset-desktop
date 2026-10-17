@@ -47,10 +47,15 @@ export function useDurableWorkflowMonitor() {
               }
             }
           } catch (error) {
-            await setError(
-              workflow.workflowId,
-              error instanceof Error ? error.message : String(error)
-            );
+            try {
+              await setError(
+                workflow.workflowId,
+                error instanceof Error ? error.message : String(error)
+              );
+            } catch {
+              // Keep the last acknowledged state when local storage fails.
+              // Other in-flight polls must finish before the next cycle starts.
+            }
           }
         })
       );

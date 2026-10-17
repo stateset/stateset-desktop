@@ -18,6 +18,7 @@ export function ComputerChatSettings({ tenantId, brandId, onError }: Props) {
   const [saved, setSaved] = useState(false);
   const engineUrl = useDurableWorkflowsStore((s) => s.engineUrl);
   const initialized = useDurableWorkflowsStore((s) => s.initialized);
+  const apiKey = useDurableWorkflowsStore((s) => s.apiKey);
 
   const save = async () => {
     setSaving(true);
@@ -65,7 +66,13 @@ export function ComputerChatSettings({ tenantId, brandId, onError }: Props) {
             autoComplete="off"
             value={workflowKey}
             onChange={(e) => setWorkflowKey(e.target.value)}
-            placeholder="Keep saved key"
+            placeholder={
+              !initialized
+                ? 'Key status unavailable'
+                : apiKey
+                  ? 'Keep saved key'
+                  : 'Enter your API key'
+            }
             className="minimal-input mt-1 w-full"
           />
         </label>
@@ -81,8 +88,9 @@ export function ComputerChatSettings({ tenantId, brandId, onError }: Props) {
           />
         </label>
       </div>
-      <p className="mt-3 text-xs text-gray-500">
-        Workflow engine: {engineUrl} · Policy engine: {POLICY_API_URL}
+      <p className="mt-3 text-xs text-[var(--ui-muted)]">
+        {initialized ? `Workflow engine: ${engineUrl}` : 'Workflow connection not loaded'} · Policy
+        engine: {POLICY_API_URL}
       </p>
       <p className="mt-1 text-xs text-gray-500">
         The sandbox organization must have an ANTHROPIC_API_KEY secret. Durable actions require an

@@ -25,7 +25,17 @@ export function localDateTimeInputValue(date: Date): string {
 }
 
 export function scheduleDescription(schedule: DurableWorkflowSchedule): string {
-  if (!schedule.enabled && schedule.lastRunAt && schedule.frequency === 'once') return 'Completed';
+  if (schedule.pendingOccurrence) {
+    if (!schedule.pendingOccurrence.submitted)
+      return schedule.pendingOccurrence.needsAttention
+        ? 'Scheduled run needs attention'
+        : 'Preparing scheduled run';
+    return schedule.pendingOccurrence.needsAttention
+      ? 'Launch confirmation needs attention'
+      : 'Launch confirmation pending';
+  }
+  if (!schedule.enabled && schedule.lastRunAt && schedule.frequency === 'once')
+    return schedule.lastWorkflowId ? 'Run launched' : 'Launch not confirmed';
   if (!schedule.enabled) return 'Paused';
   const next = new Date(schedule.nextRunAt);
   if (Number.isNaN(next.getTime())) return 'Invalid schedule';

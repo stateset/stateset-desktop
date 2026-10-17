@@ -77,7 +77,7 @@ export function DurableWorkflowSettings() {
           <span className="text-sm font-medium text-gray-300">Engine URL</span>
           <input
             type="url"
-            value={urlInput}
+            value={initialized || urlEdited.current ? urlInput : ''}
             onChange={(event) => {
               urlEdited.current = true;
               draftRevision.current++;
@@ -85,7 +85,9 @@ export function DurableWorkflowSettings() {
               setUrlInput(event.target.value);
             }}
             className="mt-1.5 w-full px-3 py-2 bg-slate-950/70 border border-slate-700 rounded-lg text-sm focus:outline-none focus:border-brand-500"
-            placeholder="https://api.workstream.stateset.com"
+            placeholder={
+              initialized ? 'https://api.workstream.stateset.com' : 'Saved connection not loaded'
+            }
           />
         </label>
         <label className="block">
@@ -101,17 +103,25 @@ export function DurableWorkflowSettings() {
               setKeyInput(event.target.value);
             }}
             className="mt-1.5 w-full px-3 py-2 bg-slate-950/70 border border-slate-700 rounded-lg text-sm focus:outline-none focus:border-brand-500"
-            placeholder={apiKey ? 'Enter a new key to replace the current key' : 'Required'}
+            placeholder={
+              !initialized
+                ? 'Key status unavailable'
+                : apiKey
+                  ? 'Enter a new key to replace the current key'
+                  : 'Required'
+            }
             autoComplete="off"
           />
-          <span className="text-xs text-gray-500 mt-1 block">
-            {apiKey
-              ? secureStorageAvailable === true
-                ? 'The key is encrypted using operating system secure storage.'
-                : secureStorageAvailable === false
-                  ? 'The key is available for this app session. Enter it again after restarting.'
-                  : 'A key is configured. Credential storage availability could not be confirmed.'
-              : 'No key configured.'}
+          <span className="text-xs text-[var(--ui-muted)] mt-1 block">
+            {!initialized
+              ? 'Key status unavailable until settings load.'
+              : apiKey
+                ? secureStorageAvailable === true
+                  ? 'The key is encrypted using operating system secure storage.'
+                  : secureStorageAvailable === false
+                    ? 'The key is available for this app session. Enter it again after restarting.'
+                    : 'A key is configured. Credential storage availability could not be confirmed.'
+                : 'No key configured.'}
           </span>
         </label>
 

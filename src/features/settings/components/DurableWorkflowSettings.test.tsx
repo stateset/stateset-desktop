@@ -78,6 +78,42 @@ describe('DurableWorkflowSettings', () => {
     }
   );
 
+  it.each([null, 'Saved settings could not be loaded.'])(
+    'keeps connection and key status unknown until settings load (%s)',
+    (initializationError) => {
+      seedStore({
+        initialized: false,
+        initializationError,
+        engineUrl: 'https://fallback.example',
+        apiKey: null,
+      });
+      renderWithProviders(<DurableWorkflowSettings />);
+      const url = screen.getByRole('textbox', { name: 'Engine URL' });
+      const key = screen.getByPlaceholderText('Key status unavailable');
+      expect(url).toHaveValue('');
+      expect(url).toHaveAttribute('placeholder', 'Saved connection not loaded');
+      expect(screen.getByText('Key status unavailable until settings load.')).toBeVisible();
+      expect(screen.queryByText('No key configured.')).not.toBeInTheDocument();
+      expect(screen.queryByPlaceholderText('Required')).not.toBeInTheDocument();
+      expect(screen.queryByDisplayValue('https://fallback.example')).not.toBeInTheDocument();
+      fireEvent.change(key, { target: { value: 'retained-key-draft' } });
+      expect(screen.getByRole('button', { name: 'Save configuration' })).toBeDisabled();
+      act(() =>
+        useDurableWorkflowsStore.setState({
+          initialized: true,
+          initializationError: null,
+          engineUrl: 'https://restored.example',
+          apiKey: null,
+        })
+      );
+      expect(url).toHaveValue('https://restored.example');
+      expect(key).toHaveValue('retained-key-draft');
+      expect(key).toHaveAttribute('placeholder', 'Required');
+      expect(screen.getByText('No key configured.')).toBeVisible();
+      expect(screen.getByRole('button', { name: 'Save configuration' })).toBeEnabled();
+    }
+  );
+
   it('renders the engine section with the configured URL', () => {
     renderWithProviders(<DurableWorkflowSettings />);
 

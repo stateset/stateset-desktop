@@ -36,6 +36,20 @@ export interface DurableWorkflowBlueprint {
 
 export type DurableWorkflowScheduleFrequency = 'once' | 'daily' | 'weekly';
 
+export interface PendingScheduledOccurrence {
+  requestId: string;
+  dueAt: string;
+  engineUrl: string;
+  tenantId: string;
+  brandId: string;
+  goal: string;
+  definition: DurableWorkflowDefinition;
+  claimedAt: string;
+  workflowId: string;
+  submitted: boolean;
+  needsAttention?: boolean;
+}
+
 export interface DurableWorkflowSchedule {
   id: string;
   name: string;
@@ -52,6 +66,7 @@ export interface DurableWorkflowSchedule {
   lastRunAt?: string;
   lastWorkflowId?: string;
   lastError?: string;
+  pendingOccurrence?: PendingScheduledOccurrence;
 }
 
 export interface TrackedDurableWorkflow {
@@ -98,6 +113,10 @@ interface DurableWorkflowsState {
   saveBlueprint: (blueprint: DurableWorkflowBlueprint) => Promise<void>;
   removeBlueprint: (blueprintId: string) => Promise<void>;
   saveSchedule: (schedule: DurableWorkflowSchedule) => Promise<void>;
+  updateSchedule: (
+    scheduleId: string,
+    updater: (current: DurableWorkflowSchedule) => DurableWorkflowSchedule | null
+  ) => Promise<boolean>;
   removeSchedule: (scheduleId: string) => Promise<void>;
 }
 
@@ -105,6 +124,33 @@ let initializePromise: Promise<void> | null = null;
 let configurationGeneration = 0;
 let pendingConfigurations = 0;
 let configurationQueue: Promise<unknown> = Promise.resolve();
+let scheduleWriteQueue: Promise<unknown> = Promise.resolve();
+let workflowWriteQueue: Promise<unknown> = Promise.resolve();
+const scheduleIntentGenerations = new Map<string, number>();
+
+export function getWorkflowConnectionGeneration(): number {
+  return configurationGeneration;
+}
+
+export function getScheduleIntentGeneration(scheduleId: string): number {
+  return scheduleIntentGenerations.get(scheduleId) ?? 0;
+}
+
+function recordScheduleIntent(scheduleId: string) {
+  scheduleIntentGenerations.set(scheduleId, getScheduleIntentGeneration(scheduleId) + 1);
+}
+
+function writeSchedule<T>(operation: () => Promise<T>): Promise<T> {
+  const task = scheduleWriteQueue.then(operation, operation);
+  scheduleWriteQueue = task.catch(() => undefined);
+  return task;
+}
+
+function writeWorkflows(operation: () => Promise<void>): Promise<void> {
+  const task = workflowWriteQueue.then(operation, operation);
+  workflowWriteQueue = task.catch(() => undefined);
+  return task;
+}
 
 function writeConfiguration(operation: () => Promise<void>, pending: (value: boolean) => void) {
   configurationGeneration++;
@@ -121,8 +167,18 @@ async function nativeConnection() {
 
 async function persist(workflows: TrackedDurableWorkflow[]): Promise<void> {
   if (window.electronAPI?.store) {
-    await window.electronAPI.store.set(WORKFLOWS_KEY, workflows);
+    const stored = await window.electronAPI.store.set(WORKFLOWS_KEY, workflows);
+    if (stored === false) throw new Error('Workflow tracking could not be saved. Try again.');
   }
+}
+
+async function persistSchedules(schedules: DurableWorkflowSchedule[]): Promise<void> {
+  if (typeof window.electronAPI?.store?.set !== 'function')
+    throw new Error(
+      'Desktop storage is unavailable. Reopen the desktop app before scheduling work.'
+    );
+  const stored = await window.electronAPI.store.set(SCHEDULES_KEY, schedules);
+  if (stored === false) throw new Error('Workflow schedules could not be saved. Try again.');
 }
 
 function isTrackedWorkflow(value: unknown): value is TrackedDurableWorkflow {
@@ -216,7 +272,63 @@ export function isWorkflowSchedule(value: unknown): value is DurableWorkflowSche
       (typeof schedule.lastRunAt === 'string' &&
         Number.isFinite(Date.parse(schedule.lastRunAt)))) &&
     (schedule.lastWorkflowId === undefined || typeof schedule.lastWorkflowId === 'string') &&
-    (schedule.lastError === undefined || typeof schedule.lastError === 'string')
+    (schedule.lastError === undefined || typeof schedule.lastError === 'string') &&
+    (schedule.pendingOccurrence === undefined ||
+      isPendingScheduledOccurrence(schedule.pendingOccurrence))
+  );
+}
+
+function isSafeEngineUrl(value: unknown): value is string {
+  if (
+    typeof value !== 'string' ||
+    !value ||
+    value.length > 2048 ||
+    [...value].some((character) => character.charCodeAt(0) <= 32 || character.charCodeAt(0) === 127)
+  )
+    return false;
+  try {
+    const url = new URL(value);
+    const local = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
+    return (
+      !url.username &&
+      !url.password &&
+      !url.search &&
+      !url.hash &&
+      (url.protocol === 'https:' || (local && url.protocol === 'http:'))
+    );
+  } catch {
+    return false;
+  }
+}
+
+function isPendingScheduledOccurrence(value: unknown): value is PendingScheduledOccurrence {
+  if (!value || typeof value !== 'object') return false;
+  const occurrence = value as Record<string, unknown>;
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (
+    typeof occurrence.requestId !== 'string' ||
+    !uuid.test(occurrence.requestId) ||
+    occurrence.requestId === '00000000-0000-0000-0000-000000000000' ||
+    typeof occurrence.brandId !== 'string' ||
+    !uuid.test(occurrence.brandId) ||
+    occurrence.brandId === '00000000-0000-0000-0000-000000000000'
+  )
+    return false;
+  const workflowId = `active-horizon-agent-${occurrence.brandId.replace(/-/g, '').toLowerCase()}-${occurrence.requestId.replace(/-/g, '').toLowerCase()}`;
+  return (
+    typeof occurrence.tenantId === 'string' &&
+    occurrence.tenantId.trim().length > 0 &&
+    isSafeEngineUrl(occurrence.engineUrl) &&
+    occurrence.workflowId === workflowId &&
+    typeof occurrence.goal === 'string' &&
+    occurrence.goal.trim().length > 0 &&
+    isWorkflowDefinition(occurrence.definition) &&
+    typeof occurrence.dueAt === 'string' &&
+    Number.isFinite(Date.parse(occurrence.dueAt)) &&
+    typeof occurrence.claimedAt === 'string' &&
+    Number.isFinite(Date.parse(occurrence.claimedAt)) &&
+    typeof occurrence.submitted === 'boolean' &&
+    (occurrence.needsAttention === undefined || typeof occurrence.needsAttention === 'boolean')
   );
 }
 
@@ -265,6 +377,18 @@ export const useDurableWorkflowsStore = create<DurableWorkflowsState>((set, get)
           window.electronAPI?.auth?.getDurableEngineApiKey?.(),
           nativeConnection(),
         ]);
+        if (
+          Array.isArray(storedSchedules) &&
+          storedSchedules.some(
+            (schedule) =>
+              schedule &&
+              typeof schedule === 'object' &&
+              'pendingOccurrence' in schedule &&
+              schedule.pendingOccurrence !== undefined &&
+              !isWorkflowSchedule(schedule)
+          )
+        )
+          throw new Error('A saved pending workflow occurrence could not be verified.');
         set({
           initialized: true,
           initializationError: null,
@@ -382,73 +506,90 @@ export const useDurableWorkflowsStore = create<DurableWorkflowsState>((set, get)
 
   track: async (workflow) => {
     assertWorkflowSettingsLoaded();
-    const workflows = [
-      workflow,
-      ...get().workflows.filter((w) => w.workflowId !== workflow.workflowId),
-    ];
-    set({ workflows });
-    await persist(workflows);
+    await writeWorkflows(async () => {
+      assertWorkflowSettingsLoaded();
+      const existing = get().workflows.find((item) => item.workflowId === workflow.workflowId);
+      const tracked = existing && isDurableWorkflowTerminal(existing.status) ? existing : workflow;
+      const workflows = [
+        tracked,
+        ...get().workflows.filter((item) => item.workflowId !== workflow.workflowId),
+      ];
+      await persist(workflows);
+      set({ workflows });
+    });
   },
 
   updateStatus: async (workflowId, details, lastError) => {
     assertWorkflowSettingsLoaded();
-    const workflows = get().workflows.map((workflow) =>
-      workflow.workflowId === workflowId
-        ? isDurableWorkflowTerminal(workflow.status) && !isDurableWorkflowTerminal(details.status)
-          ? workflow
-          : {
-              ...workflow,
-              status: details.status,
-              details,
-              updatedAt: new Date().toISOString(),
-              lastError,
-            }
-        : workflow
-    );
-    set({ workflows });
-    await persist(workflows);
+    await writeWorkflows(async () => {
+      assertWorkflowSettingsLoaded();
+      const workflows = get().workflows.map((workflow) =>
+        workflow.workflowId === workflowId
+          ? isDurableWorkflowTerminal(workflow.status) && !isDurableWorkflowTerminal(details.status)
+            ? workflow
+            : {
+                ...workflow,
+                status: details.status,
+                details,
+                updatedAt: new Date().toISOString(),
+                lastError,
+              }
+          : workflow
+      );
+      await persist(workflows);
+      set({ workflows });
+    });
   },
 
   markStatus: async (workflowId, status) => {
     assertWorkflowSettingsLoaded();
-    const workflows = get().workflows.map((workflow) =>
-      workflow.workflowId === workflowId
-        ? {
-            ...workflow,
-            status,
-            details: workflow.details
-              ? {
-                  ...workflow.details,
-                  status,
-                  current_task_id: null,
-                  cancelled: status === 'cancelled' || workflow.details.cancelled,
-                }
-              : undefined,
-            lastError: undefined,
-            updatedAt: new Date().toISOString(),
-          }
-        : workflow
-    );
-    set({ workflows });
-    await persist(workflows);
+    await writeWorkflows(async () => {
+      assertWorkflowSettingsLoaded();
+      const workflows = get().workflows.map((workflow) =>
+        workflow.workflowId === workflowId
+          ? {
+              ...workflow,
+              status,
+              details: workflow.details
+                ? {
+                    ...workflow.details,
+                    status,
+                    current_task_id: null,
+                    cancelled: status === 'cancelled' || workflow.details.cancelled,
+                  }
+                : undefined,
+              lastError: undefined,
+              updatedAt: new Date().toISOString(),
+            }
+          : workflow
+      );
+      await persist(workflows);
+      set({ workflows });
+    });
   },
 
   setError: async (workflowId, message) => {
     assertWorkflowSettingsLoaded();
-    const workflows = get().workflows.map((workflow) =>
-      workflow.workflowId === workflowId
-        ? { ...workflow, lastError: message, updatedAt: new Date().toISOString() }
-        : workflow
-    );
-    set({ workflows });
-    await persist(workflows);
+    await writeWorkflows(async () => {
+      assertWorkflowSettingsLoaded();
+      const workflows = get().workflows.map((workflow) =>
+        workflow.workflowId === workflowId
+          ? { ...workflow, lastError: message, updatedAt: new Date().toISOString() }
+          : workflow
+      );
+      await persist(workflows);
+      set({ workflows });
+    });
   },
 
   remove: async (workflowId) => {
     assertWorkflowSettingsLoaded();
-    const workflows = get().workflows.filter((workflow) => workflow.workflowId !== workflowId);
-    set({ workflows });
-    await persist(workflows);
+    await writeWorkflows(async () => {
+      assertWorkflowSettingsLoaded();
+      const workflows = get().workflows.filter((workflow) => workflow.workflowId !== workflowId);
+      await persist(workflows);
+      set({ workflows });
+    });
   },
 
   saveCustomAgent: async (profile) => {
@@ -487,17 +628,86 @@ export const useDurableWorkflowsStore = create<DurableWorkflowsState>((set, get)
 
   saveSchedule: async (schedule) => {
     assertWorkflowSettingsLoaded();
-    if (!isWorkflowSchedule(schedule)) throw new Error('Workflow schedule is invalid.');
-    assertNoInlineSecrets(schedule.definition.steps);
-    const schedules = [schedule, ...get().schedules.filter((item) => item.id !== schedule.id)];
-    await window.electronAPI?.store?.set(SCHEDULES_KEY, schedules);
-    set({ schedules });
+    const base = get().schedules.find((item) => item.id === schedule.id);
+    // An internal acknowledgement can advance the occurrence while this user
+    // write waits. Apply only the fields the user changed from the visible base.
+    const userFields = [
+      'name',
+      'tenantId',
+      'brandId',
+      'goal',
+      'definition',
+      'frequency',
+      'allowOverlap',
+      'nextRunAt',
+      'enabled',
+      'updatedAt',
+      'lastError',
+    ] as const;
+    const changes = Object.fromEntries(
+      userFields
+        .filter((field) => JSON.stringify(base?.[field]) !== JSON.stringify(schedule[field]))
+        .map((field) => [field, schedule[field]])
+    ) as Partial<DurableWorkflowSchedule>;
+    recordScheduleIntent(schedule.id);
+    await writeSchedule(async () => {
+      assertWorkflowSettingsLoaded();
+      const current = get().schedules.find((item) => item.id === schedule.id);
+      if (base && !current)
+        throw new Error('This workflow schedule was removed. Reload schedules before editing it.');
+      const next = {
+        ...(current ?? schedule),
+        ...changes,
+        ...(current
+          ? { lastRunAt: current.lastRunAt, lastWorkflowId: current.lastWorkflowId }
+          : {}),
+        pendingOccurrence: current
+          ? current.pendingOccurrence?.submitted
+            ? current.pendingOccurrence
+            : undefined
+          : schedule.pendingOccurrence,
+      };
+      if (!isWorkflowSchedule(next)) throw new Error('Workflow schedule is invalid.');
+      assertNoInlineSecrets(next.definition.steps);
+      if (next.pendingOccurrence) assertNoInlineSecrets(next.pendingOccurrence.definition.steps);
+      const schedules = [next, ...get().schedules.filter((item) => item.id !== schedule.id)];
+      await persistSchedules(schedules);
+      set({ schedules });
+    });
+  },
+
+  updateSchedule: async (scheduleId, updater) => {
+    assertWorkflowSettingsLoaded();
+    return writeSchedule(async () => {
+      assertWorkflowSettingsLoaded();
+      const current = get().schedules.find((item) => item.id === scheduleId);
+      if (!current) return false;
+      const next = updater(current);
+      if (!next) return false;
+      if (next.id !== scheduleId || !isWorkflowSchedule(next))
+        throw new Error('Workflow schedule is invalid.');
+      assertNoInlineSecrets(next.definition.steps);
+      if (next.pendingOccurrence) assertNoInlineSecrets(next.pendingOccurrence.definition.steps);
+      const schedules = get().schedules.map((item) => (item.id === scheduleId ? next : item));
+      await persistSchedules(schedules);
+      set({ schedules });
+      return true;
+    });
   },
 
   removeSchedule: async (scheduleId) => {
     assertWorkflowSettingsLoaded();
-    const schedules = get().schedules.filter((item) => item.id !== scheduleId);
-    await window.electronAPI?.store?.set(SCHEDULES_KEY, schedules);
-    set({ schedules });
+    recordScheduleIntent(scheduleId);
+    await writeSchedule(async () => {
+      assertWorkflowSettingsLoaded();
+      const current = get().schedules.find((item) => item.id === scheduleId);
+      if (current?.pendingOccurrence?.submitted)
+        throw new Error(
+          'This schedule has an unconfirmed launch. Check the pending run before deleting the schedule.'
+        );
+      const schedules = get().schedules.filter((item) => item.id !== scheduleId);
+      await persistSchedules(schedules);
+      set({ schedules });
+    });
   },
 }));

@@ -63,6 +63,33 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 describe('connection setup readiness', () => {
+  it('keeps stale connection and credential hints unknown until setup recovers', () => {
+    useDurableWorkflowsStore.setState({
+      initialized: false,
+      initializationError: 'Saved settings could not be loaded.',
+      engineUrl: 'https://fallback.example',
+      apiKey: 'stale-key',
+    });
+    render(<Harness />);
+    const url = screen.getByLabelText('Workflow engine URL');
+    const key = screen.getByLabelText('Workflow API key');
+    expect(url).toHaveValue('');
+    expect(url).toHaveAttribute('placeholder', 'Saved connection not loaded');
+    expect(key).toHaveAttribute('placeholder', 'Key status unavailable');
+    expect(screen.queryByDisplayValue('https://fallback.example')).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('Use current key')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save connection and check' })).toBeDisabled();
+    act(() =>
+      useDurableWorkflowsStore.setState({
+        initialized: true,
+        initializationError: null,
+        engineUrl: 'https://restored.example',
+        apiKey: null,
+      })
+    );
+    expect(url).toHaveValue('https://restored.example');
+    expect(key).toHaveAttribute('placeholder', 'Enter your API key');
+  });
   it.each([false, true])(
     'hydrates a restored engine without replacing an edited URL (%s)',
     async (edited) => {

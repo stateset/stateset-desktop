@@ -175,7 +175,10 @@ export class DesktopHarness {
     }
   }
 
-  async createProfile({ packaged = false } = {}): Promise<DesktopProfile> {
+  async createProfile({
+    packaged = false,
+    memoryOnlyCredentials = false,
+  } = {}): Promise<DesktopProfile> {
     const directory = await mkdtemp(path.join(tmpdir(), 'stateset-desktop-e2e-'));
     this.directories.push(directory);
     const userData = path.join(directory, 'user-data');
@@ -197,6 +200,11 @@ export class DesktopHarness {
       `const { app } = require('electron');\n` +
         `app.setPath('userData', ${JSON.stringify(userData)});\n` +
         `app.setPath('sessionData', ${JSON.stringify(userData)});\n` +
+        // This owned profile can exercise the app's real memory-only fallback
+        // without consulting or changing the host's interactive OS keyring.
+        (memoryOnlyCredentials
+          ? `require('electron').safeStorage.isEncryptionAvailable = () => false;\n`
+          : '') +
         (packaged ? `Object.defineProperty(app, 'isPackaged', { get: () => true });\n` : '') +
         `require(${JSON.stringify(path.resolve('dist/electron/main.js'))});\n`,
       { mode: 0o600 }

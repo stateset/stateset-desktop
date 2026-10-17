@@ -102,6 +102,15 @@ function needsAttention(workflow: TrackedDurableWorkflow): boolean {
   );
 }
 
+async function persistWorkflowError(workflowId: string, message: string): Promise<string | null> {
+  try {
+    await useDurableWorkflowsStore.getState().setError(workflowId, message);
+    return null;
+  } catch (error) {
+    return `Local details could not be saved: ${error instanceof Error ? error.message : String(error)} Refresh this workflow after resolving the error.`;
+  }
+}
+
 function matchesWorkflowFilter(
   workflow: TrackedDurableWorkflow,
   filter: WorkflowFilter,
@@ -124,6 +133,7 @@ function displayedScheduleDescription(
   schedule: DurableWorkflowSchedule,
   workflows: TrackedDurableWorkflow[]
 ): string {
+  if (schedule.pendingOccurrence) return scheduleDescription(schedule);
   if (schedule.lastError) return schedule.lastError;
   const previous = workflows.find((workflow) => workflow.workflowId === schedule.lastWorkflowId);
   if (
@@ -152,7 +162,7 @@ function IconAction({ label, icon: Icon, onClick, busy = false, danger = false }
       type="button"
       onClick={onClick}
       disabled={busy}
-      className={`minimal-action ${danger ? 'hover:text-rose-300' : ''}`}
+      className={`minimal-action text-[var(--ui-muted)] hover:bg-[var(--ui-surface-hover)] hover:text-[var(--ui-text)] ${danger ? 'hover:text-rose-300' : ''}`}
     >
       {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Icon className="h-3.5 w-3.5" />}
       {label}
@@ -170,7 +180,7 @@ interface CompactNumberProps {
 
 function CompactNumber({ label, value, min, max, onChange }: CompactNumberProps) {
   return (
-    <label className="text-[10px] uppercase tracking-wide text-slate-600">
+    <label className="text-[10px] uppercase tracking-wide text-[var(--ui-muted)]">
       {label}
       <input
         type="number"
@@ -191,7 +201,7 @@ function WorkflowRow({
   workflow: TrackedDurableWorkflow;
   onRunAgain: (workflow: TrackedDurableWorkflow) => void;
 }) {
-  const { updateStatus, setError, markStatus, remove } = useDurableWorkflowsStore();
+  const { updateStatus, markStatus, remove } = useDurableWorkflowsStore();
   const { showToast } = useToast();
   const { confirm: confirmRowAction, ConfirmDialogComponent: RowConfirmDialog } =
     useConfirmDialog();
@@ -232,16 +242,24 @@ function WorkflowRow({
 
   const runAction = async (name: string, action: () => Promise<unknown>, success?: string) => {
     setBusyAction(name);
+    let accepted = false;
     try {
       await action();
+      accepted = true;
       await refreshStatus();
       if (success) showToast({ variant: 'success', title: success, message: workflow.goal });
       return true;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      await setError(workflow.workflowId, message);
-      showToast({ variant: 'error', title: 'Workflow action failed', message });
-      return false;
+      const saveError = await persistWorkflowError(workflow.workflowId, message);
+      showToast({
+        variant: accepted ? 'warning' : 'error',
+        title: accepted ? 'Action accepted; status needs attention' : 'Workflow action failed',
+        message: `${accepted ? 'The engine accepted this action. Refresh its status before sending it again. ' : ''}${message}${saveError ? ` ${saveError}` : ''}`,
+      });
+      // Clear accepted command drafts even if saving/refetching status failed.
+      // Retrying the draft would create a distinct enqueue request.
+      return accepted;
     } finally {
       setBusyAction(null);
     }
@@ -343,8 +361,10 @@ function WorkflowRow({
     });
     if (!accepted) return;
     setBusyAction('terminate');
+    let terminated = false;
     try {
       await durableWorkflowApi.terminate(workflow.tenantId, workflow.workflowId);
+      terminated = true;
       await markStatus(workflow.workflowId, 'terminated');
       showToast({
         variant: 'warning',
@@ -353,19 +373,40 @@ function WorkflowRow({
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      await setError(workflow.workflowId, message);
-      showToast({ variant: 'error', title: 'Unable to force stop workflow', message });
+      const saveError = await persistWorkflowError(workflow.workflowId, message);
+      showToast({
+        variant: terminated ? 'warning' : 'error',
+        title: terminated
+          ? 'Workflow stopped; local status needs attention'
+          : 'Unable to force stop workflow',
+        message: `${terminated ? 'The engine confirmed termination. ' : ''}${message}${saveError ? ` ${saveError}` : ''}`,
+      });
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  const removeWorkflow = async () => {
+    setBusyAction('remove');
+    try {
+      await remove(workflow.workflowId);
+    } catch (error) {
+      showToast({
+        variant: 'error',
+        title: 'Unable to remove workflow',
+        message: `${error instanceof Error ? error.message : String(error)} Retry removing it after resolving the error.`,
+      });
     } finally {
       setBusyAction(null);
     }
   };
 
   return (
-    <article className="group border-b border-slate-800/80 last:border-b-0">
+    <article className="group border-b border-[var(--ui-border)] last:border-b-0">
       <button
         type="button"
         onClick={() => setExpanded((value) => !value)}
-        className="w-full px-5 py-4 text-left transition-colors hover:bg-white/[0.02] focus-visible:bg-white/[0.03] focus-visible:outline-none"
+        className="w-full px-5 py-4 text-left transition-colors hover:bg-[var(--ui-surface-hover)] focus-visible:bg-[var(--ui-surface-hover)] focus-visible:outline-none"
         aria-expanded={expanded}
       >
         <div className="flex items-center gap-4">
@@ -380,15 +421,15 @@ function WorkflowRow({
             />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-slate-100">{workflow.goal}</p>
-            <p className="mt-1 truncate text-xs text-slate-500">
+            <p className="truncate text-sm font-medium text-[var(--ui-text)]">{workflow.goal}</p>
+            <p className="mt-1 truncate text-xs text-[var(--ui-muted)]">
               {details?.current_task_id
                 ? `${workflowAgentLabel(workflow)} · Running ${details.current_task_id}`
                 : `${workflowAgentLabel(workflow)} · ${startedLabel(workflow.createdAt)}`}
             </p>
           </div>
           <div className="hidden w-36 sm:block">
-            <div className="mb-1.5 flex justify-between text-[11px] text-slate-500">
+            <div className="mb-1.5 flex justify-between text-[11px] text-[var(--ui-muted)]">
               <span>
                 {details
                   ? `${details.turns_completed}/${details.max_turns} turns`
@@ -396,18 +437,18 @@ function WorkflowRow({
               </span>
               <span>{progress}%</span>
             </div>
-            <div className="h-1 overflow-hidden rounded-full bg-slate-800">
+            <div className="h-1 overflow-hidden rounded-full bg-[var(--ui-surface-selected)]">
               <div
                 className="h-full rounded-full bg-slate-400 transition-all"
                 style={{ width: `${progress}%` }}
               />
             </div>
           </div>
-          <span className="w-28 text-right text-xs capitalize text-slate-400">
+          <span className="w-28 text-right text-xs capitalize text-[var(--ui-muted)]">
             {workflow.status.replace(/_/g, ' ')}
           </span>
           <ChevronDown
-            className={`h-4 w-4 shrink-0 text-slate-600 transition-transform ${expanded ? 'rotate-180' : ''}`}
+            className={`h-4 w-4 shrink-0 text-[var(--ui-muted)] transition-transform ${expanded ? 'rotate-180' : ''}`}
             aria-hidden="true"
           />
         </div>
@@ -415,7 +456,7 @@ function WorkflowRow({
 
       {expanded && (
         <div className="px-5 pb-5 pl-11">
-          <div className="rounded-xl border border-slate-800 bg-slate-950/35 p-4">
+          <div className="rounded-xl border border-[var(--ui-border)] bg-[var(--ui-surface)] p-4">
             <div className="flex flex-wrap items-center gap-1.5">
               <IconAction
                 label="Refresh"
@@ -475,14 +516,15 @@ function WorkflowRow({
                   )}
                   <IconAction
                     label="Remove"
-                    onClick={() => void remove(workflow.workflowId)}
+                    busy={busyAction === 'remove'}
+                    onClick={() => void removeWorkflow()}
                     icon={Trash2}
                     danger
                   />
                 </>
               )}
               <span
-                className="ml-auto hidden font-mono text-[10px] text-slate-600 md:block"
+                className="ml-auto hidden font-mono text-[10px] text-[var(--ui-muted)] md:block"
                 title={workflow.workflowId}
               >
                 {workflow.workflowId}
@@ -515,7 +557,7 @@ function WorkflowRow({
                     type="button"
                     onClick={() => void sendSteering()}
                     disabled={!steerNote.trim() || busyAction !== null}
-                    className="minimal-icon-button"
+                    className="minimal-icon-button text-[var(--ui-muted)] hover:bg-[var(--ui-surface-hover)] border-[var(--ui-border)] hover:text-[var(--ui-text)]"
                     aria-label="Send guidance"
                   >
                     {busyAction === 'steer' ? (
@@ -526,13 +568,13 @@ function WorkflowRow({
                   </button>
                 </div>
 
-                <details className="mt-4 border-t border-slate-800 pt-3">
-                  <summary className="flex cursor-pointer list-none items-center gap-2 text-xs font-medium text-slate-400 hover:text-slate-200">
+                <details className="mt-4 border-t border-[var(--ui-border)] pt-3">
+                  <summary className="flex cursor-pointer list-none items-center gap-2 text-xs font-medium text-[var(--ui-muted)] hover:text-[var(--ui-text)]">
                     <Settings2 className="h-3.5 w-3.5" aria-hidden="true" /> Adjust workflow
                   </summary>
                   <div className="mt-4 grid gap-5 lg:grid-cols-2">
                     <div>
-                      <p className="flex items-center gap-2 text-xs font-medium text-slate-300">
+                      <p className="flex items-center gap-2 text-xs font-medium text-[var(--ui-text)]">
                         <ListPlus className="h-4 w-4" /> Add durable step
                       </p>
                       <textarea
@@ -543,7 +585,7 @@ function WorkflowRow({
                         className="minimal-input mt-2 w-full resize-none font-mono text-xs"
                       />
                       <div className="mt-2 flex items-center justify-between gap-3">
-                        <label className="text-[11px] text-slate-500">
+                        <label className="text-[11px] text-[var(--ui-muted)]">
                           Timeout
                           <input
                             type="number"
@@ -559,14 +601,14 @@ function WorkflowRow({
                           type="button"
                           onClick={() => void enqueueStep()}
                           disabled={!newStep.trim() || busyAction !== null}
-                          className="minimal-secondary-button"
+                          className="minimal-secondary-button text-[var(--ui-muted)] hover:bg-[var(--ui-surface-hover)] border-[var(--ui-border)] hover:text-[var(--ui-text)]"
                         >
                           Add step
                         </button>
                       </div>
                     </div>
                     <div>
-                      <p className="flex items-center gap-2 text-xs font-medium text-slate-300">
+                      <p className="flex items-center gap-2 text-xs font-medium text-[var(--ui-text)]">
                         <Gauge className="h-4 w-4" /> Extend budget
                       </p>
                       <div className="mt-2 grid grid-cols-3 gap-2">
@@ -599,17 +641,19 @@ function WorkflowRow({
                           busyAction !== null ||
                           (extraMinutes <= 0 && extraTurns <= 0 && extraFailures <= 0)
                         }
-                        className="minimal-secondary-button mt-3 ml-auto block"
+                        className="minimal-secondary-button mt-3 ml-auto block text-[var(--ui-muted)] hover:bg-[var(--ui-surface-hover)] border-[var(--ui-border)] hover:text-[var(--ui-text)]"
                       >
                         Extend budget
                       </button>
                     </div>
                     {queueOrder.length > 0 && workflow.definition && (
-                      <div className="border-t border-slate-800 pt-4 lg:col-span-2">
+                      <div className="border-t border-[var(--ui-border)] pt-4 lg:col-span-2">
                         <div className="flex items-center justify-between gap-3">
                           <div>
-                            <p className="text-xs font-medium text-slate-300">Upcoming handoffs</p>
-                            <p className="mt-1 text-[10px] text-slate-600">
+                            <p className="text-xs font-medium text-[var(--ui-text)]">
+                              Upcoming handoffs
+                            </p>
+                            <p className="mt-1 text-[10px] text-[var(--ui-muted)]">
                               Reorder original steps that have not started. Added steps remain in
                               the engine queue.
                             </p>
@@ -618,7 +662,7 @@ function WorkflowRow({
                             type="button"
                             onClick={() => void applyQueueOrder()}
                             disabled={!queueDirty || busyAction !== null}
-                            className="minimal-secondary-button"
+                            className="minimal-secondary-button text-[var(--ui-muted)] hover:bg-[var(--ui-surface-hover)] border-[var(--ui-border)] hover:text-[var(--ui-text)]"
                           >
                             {busyAction === 'reprioritize' && (
                               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -636,16 +680,16 @@ function WorkflowRow({
                             return (
                               <li
                                 key={taskId}
-                                className="flex items-center gap-3 rounded-lg border border-slate-800/80 bg-slate-950/20 px-3 py-2"
+                                className="flex items-center gap-3 rounded-lg border border-[var(--ui-border)] bg-[var(--ui-surface)] px-3 py-2"
                               >
-                                <span className="w-12 shrink-0 text-[10px] uppercase tracking-wide text-slate-600">
+                                <span className="w-12 shrink-0 text-[10px] uppercase tracking-wide text-[var(--ui-muted)]">
                                   Step {stepIndex + 1}
                                 </span>
                                 <div className="min-w-0 flex-1">
-                                  <p className="truncate font-mono text-[11px] text-slate-400">
+                                  <p className="truncate font-mono text-[11px] text-[var(--ui-muted)]">
                                     {step?.[0] ?? taskId}
                                   </p>
-                                  <p className="mt-0.5 text-[10px] text-slate-600">
+                                  <p className="mt-0.5 text-[10px] text-[var(--ui-muted)]">
                                     {assignedAgent?.name ?? 'Command runner'}
                                   </p>
                                 </div>
@@ -653,7 +697,7 @@ function WorkflowRow({
                                   type="button"
                                   onClick={() => moveQueuedTask(taskId, -1)}
                                   disabled={queueIndex === 0 || busyAction !== null}
-                                  className="minimal-icon-button h-7 w-7"
+                                  className="minimal-icon-button h-7 w-7 text-[var(--ui-muted)] hover:bg-[var(--ui-surface-hover)] border-[var(--ui-border)] hover:text-[var(--ui-text)]"
                                   aria-label={`Move step ${stepIndex + 1} up`}
                                 >
                                   <ArrowUp className="h-3.5 w-3.5" />
@@ -664,7 +708,7 @@ function WorkflowRow({
                                   disabled={
                                     queueIndex === queueOrder.length - 1 || busyAction !== null
                                   }
-                                  className="minimal-icon-button h-7 w-7"
+                                  className="minimal-icon-button h-7 w-7 text-[var(--ui-muted)] hover:bg-[var(--ui-surface-hover)] border-[var(--ui-border)] hover:text-[var(--ui-text)]"
                                   aria-label={`Move step ${stepIndex + 1} down`}
                                 >
                                   <ArrowDown className="h-3.5 w-3.5" />
@@ -696,7 +740,9 @@ export default function Workflows() {
   const brand = useAuthStore((state) => state.currentBrand);
   const {
     initialized,
+    engineUrl,
     apiKey,
+    configuring,
     workflows,
     customAgents,
     blueprints,
@@ -706,8 +752,8 @@ export default function Workflows() {
     saveBlueprint,
     removeBlueprint,
     updateStatus,
-    setError,
     saveSchedule,
+    updateSchedule: updateStoredSchedule,
     removeSchedule,
   } = useDurableWorkflowsStore();
   const [showForm, setShowForm] = useState(false);
@@ -746,6 +792,8 @@ export default function Workflows() {
   const [editScheduleEnabled, setEditScheduleEnabled] = useState(true);
   const [editScheduleOverlap, setEditScheduleOverlap] = useState(false);
   const [isSavingSchedule, setIsSavingSchedule] = useState(false);
+  const checkingSchedules = useRef(new Set<string>());
+  const [checkingScheduleIds, setCheckingScheduleIds] = useState<Set<string>>(new Set());
   const blueprintFileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => void initialize(), [initialize]);
@@ -806,6 +854,11 @@ export default function Workflows() {
 
     setFleetAction(action);
     let succeeded = 0;
+    const saveErrors = new Set<string>();
+    const recordError = async (workflowId: string, message: string) => {
+      const saveError = await persistWorkflowError(workflowId, message);
+      if (saveError) saveErrors.add(saveError);
+    };
     try {
       for (let index = 0; index < targets.length; index += 5) {
         const batch = targets.slice(index, index + 5);
@@ -821,13 +874,13 @@ export default function Workflows() {
                 );
                 await updateStatus(workflow.workflowId, status);
               } catch (refreshError) {
-                await setError(
+                await recordError(
                   workflow.workflowId,
                   `Action accepted; status refresh failed: ${refreshError instanceof Error ? refreshError.message : String(refreshError)}`
                 );
               }
             } catch (actionError) {
-              await setError(
+              await recordError(
                 workflow.workflowId,
                 actionError instanceof Error ? actionError.message : String(actionError)
               );
@@ -838,11 +891,13 @@ export default function Workflows() {
       const failed = targets.length - succeeded;
       const completedVerb = { pause: 'paused', resume: 'resumed', cancel: 'cancelled' }[action];
       showToast({
-        variant: failed ? 'warning' : 'success',
+        variant: failed || saveErrors.size ? 'warning' : 'success',
         title: failed ? 'Fleet action partially completed' : `Workflows ${completedVerb}`,
-        message: failed
-          ? `${succeeded} succeeded and ${failed} failed. Open the affected workflows for details.`
-          : `${succeeded} workflow${succeeded === 1 ? '' : 's'} ${completedVerb}.`,
+        message:
+          (failed
+            ? `${succeeded} succeeded and ${failed} failed. Open the affected workflows for details.`
+            : `${succeeded} workflow${succeeded === 1 ? '' : 's'} ${completedVerb}.`) +
+          (saveErrors.size ? ` ${[...saveErrors][0]}` : ''),
       });
     } finally {
       setFleetAction(null);
@@ -859,6 +914,7 @@ export default function Workflows() {
     );
     if (!tenant?.id || !brand?.id || !goal.trim() || !steps.length) return;
     setIsStarting(true);
+    let confirmedLaunch: { workflowId: string; requestId: string } | null = null;
     try {
       const requestId = crypto.randomUUID();
       const result = await durableWorkflowApi.start({
@@ -873,11 +929,21 @@ export default function Workflows() {
         agent,
         stepAgents,
       });
+      const confirmedId = typeof result.workflow_id === 'string' ? result.workflow_id.trim() : '';
+      if (!confirmedId) throw new Error('The workflow engine did not return a workflow ID.');
+      confirmedLaunch = { workflowId: confirmedId, requestId };
+      // A confirmed engine launch must not remain available for a fresh start
+      // merely because this desktop cannot persist its tracking record.
+      setGoal('');
+      setCommands('');
+      setSelectedAgent(undefined);
+      setStepAgentOverrides({});
+      setShowForm(false);
       const now = new Date().toISOString();
       await track({
-        workflowId: result.workflow_id,
-        runId: result.run_id,
-        requestId,
+        workflowId: confirmedLaunch.workflowId,
+        runId: result.run_id ?? '',
+        requestId: confirmedLaunch.requestId,
         tenantId: tenant.id,
         brandId: brand.id,
         goal: goal.trim(),
@@ -894,22 +960,24 @@ export default function Workflows() {
           stepAgents,
         },
       });
-      setGoal('');
-      setCommands('');
-      setSelectedAgent(undefined);
-      setStepAgentOverrides({});
-      setShowForm(false);
       showToast({
         variant: 'success',
         title: 'Workflow started',
         message: 'Temporal is running it in the background.',
       });
     } catch (error) {
-      showToast({
-        variant: 'error',
-        title: 'Unable to start workflow',
-        message: error instanceof Error ? error.message : String(error),
-      });
+      const message = error instanceof Error ? error.message : String(error);
+      if (confirmedLaunch) {
+        setWorkflowId(confirmedLaunch.workflowId);
+        setShowAttachForm(true);
+        showToast({
+          variant: 'warning',
+          title: 'Workflow started; tracking needs attention',
+          message: `${confirmedLaunch.workflowId} started, but tracking could not be saved: ${message} Track the existing ID to recover this run.`,
+        });
+      } else {
+        showToast({ variant: 'error', title: 'Unable to start workflow', message });
+      }
     } finally {
       setIsStarting(false);
     }
@@ -979,12 +1047,68 @@ export default function Workflows() {
   const updateSchedule = async (
     schedule: DurableWorkflowSchedule,
     updates: Partial<DurableWorkflowSchedule>
-  ) => {
-    await saveSchedule({
-      ...schedule,
-      ...updates,
-      updatedAt: new Date().toISOString(),
-    });
+  ): Promise<boolean> => {
+    // User edits must use public save so a prepared launch observes the new
+    // intent. Merge into the latest row, retaining any frozen submitted run.
+    const current = useDurableWorkflowsStore
+      .getState()
+      .schedules.find((item) => item.id === schedule.id);
+    if (!current) {
+      showToast({
+        variant: 'warning',
+        title: 'Schedule no longer available',
+        message: 'Choose an existing schedule before making changes.',
+      });
+      return false;
+    }
+    try {
+      await saveSchedule({
+        ...current,
+        ...updates,
+        updatedAt: new Date().toISOString(),
+      });
+      return true;
+    } catch (error) {
+      showToast({
+        variant: 'error',
+        title: 'Unable to update schedule',
+        message: `${error instanceof Error ? error.message : String(error)} Retry saving this schedule.`,
+      });
+      return false;
+    }
+  };
+
+  const checkPendingRun = async (schedule: DurableWorkflowSchedule) => {
+    const { id: scheduleId, pendingOccurrence } = schedule;
+    if (!pendingOccurrence) return;
+    if (checkingSchedules.current.has(scheduleId)) return;
+    checkingSchedules.current.add(scheduleId);
+    setCheckingScheduleIds(new Set(checkingSchedules.current));
+    try {
+      await updateStoredSchedule(scheduleId, (current) =>
+        current.pendingOccurrence?.requestId === pendingOccurrence.requestId &&
+        current.pendingOccurrence.submitted === pendingOccurrence.submitted &&
+        (current.pendingOccurrence.submitted || current.pendingOccurrence.needsAttention)
+          ? {
+              ...current,
+              pendingOccurrence: { ...current.pendingOccurrence, needsAttention: false },
+              lastError: undefined,
+              updatedAt: new Date().toISOString(),
+            }
+          : null
+      );
+    } catch (error) {
+      showToast({
+        variant: 'error',
+        title: pendingOccurrence.submitted
+          ? 'Unable to check pending run'
+          : 'Unable to retry scheduled run',
+        message: `${error instanceof Error ? error.message : String(error)} Try again after resolving the error.`,
+      });
+    } finally {
+      checkingSchedules.current.delete(scheduleId);
+      setCheckingScheduleIds(new Set(checkingSchedules.current));
+    }
   };
 
   const openScheduleEditor = (schedule: DurableWorkflowSchedule) => {
@@ -1009,14 +1133,23 @@ export default function Workflows() {
     }
     setIsSavingSchedule(true);
     try {
-      await updateSchedule(editingSchedule, {
-        name: editScheduleName.trim(),
-        frequency: editScheduleFrequency,
-        nextRunAt: nextRun.toISOString(),
-        enabled: editScheduleEnabled,
-        allowOverlap: editScheduleOverlap,
-        lastError: undefined,
-      });
+      // Only persist edited fields. A launch can advance or pause the current
+      // schedule while this dialog still contains its original timing.
+      const updates: Partial<DurableWorkflowSchedule> = {};
+      if (editScheduleName.trim() !== editingSchedule.name) updates.name = editScheduleName.trim();
+      if (editScheduleFrequency !== editingSchedule.frequency)
+        updates.frequency = editScheduleFrequency;
+      if (editScheduleAt !== localDateTimeInputValue(new Date(editingSchedule.nextRunAt)))
+        updates.nextRunAt = nextRun.toISOString();
+      if (editScheduleEnabled !== editingSchedule.enabled) updates.enabled = editScheduleEnabled;
+      if (editScheduleOverlap !== Boolean(editingSchedule.allowOverlap))
+        updates.allowOverlap = editScheduleOverlap;
+      if (Object.keys(updates).length === 0) {
+        setEditingSchedule(null);
+        return;
+      }
+      const saved = await updateSchedule(editingSchedule, updates);
+      if (!saved) return;
       setEditingSchedule(null);
       showToast({
         variant: 'success',
@@ -1042,12 +1175,20 @@ export default function Workflows() {
       variant: 'danger',
     });
     if (!accepted) return;
-    await removeSchedule(schedule.id);
-    showToast({
-      variant: 'warning',
-      title: 'Schedule deleted',
-      message: 'The schedule cannot be recovered unless recreated.',
-    });
+    try {
+      await removeSchedule(schedule.id);
+      showToast({
+        variant: 'warning',
+        title: 'Schedule deleted',
+        message: 'The schedule cannot be recovered unless recreated.',
+      });
+    } catch (error) {
+      showToast({
+        variant: 'error',
+        title: 'Unable to delete schedule',
+        message: `${error instanceof Error ? error.message : String(error)} Check any pending run before trying again.`,
+      });
+    }
   };
 
   const attach = async () => {
@@ -1214,14 +1355,14 @@ export default function Workflows() {
     <div className="page-shell mx-auto max-w-5xl space-y-6">
       <header className="flex items-end justify-between gap-4 pt-2">
         <div>
-          <div className="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+          <div className="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--ui-muted)]">
             <Circle
-              className={`h-2 w-2 fill-current ${apiKey ? 'text-emerald-400' : 'text-slate-600'}`}
+              className={`h-2 w-2 fill-current ${apiKey ? 'text-emerald-400' : 'text-[var(--ui-muted)]'}`}
             />
             Durable execution
           </div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-100">Workflows</h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <h1 className="text-2xl font-semibold tracking-tight text-[var(--ui-text)]">Workflows</h1>
+          <p className="mt-1 text-sm text-[var(--ui-muted)]">
             Long-running work, safely detached from this device.
           </p>
         </div>
@@ -1230,7 +1371,7 @@ export default function Workflows() {
             type="button"
             onClick={() => setShowAgentManager(true)}
             disabled={!apiKey}
-            className="minimal-secondary-button"
+            className="minimal-secondary-button text-[var(--ui-muted)] hover:bg-[var(--ui-surface-hover)] border-[var(--ui-border)] hover:text-[var(--ui-text)]"
           >
             <Bot className="h-4 w-4" /> Agents
           </button>
@@ -1238,7 +1379,7 @@ export default function Workflows() {
             type="button"
             onClick={() => setShowAttachForm(true)}
             disabled={!apiKey}
-            className="minimal-secondary-button"
+            className="minimal-secondary-button text-[var(--ui-muted)] hover:bg-[var(--ui-surface-hover)] border-[var(--ui-border)] hover:text-[var(--ui-text)]"
           >
             <Link2 className="h-4 w-4" /> Track existing
           </button>
@@ -1246,7 +1387,7 @@ export default function Workflows() {
             type="button"
             onClick={() => setShowForm(true)}
             disabled={!apiKey}
-            className="minimal-primary-button"
+            className="ui-button ui-button-primary inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium disabled:cursor-not-allowed"
           >
             <Plus className="h-4 w-4" /> New workflow
           </button>
@@ -1254,137 +1395,232 @@ export default function Workflows() {
       </header>
 
       {!apiKey && (
-        <div className="flex items-center justify-between gap-4 rounded-xl border border-amber-500/20 bg-amber-500/[0.05] px-4 py-3">
+        <div className="flex items-center justify-between gap-4 rounded-xl border border-[var(--ui-border)] bg-[var(--ui-surface)] px-4 py-3">
           <div>
-            <p className="text-sm font-medium text-amber-200">Connect the workflow engine</p>
-            <p className="mt-0.5 text-xs text-amber-200/50">Add a secure API key to begin.</p>
+            <p className="text-sm font-medium text-[var(--ui-warning)]">
+              Connect the workflow engine
+            </p>
+            <p className="mt-0.5 text-xs text-[var(--ui-muted)]">Add a secure API key to begin.</p>
           </div>
           <button
             type="button"
             onClick={() => navigate('/settings?tab=background')}
-            className="minimal-secondary-button"
+            className="minimal-secondary-button text-[var(--ui-muted)] hover:bg-[var(--ui-surface-hover)] border-[var(--ui-border)] hover:text-[var(--ui-text)]"
           >
             Open settings
           </button>
         </div>
       )}
 
-      <div className="grid grid-cols-3 divide-x divide-slate-800 rounded-xl border border-slate-800 bg-slate-900/30">
+      <div className="grid grid-cols-3 divide-x divide-[var(--ui-border)] rounded-xl border border-[var(--ui-border)] bg-[var(--ui-surface)]">
         <Metric label="Active" value={activeCount} />
         <Metric label="Completed" value={completeCount} />
         <Metric label="Needs attention" value={attentionCount} />
       </div>
 
       {visibleSchedules.length > 0 && (
-        <section className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/25">
-          <div className="flex items-center justify-between border-b border-slate-800 px-5 py-3">
-            <h2 className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-slate-500">
+        <section className="overflow-hidden rounded-2xl border border-[var(--ui-border)] bg-[var(--ui-surface)]">
+          <div className="flex items-center justify-between border-b border-[var(--ui-border)] px-5 py-3">
+            <h2 className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-[var(--ui-muted)]">
               <CalendarClock className="h-3.5 w-3.5" aria-hidden="true" /> Schedules
             </h2>
-            <span className="text-xs text-slate-600">Desktop managed</span>
+            <span className="text-xs text-[var(--ui-muted)]">Desktop managed</span>
           </div>
           {visibleSchedules.map((schedule) => (
             <div
               key={schedule.id}
-              className="flex flex-wrap items-center gap-3 border-b border-slate-800/80 px-5 py-3 last:border-b-0"
+              role="group"
+              aria-label={`Schedule ${schedule.name}`}
+              className="space-y-3 border-b border-[var(--ui-border)] px-5 py-4 last:border-b-0"
             >
-              <span
-                className={`h-2 w-2 rounded-full ${
-                  schedule.lastError
-                    ? 'bg-rose-400'
-                    : schedule.enabled
-                      ? 'bg-blue-400'
-                      : 'bg-slate-600'
-                }`}
-                aria-hidden="true"
-              />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-slate-200">{schedule.name}</p>
-                <p className="mt-0.5 truncate text-xs capitalize text-slate-600">
-                  {displayedScheduleDescription(schedule, workflows)}
-                </p>
+              <div className="flex items-start gap-3">
+                <span
+                  className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
+                    schedule.lastError || schedule.pendingOccurrence?.needsAttention
+                      ? 'bg-rose-400'
+                      : schedule.enabled
+                        ? 'bg-blue-400'
+                        : 'bg-slate-600'
+                  }`}
+                  aria-hidden="true"
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium leading-5 text-[var(--ui-text)] [overflow-wrap:anywhere]">
+                    {schedule.name}
+                  </p>
+                  <p
+                    id={`${schedule.id}-status`}
+                    className="mt-1 text-xs leading-5 text-[var(--ui-muted)] [overflow-wrap:anywhere]"
+                  >
+                    {displayedScheduleDescription(schedule, workflows)}
+                  </p>
+                  {schedule.pendingOccurrence?.submitted && (
+                    <p className="mt-1 text-xs leading-5 text-[var(--ui-muted)]">
+                      Check the pending run before deleting this schedule.
+                    </p>
+                  )}
+                  {schedule.pendingOccurrence && schedule.lastError && (
+                    <p className="mt-1 text-xs leading-5 text-[var(--ui-warning)] [overflow-wrap:anywhere]">
+                      {schedule.lastError}
+                    </p>
+                  )}
+                  {schedule.pendingOccurrence &&
+                    schedule.pendingOccurrence.engineUrl !== engineUrl && (
+                      <p className="mt-1 text-xs leading-5 text-[var(--ui-muted)] [overflow-wrap:anywhere]">
+                        Pending run belongs to {schedule.pendingOccurrence.engineUrl}. Restore that
+                        connection to check it.
+                      </p>
+                    )}
+                </div>
               </div>
-              <button
-                type="button"
-                onClick={() =>
-                  void updateSchedule(schedule, {
-                    enabled: true,
-                    nextRunAt: new Date().toISOString(),
-                    lastError: undefined,
-                  })
-                }
-                className="minimal-action"
+              <div
+                role="group"
+                aria-label={`Actions for ${schedule.name}`}
+                className="flex flex-wrap items-center gap-x-1 gap-y-2 pl-5"
               >
-                <Play className="h-3.5 w-3.5" /> Run now
-              </button>
-              <button
-                type="button"
-                onClick={() => void updateSchedule(schedule, { enabled: !schedule.enabled })}
-                className="minimal-action"
-              >
-                {schedule.enabled ? (
-                  <Pause className="h-3.5 w-3.5" />
-                ) : (
-                  <Play className="h-3.5 w-3.5" />
-                )}
-                {schedule.enabled ? 'Pause' : 'Enable'}
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  void updateSchedule(schedule, { allowOverlap: !schedule.allowOverlap })
-                }
-                className="minimal-action"
-                title="Control whether another scheduled run may start while the previous run is active"
-              >
-                {schedule.allowOverlap ? 'Overlap allowed' : 'Sequential'}
-              </button>
-              <button
-                type="button"
-                onClick={() => openScheduleEditor(schedule)}
-                className="minimal-action"
-              >
-                <Settings2 className="h-3.5 w-3.5" /> Edit
-              </button>
-              <button
-                type="button"
-                onClick={() => void deleteSchedule(schedule)}
-                className="minimal-icon-button h-8 w-8 hover:text-rose-300"
-                aria-label={`Delete ${schedule.name}`}
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </button>
+                {schedule.pendingOccurrence &&
+                  (schedule.pendingOccurrence.submitted ||
+                    schedule.pendingOccurrence.needsAttention) && (
+                    <button
+                      type="button"
+                      disabled={
+                        !apiKey ||
+                        configuring ||
+                        (!schedule.pendingOccurrence.submitted && !schedule.enabled) ||
+                        checkingScheduleIds.has(schedule.id) ||
+                        (schedule.pendingOccurrence.submitted &&
+                          schedule.pendingOccurrence.needsAttention === false) ||
+                        schedule.pendingOccurrence.engineUrl !== engineUrl
+                      }
+                      aria-busy={
+                        checkingScheduleIds.has(schedule.id) ||
+                        (schedule.pendingOccurrence.submitted &&
+                          schedule.pendingOccurrence.needsAttention === false) ||
+                        undefined
+                      }
+                      aria-describedby={`${schedule.id}-status`}
+                      title={
+                        !apiKey || configuring
+                          ? 'Finish configuring the workflow connection before continuing.'
+                          : !schedule.pendingOccurrence.submitted && !schedule.enabled
+                            ? 'Resume the schedule before retrying this unsent run.'
+                            : schedule.pendingOccurrence.engineUrl !== engineUrl
+                              ? 'Restore the original workflow connection before checking.'
+                              : schedule.pendingOccurrence.submitted
+                                ? 'Refresh the submitted run’s status.'
+                                : 'Retry the prepared run using its existing identity.'
+                      }
+                      onClick={() => void checkPendingRun(schedule)}
+                      className="minimal-action text-[var(--ui-muted)] hover:bg-[var(--ui-surface-hover)] hover:text-[var(--ui-text)]"
+                    >
+                      <RefreshCw
+                        className={`h-3.5 w-3.5 ${checkingScheduleIds.has(schedule.id) ? 'animate-spin motion-reduce:animate-none' : ''}`}
+                        aria-hidden="true"
+                      />
+                      {checkingScheduleIds.has(schedule.id)
+                        ? 'Saving…'
+                        : schedule.pendingOccurrence.submitted &&
+                            schedule.pendingOccurrence.needsAttention === false
+                          ? 'Checking…'
+                          : schedule.pendingOccurrence.submitted
+                            ? 'Check pending run'
+                            : 'Retry scheduled run'}
+                    </button>
+                  )}
+                <button
+                  type="button"
+                  disabled={Boolean(schedule.pendingOccurrence)}
+                  title={
+                    schedule.pendingOccurrence
+                      ? 'Confirm the pending run before requesting another.'
+                      : undefined
+                  }
+                  onClick={() =>
+                    void updateSchedule(schedule, {
+                      enabled: true,
+                      nextRunAt: new Date().toISOString(),
+                      lastError: undefined,
+                    })
+                  }
+                  className="minimal-action text-[var(--ui-muted)] hover:bg-[var(--ui-surface-hover)] hover:text-[var(--ui-text)]"
+                >
+                  <Play className="h-3.5 w-3.5" /> Run now
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void updateSchedule(schedule, { enabled: !schedule.enabled })}
+                  className="minimal-action text-[var(--ui-muted)] hover:bg-[var(--ui-surface-hover)] hover:text-[var(--ui-text)]"
+                >
+                  {schedule.enabled ? (
+                    <Pause className="h-3.5 w-3.5" />
+                  ) : (
+                    <Play className="h-3.5 w-3.5" />
+                  )}
+                  {schedule.enabled ? 'Pause' : 'Enable'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    void updateSchedule(schedule, { allowOverlap: !schedule.allowOverlap })
+                  }
+                  className="minimal-action text-[var(--ui-muted)] hover:bg-[var(--ui-surface-hover)] hover:text-[var(--ui-text)]"
+                  title="Control whether another scheduled run may start while the previous run is active"
+                >
+                  {schedule.allowOverlap ? 'Overlap allowed' : 'Sequential'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => openScheduleEditor(schedule)}
+                  className="minimal-action text-[var(--ui-muted)] hover:bg-[var(--ui-surface-hover)] hover:text-[var(--ui-text)]"
+                >
+                  <Settings2 className="h-3.5 w-3.5" /> Edit
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void deleteSchedule(schedule)}
+                  className="minimal-icon-button h-8 w-8 border-[var(--ui-border)] text-[var(--ui-muted)] hover:text-[var(--ui-negative)]"
+                  aria-label={`Delete ${schedule.name}`}
+                  disabled={Boolean(schedule.pendingOccurrence?.submitted)}
+                  title={
+                    schedule.pendingOccurrence?.submitted
+                      ? 'Check the pending run before deleting this schedule.'
+                      : undefined
+                  }
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
             </div>
           ))}
-          <p className="border-t border-slate-800/80 px-5 py-2.5 text-[10px] text-slate-600">
+          <p className="px-5 py-2.5 text-[11px] leading-5 text-[var(--ui-muted)]">
             Schedules launch while StateSet Desktop is running, including when minimized to the
-            tray.
+            tray. Submitted runs are checked even while a schedule is paused.
           </p>
         </section>
       )}
 
-      <section className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/25">
-        <div className="flex flex-wrap items-center gap-3 border-b border-slate-800 px-5 py-3">
-          <h2 className="text-xs font-medium uppercase tracking-wider text-slate-500">
+      <section className="overflow-hidden rounded-2xl border border-[var(--ui-border)] bg-[var(--ui-surface)]">
+        <div className="flex flex-wrap items-center gap-3 border-b border-[var(--ui-border)] px-5 py-3">
+          <h2 className="text-xs font-medium uppercase tracking-wider text-[var(--ui-muted)]">
             Recent workflows
           </h2>
-          <div className="ml-auto flex min-w-56 items-center gap-2 rounded-lg border border-slate-800 bg-slate-950/30 px-2.5">
-            <Search className="h-3.5 w-3.5 shrink-0 text-slate-600" aria-hidden="true" />
+          <div className="ml-auto flex min-w-56 items-center gap-2 rounded-lg border border-[var(--ui-border)] bg-[var(--ui-surface)] px-2.5">
+            <Search className="h-3.5 w-3.5 shrink-0 text-[var(--ui-muted)]" aria-hidden="true" />
             <input
               type="search"
               aria-label="Search workflows"
               value={workflowQuery}
               onChange={(event) => setWorkflowQuery(event.target.value)}
               placeholder="Search workflows"
-              className="min-w-0 flex-1 bg-transparent py-1.5 text-xs text-slate-300 outline-none placeholder:text-slate-700"
+              className="min-w-0 flex-1 bg-transparent py-1.5 text-xs text-[var(--ui-text)] outline-none placeholder:text-[var(--ui-muted)]"
             />
           </div>
-          <span className="text-xs tabular-nums text-slate-600">
+          <span className="text-xs tabular-nums text-[var(--ui-muted)]">
             {filteredWorkflows.length}/{visible.length}
           </span>
         </div>
         {visible.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5 border-b border-slate-800/80 px-4 py-2.5">
+          <div className="flex flex-wrap items-center gap-1.5 border-b border-[var(--ui-border)] px-4 py-2.5">
             {(
               [
                 ['all', 'All', visible.length],
@@ -1400,8 +1636,8 @@ export default function Workflows() {
                 aria-pressed={workflowFilter === value}
                 className={`rounded-md px-2.5 py-1 text-[11px] transition-colors ${
                   workflowFilter === value
-                    ? 'bg-slate-800 text-slate-200'
-                    : 'text-slate-600 hover:bg-white/[0.03] hover:text-slate-400'
+                    ? 'bg-[var(--ui-surface-selected)] text-[var(--ui-text)]'
+                    : 'text-[var(--ui-muted)] hover:bg-[var(--ui-surface-hover)] hover:text-[var(--ui-muted)]'
                 }`}
               >
                 {label} <span className="ml-1 tabular-nums opacity-60">{count}</span>
@@ -1413,7 +1649,7 @@ export default function Workflows() {
                   type="button"
                   onClick={() => void runFleetAction('pause')}
                   disabled={fleetAction !== null}
-                  className="minimal-action"
+                  className="minimal-action text-[var(--ui-muted)] hover:bg-[var(--ui-surface-hover)] hover:text-[var(--ui-text)]"
                 >
                   {fleetAction === 'pause' ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -1428,7 +1664,7 @@ export default function Workflows() {
                   type="button"
                   onClick={() => void runFleetAction('resume')}
                   disabled={fleetAction !== null}
-                  className="minimal-action"
+                  className="minimal-action text-[var(--ui-muted)] hover:bg-[var(--ui-surface-hover)] hover:text-[var(--ui-text)]"
                 >
                   {fleetAction === 'resume' ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -1443,7 +1679,7 @@ export default function Workflows() {
                   type="button"
                   onClick={() => void runFleetAction('cancel')}
                   disabled={fleetAction !== null}
-                  className="minimal-action hover:text-rose-300"
+                  className="minimal-action text-[var(--ui-muted)] hover:bg-[var(--ui-surface-hover)] hover:text-[var(--ui-negative)]"
                 >
                   {fleetAction === 'cancel' ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -1462,23 +1698,23 @@ export default function Workflows() {
           ))
         ) : visible.length === 0 ? (
           <div className="py-16 text-center">
-            <Clock3 className="mx-auto h-7 w-7 text-slate-700" />
-            <p className="mt-3 text-sm text-slate-400">No workflows yet</p>
-            <p className="mt-1 text-xs text-slate-600">
+            <Clock3 className="mx-auto h-7 w-7 text-[var(--ui-muted)]" />
+            <p className="mt-3 text-sm text-[var(--ui-muted)]">No workflows yet</p>
+            <p className="mt-1 text-xs text-[var(--ui-muted)]">
               Create one when you have work that should outlive this app.
             </p>
           </div>
         ) : (
           <div className="py-12 text-center">
-            <Search className="mx-auto h-6 w-6 text-slate-700" />
-            <p className="mt-3 text-sm text-slate-400">No matching workflows</p>
+            <Search className="mx-auto h-6 w-6 text-[var(--ui-muted)]" />
+            <p className="mt-3 text-sm text-[var(--ui-muted)]">No matching workflows</p>
             <button
               type="button"
               onClick={() => {
                 setWorkflowFilter('all');
                 setWorkflowQuery('');
               }}
-              className="minimal-action mx-auto mt-2"
+              className="minimal-action mx-auto mt-2 text-[var(--ui-muted)] hover:bg-[var(--ui-surface-hover)] hover:text-[var(--ui-text)]"
             >
               Clear filters
             </button>
@@ -1496,7 +1732,7 @@ export default function Workflows() {
       >
         <div className="space-y-4">
           <div className="flex items-center justify-between gap-3">
-            <p className="text-[10px] font-medium uppercase tracking-wider text-slate-600">
+            <p className="text-[10px] font-medium uppercase tracking-wider text-[var(--ui-muted)]">
               Reusable blueprints
             </p>
             <div className="flex items-center gap-1">
@@ -1514,7 +1750,7 @@ export default function Workflows() {
               <button
                 type="button"
                 onClick={() => blueprintFileInputRef.current?.click()}
-                className="minimal-action"
+                className="minimal-action text-[var(--ui-muted)] hover:bg-[var(--ui-surface-hover)] hover:text-[var(--ui-text)]"
               >
                 <Upload className="h-3.5 w-3.5" /> Import
               </button>
@@ -1522,7 +1758,7 @@ export default function Workflows() {
                 <button
                   type="button"
                   onClick={() => downloadBlueprints(blueprints)}
-                  className="minimal-action"
+                  className="minimal-action text-[var(--ui-muted)] hover:bg-[var(--ui-surface-hover)] hover:text-[var(--ui-text)]"
                 >
                   <Download className="h-3.5 w-3.5" /> Export all
                 </button>
@@ -1531,7 +1767,7 @@ export default function Workflows() {
           </div>
           {blueprints.length > 0 && (
             <div className="flex items-end gap-2">
-              <label className="block flex-1 text-xs font-medium text-slate-400">
+              <label className="block flex-1 text-xs font-medium text-[var(--ui-muted)]">
                 Blueprint
                 <select
                   aria-label="Workflow blueprint"
@@ -1555,7 +1791,7 @@ export default function Workflows() {
                 <button
                   type="button"
                   onClick={() => void deleteSelectedBlueprint()}
-                  className="minimal-icon-button"
+                  className="minimal-icon-button text-[var(--ui-muted)] hover:bg-[var(--ui-surface-hover)] border-[var(--ui-border)] hover:text-[var(--ui-text)]"
                   aria-label="Delete selected blueprint"
                 >
                   <Trash2 className="h-4 w-4" />
@@ -1563,7 +1799,7 @@ export default function Workflows() {
               )}
             </div>
           )}
-          <label className="block text-xs font-medium text-slate-400">
+          <label className="block text-xs font-medium text-[var(--ui-muted)]">
             Goal
             <input
               autoFocus
@@ -1574,7 +1810,7 @@ export default function Workflows() {
             />
           </label>
           <fieldset>
-            <legend className="text-xs font-medium text-slate-400">Agent</legend>
+            <legend className="text-xs font-medium text-[var(--ui-muted)]">Agent</legend>
             <div className="mt-1.5 grid gap-2 sm:grid-cols-2" role="radiogroup">
               <AgentOption
                 id={COMMAND_RUNNER_ID}
@@ -1595,13 +1831,13 @@ export default function Workflows() {
               ))}
             </div>
             {selectedAgent && (
-              <p className="mt-2 flex items-center gap-1.5 text-[11px] text-slate-600">
+              <p className="mt-2 flex items-center gap-1.5 text-[11px] text-[var(--ui-muted)]">
                 <Bot className="h-3.5 w-3.5" aria-hidden="true" /> Uses a managed model with bounded
                 actions and token limits.
               </p>
             )}
           </fieldset>
-          <label className="block text-xs font-medium text-slate-400">
+          <label className="block text-xs font-medium text-[var(--ui-muted)]">
             Commands
             <textarea
               value={commands}
@@ -1615,7 +1851,7 @@ export default function Workflows() {
           </label>
           {parsedSteps.length > 1 && (
             <details>
-              <summary className="cursor-pointer text-xs text-slate-500 hover:text-slate-300">
+              <summary className="cursor-pointer text-xs text-[var(--ui-muted)] hover:text-[var(--ui-text)]">
                 Assign agents to steps
               </summary>
               <div className="mt-3 space-y-2">
@@ -1631,12 +1867,12 @@ export default function Workflows() {
                   return (
                     <div
                       key={`${index}-${step[0]}`}
-                      className="flex items-center gap-3 rounded-lg border border-slate-800 bg-slate-950/20 px-3 py-2"
+                      className="flex items-center gap-3 rounded-lg border border-[var(--ui-border)] bg-[var(--ui-surface)] px-3 py-2"
                     >
-                      <span className="w-12 shrink-0 text-[10px] uppercase tracking-wide text-slate-600">
+                      <span className="w-12 shrink-0 text-[10px] uppercase tracking-wide text-[var(--ui-muted)]">
                         Step {index + 1}
                       </span>
-                      <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-slate-500">
+                      <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-[var(--ui-muted)]">
                         {step[0]}
                       </span>
                       <select
@@ -1672,13 +1908,13 @@ export default function Workflows() {
                   );
                 })}
               </div>
-              <p className="mt-2 text-[11px] leading-4 text-slate-600">
+              <p className="mt-2 text-[11px] leading-4 text-[var(--ui-muted)]">
                 Steps execute durably in order. Each handoff starts a fresh isolated sandbox.
               </p>
             </details>
           )}
           <details>
-            <summary className="cursor-pointer text-xs text-slate-500 hover:text-slate-300">
+            <summary className="cursor-pointer text-xs text-[var(--ui-muted)] hover:text-[var(--ui-text)]">
               Execution limits
             </summary>
             <div className="mt-3 grid grid-cols-3 gap-3">
@@ -1706,11 +1942,11 @@ export default function Workflows() {
             </div>
           </details>
           <details>
-            <summary className="flex cursor-pointer list-none items-center gap-2 text-xs text-slate-500 hover:text-slate-300">
+            <summary className="flex cursor-pointer list-none items-center gap-2 text-xs text-[var(--ui-muted)] hover:text-[var(--ui-text)]">
               <CalendarClock className="h-3.5 w-3.5" /> Schedule for later
             </summary>
             <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_120px_auto] sm:items-end">
-              <label className="text-[10px] uppercase tracking-wide text-slate-600">
+              <label className="text-[10px] uppercase tracking-wide text-[var(--ui-muted)]">
                 Name
                 <input
                   aria-label="Schedule name"
@@ -1721,7 +1957,7 @@ export default function Workflows() {
                   className="minimal-input mt-1 w-full text-xs normal-case"
                 />
               </label>
-              <label className="text-[10px] uppercase tracking-wide text-slate-600">
+              <label className="text-[10px] uppercase tracking-wide text-[var(--ui-muted)]">
                 First run
                 <input
                   type="datetime-local"
@@ -1731,7 +1967,7 @@ export default function Workflows() {
                   className="minimal-input mt-1 w-full text-xs normal-case"
                 />
               </label>
-              <label className="text-[10px] uppercase tracking-wide text-slate-600">
+              <label className="text-[10px] uppercase tracking-wide text-[var(--ui-muted)]">
                 Repeat
                 <select
                   aria-label="Schedule frequency"
@@ -1750,7 +1986,7 @@ export default function Workflows() {
                 type="button"
                 onClick={() => void scheduleCurrentWorkflow()}
                 disabled={isScheduling || !goal.trim() || !commands.trim() || !scheduleAt}
-                className="minimal-secondary-button h-9"
+                className="minimal-secondary-button h-9 text-[var(--ui-muted)] hover:bg-[var(--ui-surface-hover)] border-[var(--ui-border)] hover:text-[var(--ui-text)]"
               >
                 {isScheduling ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -1760,23 +1996,23 @@ export default function Workflows() {
                 Schedule
               </button>
             </div>
-            <label className="mt-3 flex items-start gap-2 text-[11px] text-slate-500">
+            <label className="mt-3 flex items-start gap-2 text-[11px] text-[var(--ui-muted)]">
               <input
                 type="checkbox"
                 aria-label="Allow overlapping runs"
                 checked={allowScheduleOverlap}
                 onChange={(event) => setAllowScheduleOverlap(event.target.checked)}
-                className="mt-0.5 rounded border-slate-700 bg-slate-900"
+                className="mt-0.5 rounded border-[var(--ui-border)] bg-[var(--ui-surface)]"
               />
               Allow another scheduled run to start while the previous run is still active.
             </label>
-            <p className="mt-2 text-[10px] text-slate-600">
+            <p className="mt-2 text-[10px] text-[var(--ui-muted)]">
               The workflow definition is snapshotted now. StateSet Desktop must be running when it
               is due.
             </p>
           </details>
           <details>
-            <summary className="flex cursor-pointer list-none items-center gap-2 text-xs text-slate-500 hover:text-slate-300">
+            <summary className="flex cursor-pointer list-none items-center gap-2 text-xs text-[var(--ui-muted)] hover:text-[var(--ui-text)]">
               <Bookmark className="h-3.5 w-3.5" /> Save as reusable blueprint
             </summary>
             <div className="mt-3 flex gap-2">
@@ -1792,7 +2028,7 @@ export default function Workflows() {
                 type="button"
                 onClick={() => void saveCurrentBlueprint()}
                 disabled={!blueprintName.trim() || !goal.trim() || !commands.trim()}
-                className="minimal-secondary-button"
+                className="minimal-secondary-button text-[var(--ui-muted)] hover:bg-[var(--ui-surface-hover)] border-[var(--ui-border)] hover:text-[var(--ui-text)]"
               >
                 Save blueprint
               </button>
@@ -1802,7 +2038,7 @@ export default function Workflows() {
             <button
               type="button"
               onClick={() => setShowForm(false)}
-              className="minimal-secondary-button"
+              className="minimal-secondary-button text-[var(--ui-muted)] hover:bg-[var(--ui-surface-hover)] border-[var(--ui-border)] hover:text-[var(--ui-text)]"
             >
               Cancel
             </button>
@@ -1810,7 +2046,7 @@ export default function Workflows() {
               type="button"
               onClick={start}
               disabled={isStarting || !goal.trim() || !commands.trim()}
-              className="minimal-primary-button"
+              className="ui-button ui-button-primary inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium disabled:cursor-not-allowed"
             >
               {isStarting ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -1832,7 +2068,7 @@ export default function Workflows() {
         preventClose={isAttaching}
       >
         <div className="space-y-5">
-          <label className="block text-xs font-medium text-slate-400">
+          <label className="block text-xs font-medium text-[var(--ui-muted)]">
             Workflow ID
             <input
               autoFocus
@@ -1845,7 +2081,7 @@ export default function Workflows() {
               placeholder="active-horizon-agent-…"
             />
           </label>
-          <p className="text-xs leading-5 text-slate-600">
+          <p className="text-xs leading-5 text-[var(--ui-muted)]">
             Access is checked by the workflow engine. Only workflows visible to your current tenant
             can be added.
           </p>
@@ -1853,7 +2089,7 @@ export default function Workflows() {
             <button
               type="button"
               onClick={() => setShowAttachForm(false)}
-              className="minimal-secondary-button"
+              className="minimal-secondary-button text-[var(--ui-muted)] hover:bg-[var(--ui-surface-hover)] border-[var(--ui-border)] hover:text-[var(--ui-text)]"
             >
               Cancel
             </button>
@@ -1861,7 +2097,7 @@ export default function Workflows() {
               type="button"
               onClick={() => void attach()}
               disabled={isAttaching || !workflowId.trim()}
-              className="minimal-primary-button"
+              className="ui-button ui-button-primary inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium disabled:cursor-not-allowed"
             >
               {isAttaching ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -1883,7 +2119,7 @@ export default function Workflows() {
         preventClose={isSavingSchedule}
       >
         <div className="space-y-4">
-          <label className="block text-xs font-medium text-slate-400">
+          <label className="block text-xs font-medium text-[var(--ui-muted)]">
             Name
             <input
               autoFocus
@@ -1895,7 +2131,7 @@ export default function Workflows() {
             />
           </label>
           <div className="grid grid-cols-[minmax(0,1fr)_120px] gap-3">
-            <label className="block text-xs font-medium text-slate-400">
+            <label className="block text-xs font-medium text-[var(--ui-muted)]">
               Next run
               <input
                 type="datetime-local"
@@ -1905,7 +2141,7 @@ export default function Workflows() {
                 className="minimal-input mt-1.5 w-full text-xs"
               />
             </label>
-            <label className="block text-xs font-medium text-slate-400">
+            <label className="block text-xs font-medium text-[var(--ui-muted)]">
               Repeat
               <select
                 aria-label="Edit schedule frequency"
@@ -1921,46 +2157,46 @@ export default function Workflows() {
               </select>
             </label>
           </div>
-          <div className="space-y-2 rounded-xl border border-slate-800 bg-slate-950/20 p-3">
-            <label className="flex items-start gap-2 text-xs text-slate-400">
+          <div className="space-y-2 rounded-xl border border-[var(--ui-border)] bg-[var(--ui-surface)] p-3">
+            <label className="flex items-start gap-2 text-xs text-[var(--ui-muted)]">
               <input
                 type="checkbox"
                 aria-label="Schedule enabled"
                 checked={editScheduleEnabled}
                 onChange={(event) => setEditScheduleEnabled(event.target.checked)}
-                className="mt-0.5 rounded border-slate-700 bg-slate-900"
+                className="mt-0.5 rounded border-[var(--ui-border)] bg-[var(--ui-surface)]"
               />
               <span>
                 Enabled
-                <span className="mt-0.5 block text-[10px] text-slate-600">
+                <span className="mt-0.5 block text-[10px] text-[var(--ui-muted)]">
                   Launch when the next run becomes due.
                 </span>
               </span>
             </label>
-            <label className="flex items-start gap-2 text-xs text-slate-400">
+            <label className="flex items-start gap-2 text-xs text-[var(--ui-muted)]">
               <input
                 type="checkbox"
                 aria-label="Edit allow overlapping runs"
                 checked={editScheduleOverlap}
                 onChange={(event) => setEditScheduleOverlap(event.target.checked)}
-                className="mt-0.5 rounded border-slate-700 bg-slate-900"
+                className="mt-0.5 rounded border-[var(--ui-border)] bg-[var(--ui-surface)]"
               />
               <span>
                 Allow overlapping runs
-                <span className="mt-0.5 block text-[10px] text-slate-600">
+                <span className="mt-0.5 block text-[10px] text-[var(--ui-muted)]">
                   Start even when the prior scheduled workflow is still active.
                 </span>
               </span>
             </label>
           </div>
-          <p className="text-[10px] leading-4 text-slate-600">
+          <p className="text-[10px] leading-4 text-[var(--ui-muted)]">
             Commands, agent assignments, limits, and credentials policy remain unchanged.
           </p>
           <div className="flex justify-end gap-2 pt-1">
             <button
               type="button"
               onClick={() => setEditingSchedule(null)}
-              className="minimal-secondary-button"
+              className="minimal-secondary-button text-[var(--ui-muted)] hover:bg-[var(--ui-surface-hover)] border-[var(--ui-border)] hover:text-[var(--ui-text)]"
             >
               Cancel
             </button>
@@ -1968,7 +2204,7 @@ export default function Workflows() {
               type="button"
               onClick={() => void saveScheduleChanges()}
               disabled={isSavingSchedule || !editScheduleName.trim() || !editScheduleAt}
-              className="minimal-primary-button"
+              className="ui-button ui-button-primary inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium disabled:cursor-not-allowed"
             >
               {isSavingSchedule && <Loader2 className="h-4 w-4 animate-spin" />}
               Save changes
@@ -1994,8 +2230,8 @@ export default function Workflows() {
 function Metric({ label, value }: { label: string; value: number }) {
   return (
     <div className="px-5 py-4">
-      <p className="text-2xl font-medium tabular-nums text-slate-200">{value}</p>
-      <p className="mt-1 text-[11px] text-slate-600">{label}</p>
+      <p className="text-2xl font-medium tabular-nums text-[var(--ui-text)]">{value}</p>
+      <p className="mt-1 text-[11px] text-[var(--ui-muted)]">{label}</p>
     </div>
   );
 }
@@ -2022,12 +2258,12 @@ function AgentOption({
       onClick={onSelect}
       className={`rounded-xl border px-3 py-3 text-left transition-colors ${
         selected
-          ? 'border-slate-500 bg-slate-800/70 text-slate-100'
-          : 'border-slate-800 bg-slate-950/20 text-slate-400 hover:border-slate-700'
+          ? 'border-[var(--ui-focus)] bg-[var(--ui-surface-selected)] text-[var(--ui-text)]'
+          : 'border-[var(--ui-border)] bg-[var(--ui-surface)] text-[var(--ui-muted)] hover:border-[var(--ui-border)]'
       }`}
     >
       <span className="block text-xs font-medium">{name}</span>
-      <span className="mt-1 block text-[11px] leading-4 text-slate-600">{description}</span>
+      <span className="mt-1 block text-[11px] leading-4 text-[var(--ui-muted)]">{description}</span>
     </button>
   );
 }

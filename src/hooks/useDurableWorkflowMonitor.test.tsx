@@ -137,6 +137,52 @@ describe('useDurableWorkflowMonitor', () => {
     unmount();
   });
 
+  it('keeps acknowledged state and waits for every poll when storage rejects updates and errors', async () => {
+    vi.useFakeTimers();
+    let finishSecond!: (value: ReturnType<typeof runningStatus>) => void;
+    const second = new Promise<ReturnType<typeof runningStatus>>((resolve) => {
+      finishSecond = resolve;
+    });
+    const saved = [trackedWorkflow(), trackedWorkflow({ workflowId: 'workflow-2' })];
+    useDurableWorkflowsStore.setState({ workflows: saved });
+    const persist = vi.mocked(window.electronAPI!.store.set);
+    persist.mockResolvedValue(false);
+    statusMock.mockImplementation((_tenant: string, id: string) =>
+      id === 'workflow-1' ? Promise.resolve(runningStatus({ status: 'completed' })) : second
+    );
+    const { unmount } = renderHook(() => useDurableWorkflowMonitor());
+    try {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(statusMock).toHaveBeenCalledTimes(2);
+      expect(persist).toHaveBeenCalledTimes(2);
+      expect(useDurableWorkflowsStore.getState().workflows).toEqual(saved);
+      expect(useNotificationsStore.getState().notifications).toEqual([]);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(10_000);
+      });
+      // A rejected error-record write cannot release the shared poll lock while
+      // another request is still in flight or leak an unhandled rejection.
+      expect(statusMock).toHaveBeenCalledTimes(2);
+      await act(async () => {
+        finishSecond(runningStatus());
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(persist).toHaveBeenCalledTimes(4);
+      expect(useDurableWorkflowsStore.getState().workflows).toEqual(saved);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(10_000);
+      });
+      expect(statusMock).toHaveBeenCalledTimes(4);
+      expect(useDurableWorkflowsStore.getState().workflows).toEqual(saved);
+      expect(useNotificationsStore.getState().notifications).toEqual([]);
+    } finally {
+      unmount();
+      vi.useRealTimers();
+    }
+  });
+
   it('records the error when a status check fails', async () => {
     useDurableWorkflowsStore.setState({ workflows: [trackedWorkflow()] });
     statusMock.mockRejectedValue(new Error('engine unreachable'));

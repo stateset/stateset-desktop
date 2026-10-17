@@ -24,6 +24,29 @@ atomic configuration storage on startup. Configuration writes use owner-only
 permissions. Release bundles include the runtime and built renderer, excluding
 Electron unit test files and `dist/verification` artifacts.
 
+## Scheduled workflow recovery
+
+Schedules are managed by the open desktop application. Before sending a scheduled
+start request, the app saves the occurrence's request ID, original engine URL,
+workflow ID and frozen input in encrypted configuration. It advances the schedule
+only after the engine confirms the launch and the desktop saves its tracking record.
+Connection changes, pauses and edits made during a pending save prevent a new launch.
+
+If the response is lost or the app closes during submission, the occurrence stays
+unconfirmed. **Check pending run** asks the original engine for that workflow's
+status, including runs that have already completed. It never sends another start
+request. Reconnect to the displayed original engine before checking. A missing,
+unavailable or invalid status response keeps the occurrence pending; it does not
+prove that no work was admitted. A request that does not respond within 45 seconds
+also remains pending for confirmation.
+
+You can pause a schedule while confirming an admitted run. Deletion and **Run now**
+remain unavailable until a submitted occurrence is confirmed, preserving the
+identity needed for recovery. A known unsent occurrence can be retried or edited.
+Malformed saved pending records stop workflow settings from loading so they cannot
+be silently discarded by a later save. Keep the original profile and restore a
+valid backup if retrying cannot recover its records.
+
 ## Linux bundle smoke test
 
 On the shared workstation, route each build and test below through Agent Builds.

@@ -9,6 +9,7 @@ const TERMINAL_STATUSES = new Set([
   'terminated',
   'timed_out',
   'checkpoint_failed',
+  'dependency_deadlock',
 ]);
 
 export function isDurableWorkflowTerminal(status: string): boolean {
