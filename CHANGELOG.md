@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## Unreleased
 
+## [1.1.21] - 2026-10-17
+
+### Changed
+
+- Keep workflow header actions readable at standard and minimum window sizes, with complete button labels and consistent light and dark surfaces.
+
 ### Security
 
 - Bind published installers to the exact pushed version-tag commit, reject branch publication, and route local release requests through the signed multi-platform workflow. Report missing signing settings before build work.
@@ -14,6 +20,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Fixed
 
+- Preserve each scheduled workflow occurrence through uncertain launch responses and app restarts. Recover its original workflow through status checks, retain pause and edit intent, and prevent duplicate launches or deletion of unconfirmed runs.
+- Serialize blueprint saves and removals against the latest saved collection. Import complete bundles in one acknowledged write, retain saved blueprints after storage failures, and preserve working drafts when retrying or deleting a blueprint.
+- Keep the Commands field's accessible label stable after restoring saved multi-step workflows.
 - Recover saved workflow settings after temporary storage or credential read failures, with a clear retry action. Protect saved workflows and connection identity until loading succeeds, preserve newer connection saves and form edits, and restore the saved engine URL in computer setup.
 - Report updates only after a completed check, preserve download and restart actions across late replies, and recover failed check and restart requests with clear retry feedback. Simplify the Updates surface and make progress available to assistive technology.
 - Use the built package version in renderer startup diagnostics and Settings fallbacks.
