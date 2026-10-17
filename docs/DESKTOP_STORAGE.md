@@ -47,6 +47,22 @@ Malformed saved pending records stop workflow settings from loading so they cann
 be silently discarded by a later save. Keep the original profile and restore a
 valid backup if retrying cannot recover its records.
 
+## Workflow blueprints
+
+Blueprint saves, removals and imports share one write queue. Each operation merges
+against the latest acknowledged collection and publishes its result only after
+desktop storage accepts the write. Rejected writes and false acknowledgements
+leave the previous collection available for retry. Queued inputs are copied so a
+later form edit cannot alter the definition being saved.
+
+An imported bundle is validated in full and saved in one write, preserving the
+bundle's order and unrelated saved blueprints. A failed import does not add a
+partial collection. Importing a bundle again after a successful import intentionally
+creates new copies. While a blueprint change is pending, its editor keeps the
+selection and name stable and prevents duplicate submission or closing the form;
+newer goal and command edits remain available. Deleting a saved blueprint keeps
+the current workflow draft.
+
 ## Linux bundle smoke test
 
 On the shared workstation, route each build and test below through Agent Builds.

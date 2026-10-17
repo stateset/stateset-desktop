@@ -10,6 +10,7 @@ import { installDesktopApiFixture } from './api-fixture';
 import { DESKTOP_TEST_ORIGIN } from './dev-server';
 import type {
   DurableWorkflowSchedule,
+  DurableWorkflowBlueprint,
   TrackedDurableWorkflow,
 } from '../src/stores/durableWorkflows';
 
@@ -89,6 +90,7 @@ test('submitted scheduled runs recover after restart without resubmitting work',
     [];
   const ambientRootProbes: Array<{ method: string; path: string }> = [];
   const primaryStyles: Record<string, unknown> = {};
+  const viewportLayouts: Record<string, unknown> = {};
   let confirmationAvailable = false;
   // The owned HTTP service preserves actual 404 responses in Electron; CDP
   // route.fulfill can expose an opaque status-0 response instead.
@@ -214,6 +216,7 @@ test('submitted scheduled runs recover after restart without resubmitting work',
         await window.electronAPI!.store.set('durableTrackedWorkflows', []);
         await window.electronAPI!.store.set('durableWorkflowSchedules', [schedule]);
         await window.electronAPI!.store.set('onboardingCompleted', true);
+        await window.electronAPI!.store.set('theme', 'dark');
       },
       { engineUrl, engineKey, schedule }
     );
@@ -248,77 +251,119 @@ test('submitted scheduled runs recover after restart without resubmitting work',
     await expect(
       row.getByRole('button', { name: `Delete ${schedule.name}`, exact: true })
     ).toBeDisabled();
-    await application.evaluate(({ BrowserWindow }) =>
-      BrowserWindow.getAllWindows()[0].setContentSize(1024, 768)
-    );
     await mkdir('dist/verification', { recursive: true });
-    for (const theme of ['dark', 'light'] as const) {
-      await page.evaluate((theme) => window.electronAPI!.store.set('theme', theme), theme);
-      await page.reload();
-      await expect
-        .poll(() => page.evaluate(() => document.documentElement.dataset.theme))
-        .toBe(theme);
-      await expect(
-        row.getByText('Launch confirmation needs attention', { exact: true })
-      ).toBeVisible();
-      await expect
-        .poll(() =>
-          row
-            .getByText(schedule.name, { exact: true })
-            .evaluate((element) => element.scrollWidth <= element.clientWidth)
-        )
-        .toBe(true);
-      await expect
-        .poll(() =>
-          row.evaluate((element) => {
-            const surface = getComputedStyle(document.documentElement).getPropertyValue(
-              '--ui-surface'
-            );
-            const probe = document.createElement('div');
-            probe.style.backgroundColor = surface;
-            return (
-              getComputedStyle(element.parentElement!).backgroundColor ===
-              probe.style.backgroundColor
-            );
-          })
-        )
-        .toBe(true);
-      const primary = page.getByRole('button', { name: 'New workflow', exact: true });
-      await expect(primary).toBeEnabled();
-      const readPrimaryStyle = () =>
-        primary.evaluate((element) => {
-          const style = getComputedStyle(element);
+    for (const size of ['standard', 'minimum'] as const) {
+      await application.evaluate(({ BrowserWindow }, size) => {
+        const window = BrowserWindow.getAllWindows()[0];
+        if (size === 'standard') window.setContentSize(1024, 768);
+        else {
+          const [width, height] = window.getMinimumSize();
+          window.setSize(width, height);
+        }
+      }, size);
+      for (const theme of ['dark', 'light'] as const) {
+        if ((await page.evaluate(() => document.documentElement.dataset.theme)) !== theme) {
+          await page.getByRole('button', { name: `Switch to ${theme} theme`, exact: true }).click();
+        }
+        await expect
+          .poll(() => page.evaluate(() => document.documentElement.dataset.theme))
+          .toBe(theme);
+        await expect(
+          row.getByText('Launch confirmation needs attention', { exact: true })
+        ).toBeVisible();
+        await expect
+          .poll(() =>
+            row
+              .getByText(schedule.name, { exact: true })
+              .evaluate((element) => element.scrollWidth <= element.clientWidth)
+          )
+          .toBe(true);
+        await expect
+          .poll(() =>
+            row.evaluate((element) => {
+              const surface = getComputedStyle(document.documentElement).getPropertyValue(
+                '--ui-surface'
+              );
+              const probe = document.createElement('div');
+              probe.style.backgroundColor = surface;
+              return (
+                getComputedStyle(element.parentElement!).backgroundColor ===
+                probe.style.backgroundColor
+              );
+            })
+          )
+          .toBe(true);
+        const primary = page.getByRole('button', { name: 'New workflow', exact: true });
+        await expect(primary).toBeEnabled();
+        const readPrimaryStyle = () =>
+          primary.evaluate((element) => {
+            const style = getComputedStyle(element);
+            return {
+              text: element.textContent,
+              color: style.color,
+              textFillColor: style.webkitTextFillColor,
+              background: style.backgroundColor,
+              opacity: style.opacity,
+              visibility: style.visibility,
+            };
+          });
+        await page.mouse.move(0, 0);
+        await page.evaluate(async () => {
+          await document.fonts.ready;
+          await new Promise<void>((resolve) =>
+            requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+          );
+        });
+        const layout = await page.locator('.page-shell > header').evaluate((element) => {
+          const title = element.firstElementChild!.getBoundingClientRect();
+          const actions = element.lastElementChild!.getBoundingClientRect();
           return {
-            text: element.textContent,
-            color: style.color,
-            textFillColor: style.webkitTextFillColor,
-            background: style.backgroundColor,
-            opacity: style.opacity,
-            visibility: style.visibility,
+            viewportWidth: innerWidth,
+            viewportHeight: innerHeight,
+            stacked: actions.top >= title.bottom,
+            viewportFits: document.documentElement.scrollWidth <= innerWidth,
+            headerFits: element.scrollWidth <= element.clientWidth,
+            buttons: Array.from(element.querySelectorAll('button')).map((button) => {
+              const text = Array.from(button.childNodes).find(
+                (node) => node.nodeType === Node.TEXT_NODE && node.textContent?.trim()
+              );
+              const range = document.createRange();
+              if (text) range.selectNodeContents(text);
+              return {
+                name: button.textContent?.trim(),
+                lines: text ? range.getClientRects().length : 0,
+                fits: button.scrollWidth <= button.clientWidth,
+              };
+            }),
           };
         });
-      await page.mouse.move(0, 0);
-      await page.evaluate(async () => {
-        await document.fonts.ready;
-        await new Promise<void>((resolve) =>
-          requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+        expect(layout.viewportFits).toBe(true);
+        expect(layout.headerFits).toBe(true);
+        if (layout.viewportWidth < 1280) expect(layout.stacked).toBe(true);
+        expect(layout.buttons).toEqual(
+          ['Agents', 'Track existing', 'New workflow'].map((name) => ({
+            name,
+            lines: 1,
+            fits: true,
+          }))
         );
-      });
-      const beforeScan = await readPrimaryStyle();
-      await page.screenshot({
-        path: `dist/verification/schedule-pending-${theme}.png`,
-        animations: 'disabled',
-      });
-      expect(
-        (
-          await new AxeBuilder({ page })
-            .setLegacyMode()
-            .include(`[role="group"][aria-label="Schedule ${schedule.name}"]`)
-            .include('.page-shell > header')
-            .analyze()
-        ).violations
-      ).toEqual([]);
-      primaryStyles[theme] = { beforeScan, afterScan: await readPrimaryStyle() };
+        viewportLayouts[`${size}-${theme}`] = layout;
+        const beforeScan = await readPrimaryStyle();
+        await page.screenshot({
+          path: `dist/verification/schedule-pending-${size === 'minimum' ? 'minimum-' : ''}${theme}.png`,
+          animations: 'disabled',
+        });
+        expect(
+          (
+            await new AxeBuilder({ page })
+              .setLegacyMode()
+              .include(`[role="group"][aria-label="Schedule ${schedule.name}"]`)
+              .include('.page-shell > header')
+              .analyze()
+          ).violations
+        ).toEqual([]);
+        primaryStyles[theme] = { beforeScan, afterScan: await readPrimaryStyle() };
+      }
     }
     expect(requests).toEqual([]);
     expect(
@@ -386,6 +431,7 @@ test('submitted scheduled runs recover after restart without resubmitting work',
           workflowRequests: requests.map(({ method, path }) => ({ method, path })),
           ambientRootProbes,
           primaryStyles,
+          viewportLayouts,
         })
       ),
       contentType: 'application/json',
@@ -399,5 +445,147 @@ test('submitted scheduled runs recover after restart without resubmitting work',
         server.closeAllConnections();
       });
     }
+  }
+});
+
+test('workflow blueprint imports survive restart and deletion preserves the working draft', async ({
+  desktop,
+}) => {
+  const tenant = {
+    id: '11111111-1111-4111-8111-111111111111',
+    name: 'Blueprint workspace',
+    slug: 'blueprint-workspace',
+    tier: 'pro',
+  };
+  const brand = {
+    id: '22222222-2222-4222-8222-222222222222',
+    tenant_id: tenant.id,
+    name: 'Blueprint brand',
+    slug: 'blueprint-brand',
+    enabled: true,
+  };
+  const openWorkspace = async (application: ElectronApplication) => {
+    const page = await application.firstWindow();
+    await page.waitForURL(`${DESKTOP_TEST_ORIGIN}/**`);
+    await page.evaluate(async () => {
+      await window.electronAPI!.store.set('onboardingCompleted', true);
+      await window.electronAPI!.auth.setDurableEngineApiKey('blueprint-fixture-key');
+    });
+    await installDesktopApiFixture(application, page, { tenant, brand, sessions: [] });
+    await page.context().addInitScript(
+      ({ tenant, brand }) => {
+        window.__E2E_AUTH__ = { tenant, brands: [brand] } as any;
+      },
+      { tenant, brand }
+    );
+    await page.reload();
+    await page.getByRole('link', { name: 'Workflows', exact: true }).click();
+    return page;
+  };
+  const at = new Date().toISOString();
+  const imported: DurableWorkflowBlueprint[] = ['Orders audit', 'Returns audit'].map(
+    (name, index) => ({
+      id: `blueprint-import-${index}`,
+      name,
+      goal: `Review ${name.toLowerCase()}`,
+      definition: {
+        steps: [[`audit-${index}`]],
+        activeWindowSeconds: 3600,
+        maxFailures: 3,
+        perCommandTimeoutSeconds: 300,
+      },
+      createdAt: at,
+      updatedAt: at,
+    })
+  );
+  let application: ElectronApplication | undefined;
+  try {
+    const profile = await desktop.createProfile({ memoryOnlyCredentials: true });
+    application = await desktop.launch(profile);
+    let page = await openWorkspace(application);
+    await page.getByRole('button', { name: 'New workflow', exact: true }).click();
+    await page.getByLabel('Goal', { exact: true }).fill('Weekly inventory review');
+    await page.getByLabel('Commands', { exact: true }).fill('collect-inventory\n\nverify-report');
+    await page.getByText('Save as reusable blueprint', { exact: true }).click();
+    await page.getByLabel('Blueprint name', { exact: true }).fill('Weekly inventory');
+    await page.getByRole('button', { name: 'Save blueprint', exact: true }).click();
+    await expect(page.getByText('Blueprint saved', { exact: true })).toBeVisible();
+    await page.getByLabel('Import workflow blueprints', { exact: true }).setInputFiles({
+      name: 'workflow-blueprints.json',
+      mimeType: 'application/json',
+      buffer: Buffer.from(
+        JSON.stringify({
+          format: 'stateset-durable-blueprints',
+          version: 1,
+          exportedAt: at,
+          blueprints: imported,
+        })
+      ),
+    });
+    await expect(page.getByText('Blueprints imported', { exact: true })).toBeVisible();
+    const beforeRestart = await page.evaluate(
+      async () =>
+        (await window.electronAPI!.store.get(
+          'durableWorkflowBlueprints'
+        )) as DurableWorkflowBlueprint[]
+    );
+    expect(beforeRestart.map((blueprint) => blueprint.name)).toEqual([
+      'Orders audit',
+      'Returns audit',
+      'Weekly inventory',
+    ]);
+    expect(new Set(beforeRestart.map((blueprint) => blueprint.id)).size).toBe(3);
+    await application.close();
+    application = undefined;
+    application = await desktop.launch(profile);
+    page = await openWorkspace(application);
+    const savedBlueprints = () =>
+      page.evaluate(
+        async () =>
+          (await window.electronAPI!.store.get(
+            'durableWorkflowBlueprints'
+          )) as DurableWorkflowBlueprint[]
+      );
+    await expect.poll(savedBlueprints).toEqual(beforeRestart);
+    const afterRestart = await savedBlueprints();
+    await page.getByRole('button', { name: 'New workflow', exact: true }).click();
+    const selector = page.getByLabel('Workflow blueprint', { exact: true });
+    await expect(selector.locator('option')).toHaveText([
+      'Start from scratch',
+      'Orders audit',
+      'Returns audit',
+      'Weekly inventory',
+    ]);
+    await selector.selectOption({ label: 'Weekly inventory' });
+    await expect(page.getByLabel('Goal', { exact: true })).toHaveValue('Weekly inventory review');
+    await expect(page.getByLabel('Commands', { exact: true })).toHaveValue(
+      'collect-inventory\n\nverify-report'
+    );
+    await selector.selectOption({ label: 'Orders audit' });
+    await page.getByLabel('Goal', { exact: true }).fill('Keep this working draft');
+    await page.getByRole('button', { name: 'Delete selected blueprint', exact: true }).click();
+    await page
+      .getByRole('alertdialog')
+      .getByRole('button', { name: 'Delete blueprint', exact: true })
+      .click();
+    await expect(page.getByText('Blueprint deleted', { exact: true })).toBeVisible();
+    const afterDelete = beforeRestart.filter((blueprint) => blueprint.name !== 'Orders audit');
+    await expect.poll(savedBlueprints).toEqual(afterDelete);
+    await expect(page.getByLabel('Goal', { exact: true })).toHaveValue('Keep this working draft');
+    await expect(page.getByLabel('Commands', { exact: true })).toHaveValue('audit-0');
+    await test.info().attach('blueprint-persistence', {
+      body: Buffer.from(
+        JSON.stringify({
+          beforeRestart: beforeRestart.map(({ id, name }) => ({ id, name })),
+          afterRestart: afterRestart.map(({ id, name }) => ({ id, name })),
+          afterDelete: (await savedBlueprints()).map(({ id, name }) => ({ id, name })),
+          removedName: 'Orders audit',
+          workingDraftPreserved: true,
+        })
+      ),
+      contentType: 'application/json',
+    });
+  } finally {
+    await application?.close();
   }
 });

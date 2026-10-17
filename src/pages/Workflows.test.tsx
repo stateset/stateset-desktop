@@ -4,10 +4,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, mockElectronAPI, renderWithProviders, screen, waitFor } from '../test-utils';
 import { useAuthStore } from '../stores/auth';
 import {
+  type DurableWorkflowBlueprint,
   getScheduleIntentGeneration,
   useDurableWorkflowsStore,
   type DurableWorkflowSchedule,
 } from '../stores/durableWorkflows';
+import { serializeBlueprints } from '../lib/durableBlueprintTransfer';
 import Workflows from './Workflows';
 
 const startMock = vi.fn();
@@ -16,6 +18,22 @@ const signalMock = vi.fn();
 const reprioritizeMock = vi.fn();
 const terminateMock = vi.fn();
 const enqueueMock = vi.fn();
+
+function blueprintFixture(id = 'blueprint-original'): DurableWorkflowBlueprint {
+  return {
+    id,
+    name: id === 'blueprint-original' ? 'Inventory review' : id,
+    goal: 'Review inventory',
+    definition: {
+      steps: [['review-inventory']],
+      activeWindowSeconds: 3600,
+      maxFailures: 3,
+      perCommandTimeoutSeconds: 300,
+    },
+    createdAt: '2026-10-17T00:00:00.000Z',
+    updatedAt: '2026-10-17T00:00:00.000Z',
+  };
+}
 
 function scheduleFixture(
   overrides: Partial<DurableWorkflowSchedule> = {}
@@ -108,7 +126,15 @@ describe('Workflows', () => {
       cancelled: false,
       steering_notes: [],
     });
-    vi.stubGlobal('crypto', { randomUUID: () => '0aa616a8-1241-4b8a-a3ae-2f79fa72b1e7' });
+    let uuidCount = 0;
+    vi.stubGlobal('crypto', {
+      randomUUID: () => {
+        uuidCount++;
+        return uuidCount === 1
+          ? '0aa616a8-1241-4b8a-a3ae-2f79fa72b1e7'
+          : `00000000-0000-4000-8000-${String(uuidCount).padStart(12, '0')}`;
+      },
+    });
     useAuthStore.setState({
       tenant: {
         id: 'tenant-1',
@@ -325,6 +351,164 @@ describe('Workflows', () => {
     });
   });
 
+  it('guards a pending blueprint save and preserves newer workflow edits after a failed acknowledgement', async () => {
+    const electron = mockElectronAPI();
+    let rejectSave!: () => void;
+    electron.store.set.mockImplementationOnce(
+      () =>
+        new Promise<false>((resolve) => {
+          rejectSave = () => resolve(false);
+        })
+    );
+    renderWithProviders(<Workflows />);
+    fireEvent.click(screen.getByRole('button', { name: 'New workflow' }));
+    fireEvent.change(screen.getByLabelText('Goal'), { target: { value: 'Weekly review' } });
+    fireEvent.change(screen.getByLabelText('Commands'), { target: { value: 'collect-data' } });
+    fireEvent.click(screen.getByText('Save as reusable blueprint'));
+    fireEvent.change(screen.getByLabelText('Blueprint name'), {
+      target: { value: 'Weekly review' },
+    });
+    const save = screen.getByRole('button', { name: 'Save blueprint' });
+    fireEvent.click(save);
+    fireEvent.click(save);
+    await waitFor(() => expect(electron.store.set).toHaveBeenCalledTimes(1));
+    expect(screen.getByText('Saving blueprint…')).toBeInTheDocument();
+    expect(save).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Import' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Start workflow' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
+    expect(screen.getByLabelText('Blueprint name')).toBeDisabled();
+    expect(useDurableWorkflowsStore.getState().blueprints).toEqual([]);
+    fireEvent.change(screen.getByLabelText('Goal'), { target: { value: 'Newer workflow draft' } });
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.getByRole('dialog', { name: 'New background workflow' })).toBeInTheDocument();
+    act(() => rejectSave());
+    expect(await screen.findByText('Unable to save blueprint')).toBeInTheDocument();
+    expect(screen.queryByText('Blueprint saved', { exact: true })).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Goal')).toHaveValue('Newer workflow draft');
+    expect(screen.getByLabelText('Commands')).toHaveValue('collect-data');
+    expect(screen.getByLabelText('Blueprint name')).toHaveValue('Weekly review');
+    expect(save).toBeEnabled();
+    fireEvent.click(save);
+    expect(await screen.findByText('Blueprint saved', { exact: true })).toBeInTheDocument();
+    expect(useDurableWorkflowsStore.getState().blueprints).toEqual([
+      expect.objectContaining({ name: 'Weekly review', goal: 'Newer workflow draft' }),
+    ]);
+    expect(electron.store.set).toHaveBeenCalledTimes(2);
+  });
+
+  it('imports a whole bundle in one acknowledged write and retries a failed batch without partial rows', async () => {
+    const electron = mockElectronAPI();
+    const original = blueprintFixture();
+    const imported = [blueprintFixture('blueprint-first'), blueprintFixture('blueprint-second')];
+    useDurableWorkflowsStore.setState({ blueprints: [original] });
+    let rejectImport!: () => void;
+    electron.store.set.mockImplementationOnce(
+      () =>
+        new Promise<false>((resolve) => {
+          rejectImport = () => resolve(false);
+        })
+    );
+    const file = new File([serializeBlueprints(imported)], 'blueprints.json', {
+      type: 'application/json',
+    });
+    renderWithProviders(<Workflows />);
+    fireEvent.click(screen.getByRole('button', { name: 'New workflow' }));
+    const input = screen.getByLabelText('Import workflow blueprints');
+    fireEvent.change(input, { target: { files: [file] } });
+    await waitFor(() => expect(electron.store.set).toHaveBeenCalledTimes(1));
+    expect(electron.store.set).toHaveBeenCalledWith('durableWorkflowBlueprints', [
+      expect.objectContaining({ name: 'blueprint-first' }),
+      expect.objectContaining({ name: 'blueprint-second' }),
+      original,
+    ]);
+    expect(screen.getByText('Importing blueprints…')).toBeInTheDocument();
+    expect(screen.getByLabelText('Workflow blueprint')).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Import' })).toBeDisabled();
+    expect(useDurableWorkflowsStore.getState().blueprints).toEqual([original]);
+    act(() => rejectImport());
+    expect(await screen.findByText('Unable to import blueprints')).toBeInTheDocument();
+    expect(screen.queryByText('Blueprints imported', { exact: true })).not.toBeInTheDocument();
+    expect(useDurableWorkflowsStore.getState().blueprints).toEqual([original]);
+    fireEvent.change(input, { target: { files: [file] } });
+    expect(await screen.findByText('Blueprints imported', { exact: true })).toBeInTheDocument();
+    expect(electron.store.set).toHaveBeenCalledTimes(2);
+    expect(
+      useDurableWorkflowsStore.getState().blueprints.map((blueprint) => blueprint.name)
+    ).toEqual(['blueprint-first', 'blueprint-second', original.name]);
+  });
+
+  it('releases import controls after invalid JSON without writing or changing the current draft', async () => {
+    const electron = mockElectronAPI();
+    renderWithProviders(<Workflows />);
+    fireEvent.click(screen.getByRole('button', { name: 'New workflow' }));
+    fireEvent.change(screen.getByLabelText('Goal'), { target: { value: 'Keep this draft' } });
+    const input = screen.getByLabelText('Import workflow blueprints');
+    fireEvent.change(input, { target: { files: [new File(['{'], 'invalid.json')] } });
+    expect(await screen.findByText('Unable to import blueprints')).toBeInTheDocument();
+    expect(electron.store.set).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('Goal')).toHaveValue('Keep this draft');
+    expect(screen.getByRole('button', { name: 'Import' })).toBeEnabled();
+    fireEvent.change(input, {
+      target: { files: [new File([serializeBlueprints([blueprintFixture()])], 'valid.json')] },
+    });
+    expect(await screen.findByText('Blueprints imported', { exact: true })).toBeInTheDocument();
+    expect(useDurableWorkflowsStore.getState().blueprints).toHaveLength(1);
+    expect(screen.getByLabelText('Goal')).toHaveValue('Keep this draft');
+  });
+
+  it('retains a blueprint and its selection after delete failure, then allows a successful retry', async () => {
+    const electron = mockElectronAPI();
+    electron.store.set.mockRejectedValueOnce(new Error('Local storage is unavailable.'));
+    const original = blueprintFixture();
+    useDurableWorkflowsStore.setState({ blueprints: [original] });
+    renderWithProviders(<Workflows />);
+    fireEvent.click(screen.getByRole('button', { name: 'New workflow' }));
+    fireEvent.change(screen.getByLabelText('Workflow blueprint'), {
+      target: { value: original.id },
+    });
+    fireEvent.change(screen.getByLabelText('Goal'), {
+      target: { value: 'Keep my workflow edits' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Delete selected blueprint' }));
+    fireEvent.click(
+      within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete blueprint' })
+    );
+    expect(await screen.findByText('Unable to delete blueprint')).toBeInTheDocument();
+    expect(screen.queryByText('Blueprint deleted', { exact: true })).not.toBeInTheDocument();
+    expect(useDurableWorkflowsStore.getState().blueprints).toEqual([original]);
+    expect(screen.getByLabelText('Workflow blueprint')).toHaveValue(original.id);
+    expect(screen.getByLabelText('Blueprint name')).toHaveValue(original.name);
+    expect(screen.getByLabelText('Goal')).toHaveValue('Keep my workflow edits');
+    fireEvent.click(screen.getByRole('button', { name: 'Delete selected blueprint' }));
+    fireEvent.click(
+      within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete blueprint' })
+    );
+    expect(await screen.findByText('Blueprint deleted', { exact: true })).toBeInTheDocument();
+    expect(useDurableWorkflowsStore.getState().blueprints).toEqual([]);
+    expect(screen.getByLabelText('Goal')).toHaveValue('Keep my workflow edits');
+  });
+
+  it('cancels blueprint deletion without closing the workflow editor or retaining a busy lock', async () => {
+    const electron = mockElectronAPI();
+    const original = blueprintFixture();
+    useDurableWorkflowsStore.setState({ blueprints: [original] });
+    renderWithProviders(<Workflows />);
+    fireEvent.click(screen.getByRole('button', { name: 'New workflow' }));
+    fireEvent.change(screen.getByLabelText('Workflow blueprint'), {
+      target: { value: original.id },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Delete selected blueprint' }));
+    fireEvent.click(
+      within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Cancel' })
+    );
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
+    expect(screen.getByRole('dialog', { name: 'New background workflow' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Workflow blueprint')).toHaveValue(original.id);
+    expect(screen.getByRole('button', { name: 'Delete selected blueprint' })).toBeEnabled();
+    expect(electron.store.set).not.toHaveBeenCalled();
+  });
+
   it('tracks a workflow that was started from another client', async () => {
     renderWithProviders(<Workflows />);
     fireEvent.click(screen.getByRole('button', { name: 'Track existing' }));
@@ -371,9 +555,9 @@ describe('Workflows', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Run again' }));
 
     expect(screen.getByLabelText('Goal')).toHaveValue('Reconcile orders');
-    expect(screen.getByLabelText('Commands')).toHaveValue(
-      'download-orders\nvalidate-orders\n\npublish-report'
-    );
+    const commands = screen.getByRole('textbox', { name: 'Commands' });
+    expect(commands).toHaveValue('download-orders\nvalidate-orders\n\npublish-report');
+    expect((commands as HTMLTextAreaElement).labels?.[0].textContent?.trim()).toBe('Commands');
   });
 
   it('filters and searches a fleet of background workflows', () => {

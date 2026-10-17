@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import {
   AlertCircle,
   ArrowDown,
@@ -750,6 +750,7 @@ export default function Workflows() {
     initialize,
     track,
     saveBlueprint,
+    saveBlueprints,
     removeBlueprint,
     updateStatus,
     saveSchedule,
@@ -763,6 +764,7 @@ export default function Workflows() {
   const [isAttaching, setIsAttaching] = useState(false);
   const [goal, setGoal] = useState('');
   const [commands, setCommands] = useState('');
+  const commandsId = useId();
   const [selectedAgent, setSelectedAgent] = useState<DurableAgentProfile | undefined>();
   const [stepAgentOverrides, setStepAgentOverrides] = useState<
     Record<number, DurableAgentProfile | null | undefined>
@@ -773,6 +775,8 @@ export default function Workflows() {
   const [isStarting, setIsStarting] = useState(false);
   const [selectedBlueprintId, setSelectedBlueprintId] = useState('');
   const [blueprintName, setBlueprintName] = useState('');
+  const [blueprintAction, setBlueprintAction] = useState<'save' | 'import' | 'delete' | null>(null);
+  const blueprintActionInFlight = useRef(false);
   const [workflowFilter, setWorkflowFilter] = useState<WorkflowFilter>('all');
   const [workflowQuery, setWorkflowQuery] = useState('');
   const [fleetAction, setFleetAction] = useState<'pause' | 'resume' | 'cancel' | null>(null);
@@ -1260,9 +1264,21 @@ export default function Workflows() {
     );
   };
 
+  const beginBlueprintAction = (action: 'save' | 'import' | 'delete') => {
+    if (blueprintActionInFlight.current || isStarting || isScheduling) return false;
+    blueprintActionInFlight.current = true;
+    setBlueprintAction(action);
+    return true;
+  };
+
+  const finishBlueprintAction = () => {
+    blueprintActionInFlight.current = false;
+    setBlueprintAction(null);
+  };
+
   const saveCurrentBlueprint = async () => {
     const name = blueprintName.trim();
-    if (!name || !goal.trim() || !parsedSteps.length) return;
+    if (!name || !goal.trim() || !parsedSteps.length || !beginBlueprintAction('save')) return;
     try {
       assertNoInlineSecrets(parsedSteps);
       const now = new Date().toISOString();
@@ -1300,33 +1316,46 @@ export default function Workflows() {
         title: 'Unable to save blueprint',
         message: error instanceof Error ? error.message : String(error),
       });
+    } finally {
+      finishBlueprintAction();
     }
   };
 
   const deleteSelectedBlueprint = async () => {
     const blueprint = blueprints.find((item) => item.id === selectedBlueprintId);
-    if (!blueprint) return;
-    const accepted = await confirm({
-      title: `Delete ${blueprint.name}?`,
-      message: 'This removes the saved blueprint. Existing workflows are unaffected.',
-      confirmLabel: 'Delete blueprint',
-      variant: 'danger',
-    });
-    if (!accepted) return;
-    await removeBlueprint(blueprint.id);
-    setSelectedBlueprintId('');
-    setBlueprintName('');
-    showToast({
-      variant: 'warning',
-      title: 'Blueprint deleted',
-      message: 'It cannot be recovered unless recreated. Existing workflows are unaffected.',
-    });
+    if (!blueprint || !beginBlueprintAction('delete')) return;
+    try {
+      const accepted = await confirm({
+        title: `Delete ${blueprint.name}?`,
+        message: 'This removes the saved blueprint. Existing workflows are unaffected.',
+        confirmLabel: 'Delete blueprint',
+        variant: 'danger',
+      });
+      if (!accepted) return;
+      await removeBlueprint(blueprint.id);
+      setSelectedBlueprintId('');
+      setBlueprintName('');
+      showToast({
+        variant: 'warning',
+        title: 'Blueprint deleted',
+        message: 'It cannot be recovered unless recreated. Existing workflows are unaffected.',
+      });
+    } catch (error) {
+      showToast({
+        variant: 'error',
+        title: 'Unable to delete blueprint',
+        message: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      finishBlueprintAction();
+    }
   };
 
   const importBlueprints = async (file: File) => {
+    if (!beginBlueprintAction('import')) return;
     try {
       const imported = await importBlueprintFile(file);
-      for (const blueprint of imported) await saveBlueprint(blueprint);
+      await saveBlueprints(imported);
       showToast({
         variant: 'success',
         title: 'Blueprints imported',
@@ -1340,6 +1369,19 @@ export default function Workflows() {
       });
     } finally {
       if (blueprintFileInputRef.current) blueprintFileInputRef.current.value = '';
+      finishBlueprintAction();
+    }
+  };
+
+  const exportBlueprints = () => {
+    try {
+      downloadBlueprints(blueprints);
+    } catch (error) {
+      showToast({
+        variant: 'error',
+        title: 'Unable to export blueprints',
+        message: error instanceof Error ? error.message : String(error),
+      });
     }
   };
 
@@ -1353,8 +1395,8 @@ export default function Workflows() {
 
   return (
     <div className="page-shell mx-auto max-w-5xl space-y-6">
-      <header className="flex items-end justify-between gap-4 pt-2">
-        <div>
+      <header className="flex flex-col items-start gap-4 pt-2 xl:flex-row xl:items-end xl:justify-between">
+        <div className="min-w-0">
           <div className="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--ui-muted)]">
             <Circle
               className={`h-2 w-2 fill-current ${apiKey ? 'text-emerald-400' : 'text-[var(--ui-muted)]'}`}
@@ -1366,12 +1408,12 @@ export default function Workflows() {
             Long-running work, safely detached from this device.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={() => setShowAgentManager(true)}
             disabled={!apiKey}
-            className="minimal-secondary-button text-[var(--ui-muted)] hover:bg-[var(--ui-surface-hover)] border-[var(--ui-border)] hover:text-[var(--ui-text)]"
+            className="minimal-secondary-button h-9 shrink-0 whitespace-nowrap text-[var(--ui-muted)] hover:bg-[var(--ui-surface-hover)] border-[var(--ui-border)] hover:text-[var(--ui-text)] [&>svg]:shrink-0"
           >
             <Bot className="h-4 w-4" /> Agents
           </button>
@@ -1379,7 +1421,7 @@ export default function Workflows() {
             type="button"
             onClick={() => setShowAttachForm(true)}
             disabled={!apiKey}
-            className="minimal-secondary-button text-[var(--ui-muted)] hover:bg-[var(--ui-surface-hover)] border-[var(--ui-border)] hover:text-[var(--ui-text)]"
+            className="minimal-secondary-button h-9 shrink-0 whitespace-nowrap text-[var(--ui-muted)] hover:bg-[var(--ui-surface-hover)] border-[var(--ui-border)] hover:text-[var(--ui-text)] [&>svg]:shrink-0"
           >
             <Link2 className="h-4 w-4" /> Track existing
           </button>
@@ -1387,7 +1429,7 @@ export default function Workflows() {
             type="button"
             onClick={() => setShowForm(true)}
             disabled={!apiKey}
-            className="ui-button ui-button-primary inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium disabled:cursor-not-allowed"
+            className="ui-button ui-button-primary inline-flex h-9 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg px-3.5 py-2 text-sm font-medium disabled:cursor-not-allowed [&>svg]:shrink-0"
           >
             <Plus className="h-4 w-4" /> New workflow
           </button>
@@ -1728,7 +1770,7 @@ export default function Workflows() {
         title="New background workflow"
         description="Blank lines separate durable steps."
         size="xl"
-        preventClose={isStarting}
+        preventClose={isStarting || blueprintAction !== null}
       >
         <div className="space-y-4">
           <div className="flex items-center justify-between gap-3">
@@ -1742,14 +1784,18 @@ export default function Workflows() {
                 accept="application/json,.json"
                 className="hidden"
                 aria-label="Import workflow blueprints"
+                disabled={blueprintAction !== null || isStarting || isScheduling}
                 onChange={(event) => {
                   const file = event.target.files?.[0];
+                  event.currentTarget.value = '';
                   if (file) void importBlueprints(file);
                 }}
               />
               <button
                 type="button"
                 onClick={() => blueprintFileInputRef.current?.click()}
+                disabled={blueprintAction !== null || isStarting || isScheduling}
+                aria-busy={blueprintAction === 'import'}
                 className="minimal-action text-[var(--ui-muted)] hover:bg-[var(--ui-surface-hover)] hover:text-[var(--ui-text)]"
               >
                 <Upload className="h-3.5 w-3.5" /> Import
@@ -1757,7 +1803,8 @@ export default function Workflows() {
               {blueprints.length > 0 && (
                 <button
                   type="button"
-                  onClick={() => downloadBlueprints(blueprints)}
+                  onClick={exportBlueprints}
+                  disabled={blueprintAction !== null}
                   className="minimal-action text-[var(--ui-muted)] hover:bg-[var(--ui-surface-hover)] hover:text-[var(--ui-text)]"
                 >
                   <Download className="h-3.5 w-3.5" /> Export all
@@ -1765,6 +1812,15 @@ export default function Workflows() {
               )}
             </div>
           </div>
+          {blueprintAction && (
+            <p role="status" className="text-xs text-[var(--ui-muted)]">
+              {blueprintAction === 'save'
+                ? 'Saving blueprint…'
+                : blueprintAction === 'import'
+                  ? 'Importing blueprints…'
+                  : 'Deleting blueprint…'}
+            </p>
+          )}
           {blueprints.length > 0 && (
             <div className="flex items-end gap-2">
               <label className="block flex-1 text-xs font-medium text-[var(--ui-muted)]">
@@ -1772,6 +1828,7 @@ export default function Workflows() {
                 <select
                   aria-label="Workflow blueprint"
                   value={selectedBlueprintId}
+                  disabled={blueprintAction !== null}
                   onChange={(event) => {
                     const blueprint = blueprints.find((item) => item.id === event.target.value);
                     if (blueprint) applyBlueprint(blueprint);
@@ -1793,6 +1850,8 @@ export default function Workflows() {
                   onClick={() => void deleteSelectedBlueprint()}
                   className="minimal-icon-button text-[var(--ui-muted)] hover:bg-[var(--ui-surface-hover)] border-[var(--ui-border)] hover:text-[var(--ui-text)]"
                   aria-label="Delete selected blueprint"
+                  disabled={blueprintAction !== null || isStarting || isScheduling}
+                  aria-busy={blueprintAction === 'delete'}
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
@@ -1837,9 +1896,15 @@ export default function Workflows() {
               </p>
             )}
           </fieldset>
-          <label className="block text-xs font-medium text-[var(--ui-muted)]">
-            Commands
+          <div>
+            <label
+              htmlFor={commandsId}
+              className="block text-xs font-medium text-[var(--ui-muted)]"
+            >
+              Commands
+            </label>
             <textarea
+              id={commandsId}
               value={commands}
               onChange={(event) => setCommands(event.target.value)}
               rows={7}
@@ -1848,7 +1913,7 @@ export default function Workflows() {
                 "curl -fsS https://example.com/input.csv -o /tmp/input.csv\npython /workspace/reconcile.py /tmp/input.csv\n\nprintf '%s' 'next durable step'"
               }
             />
-          </label>
+          </div>
           {parsedSteps.length > 1 && (
             <details>
               <summary className="cursor-pointer text-xs text-[var(--ui-muted)] hover:text-[var(--ui-text)]">
@@ -1985,7 +2050,13 @@ export default function Workflows() {
               <button
                 type="button"
                 onClick={() => void scheduleCurrentWorkflow()}
-                disabled={isScheduling || !goal.trim() || !commands.trim() || !scheduleAt}
+                disabled={
+                  isScheduling ||
+                  blueprintAction !== null ||
+                  !goal.trim() ||
+                  !commands.trim() ||
+                  !scheduleAt
+                }
                 className="minimal-secondary-button h-9 text-[var(--ui-muted)] hover:bg-[var(--ui-surface-hover)] border-[var(--ui-border)] hover:text-[var(--ui-text)]"
               >
                 {isScheduling ? (
@@ -2019,6 +2090,7 @@ export default function Workflows() {
               <input
                 aria-label="Blueprint name"
                 value={blueprintName}
+                disabled={blueprintAction !== null}
                 onChange={(event) => setBlueprintName(event.target.value)}
                 maxLength={80}
                 className="minimal-input flex-1"
@@ -2027,7 +2099,15 @@ export default function Workflows() {
               <button
                 type="button"
                 onClick={() => void saveCurrentBlueprint()}
-                disabled={!blueprintName.trim() || !goal.trim() || !commands.trim()}
+                disabled={
+                  blueprintAction !== null ||
+                  isStarting ||
+                  isScheduling ||
+                  !blueprintName.trim() ||
+                  !goal.trim() ||
+                  !commands.trim()
+                }
+                aria-busy={blueprintAction === 'save'}
                 className="minimal-secondary-button text-[var(--ui-muted)] hover:bg-[var(--ui-surface-hover)] border-[var(--ui-border)] hover:text-[var(--ui-text)]"
               >
                 Save blueprint
@@ -2038,6 +2118,7 @@ export default function Workflows() {
             <button
               type="button"
               onClick={() => setShowForm(false)}
+              disabled={blueprintAction !== null}
               className="minimal-secondary-button text-[var(--ui-muted)] hover:bg-[var(--ui-surface-hover)] border-[var(--ui-border)] hover:text-[var(--ui-text)]"
             >
               Cancel
@@ -2045,7 +2126,7 @@ export default function Workflows() {
             <button
               type="button"
               onClick={start}
-              disabled={isStarting || !goal.trim() || !commands.trim()}
+              disabled={isStarting || blueprintAction !== null || !goal.trim() || !commands.trim()}
               className="ui-button ui-button-primary inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium disabled:cursor-not-allowed"
             >
               {isStarting ? (

@@ -111,6 +111,7 @@ interface DurableWorkflowsState {
   saveCustomAgent: (profile: DurableAgentProfile) => Promise<void>;
   removeCustomAgent: (profileId: string) => Promise<void>;
   saveBlueprint: (blueprint: DurableWorkflowBlueprint) => Promise<void>;
+  saveBlueprints: (blueprints: DurableWorkflowBlueprint[]) => Promise<void>;
   removeBlueprint: (blueprintId: string) => Promise<void>;
   saveSchedule: (schedule: DurableWorkflowSchedule) => Promise<void>;
   updateSchedule: (
@@ -126,6 +127,7 @@ let pendingConfigurations = 0;
 let configurationQueue: Promise<unknown> = Promise.resolve();
 let scheduleWriteQueue: Promise<unknown> = Promise.resolve();
 let workflowWriteQueue: Promise<unknown> = Promise.resolve();
+let blueprintWriteQueue: Promise<unknown> = Promise.resolve();
 const scheduleIntentGenerations = new Map<string, number>();
 
 export function getWorkflowConnectionGeneration(): number {
@@ -149,6 +151,12 @@ function writeSchedule<T>(operation: () => Promise<T>): Promise<T> {
 function writeWorkflows(operation: () => Promise<void>): Promise<void> {
   const task = workflowWriteQueue.then(operation, operation);
   workflowWriteQueue = task.catch(() => undefined);
+  return task;
+}
+
+function writeBlueprints(operation: () => Promise<void>): Promise<void> {
+  const task = blueprintWriteQueue.then(operation, operation);
+  blueprintWriteQueue = task.catch(() => undefined);
   return task;
 }
 
@@ -179,6 +187,16 @@ async function persistSchedules(schedules: DurableWorkflowSchedule[]): Promise<v
     );
   const stored = await window.electronAPI.store.set(SCHEDULES_KEY, schedules);
   if (stored === false) throw new Error('Workflow schedules could not be saved. Try again.');
+}
+
+async function persistBlueprints(blueprints: DurableWorkflowBlueprint[]): Promise<void> {
+  const storage = window.electronAPI?.store;
+  if (typeof storage?.set !== 'function')
+    throw new Error(
+      'Desktop storage is unavailable. Reopen the desktop app before saving blueprints.'
+    );
+  const stored = await storage.set(BLUEPRINTS_KEY, blueprints);
+  if (stored === false) throw new Error('Workflow blueprints could not be saved. Try again.');
 }
 
 function isTrackedWorkflow(value: unknown): value is TrackedDurableWorkflow {
@@ -239,6 +257,19 @@ export function isWorkflowBlueprint(value: unknown): value is DurableWorkflowBlu
     typeof blueprint.createdAt === 'string' &&
     typeof blueprint.updatedAt === 'string'
   );
+}
+
+function snapshotBlueprints(blueprints: DurableWorkflowBlueprint[]): DurableWorkflowBlueprint[] {
+  const snapshot: unknown = structuredClone(blueprints);
+  if (!Array.isArray(snapshot) || !snapshot.every(isWorkflowBlueprint))
+    throw new Error('Workflow blueprint is invalid.');
+  const ids = new Set<string>();
+  for (const blueprint of snapshot) {
+    if (ids.has(blueprint.id)) throw new Error('Blueprint batch contains duplicate IDs.');
+    ids.add(blueprint.id);
+    assertNoInlineSecrets(blueprint.definition.steps);
+  }
+  return snapshot;
 }
 
 export function isWorkflowSchedule(value: unknown): value is DurableWorkflowSchedule {
@@ -611,19 +642,30 @@ export const useDurableWorkflowsStore = create<DurableWorkflowsState>((set, get)
   },
 
   saveBlueprint: async (blueprint) => {
+    await get().saveBlueprints([blueprint]);
+  },
+
+  saveBlueprints: async (blueprints) => {
     assertWorkflowSettingsLoaded();
-    if (!isWorkflowBlueprint(blueprint)) throw new Error('Workflow blueprint is invalid.');
-    assertNoInlineSecrets(blueprint.definition.steps);
-    const blueprints = [blueprint, ...get().blueprints.filter((item) => item.id !== blueprint.id)];
-    await window.electronAPI?.store?.set(BLUEPRINTS_KEY, blueprints);
-    set({ blueprints });
+    const snapshot = snapshotBlueprints(blueprints);
+    if (!snapshot.length) return;
+    const ids = new Set(snapshot.map((blueprint) => blueprint.id));
+    await writeBlueprints(async () => {
+      assertWorkflowSettingsLoaded();
+      const next = [...snapshot, ...get().blueprints.filter((blueprint) => !ids.has(blueprint.id))];
+      await persistBlueprints(next);
+      set({ blueprints: next });
+    });
   },
 
   removeBlueprint: async (blueprintId) => {
     assertWorkflowSettingsLoaded();
-    const blueprints = get().blueprints.filter((item) => item.id !== blueprintId);
-    await window.electronAPI?.store?.set(BLUEPRINTS_KEY, blueprints);
-    set({ blueprints });
+    await writeBlueprints(async () => {
+      assertWorkflowSettingsLoaded();
+      const blueprints = get().blueprints.filter((item) => item.id !== blueprintId);
+      await persistBlueprints(blueprints);
+      set({ blueprints });
+    });
   },
 
   saveSchedule: async (schedule) => {
