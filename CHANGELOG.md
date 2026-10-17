@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## Unreleased
 
+## [1.1.20] - 2026-10-16
+
 ### Changed
 
 - Fleet actions retain progress and outcomes across navigation, continue after individual failures, and retry only failed agents. Cleanup keeps the reviewed target set and confirms failed deletions again.
