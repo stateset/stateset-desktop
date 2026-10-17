@@ -33,7 +33,7 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'react-vendor': ['react', 'react-dom', 'react-router'],
           'ui-vendor': ['framer-motion', 'lucide-react'],
           'data-vendor': ['@tanstack/react-query', 'zustand', 'date-fns'],
         },

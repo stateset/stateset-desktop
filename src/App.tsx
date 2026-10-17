@@ -1,5 +1,5 @@
 import { useEffect, useState, lazy, Suspense } from 'react';
-import { BrowserRouter, HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, HashRouter, Routes, Route, Navigate } from 'react-router';
 import { useAuthStore } from './stores/auth';
 import { usePreferencesStore } from './stores/preferences';
 import { isElectronAvailable } from './lib/electron';
@@ -257,7 +257,7 @@ export default function App() {
 
   return (
     <MotionConfig reducedMotion={useReducedMotionMode ? 'always' : 'user'}>
-      <RouterComponent future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <RouterComponent>
         <Suspense fallback={<AppLoadingScreen status="loading" />}>
           <Routes>
             <Route

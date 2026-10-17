@@ -35,6 +35,40 @@ The live test requires the `CHAT_TEST_*` endpoints, test identity, and credentia
 in the protected `computer-chat-test` environment. Do not put secrets in release
 assets or evidence reports.
 
+## Release source and signing setup
+
+Publication runs from an existing `vVERSION` tag. The checkout, workflow source
+commit, requested commit (when supplied) and current remote tag target must
+agree. The tag version must match package metadata. Source is checked before
+build work and again immediately before release creation; the release action
+receives the validated tag and commit explicitly.
+
+`npm run release -- --dry-run` validates a clean local checkout and prints the
+source-pinned GitHub workflow request. `npm run release` dispatches that workflow
+for the existing tag. It does not invoke a local publisher. Branch publication
+requests fail, while ordinary manual workflow runs default to build-only.
+
+Provide these GitHub Actions secrets for published installers:
+
+| Secret                 | Purpose                                          |
+| ---------------------- | ------------------------------------------------ |
+| `MAC_CERTS`            | macOS signing certificate reference (`CSC_LINK`) |
+| `MAC_CERTS_PASSWORD`   | macOS certificate password                       |
+| `APPLE_ID`             | Apple developer account                          |
+| `APPLE_ID_PASSWORD`    | Apple app-specific notarization password         |
+| `APPLE_TEAM_ID`        | Apple developer team identifier                  |
+| `WIN_CSC_LINK`         | Windows signing certificate reference            |
+| `WIN_CSC_KEY_PASSWORD` | Windows certificate password                     |
+
+The initial check reports missing setting names without exposing values. It
+checks presence; certificate validity, signatures and notarization are verified
+by the platform builds. Missing signing settings stop publication requests
+before dependency installation. Review builds remain available without them.
+
+Fresh application profiles create their own private configuration key. A shared
+`STORE_ENCRYPTION_KEY` is not required to build or publish installers. Preserve
+the original key for profiles that already use an explicit runtime override.
+
 ## Updater integrity
 
 `node scripts/collect-release-assets.mjs artifacts release-assets VERSION`

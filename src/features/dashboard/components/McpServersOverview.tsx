@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { Plug, ArrowRight } from 'lucide-react';
 import { useMcpServerOptions } from '../../connections/hooks/useMcpServerOptions';
 import { summarizeMcpServers } from '../../connections/mcpSummary';

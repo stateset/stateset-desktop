@@ -8,19 +8,31 @@ the Electron desktop app.
 ## Prerequisites
 
 - Node.js 22.12+ (`nvm use`)
-- Git clean or changes understood
+- Publication requires a clean checkout matching the pushed version tag
 - Display available for Electron tests (Xvfb ok on Linux)
-- Port 5173 available (Vite dev server)
+- Port 5173 available for native checks, or set `STATESET_DESKTOP_TEST_PORT=3000` when the development server already uses 5173
 
-## Required Environment Variables
+## Configuration and credentials
 
-- `STORE_ENCRYPTION_KEY` (required for production builds)
-- `SENTRY_DSN` (optional, but recommended for production)
-- `VITE_API_URL` (optional; defaults to production engine)
-- `STATESET_ENGINE_API_KEY` (for integration tests)
-- `STATESET_SANDBOX_API_KEY` (for integration tests)
+Fresh profiles create a private per-install configuration key automatically.
+`STORE_ENCRYPTION_KEY` is an optional runtime override for deployments that
+already manage their own key; it is not a production build prerequisite.
+Back up the original key with encrypted configuration. Existing encrypted data
+requires its original `.store-key` or configured override.
+
+- `SENTRY_DSN` and `VITE_SENTRY_DSN` are optional telemetry configuration.
+- `VITE_API_URL` is optional and defaults to the production engine.
+- `STATESET_ENGINE_API_KEY` and `STATESET_SANDBOX_API_KEY` enable their live
+  integration checks. Live computer-chat acceptance separately needs the
+  designated `CHAT_TEST_*` workspace described in [COMPUTER_CHATS.md](docs/COMPUTER_CHATS.md).
+- Published installers require the GitHub signing and notarization settings
+  listed in [release verification](docs/RELEASE_VERIFICATION.md). Review builds
+  can remain unsigned.
 
 ## Pre-Release QA (Local)
+
+On the shared workstation, route builds, checks and tests through the shared
+Buildr queue as described in [release verification](docs/RELEASE_VERIFICATION.md).
 
 1. Install deps
 
@@ -106,22 +118,38 @@ Onboarding
 ## Build & Package
 
 ```bash
-npm run build:mac
-npm run build:win
-npm run build:linux
+npm run build:mac -- --publish never
+npm run build:win -- --publish never
+npm run build:linux -- --publish never
 ```
 
 Artifacts are emitted to `release/`.
 
 ## Publish
 
-1. Tag and release with electron-builder
+After QA, commit the version, lockfile and changelog, create an annotated
+`vVERSION` tag matching `package.json`, and push the branch and tag. The tag push
+automatically starts the signed multi-platform release workflow. Keep version
+tags immutable; source changes require a new version.
+
+For a manual retry after a previous run has finished, inspect the request first:
 
 ```bash
+npm run release -- --dry-run
 npm run release
 ```
 
-2. Verify GitHub release artifacts and update feed.
+The dry run checks the clean checkout against the pushed tag and prints the
+exact workflow request. `npm run release` requests that tagged workflow with
+its expected commit; it does not build or publish installers locally. Manual
+workflow runs default to build-only. Publication requests from branch refs,
+version mismatches and changed tag targets are rejected.
+
+The workflow checks source and required signing settings before installing
+build dependencies, then rechecks source before publishing. Platform signing,
+notarization, updater integrity and installer checks remain required. A workflow
+request is not proof of publication: inspect the run and release assets before
+announcing a release.
 
 ## Post-Release
 
@@ -131,12 +159,13 @@ npm run release
 
 ## Rollback Plan
 
-- Revert to the previous release tag and re-publish.
+- Revert the application change in a new patch version and publish its new tag.
+- Preserve existing version tags and released artifacts.
 - If needed, disable auto-updates server-side.
 
 ## Troubleshooting
 
-- Playwright needs Node 18+.
+- This repository requires Node.js 22.12+ for Playwright and its build tools.
 - Visual/E2E require a display (use Xvfb on CI).
-- If Vite cannot bind to 5173, free the port or set a different port for
-  `npm run dev:vite` and update Electron dev URL accordingly.
+- If the development server occupies 5173, use
+  `STATESET_DESKTOP_TEST_PORT=3000` for native verification instead of stopping it.

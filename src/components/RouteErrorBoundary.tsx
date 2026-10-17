@@ -7,7 +7,7 @@ import {
   type ReactNode,
   type RefObject,
 } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router';
 import { AlertTriangle } from 'lucide-react';
 import { usePageTitle } from '../hooks/usePageTitle';
 

@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, waitFor, fireEvent, act, within } from '@testing-library/react';
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ToastProvider } from '../components/ToastProvider';
 import { useAuthStore } from '../stores/auth';
@@ -76,10 +76,7 @@ function renderDashboard(initialEntry: string) {
   render(
     <QueryClientProvider client={queryClient}>
       <ToastProvider>
-        <MemoryRouter
-          future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
-          initialEntries={[initialEntry]}
-        >
+        <MemoryRouter initialEntries={[initialEntry]}>
           <Routes>
             <Route
               path="/"

@@ -7,8 +7,8 @@ import { CommandPalette } from './CommandPalette';
 const navigate = vi.hoisted(() => vi.fn());
 const motionPreferences = vi.hoisted(() => ({ reduced: false }));
 
-vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual('react-router-dom');
+vi.mock('react-router', async () => {
+  const actual = await vi.importActual('react-router');
   return { ...actual, useNavigate: () => navigate };
 });
 

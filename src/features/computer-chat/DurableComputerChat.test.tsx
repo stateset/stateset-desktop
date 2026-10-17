@@ -9,7 +9,7 @@ import {
 } from '@testing-library/react';
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { DurableComputerChat } from './DurableComputerChat';
-import { MemoryRouter, useLocation, useNavigate } from 'react-router-dom';
+import { MemoryRouter, useLocation, useNavigate } from 'react-router';
 import type { ReactElement } from 'react';
 import { useComputerChatsStore } from './store';
 import { useDurableWorkflowsStore } from '../../stores/durableWorkflows';
@@ -110,10 +110,7 @@ function NavigationProbe() {
 }
 function render(ui: ReactElement, route = '/playground') {
   return renderReact(
-    <MemoryRouter
-      initialEntries={[route]}
-      future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
-    >
+    <MemoryRouter initialEntries={[route]}>
       {ui}
       <NavigationProbe />
     </MemoryRouter>

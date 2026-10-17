@@ -1,7 +1,7 @@
 /** @vitest-environment happy-dom */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render as renderDOM, screen, fireEvent } from '@testing-library/react';
-import { HashRouter, MemoryRouter, useLocation, useNavigate } from 'react-router-dom';
+import { HashRouter, MemoryRouter, useLocation, useNavigate } from 'react-router';
 import type { ReactElement } from 'react';
 import { useState } from 'react';
 import { RouteErrorBoundary } from './RouteErrorBoundary';

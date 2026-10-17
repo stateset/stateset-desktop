@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { AlertCircle } from 'lucide-react';
 import { useMcpServerOptionsState } from '../hooks/useMcpServerOptions';
 import { STATESET_STDIO_MCP_SERVERS } from '../statesetMcpServers';

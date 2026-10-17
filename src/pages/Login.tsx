@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router';
 import { useAuthStore, normalizeSandboxApiKey, type AuthError } from '../stores/auth';
 import {
   Bot,

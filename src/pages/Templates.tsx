@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { Plus, Search } from 'lucide-react';
 import { useDebounce } from '../hooks/useDebounce';
 import { usePageTitle } from '../hooks/usePageTitle';

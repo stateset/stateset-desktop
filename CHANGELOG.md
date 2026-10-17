@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## Unreleased
 
+### Security
+
+- Bind published installers to the exact pushed version-tag commit, reject branch publication, and route local release requests through the signed multi-platform workflow. Report missing signing settings before build work.
+- Move production routing to patched React Router 7, use its direct package, and remove obsolete migration flags while preserving browser and packaged hash navigation.
+
 ## [1.1.20] - 2026-10-16
 
 ### Changed

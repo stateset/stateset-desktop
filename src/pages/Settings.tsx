@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, useReducedMotionConfig } from 'framer-motion';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router';
 import { User, FlaskConical, RefreshCw, Palette, Bell, Download, Info } from 'lucide-react';
 import clsx from 'clsx';
 import { usePageTitle } from '../hooks/usePageTitle';

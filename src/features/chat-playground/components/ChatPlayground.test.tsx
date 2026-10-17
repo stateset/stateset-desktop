@@ -1,7 +1,7 @@
 /** @vitest-environment happy-dom */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render as rtlRender, screen, fireEvent } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router';
 import { ChatPlayground } from './ChatPlayground';
 
 // ChatPlayground is a routed page and now renders a <Link> in its MCP notice.

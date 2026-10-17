@@ -27,7 +27,7 @@ import {
   Upload,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { Modal } from '../components/Modal';
 import { DurableAgentManager } from '../components/DurableAgentManager';
 import { DurableWorkflowActivity } from '../components/DurableWorkflowActivity';
