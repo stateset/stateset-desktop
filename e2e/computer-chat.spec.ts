@@ -260,6 +260,114 @@ async function defaultsWritePending(application: ElectronApplication) {
 test.beforeAll(() => requireDesktopDisplay());
 
 for (const theme of ['dark', 'light'] as const) {
+  test(`native command palette keeps live selection and long titles readable in ${theme} theme`, async ({
+    desktop,
+  }) => {
+    test.setTimeout(120_000);
+    const application = await desktop.launch();
+    const firstPage = await application.firstWindow();
+    await firstPage.emulateMedia({ reducedMotion: 'reduce' });
+    const page = await openChats(application, theme);
+    await application.evaluate(({ BrowserWindow }) =>
+      BrowserWindow.getAllWindows()[0].setSize(1000, 760)
+    );
+    const records = [
+      {
+        id: '44444444-4444-4444-8444-444444444441',
+        title: `Palette-report-${'reconciliation'.repeat(7)}`,
+        createdAt: '2026-10-16T10:00:00.000Z',
+        updatedAt: '2026-10-16T10:00:00.000Z',
+      },
+      {
+        id: '44444444-4444-4444-8444-444444444442',
+        title: 'Palette report recent',
+        createdAt: '2026-10-16T10:00:01.000Z',
+        updatedAt: '2026-10-16T10:00:01.000Z',
+      },
+    ].map((record) => ({
+      ...record,
+      tenantId: tenant.id,
+      brandId: brand.id,
+      messages: [],
+      workflows: [],
+      stopped: true,
+    }));
+    await page.evaluate(async (records) => {
+      const modulePath = '/src/features/computer-chat/store.ts';
+      const { useComputerChatsStore } = await import(modulePath);
+      for (const record of records) await useComputerChatsStore.getState().save(record);
+      const original = Element.prototype.scrollIntoView;
+      const calls: { id: string; behavior?: ScrollBehavior }[] = [];
+      (window as typeof window & { __paletteScrolls: typeof calls }).__paletteScrolls = calls;
+      Element.prototype.scrollIntoView = function (options?: boolean | ScrollIntoViewOptions) {
+        if (this.id.startsWith('command-option-'))
+          calls.push({
+            id: this.id,
+            behavior: typeof options === 'object' ? options.behavior : undefined,
+          });
+        original.call(this, options);
+      };
+    }, records);
+    await page.keyboard.press('Control+k');
+    const palette = page.getByRole('dialog', { name: 'Command Palette' });
+    const search = palette.getByRole('combobox', { name: 'Search commands' });
+    await search.fill('palette');
+    await search.press('ArrowDown');
+    const selected = `command-option-chat-${records[0].id}`;
+    await expect(search).toHaveAttribute('aria-activedescendant', selected);
+    const geometry = await palette.getByRole('listbox').evaluate((list) => ({
+      listOverflow: list.scrollWidth - list.clientWidth,
+      optionOverflow: Math.max(
+        ...Array.from(list.querySelectorAll<HTMLElement>('[role="option"]')).map(
+          (row) => row.scrollWidth - row.clientWidth
+        )
+      ),
+    }));
+    await mkdir('dist/verification', { recursive: true });
+    await writeFile(
+      `dist/verification/native-command-palette-layout-${theme}.json`,
+      JSON.stringify(geometry, null, 2)
+    );
+    await page.screenshot({ path: `dist/verification/native-command-palette-${theme}.png` });
+    await page.evaluate(async (id) => {
+      const modulePath = '/src/features/computer-chat/store.ts';
+      const { useComputerChatsStore } = await import(modulePath);
+      const current = useComputerChatsStore
+        .getState()
+        .chats.find((chat: { id: string }) => chat.id === id);
+      await useComputerChatsStore
+        .getState()
+        .save({ ...current, updatedAt: '2026-10-16T11:00:00.000Z' });
+    }, records[0].id);
+    await expect(palette.getByRole('option').first()).toHaveAttribute('id', selected);
+    await expect(search).toHaveAttribute('aria-activedescendant', selected);
+    expect(geometry.listOverflow).toBeLessThanOrEqual(1);
+    expect(geometry.optionOverflow).toBeLessThanOrEqual(1);
+    await expect(
+      palette.getByRole('option', { name: records[0].title })
+    ).toHaveAccessibleDescription('Computer chat · Computer ended');
+    const scrolls = await page.evaluate(
+      () =>
+        (
+          window as typeof window & {
+            __paletteScrolls: { id: string; behavior?: ScrollBehavior }[];
+          }
+        ).__paletteScrolls
+    );
+    expect(scrolls.length).toBeGreaterThan(0);
+    expect(scrolls.every((call) => call.behavior === 'instant')).toBe(true);
+    const accessibility = await new AxeBuilder({ page })
+      .setLegacyMode()
+      .include('[role="dialog"]')
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+      .analyze();
+    expect(accessibility.violations).toEqual([]);
+    await search.press('Enter');
+    await expect(palette).toBeHidden();
+    await expect.poll(() => new URL(page.url()).searchParams.get('chat')).toBe(records[0].id);
+    await application.close();
+  });
+
   test(`native workspace navigation preserves address edits and keyboard focus in ${theme} theme`, async ({
     desktop,
   }) => {

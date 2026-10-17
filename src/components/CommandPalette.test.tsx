@@ -1,10 +1,11 @@
 /** @vitest-environment happy-dom */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { useState } from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { CommandPalette } from './CommandPalette';
 
 const navigate = vi.hoisted(() => vi.fn());
+const motionPreferences = vi.hoisted(() => ({ reduced: false }));
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom');
@@ -34,7 +35,7 @@ vi.mock('framer-motion', () => ({
     },
   },
   AnimatePresence: ({ children }: React.PropsWithChildren) => <>{children}</>,
-  useReducedMotionConfig: () => false,
+  useReducedMotionConfig: () => motionPreferences.reduced,
 }));
 
 describe('CommandPalette', () => {
@@ -46,6 +47,109 @@ describe('CommandPalette', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    motionPreferences.reduced = false;
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  it('keeps the selected chat identity when live results reorder', () => {
+    const chats = [
+      { id: 'a', title: 'Invoice A', status: 'idle' },
+      { id: 'b', title: 'Invoice B', status: 'idle' },
+    ];
+    const { rerender } = render(<CommandPalette {...defaultProps} chats={chats} />);
+    const input = screen.getByRole('combobox');
+    fireEvent.change(input, { target: { value: 'Invoice' } });
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    rerender(<CommandPalette {...defaultProps} chats={[chats[1], chats[0]]} />);
+    expect(input).toHaveAttribute('aria-activedescendant', 'command-option-chat-b');
+    fireEvent.change(input, { target: { value: 'Invoice ' } });
+    rerender(<CommandPalette {...defaultProps} chats={chats} />);
+    expect(input).toHaveAttribute('aria-activedescendant', 'command-option-chat-b');
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(navigate).toHaveBeenLastCalledWith('/playground?chat=b');
+    fireEvent.change(input, { target: { value: 'Invoice A' } });
+    expect(input).toHaveAttribute('aria-activedescendant', 'command-option-chat-a');
+  });
+
+  it('keeps the selected agent when changing statuses resort the results', () => {
+    const agents = [
+      { id: 'a', name: 'Invoice A', agent_type: 'commerce', status: 'running' },
+      { id: 'b', name: 'Invoice B', agent_type: 'commerce', status: 'paused' },
+    ];
+    const { rerender } = render(<CommandPalette {...defaultProps} agents={agents} />);
+    const input = screen.getByRole('combobox');
+    fireEvent.change(input, { target: { value: 'Invoice' } });
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    rerender(
+      <CommandPalette
+        {...defaultProps}
+        agents={[
+          { ...agents[0], status: 'failed' },
+          { ...agents[1], status: 'running' },
+        ]}
+      />
+    );
+    expect(input).toHaveAttribute('aria-activedescendant', 'command-option-agent-b');
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(navigate).toHaveBeenLastCalledWith('/agent/b');
+  });
+
+  it('selects the first current result if the chosen identity disappears', () => {
+    const chats = [
+      { id: 'a', title: 'Invoice A', status: 'idle' },
+      { id: 'b', title: 'Invoice B', status: 'idle' },
+    ];
+    const { rerender } = render(<CommandPalette {...defaultProps} chats={chats} />);
+    const input = screen.getByRole('combobox');
+    fireEvent.change(input, { target: { value: 'Invoice' } });
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    rerender(
+      <CommandPalette
+        {...defaultProps}
+        chats={[chats[0], { id: 'c', title: 'Invoice C', status: 'idle' }]}
+      />
+    );
+    expect(input).toHaveAttribute('aria-activedescendant', 'command-option-chat-a');
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(navigate).toHaveBeenLastCalledWith('/playground?chat=a');
+  });
+
+  it('does not restart scrolling when only a result status changes', () => {
+    const scroll = vi.spyOn(HTMLElement.prototype, 'scrollIntoView');
+    const chats = [
+      { id: 'a', title: 'Invoice A', status: 'idle' },
+      { id: 'b', title: 'Invoice B', status: 'idle' },
+    ];
+    const { rerender } = render(<CommandPalette {...defaultProps} chats={chats} />);
+    const input = screen.getByRole('combobox');
+    fireEvent.change(input, { target: { value: 'Invoice' } });
+    scroll.mockClear();
+    rerender(
+      <CommandPalette {...defaultProps} chats={[{ ...chats[0], status: 'paused' }, chats[1]]} />
+    );
+    expect(scroll).not.toHaveBeenCalled();
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    expect(scroll).toHaveBeenCalledOnce();
+  });
+
+  it('scrolls instantly when reduced motion is requested', () => {
+    motionPreferences.reduced = true;
+    const scroll = vi.spyOn(HTMLElement.prototype, 'scrollIntoView');
+    render(<CommandPalette {...defaultProps} />);
+    fireEvent.keyDown(screen.getByRole('combobox'), { key: 'ArrowDown' });
+    expect(scroll).toHaveBeenLastCalledWith({ block: 'nearest', behavior: 'instant' });
+  });
+
+  it('associates conversation status with its accessible option', () => {
+    render(
+      <CommandPalette
+        {...defaultProps}
+        chats={[{ id: 'a', title: 'Invoice A', status: 'paused', archived: true }]}
+      />
+    );
+    expect(screen.getByRole('option', { name: 'Invoice A' })).toHaveAccessibleDescription(
+      'Archived conversation · paused'
+    );
   });
 
   it('returns null when not open', () => {
@@ -77,6 +181,9 @@ describe('CommandPalette', () => {
     const input = screen.getByPlaceholderText('Search commands...');
     fireEvent.change(input, { target: { value: 'xyznonexistent' } });
     expect(screen.getByText(/No commands found/)).toBeInTheDocument();
+    expect(input).not.toHaveAttribute('aria-activedescendant');
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(navigate).not.toHaveBeenCalled();
   });
 
   it('Escape key calls onClose', () => {

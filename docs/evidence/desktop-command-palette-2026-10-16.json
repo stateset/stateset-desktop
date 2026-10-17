@@ -1,0 +1,116 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-17T00:57:28.670657+00:00",
+  "source_parent_commit": "a15c21cb6e099275c21a5048a07fa574af56e436",
+  "scope": "Keep command search selection stable during live result changes, contain long names and respect accessibility and reduced motion.",
+  "regression": {
+    "unit_baseline": {
+      "id": "0414ecfb2882",
+      "state": "failed",
+      "exit_code": 1,
+      "command_display": "/home/dom/.nvm/versions/node/v22.18.0/bin/node node_modules/vitest/vitest.mjs run src/components/CommandPalette.test.tsx --maxWorkers=1 --no-file-parallelism",
+      "wait_seconds": 295.15514278411865,
+      "elapsed_seconds": 4.609333038330078
+    },
+    "unit_result": "Six failed and twelve passed across eighteen tests. Reproductions covered chat/agent reordering, removal fallback, status-only scroll restarts, smooth scrolling despite reduced motion and missing accessible status descriptions.",
+    "native_baseline": {
+      "id": "0a5fbe8abec9",
+      "state": "failed",
+      "exit_code": 1,
+      "command_display": "bash -c 'export PATH=/home/dom/.nvm/versions/node/v22.18.0/bin:$PATH DISPLAY=:0 STATESET_DESKTOP_TEST_PORT=3000 CI=true; node node_modules/@playwright/test/cli.js test e2e/computer-chat.spec.ts --project=electron --grep \"native command palette\" --workers=1 --retries=0'",
+      "wait_seconds": 248.75207567214966,
+      "elapsed_seconds": 48.18108820915222
+    },
+    "native_stats": {
+      "startTime": "2026-10-16T23:24:09.757Z",
+      "duration": 46115.265,
+      "expected": 0,
+      "skipped": 0,
+      "unexpected": 2,
+      "flaky": 0
+    },
+    "native_result": "Both native theme cases failed when a live saved-chat reorder changed the selected identity. Before that assertion failed, each recorded 119 pixels of list overflow and 136 pixels of row overflow with a 113-character title within the supported 120-character name limit.",
+    "native_geometry": {
+      "dark": {
+        "listOverflow": 119,
+        "optionOverflow": 136
+      },
+      "light": {
+        "listOverflow": 119,
+        "optionOverflow": 136
+      }
+    },
+    "contrast_regression": {
+      "job": {
+        "id": "bc6c2d3fa2d3",
+        "state": "failed",
+        "exit_code": 1,
+        "command_display": "bash /tmp/stateset-desktop-palette-focused.sh",
+        "wait_seconds": 1337.0170631408691,
+        "elapsed_seconds": 136.70412755012512
+      },
+      "result": "First candidate passed types, lint, 21 units and both builds. Both native themes retained identity with zero overflow; the light case passed, while dark mode exposed insufficient palette section and keyboard-hint contrast (3.17\u20133.71 versus required 4.5). Increased muted text contrast and verified again.",
+      "manifest_sha256": "c24414927a175e842047bce5be8f01ef80c6e1078411264cafd408234faef2ba"
+    },
+    "retained_baseline_manifest_sha256": "3c7148f3bf730c8ff2e95f5f30a0d463e44d2624d3b1b6691ae099ed30dda477"
+  },
+  "implementation": [
+    "Store the selected command identity and derive its current row for highlighting and keyboard navigation. Retain it through reordering; choose the first available result after removal or a new search.",
+    "Update keyboard-handler references alongside the committed layout so Enter uses the current list and selected row.",
+    "Scroll when selection, ordering or query changes; avoid restarting scroll for status-only refreshes. Use instant scrolling for reduced motion.",
+    "Increase muted palette text and keyboard-hint contrast. Contain titles in two wrapping lines, retain full names for tooltips and assistive technology, and associate each option with its status description."
+  ],
+  "verification": {
+    "focused": {
+      "id": "c4847a326fd5",
+      "state": "succeeded",
+      "exit_code": 0,
+      "command_display": "bash /tmp/stateset-desktop-palette-focused.sh",
+      "wait_seconds": 3913.146296262741,
+      "elapsed_seconds": 73.93389701843262
+    },
+    "unit_tests": 21,
+    "unit_files": 2,
+    "checks": "Root/E2E types, lint, Electron/renderer builds, command/scoping units and both native theme flows with zero retries or accessibility violations.",
+    "native_stats": {
+      "startTime": "2026-10-17T00:57:10.255Z",
+      "duration": 16927.549000000003,
+      "expected": 2,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "native_geometry": {
+      "dark": {
+        "listOverflow": 0,
+        "optionOverflow": 0
+      },
+      "light": {
+        "listOverflow": 0,
+        "optionOverflow": 0
+      }
+    },
+    "native_method": "Owned Electron profiles, a 1000\u00d7760 native window and reduced-motion emulation. Controlled saved-chat updates use the public store and actual native persistence. Tests exercise live reordering, current route selection, long-title geometry, full accessible status descriptions and delegated scrollIntoView calls. No backend workflow was executed.",
+    "native_screenshots_sha256": {
+      "dist/verification/native-command-palette-dark.png": "601f7c5f9393ff7e78e61939c67a4a4b788097d206e711ff595a664a0e06ded3",
+      "dist/verification/native-command-palette-light.png": "0a24e2e5365cd9de987860e7e0414f9fec3975b54188e854f720b58cac8b5123"
+    },
+    "source_guard": {
+      "inputs": 630,
+      "manifest_sha256": "41e029da6ad4b78690c667e6b80a8d4e080c9653396a2cfd750cfdf7d3a37531",
+      "qualification": "Manual hashes sealed after lint/format preparation and compared after checks; not an immutable queue snapshot."
+    },
+    "full_validation": "Pending exact-head CI after normal-hook commit and push; parent CI does not qualify this change."
+  },
+  "changed_source_sha256": {
+    "src/components/CommandPalette.tsx": "ebf8acc9609e0a68ca4d32e633fbec5ba559cafcc218d4a7177ed1feb86527ef",
+    "src/components/CommandPalette.test.tsx": "28ca92a804e2fa857a86b5947c155e54ecf4a082f1ca850422995998732f9fce",
+    "e2e/computer-chat.spec.ts": "c8923dbb21442c758565e13000f6023a74b7de24964ec6e619b5f0f3b881c2c8",
+    "docs/COMPUTER_CHATS.md": "dfc4ed5f1123fa9831762a8acf7b21ece5fca930a18a7eaae45401cbec14b840",
+    "CHANGELOG.md": "62296692e00af01e07e82fab59ab3ee86eefb2444693f58ec56d8832cbf07957"
+  },
+  "limitations": [
+    "No live engine/Temporal/sandbox/NSR acceptance; a designated CHAT_TEST workspace is still required.",
+    "Focused verification precedes the separately requested v1.1.20 version/tag push. This record does not establish signed release or updater publication."
+  ]
+}

@@ -124,6 +124,12 @@ organization and brand. It displays up to 30 matching chats; searching can find
 conversations beyond that initial list. **Ctrl/Cmd+F** within the chat workspace
 opens and focuses conversation search. Escape clears a nonempty search.
 
+Command search keeps the selected conversation or agent when live results reorder.
+If that result disappears, selection returns to the first available match; a new
+search also starts at its first match. Long names stay within the palette, with
+full names and status available to assistive technology. Keyboard scrolling
+respects reduced motion and does not restart for status-only updates.
+
 Conversation selection is reflected in the app route (`/playground?chat=…`), so
 back and forward navigation return to the corresponding chat. A link for a
 missing chat or another workspace displays an unavailable state; it cannot open
