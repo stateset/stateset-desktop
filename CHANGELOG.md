@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## Unreleased
 
+### Fixed
+
+- Preserve custom background agents through concurrent saves and storage failures. Keep drafts available for retry, guard pending creation and removal, and use readable agent-editor surfaces in both themes.
+- Keep dialogs above page clipping and sidebar stacking so their titles, saved profiles, and form controls remain fully visible.
+
 ## [1.1.21] - 2026-10-17
 
 ### Changed

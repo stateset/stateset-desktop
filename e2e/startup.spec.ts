@@ -13,6 +13,7 @@ import type {
   DurableWorkflowBlueprint,
   TrackedDurableWorkflow,
 } from '../src/stores/durableWorkflows';
+import type { DurableAgentProfile } from '../src/lib/durableAgentProfiles';
 
 test.beforeAll(() => requireDesktopDisplay());
 
@@ -581,6 +582,265 @@ test('workflow blueprint imports survive restart and deletion preserves the work
           afterDelete: (await savedBlueprints()).map(({ id, name }) => ({ id, name })),
           removedName: 'Orders audit',
           workingDraftPreserved: true,
+        })
+      ),
+      contentType: 'application/json',
+    });
+  } finally {
+    await application?.close();
+  }
+});
+
+test('custom background agents survive restart and removing a profile preserves the new draft', async ({
+  desktop,
+}) => {
+  const tenant = {
+    id: '11111111-1111-4111-8111-111111111111',
+    name: 'Agent profile workspace',
+    slug: 'agent-profile-workspace',
+    tier: 'pro',
+  };
+  const brand = {
+    id: '22222222-2222-4222-8222-222222222222',
+    tenant_id: tenant.id,
+    name: 'Agent profile brand',
+    slug: 'agent-profile-brand',
+    enabled: true,
+  };
+  const workflowRequests: Array<{ method: string; path: string }> = [];
+  const managerLayouts: Record<string, unknown> = {};
+  const openWorkspace = async (application: ElectronApplication) => {
+    const page = await application.firstWindow();
+    await page.waitForURL(`${DESKTOP_TEST_ORIGIN}/**`);
+    await page.route('**/v1/workflows/**', (route) => {
+      workflowRequests.push({
+        method: route.request().method(),
+        path: new URL(route.request().url()).pathname,
+      });
+      return route.abort('blockedbyclient');
+    });
+    await page.evaluate(async () => {
+      await window.electronAPI!.store.set('onboardingCompleted', true);
+      // The owned profile uses memory-only credentials, so restore its fixture
+      // key on each process launch without consulting the host's keyring.
+      await window.electronAPI!.auth.setDurableEngineApiKey('custom-agent-fixture-key');
+    });
+    await installDesktopApiFixture(application, page, { tenant, brand, sessions: [] });
+    await page.context().addInitScript(
+      ({ tenant, brand }) => {
+        window.__E2E_AUTH__ = { tenant, brands: [brand] } as any;
+      },
+      { tenant, brand }
+    );
+    await page.reload();
+    await page.getByRole('link', { name: 'Workflows', exact: true }).click();
+    return page;
+  };
+  const defaultConfiguration = {
+    provider: 'openai',
+    connectorKey: 'openai-primary',
+    model: 'gpt-5.4',
+    maxIterations: 10,
+    allowedExecutables: ['rg', 'jq', 'cat', 'head', 'tail', 'wc', 'sort'],
+    maxTokens: 1024,
+    maxTotalTokens: 20_000,
+  };
+  const firstDraft = {
+    name: 'Inventory investigator',
+    description: 'Checks inventory exports against saved evidence',
+    instructions: 'Inspect the inventory export, report mismatches, and preserve the source files.',
+  };
+  const nextDraft = {
+    name: 'Delivery evidence reviewer',
+    description: 'Reviews delivery receipts and reports missing evidence',
+    instructions:
+      'Inspect the delivery receipts and explain every missing confirmation before finishing.',
+  };
+  let application: ElectronApplication | undefined;
+  try {
+    const profile = await desktop.createProfile({ memoryOnlyCredentials: true });
+    application = await desktop.launch(profile);
+    let page = await openWorkspace(application);
+    const savedAgents = () =>
+      page.evaluate(
+        async () =>
+          (await window.electronAPI!.store.get(
+            'durableCustomAgentProfiles'
+          )) as DurableAgentProfile[]
+      );
+    await page.getByRole('button', { name: 'Agents', exact: true }).click();
+    let manager = page.getByRole('dialog', { name: 'Background agents', exact: true });
+    await manager.getByLabel('Name', { exact: true }).fill(firstDraft.name);
+    await manager.getByLabel('Description', { exact: true }).fill(firstDraft.description);
+    await manager.getByLabel('Instructions', { exact: true }).fill(firstDraft.instructions);
+    await expect(manager.locator('button[aria-pressed="true"]')).toHaveText(
+      defaultConfiguration.allowedExecutables
+    );
+    await manager.getByRole('button', { name: 'Create agent', exact: true }).click();
+    await expect(manager).toHaveCount(0);
+    await expect.poll(savedAgents).toEqual([
+      expect.objectContaining({
+        ...defaultConfiguration,
+        name: firstDraft.name,
+        description: firstDraft.description,
+        systemPrompt: firstDraft.instructions,
+      }),
+    ]);
+    const beforeRestart = await savedAgents();
+    expect(beforeRestart[0].id).toMatch(/^custom-[\da-f-]{36}$/);
+    let workflowDialog = page.getByRole('dialog', { name: 'New background workflow', exact: true });
+    await expect(
+      workflowDialog.locator(`[data-agent-id="${beforeRestart[0].id}"]`)
+    ).toHaveAttribute('aria-checked', 'true');
+    await workflowDialog.getByRole('button', { name: 'Close dialog', exact: true }).click();
+    await application.close();
+    application = undefined;
+
+    application = await desktop.launch(profile);
+    page = await openWorkspace(application);
+    await expect.poll(savedAgents).toEqual(beforeRestart);
+    const afterRestart = await savedAgents();
+    await application.evaluate(({ BrowserWindow }) =>
+      BrowserWindow.getAllWindows()[0].setContentSize(1024, 768)
+    );
+    await page.getByRole('button', { name: 'Agents', exact: true }).click();
+    manager = page.getByRole('dialog', { name: 'Background agents', exact: true });
+    await mkdir('dist/verification', { recursive: true });
+    for (const theme of ['dark', 'light'] as const) {
+      if ((await page.evaluate(() => document.documentElement.dataset.theme)) !== theme) {
+        await manager.getByRole('button', { name: 'Close dialog', exact: true }).click();
+        await page.getByRole('button', { name: `Switch to ${theme} theme`, exact: true }).click();
+        await page.getByRole('button', { name: 'Agents', exact: true }).click();
+      }
+      await expect
+        .poll(() => page.evaluate(() => document.documentElement.dataset.theme))
+        .toBe(theme);
+      await expect(manager.getByText(firstDraft.name, { exact: true })).toBeVisible();
+      await page.mouse.move(0, 0);
+      await page.evaluate(async () => {
+        await document.fonts.ready;
+        await new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+        );
+      });
+      const layout = await manager.evaluate((element) => {
+        const rect = element.getBoundingClientRect();
+        const overlay = element.parentElement!;
+        const backdrop = overlay.getBoundingClientRect();
+        const probes = [
+          element.querySelector('h2')!,
+          element.querySelector('article')!,
+          element.querySelector('input')!,
+        ];
+        const inputStyle = getComputedStyle(element.querySelector('input')!);
+        return {
+          viewportWidth: innerWidth,
+          viewportHeight: innerHeight,
+          inViewport:
+            rect.left >= 0 &&
+            rect.top >= 0 &&
+            rect.right <= innerWidth &&
+            rect.bottom <= innerHeight,
+          centered: Math.abs((rect.left + rect.right) / 2 - innerWidth / 2) <= 1,
+          coversViewport:
+            Math.abs(backdrop.left) <= 1 &&
+            Math.abs(backdrop.top) <= 1 &&
+            Math.abs(backdrop.width - innerWidth) <= 1 &&
+            Math.abs(backdrop.height - innerHeight) <= 1,
+          bodyOverlay: overlay.parentElement === document.body,
+          unobscured: probes.every((probe) => {
+            const bounds = probe.getBoundingClientRect();
+            return probe.contains(
+              document.elementFromPoint(bounds.left + 2, bounds.top + bounds.height / 2)
+            );
+          }),
+          input: {
+            color: inputStyle.color,
+            background: inputStyle.backgroundColor,
+            opacity: inputStyle.opacity,
+            disabled: (element.querySelector('input') as HTMLInputElement).disabled,
+          },
+        };
+      });
+      expect(layout.inViewport).toBe(true);
+      expect(layout.centered).toBe(true);
+      expect(layout.coversViewport).toBe(true);
+      expect(layout.bodyOverlay).toBe(true);
+      expect(layout.unobscured).toBe(true);
+      expect(layout.input.disabled).toBe(false);
+      expect(layout.input.opacity).toBe('1');
+      expect(layout.input.color).not.toBe(layout.input.background);
+      managerLayouts[theme] = layout;
+      await page.screenshot({
+        path: `dist/verification/agent-manager-${theme}.png`,
+        animations: 'disabled',
+      });
+      const titleId = await manager.getAttribute('aria-labelledby');
+      expect(titleId).toBeTruthy();
+      expect(
+        (
+          await new AxeBuilder({ page })
+            .setLegacyMode()
+            .include(`[role="dialog"][aria-labelledby="${titleId}"]`)
+            .analyze()
+        ).violations
+      ).toEqual([]);
+    }
+
+    await manager.getByLabel('Name', { exact: true }).fill(nextDraft.name);
+    await manager.getByLabel('Description', { exact: true }).fill(nextDraft.description);
+    await manager.getByLabel('Instructions', { exact: true }).fill(nextDraft.instructions);
+    await manager.getByRole('button', { name: `Remove ${firstDraft.name}`, exact: true }).click();
+    await page
+      .getByRole('alertdialog', { name: `Remove ${firstDraft.name}?`, exact: true })
+      .getByRole('button', { name: 'Remove profile', exact: true })
+      .click();
+    await expect.poll(savedAgents).toEqual([]);
+    const afterDelete = await savedAgents();
+    await expect(manager.getByText('No custom agents yet', { exact: true })).toBeVisible();
+    await expect(manager.getByLabel('Name', { exact: true })).toHaveValue(nextDraft.name);
+    await expect(manager.getByLabel('Description', { exact: true })).toHaveValue(
+      nextDraft.description
+    );
+    await expect(manager.getByLabel('Instructions', { exact: true })).toHaveValue(
+      nextDraft.instructions
+    );
+    const draftAfterDelete = {
+      name: await manager.getByLabel('Name', { exact: true }).inputValue(),
+      description: await manager.getByLabel('Description', { exact: true }).inputValue(),
+      instructions: await manager.getByLabel('Instructions', { exact: true }).inputValue(),
+    };
+    expect(draftAfterDelete).toEqual(nextDraft);
+    await manager.getByRole('button', { name: 'Create agent', exact: true }).click();
+    await expect(manager).toHaveCount(0);
+    await expect.poll(savedAgents).toEqual([
+      expect.objectContaining({
+        ...defaultConfiguration,
+        name: nextDraft.name,
+        description: nextDraft.description,
+        systemPrompt: nextDraft.instructions,
+      }),
+    ]);
+    const afterSecondSave = await savedAgents();
+    expect(afterSecondSave[0].id).toMatch(/^custom-[\da-f-]{36}$/);
+    expect(afterSecondSave[0].id).not.toBe(beforeRestart[0].id);
+    workflowDialog = page.getByRole('dialog', { name: 'New background workflow', exact: true });
+    await expect(
+      workflowDialog.locator(`[data-agent-id="${afterSecondSave[0].id}"]`)
+    ).toHaveAttribute('aria-checked', 'true');
+    expect(workflowRequests).toEqual([]);
+    await test.info().attach('custom-agent-persistence', {
+      body: Buffer.from(
+        JSON.stringify({
+          beforeRestart,
+          afterRestart,
+          afterDelete,
+          afterSecondSave,
+          removedId: beforeRestart[0].id,
+          draftAfterDelete,
+          draftPreserved: true,
+          workflowRequests,
+          managerLayouts,
         })
       ),
       contentType: 'application/json',

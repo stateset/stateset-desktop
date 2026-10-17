@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { Bot, Loader2, Plus, Trash2 } from 'lucide-react';
 import { Modal } from './Modal';
 import { useToast } from './ToastProvider';
 import { useConfirmDialog } from '../hooks/useConfirmDialog';
 import { DURABLE_AGENT_EXECUTABLES, type DurableAgentProfile } from '../lib/durableAgentProfiles';
 import { useDurableWorkflowsStore } from '../stores/durableWorkflows';
+import { WorkflowInitializationNotice } from './WorkflowInitializationNotice';
 
 interface DurableAgentManagerProps {
   isOpen: boolean;
@@ -13,9 +14,12 @@ interface DurableAgentManagerProps {
 }
 
 const DEFAULT_TOOLS = ['rg', 'jq', 'cat', 'head', 'tail', 'wc', 'sort'];
+const PROFILE_INPUT_CLASS =
+  'mt-1.5 w-full rounded-lg border border-[var(--ui-border)] bg-[var(--ui-surface)] px-3 py-2 text-xs text-[var(--ui-text)] outline-none placeholder:text-[var(--ui-muted)] focus:border-[var(--ui-focus)] disabled:opacity-50';
 
 export function DurableAgentManager({ isOpen, onClose, onCreated }: DurableAgentManagerProps) {
   const { showToast } = useToast();
+  const initialized = useDurableWorkflowsStore((state) => state.initialized);
   const customAgents = useDurableWorkflowsStore((state) => state.customAgents);
   const saveCustomAgent = useDurableWorkflowsStore((state) => state.saveCustomAgent);
   const removeCustomAgent = useDurableWorkflowsStore((state) => state.removeCustomAgent);
@@ -26,7 +30,44 @@ export function DurableAgentManager({ isOpen, onClose, onCreated }: DurableAgent
   const [maxIterations, setMaxIterations] = useState(10);
   const [maxTotalTokens, setMaxTotalTokens] = useState(20_000);
   const [tools, setTools] = useState<string[]>(DEFAULT_TOOLS);
-  const [saving, setSaving] = useState(false);
+  const [action, setAction] = useState<'save' | 'confirm-remove' | 'remove' | null>(null);
+  const actionInFlight = useRef(false);
+  const actionTrigger = useRef<HTMLElement | null>(null);
+  const statusRef = useRef<HTMLParagraphElement>(null);
+  const nameRef = useRef<HTMLInputElement>(null);
+  const instructionsId = useId();
+  const busy = action !== null;
+  const disabled = !initialized || busy;
+
+  useEffect(() => {
+    if (!isOpen) {
+      actionTrigger.current = null;
+      return;
+    }
+    if (action === 'save' || action === 'remove') statusRef.current?.focus();
+    else if (action === null && actionTrigger.current) {
+      const target = actionTrigger.current.isConnected ? actionTrigger.current : nameRef.current;
+      target?.focus();
+      actionTrigger.current = null;
+    }
+  }, [action, isOpen]);
+
+  const beginAction = (next: 'save' | 'confirm-remove') => {
+    if (actionInFlight.current || !useDurableWorkflowsStore.getState().initialized) return false;
+    const active = document.activeElement;
+    actionTrigger.current =
+      active instanceof HTMLElement && nameRef.current?.closest('[role="dialog"]')?.contains(active)
+        ? active
+        : nameRef.current;
+    actionInFlight.current = true;
+    setAction(next);
+    return true;
+  };
+
+  const finishAction = () => {
+    actionInFlight.current = false;
+    setAction(null);
+  };
 
   const toggleTool = (tool: string) => {
     setTools((current) =>
@@ -35,8 +76,7 @@ export function DurableAgentManager({ isOpen, onClose, onCreated }: DurableAgent
   };
 
   const save = async () => {
-    if (!name.trim() || !instructions.trim() || !tools.length) return;
-    setSaving(true);
+    if (!name.trim() || !instructions.trim() || !tools.length || !beginAction('save')) return;
     try {
       const profile: DurableAgentProfile = {
         id: `custom-${crypto.randomUUID()}`,
@@ -71,26 +111,38 @@ export function DurableAgentManager({ isOpen, onClose, onCreated }: DurableAgent
         message: error instanceof Error ? error.message : String(error),
       });
     } finally {
-      setSaving(false);
+      finishAction();
     }
   };
 
   const remove = async (profile: DurableAgentProfile) => {
-    const accepted = await confirm({
-      title: `Remove ${profile.name}?`,
-      message:
-        'The saved profile will be removed. Existing workflows keep their agent snapshot and continue running.',
-      confirmLabel: 'Remove profile',
-      variant: 'danger',
-    });
-    if (!accepted) return;
-    await removeCustomAgent(profile.id);
-    showToast({
-      variant: 'warning',
-      title: 'Agent profile removed',
-      message:
-        'Existing workflows are unaffected. The profile cannot be recovered unless recreated.',
-    });
+    if (!beginAction('confirm-remove')) return;
+    try {
+      const accepted = await confirm({
+        title: `Remove ${profile.name}?`,
+        message:
+          'The saved profile will be removed. Existing workflows keep their agent snapshot and continue running.',
+        confirmLabel: 'Remove profile',
+        variant: 'danger',
+      });
+      if (!accepted) return;
+      setAction('remove');
+      await removeCustomAgent(profile.id);
+      showToast({
+        variant: 'warning',
+        title: 'Agent profile removed',
+        message:
+          'Existing workflows are unaffected. The profile cannot be recovered unless recreated.',
+      });
+    } catch (error) {
+      showToast({
+        variant: 'error',
+        title: 'Unable to remove agent',
+        message: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      finishAction();
+    }
   };
 
   return (
@@ -101,84 +153,111 @@ export function DurableAgentManager({ isOpen, onClose, onCreated }: DurableAgent
         title="Background agents"
         description="Create reusable, bounded agents for durable workflows."
         size="xl"
-        preventClose={saving}
+        preventClose={busy}
       >
+        <WorkflowInitializationNotice />
+        {(action === 'save' || action === 'remove') && (
+          <p
+            ref={statusRef}
+            role="status"
+            tabIndex={0}
+            className="mb-4 rounded-md text-xs text-[var(--ui-muted)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ui-focus)]"
+          >
+            {action === 'save' ? 'Creating agent…' : 'Removing profile…'}
+          </p>
+        )}
         <div className="grid gap-6 lg:grid-cols-[0.8fr_1.2fr]">
           <section>
-            <h3 className="text-xs font-medium uppercase tracking-wider text-slate-500">
+            <h3 className="text-xs font-medium uppercase tracking-wider text-[var(--ui-muted)]">
               Saved agents
             </h3>
             <div className="mt-3 space-y-2">
               {customAgents.length ? (
                 customAgents.map((profile) => (
-                  <div
+                  <article
                     key={profile.id}
-                    className="flex items-start gap-3 rounded-xl border border-slate-800 bg-slate-950/25 p-3"
+                    aria-label={`Agent profile ${profile.name}`}
+                    className="flex items-start gap-3 rounded-xl border border-[var(--ui-border)] bg-[var(--ui-surface)] p-3"
                   >
-                    <Bot className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" aria-hidden="true" />
+                    <Bot
+                      className="mt-0.5 h-4 w-4 shrink-0 text-[var(--ui-muted)]"
+                      aria-hidden="true"
+                    />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-xs font-medium text-slate-200">{profile.name}</p>
-                      <p className="mt-1 line-clamp-2 text-[11px] leading-4 text-slate-600">
+                      <p className="break-words text-xs font-medium text-[var(--ui-text)]">
+                        {profile.name}
+                      </p>
+                      <p className="mt-1 line-clamp-2 break-words text-[11px] leading-4 text-[var(--ui-muted)]">
                         {profile.description}
                       </p>
                     </div>
                     <button
                       type="button"
                       onClick={() => void remove(profile)}
-                      className="minimal-icon-button h-8 w-8 text-slate-600 hover:text-rose-300"
+                      disabled={disabled}
+                      className="minimal-icon-button h-8 w-8 shrink-0 text-[var(--ui-muted)] hover:text-[var(--ui-negative)]"
                       aria-label={`Remove ${profile.name}`}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
-                  </div>
+                  </article>
                 ))
               ) : (
-                <p className="rounded-xl border border-dashed border-slate-800 px-4 py-8 text-center text-xs text-slate-600">
-                  No custom agents yet
+                <p className="rounded-xl border border-dashed border-[var(--ui-border)] px-4 py-8 text-center text-xs text-[var(--ui-muted)]">
+                  {initialized
+                    ? 'No custom agents yet'
+                    : 'Saved agents are unavailable until settings load.'}
                 </p>
               )}
             </div>
           </section>
 
           <section className="space-y-4">
-            <h3 className="text-xs font-medium uppercase tracking-wider text-slate-500">
+            <h3 className="text-xs font-medium uppercase tracking-wider text-[var(--ui-muted)]">
               New agent profile
             </h3>
-            <div className="grid grid-cols-2 gap-3">
-              <label className="text-xs text-slate-400">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="text-xs text-[var(--ui-muted)]">
                 Name
                 <input
+                  ref={nameRef}
                   value={name}
                   onChange={(event) => setName(event.target.value)}
                   maxLength={80}
-                  className="minimal-input mt-1.5 w-full"
+                  disabled={disabled}
+                  className={PROFILE_INPUT_CLASS}
                   placeholder="Inventory investigator"
                 />
               </label>
-              <label className="text-xs text-slate-400">
+              <label className="text-xs text-[var(--ui-muted)]">
                 Description
                 <input
                   value={description}
                   onChange={(event) => setDescription(event.target.value)}
                   maxLength={240}
-                  className="minimal-input mt-1.5 w-full"
+                  disabled={disabled}
+                  className={PROFILE_INPUT_CLASS}
                   placeholder="Checks inventory discrepancies"
                 />
               </label>
             </div>
-            <label className="block text-xs text-slate-400">
-              Instructions
+            <div>
+              <label htmlFor={instructionsId} className="block text-xs text-[var(--ui-muted)]">
+                Instructions
+              </label>
               <textarea
+                id={instructionsId}
                 value={instructions}
                 onChange={(event) => setInstructions(event.target.value)}
                 maxLength={12_000}
+                disabled={disabled}
                 rows={4}
-                className="minimal-input mt-1.5 w-full resize-none text-xs leading-5"
+                className={`${PROFILE_INPUT_CLASS} resize-none leading-5`}
                 placeholder="Describe the role, operating rules, and definition of done."
               />
-            </label>
+            </div>
             <fieldset>
-              <legend className="text-xs text-slate-400">Allowed tools</legend>
+              <legend className="text-xs text-[var(--ui-muted)]">Allowed tools</legend>
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {DURABLE_AGENT_EXECUTABLES.map((tool) => {
                   const selected = tools.includes(tool);
@@ -187,11 +266,12 @@ export function DurableAgentManager({ isOpen, onClose, onCreated }: DurableAgent
                       key={tool}
                       type="button"
                       aria-pressed={selected}
+                      disabled={disabled}
                       onClick={() => toggleTool(tool)}
                       className={`rounded-md border px-2 py-1 font-mono text-[11px] transition-colors ${
                         selected
-                          ? 'border-slate-500 bg-slate-700/60 text-slate-200'
-                          : 'border-slate-800 text-slate-600 hover:border-slate-700'
+                          ? 'border-[var(--ui-focus)] bg-[var(--ui-surface-selected)] text-[var(--ui-text)]'
+                          : 'border-[var(--ui-border)] text-[var(--ui-muted)] hover:bg-[var(--ui-surface-hover)]'
                       }`}
                     >
                       {tool}
@@ -200,19 +280,20 @@ export function DurableAgentManager({ isOpen, onClose, onCreated }: DurableAgent
                 })}
               </div>
             </fieldset>
-            <div className="grid grid-cols-2 gap-3">
-              <label className="text-xs text-slate-400">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="text-xs text-[var(--ui-muted)]">
                 Max actions
                 <input
                   type="number"
                   min={1}
                   max={50}
                   value={maxIterations}
+                  disabled={disabled}
                   onChange={(event) => setMaxIterations(Number(event.target.value))}
-                  className="minimal-input mt-1.5 w-full"
+                  className={PROFILE_INPUT_CLASS}
                 />
               </label>
-              <label className="text-xs text-slate-400">
+              <label className="text-xs text-[var(--ui-muted)]">
                 Total token budget
                 <input
                   type="number"
@@ -220,23 +301,25 @@ export function DurableAgentManager({ isOpen, onClose, onCreated }: DurableAgent
                   max={200000}
                   step={1024}
                   value={maxTotalTokens}
+                  disabled={disabled}
                   onChange={(event) => setMaxTotalTokens(Number(event.target.value))}
-                  className="minimal-input mt-1.5 w-full"
+                  className={PROFILE_INPUT_CLASS}
                 />
               </label>
             </div>
-            <div className="flex items-center justify-between border-t border-slate-800 pt-4">
-              <p className="text-[11px] text-slate-600">Managed model · gpt-5.4</p>
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--ui-border)] pt-4">
+              <p className="text-[11px] text-[var(--ui-muted)]">Managed model · gpt-5.4</p>
               <button
                 type="button"
                 onClick={() => void save()}
-                disabled={saving || !name.trim() || !instructions.trim() || !tools.length}
-                className="minimal-primary-button"
+                disabled={disabled || !name.trim() || !instructions.trim() || !tools.length}
+                aria-busy={action === 'save'}
+                className="ui-button ui-button-primary inline-flex h-9 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg px-3.5 py-2 text-sm font-medium"
               >
-                {saving ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                {action === 'save' ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
                 ) : (
-                  <Plus className="h-4 w-4" />
+                  <Plus className="h-4 w-4" aria-hidden="true" />
                 )}
                 Create agent
               </button>

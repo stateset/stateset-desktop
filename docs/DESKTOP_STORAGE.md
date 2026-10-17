@@ -47,6 +47,19 @@ Malformed saved pending records stop workflow settings from loading so they cann
 be silently discarded by a later save. Keep the original profile and restore a
 valid backup if retrying cannot recover its records.
 
+## Custom background agents
+
+Custom agent saves and removals share a write queue. Each operation uses the
+latest acknowledged collection, and submitted profiles are copied before they
+wait. Missing desktop storage, rejected writes and false acknowledgements leave
+the previous profiles available for retry.
+
+The agent editor keeps its fields and actions stable while a save or removal is
+pending. Failed creation retains the draft; failed removal retains the saved
+profile. Removing a profile leaves an unrelated new-agent draft intact. Existing
+workflows keep their agent snapshots and are unaffected by profile removal.
+Saved-agent status and mutations remain unavailable until settings load.
+
 ## Workflow blueprints
 
 Blueprint saves, removals and imports share one write queue. Each operation merges

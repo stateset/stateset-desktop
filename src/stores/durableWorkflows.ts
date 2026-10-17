@@ -128,6 +128,7 @@ let configurationQueue: Promise<unknown> = Promise.resolve();
 let scheduleWriteQueue: Promise<unknown> = Promise.resolve();
 let workflowWriteQueue: Promise<unknown> = Promise.resolve();
 let blueprintWriteQueue: Promise<unknown> = Promise.resolve();
+let customAgentWriteQueue: Promise<unknown> = Promise.resolve();
 const scheduleIntentGenerations = new Map<string, number>();
 
 export function getWorkflowConnectionGeneration(): number {
@@ -157,6 +158,12 @@ function writeWorkflows(operation: () => Promise<void>): Promise<void> {
 function writeBlueprints(operation: () => Promise<void>): Promise<void> {
   const task = blueprintWriteQueue.then(operation, operation);
   blueprintWriteQueue = task.catch(() => undefined);
+  return task;
+}
+
+function writeCustomAgents(operation: () => Promise<void>): Promise<void> {
+  const task = customAgentWriteQueue.then(operation, operation);
+  customAgentWriteQueue = task.catch(() => undefined);
   return task;
 }
 
@@ -197,6 +204,14 @@ async function persistBlueprints(blueprints: DurableWorkflowBlueprint[]): Promis
     );
   const stored = await storage.set(BLUEPRINTS_KEY, blueprints);
   if (stored === false) throw new Error('Workflow blueprints could not be saved. Try again.');
+}
+
+async function persistCustomAgents(customAgents: DurableAgentProfile[]): Promise<void> {
+  const storage = window.electronAPI?.store;
+  if (typeof storage?.set !== 'function')
+    throw new Error('Desktop storage is unavailable. Reopen the desktop app before saving agents.');
+  const stored = await storage.set(CUSTOM_AGENTS_KEY, customAgents);
+  if (stored === false) throw new Error('Custom agent profiles could not be saved. Try again.');
 }
 
 function isTrackedWorkflow(value: unknown): value is TrackedDurableWorkflow {
@@ -625,20 +640,27 @@ export const useDurableWorkflowsStore = create<DurableWorkflowsState>((set, get)
 
   saveCustomAgent: async (profile) => {
     assertWorkflowSettingsLoaded();
-    if (!isValidCustomAgentProfile(profile)) throw new Error('Agent profile is invalid.');
-    const customAgents = [
-      profile,
-      ...get().customAgents.filter((agent) => agent.id !== profile.id),
-    ];
-    await window.electronAPI?.store?.set(CUSTOM_AGENTS_KEY, customAgents);
-    set({ customAgents });
+    const snapshot: unknown = structuredClone(profile);
+    if (!isValidCustomAgentProfile(snapshot)) throw new Error('Agent profile is invalid.');
+    await writeCustomAgents(async () => {
+      assertWorkflowSettingsLoaded();
+      const customAgents = [
+        snapshot,
+        ...get().customAgents.filter((agent) => agent.id !== snapshot.id),
+      ];
+      await persistCustomAgents(customAgents);
+      set({ customAgents });
+    });
   },
 
   removeCustomAgent: async (profileId) => {
     assertWorkflowSettingsLoaded();
-    const customAgents = get().customAgents.filter((agent) => agent.id !== profileId);
-    await window.electronAPI?.store?.set(CUSTOM_AGENTS_KEY, customAgents);
-    set({ customAgents });
+    await writeCustomAgents(async () => {
+      assertWorkflowSettingsLoaded();
+      const customAgents = get().customAgents.filter((agent) => agent.id !== profileId);
+      await persistCustomAgents(customAgents);
+      set({ customAgents });
+    });
   },
 
   saveBlueprint: async (blueprint) => {
