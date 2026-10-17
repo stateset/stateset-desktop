@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Fixed
 
+- Recover saved workflow settings after temporary storage or credential read failures, with a clear retry action. Protect saved workflows and connection identity until loading succeeds, preserve newer connection saves and form edits, and restore the saved engine URL in computer setup.
 - Report updates only after a completed check, preserve download and restart actions across late replies, and recover failed check and restart requests with clear retry feedback. Simplify the Updates surface and make progress available to assistive technology.
 - Use the built package version in renderer startup diagnostics and Settings fallbacks.
 

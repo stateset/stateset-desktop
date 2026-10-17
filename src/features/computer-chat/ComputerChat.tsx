@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Monitor, Plus, Camera, Pause, Square, Trash2 } from 'lucide-react';
 import { useAuthStore } from '../../stores/auth';
 import { useDurableWorkflowsStore } from '../../stores/durableWorkflows';
+import { WorkflowInitializationNotice } from '../../components/WorkflowInitializationNotice';
 import { ChatInput } from '../chat-playground/components/ChatInput';
 import { ChatMessageBubble } from '../chat-playground/components/ChatMessageBubble';
 import { ToolActivityBubble } from '../chat-playground/components/ToolActivityBubble';
@@ -24,6 +25,8 @@ export function ComputerChat() {
   const chat = scoped.find((item) => item.id === activeId);
   const working = Boolean(chat && busy[chat.id]);
   const options = { durable, verify, model };
+  const workflowInitialized = useDurableWorkflowsStore((s) => s.initialized);
+  const workflowUnavailable = durable && !workflowInitialized;
 
   useEffect(() => {
     void initialize().catch((e: Error) => setError(e.message));
@@ -38,7 +41,7 @@ export function ComputerChat() {
   }, [chat?.messages.length]);
 
   const newChat = async () => {
-    if (!tenantId || !brandId || creating) return;
+    if (!tenantId || !brandId || creating || workflowUnavailable) return;
     setCreating(true);
     setError('');
     try {
@@ -69,6 +72,7 @@ export function ComputerChat() {
             onError={setError}
           />
         )}
+        <WorkflowInitializationNotice />
         {error && (
           <p role="alert" className="text-sm text-red-400">
             {error}
@@ -105,7 +109,7 @@ export function ComputerChat() {
             <button
               type="button"
               onClick={() => void newChat()}
-              disabled={!loaded || !tenantId || !brandId || creating}
+              disabled={!loaded || !tenantId || !brandId || creating || workflowUnavailable}
               className="minimal-primary-button w-full"
             >
               <Plus className="h-4 w-4" />
@@ -239,7 +243,7 @@ export function ComputerChat() {
                 <ChatInput
                   key={chat.id}
                   isLoading={working}
-                  disabled={Boolean(chat.pending) || Boolean(chat.stopped)}
+                  disabled={workflowUnavailable || Boolean(chat.pending) || Boolean(chat.stopped)}
                   placeholder={
                     chat.stopped
                       ? 'Computer stopped. Create a new chat to continue.'
@@ -259,7 +263,12 @@ export function ComputerChat() {
                   <button
                     type="button"
                     aria-label="Refresh desktop screenshot"
-                    disabled={working || Boolean(chat.pending) || Boolean(chat.stopped)}
+                    disabled={
+                      workflowUnavailable ||
+                      working ||
+                      Boolean(chat.pending) ||
+                      Boolean(chat.stopped)
+                    }
                     onClick={() => void computerChatRuntime.screenshot(chat.id, options)}
                     className="minimal-icon-button"
                   >

@@ -39,6 +39,8 @@ beforeEach(() => {
     initialize: vi.fn().mockResolvedValue(undefined),
   });
   engine.setState({
+    initialized: true,
+    initializationError: null,
     engineUrl: 'https://engine.example',
     apiKey: null,
     connectionRevision: null,
@@ -55,6 +57,23 @@ afterEach(() => {
   chats.setState({ initialize: initializeChats });
 });
 describe('computer conversation reconciliation', () => {
+  it('waits for a successful retry instead of using fallback connection values', async () => {
+    vi.useFakeTimers();
+    const initialize = vi.fn(async () => {
+      if (initialize.mock.calls.length > 1)
+        engine.setState({ initialized: true, initializationError: null });
+    });
+    engine.setState({ initialized: false, initialize });
+    renderHook(() => useComputerChatRecovery());
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(durableChatController.refresh).not.toHaveBeenCalled();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000);
+    });
+    expect(durableChatController.refresh).toHaveBeenCalledWith('active');
+  });
   it('waits for the saved engine configuration before requesting a conversation', async () => {
     let ready!: () => void;
     engine.setState({

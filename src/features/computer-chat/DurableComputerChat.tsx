@@ -17,6 +17,7 @@ import {
 import './computer-chat.css';
 import { useAuthStore } from '../../stores/auth';
 import { useDurableWorkflowsStore } from '../../stores/durableWorkflows';
+import { WorkflowInitializationNotice } from '../../components/WorkflowInitializationNotice';
 import { useComputerChatsStore } from './store';
 import { durableChatController } from './durable';
 import { ChatLibrary } from './ChatLibrary';
@@ -71,6 +72,7 @@ export function DurableComputerChat() {
     DEFAULT_CHAT_CONFIGURATION
   );
   const [checkedSetup, setCheckedSetup] = useState<CheckedSetup | null>(null);
+  const workflowInitialized = useDurableWorkflowsStore((s) => s.initialized);
   const setupEngineUrl = useDurableWorkflowsStore((s) => s.engineUrl);
   const setupApiKey = useDurableWorkflowsStore((s) => s.apiKey);
   const setupRevision = useDurableWorkflowsStore((s) => s.connectionRevision);
@@ -87,7 +89,7 @@ export function DurableComputerChat() {
   const currentSetupContext = useRef(setupContext);
   currentSetupContext.current = setupContext;
   const report =
-    checkedSetup && sameSetupContext(checkedSetup.context, setupContext)
+    workflowInitialized && checkedSetup && sameSetupContext(checkedSetup.context, setupContext)
       ? checkedSetup.report
       : null;
   const setReport = useCallback((checked: CheckedSetup | null) => {
@@ -224,6 +226,7 @@ export function DurableComputerChat() {
     const connection = useDurableWorkflowsStore.getState();
     if (auth.tenant?.id !== tenantId || auth.currentBrand?.id !== brandId) return;
     if (
+      !connection.initialized ||
       !checkedSetup?.report.ready ||
       !sameSetupContext(checkedSetup.context, {
         tenantId,
@@ -369,6 +372,7 @@ export function DurableComputerChat() {
             />
           )}
         </div>
+        <WorkflowInitializationNotice />
         {error && (
           <p role="alert" className="chat-page-alert text-sm text-red-400">
             {error}

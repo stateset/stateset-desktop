@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { WorkflowInitializationNotice } from '../../../components/WorkflowInitializationNotice';
 import { CheckCircle2, KeyRound, Loader2, Network, Trash2, XCircle } from 'lucide-react';
 import { durableWorkflowApi } from '../../../lib/durableWorkflows';
 import { useAuthStore } from '../../../stores/auth';
@@ -11,6 +12,8 @@ export function DurableWorkflowSettings() {
   const { initialized, engineUrl, apiKey, initialize, setConfiguration, clearApiKey } =
     useDurableWorkflowsStore();
   const [urlInput, setUrlInput] = useState(engineUrl);
+  const urlEdited = useRef(false);
+  const draftRevision = useRef(0);
   const [keyInput, setKeyInput] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
@@ -21,25 +24,30 @@ export function DurableWorkflowSettings() {
   }, [initialize]);
 
   useEffect(() => {
-    if (initialized) setUrlInput(engineUrl);
+    if (initialized && !urlEdited.current) setUrlInput(engineUrl);
   }, [engineUrl, initialized]);
 
   const save = async () => {
+    if (!useDurableWorkflowsStore.getState().initialized) return;
+    const revision = draftRevision.current;
     setIsSaving(true);
     setResult(null);
     try {
       await setConfiguration(urlInput, keyInput || undefined);
-      setKeyInput('');
-      setResult({ ok: true, message: 'Durable workflow configuration saved.' });
+      if (revision === draftRevision.current) {
+        setKeyInput('');
+        setResult({ ok: true, message: 'Durable workflow configuration saved.' });
+      }
     } catch (error) {
-      setResult({ ok: false, message: error instanceof Error ? error.message : String(error) });
+      if (revision === draftRevision.current)
+        setResult({ ok: false, message: error instanceof Error ? error.message : String(error) });
     } finally {
       setIsSaving(false);
     }
   };
 
   const test = async () => {
-    if (!tenant?.id) return;
+    if (!tenant?.id || !useDurableWorkflowsStore.getState().initialized) return;
     setIsTesting(true);
     setResult(null);
     try {
@@ -64,12 +72,18 @@ export function DurableWorkflowSettings() {
         </p>
       </div>
       <div className="p-5 space-y-4">
+        <WorkflowInitializationNotice />
         <label className="block">
           <span className="text-sm font-medium text-gray-300">Engine URL</span>
           <input
             type="url"
             value={urlInput}
-            onChange={(event) => setUrlInput(event.target.value)}
+            onChange={(event) => {
+              urlEdited.current = true;
+              draftRevision.current++;
+              setResult(null);
+              setUrlInput(event.target.value);
+            }}
             className="mt-1.5 w-full px-3 py-2 bg-slate-950/70 border border-slate-700 rounded-lg text-sm focus:outline-none focus:border-brand-500"
             placeholder="https://api.workstream.stateset.com"
           />
@@ -81,7 +95,11 @@ export function DurableWorkflowSettings() {
           <input
             type="password"
             value={keyInput}
-            onChange={(event) => setKeyInput(event.target.value)}
+            onChange={(event) => {
+              draftRevision.current++;
+              setResult(null);
+              setKeyInput(event.target.value);
+            }}
             className="mt-1.5 w-full px-3 py-2 bg-slate-950/70 border border-slate-700 rounded-lg text-sm focus:outline-none focus:border-brand-500"
             placeholder={apiKey ? 'Enter a new key to replace the current key' : 'Required'}
             autoComplete="off"
@@ -118,7 +136,7 @@ export function DurableWorkflowSettings() {
           <button
             type="button"
             onClick={save}
-            disabled={isSaving || !urlInput.trim() || (!apiKey && !keyInput.trim())}
+            disabled={!initialized || isSaving || !urlInput.trim() || (!apiKey && !keyInput.trim())}
             className="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-500 disabled:opacity-50 text-sm font-medium"
           >
             {isSaving ? 'Saving…' : 'Save configuration'}
@@ -126,7 +144,7 @@ export function DurableWorkflowSettings() {
           <button
             type="button"
             onClick={test}
-            disabled={isTesting || !apiKey || !tenant?.id}
+            disabled={!initialized || isTesting || !apiKey || !tenant?.id}
             className="px-4 py-2 rounded-lg border border-slate-700 hover:bg-slate-800 disabled:opacity-50 text-sm font-medium flex items-center gap-2"
           >
             {isTesting && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />}
@@ -135,7 +153,10 @@ export function DurableWorkflowSettings() {
           {apiKey && (
             <button
               type="button"
-              onClick={() => void clearApiKey()}
+              disabled={!initialized}
+              onClick={() => {
+                if (useDurableWorkflowsStore.getState().initialized) void clearApiKey();
+              }}
               className="px-3 py-2 rounded-lg text-red-300 hover:bg-red-500/10 text-sm flex items-center gap-2"
             >
               <Trash2 className="w-4 h-4" aria-hidden="true" /> Remove key

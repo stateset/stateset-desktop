@@ -1,4 +1,4 @@
-import { useDurableWorkflowsStore } from '../stores/durableWorkflows';
+import { assertWorkflowSettingsLoaded, useDurableWorkflowsStore } from '../stores/durableWorkflows';
 import type { DurableAgentProfile } from './durableAgentProfiles';
 import { assertNoInlineSecrets } from './workflowCommandSecurity';
 export { assertNoInlineSecrets } from './workflowCommandSecurity';
@@ -88,6 +88,7 @@ type RequestOptions = {
 };
 
 function configuredClient() {
+  assertWorkflowSettingsLoaded();
   const { engineUrl, apiKey, configuring } = useDurableWorkflowsStore.getState();
   if (configuring) throw new Error('Wait for the workflow connection update to finish.');
   if (!engineUrl.trim() || !apiKey?.trim()) {

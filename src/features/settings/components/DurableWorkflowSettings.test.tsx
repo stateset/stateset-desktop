@@ -1,4 +1,5 @@
 /** @vitest-environment happy-dom */
+import { act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderWithProviders, screen, fireEvent, waitFor } from '../../../test-utils';
 import { useAuthStore } from '../../../stores/auth';
@@ -40,10 +41,42 @@ describe('DurableWorkflowSettings', () => {
     vi.clearAllMocks();
     secureStorageMock.mockReturnValue(null);
     healthMock.mockResolvedValue({ ok: true });
-    setConfigurationMock.mockResolvedValue(undefined);
+    setConfigurationMock.mockReset().mockResolvedValue(undefined);
+    initializeMock.mockReset().mockResolvedValue(undefined);
     clearApiKeyMock.mockResolvedValue(undefined);
     seedStore();
   });
+
+  it.each([false, true])(
+    'blocks fallback actions and preserves connection drafts during recovery (%s)',
+    (edited) => {
+      seedStore({
+        initialized: false,
+        initializationError: 'Saved settings could not be loaded.',
+        apiKey: 'stale-key',
+      });
+      renderWithProviders(<DurableWorkflowSettings />);
+      const input = screen.getByRole('textbox', { name: 'Engine URL' });
+      if (edited) fireEvent.change(input, { target: { value: 'https://draft-engine.example' } });
+      expect(screen.getByRole('button', { name: 'Save configuration' })).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Test connection' })).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Remove key' })).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Retry loading settings' })).toBeVisible();
+      act(() =>
+        useDurableWorkflowsStore.setState({
+          initialized: true,
+          initializationError: null,
+          engineUrl: 'https://restored-engine.example',
+        })
+      );
+      expect(input).toHaveValue(
+        edited ? 'https://draft-engine.example' : 'https://restored-engine.example'
+      );
+      expect(screen.getByRole('button', { name: 'Save configuration' })).toBeEnabled();
+      expect(healthMock).not.toHaveBeenCalled();
+      expect(setConfigurationMock).not.toHaveBeenCalled();
+    }
+  );
 
   it('renders the engine section with the configured URL', () => {
     renderWithProviders(<DurableWorkflowSettings />);
@@ -70,6 +103,43 @@ describe('DurableWorkflowSettings', () => {
     });
     expect(save).not.toBeDisabled();
   });
+
+  it.each([false, true])(
+    'preserves newer connection drafts when an earlier save finishes (failed=%s)',
+    async (failed) => {
+      let finish!: () => void;
+      setConfigurationMock.mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve, reject) => {
+            finish = () => (failed ? reject(new Error('Older save failed')) : resolve());
+          })
+      );
+      seedStore({ apiKey: 'saved-key' });
+      renderWithProviders(<DurableWorkflowSettings />);
+      const url = screen.getByRole('textbox', { name: 'Engine URL' });
+      const key = screen.getByLabelText(/^API key/);
+      fireEvent.change(url, { target: { value: 'https://submitted.example' } });
+      fireEvent.change(key, { target: { value: 'submitted-key' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Save configuration' }));
+      await waitFor(() => expect(setConfigurationMock).toHaveBeenCalledOnce());
+      fireEvent.change(url, { target: { value: 'https://newer-draft.example' } });
+      fireEvent.change(key, { target: { value: 'newer-draft-key' } });
+      await act(async () => finish());
+      expect(url).toHaveValue('https://newer-draft.example');
+      expect(key).toHaveValue('newer-draft-key');
+      expect(screen.queryByText('Durable workflow configuration saved.')).not.toBeInTheDocument();
+      expect(screen.queryByText('Older save failed')).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: 'Save configuration' }));
+      await waitFor(() =>
+        expect(setConfigurationMock).toHaveBeenLastCalledWith(
+          'https://newer-draft.example',
+          'newer-draft-key'
+        )
+      );
+      await screen.findByText('Durable workflow configuration saved.');
+      expect(key).toHaveValue('');
+    }
+  );
 
   it('saves configuration and clears the key input', async () => {
     renderWithProviders(<DurableWorkflowSettings />);

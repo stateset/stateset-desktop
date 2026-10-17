@@ -14,6 +14,17 @@ describe('durableWorkflowApi', () => {
     });
   });
 
+  it('refuses requests and event streams while saved configuration is untrusted', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    useDurableWorkflowsStore.setState({ initialized: false });
+    await expect(durableWorkflowApi.health('tenant-1')).rejects.toThrow(/settings.*not loaded/i);
+    await expect(
+      durableWorkflowApi.streamEvents('tenant-1', 'workflow', { onEvent: vi.fn() })
+    ).rejects.toThrow(/settings.*not loaded/i);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it('starts an active-horizon workflow with one sandbox child per durable step', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ workflow_id: 'wf-1', run_id: 'run-1' }), {

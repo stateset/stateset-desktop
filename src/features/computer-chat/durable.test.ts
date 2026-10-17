@@ -1,7 +1,7 @@
 /** @vitest-environment happy-dom */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createHash, webcrypto } from 'node:crypto';
-import { durableChatController as controller } from './durable';
+import { chatRequest, durableChatController as controller } from './durable';
 import { approvalVersion } from './approvals';
 import { DEFAULT_CHAT_CONFIGURATION, type DurableChatStatus } from './durableTypes';
 import { useComputerChatsStore as chats } from './store';
@@ -63,6 +63,20 @@ async function create() {
   return controller.create(tenant, brand, DEFAULT_CHAT_CONFIGURATION);
 }
 describe('durable conversation recovery', () => {
+  it('blocks native requests, local identity creation, and mutations before saved settings load', async () => {
+    const id = await create();
+    vi.mocked(window.electronAPI!.store.set).mockClear();
+    useDurableWorkflowsStore.setState({ initialized: false });
+    await expect(create()).rejects.toThrow(/settings.*not loaded/i);
+    await expect(chatRequest(tenant, '/v1/computer-chats/diagnostics', 'POST')).rejects.toThrow(
+      /settings.*not loaded/i
+    );
+    await controller.send(id, 'Do not use fallback credentials');
+    expect(request).not.toHaveBeenCalled();
+    expect(chats.getState().chats).toHaveLength(1);
+    expect(chats.getState().chats[0].pendingMessage).toBeUndefined();
+    expect(chats.getState().chats[0].error).toMatch(/settings.*not loaded/i);
+  });
   it.each([
     [
       'an outside path',

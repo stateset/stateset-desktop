@@ -68,6 +68,7 @@ export function useComputerChatRecovery() {
         ]);
         if (
           cancelled ||
+          !useDurableWorkflowsStore.getState().initialized ||
           isOffline() ||
           useDurableWorkflowsStore.getState().configuring ||
           useAuthStore.getState().tenant?.id !== tenantId ||

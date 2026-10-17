@@ -1,7 +1,10 @@
 import { z } from 'zod';
 import { engineRequest } from '../../lib/durableWorkflows';
 import { useAuthStore } from '../../stores/auth';
-import { useDurableWorkflowsStore } from '../../stores/durableWorkflows';
+import {
+  assertWorkflowSettingsLoaded,
+  useDurableWorkflowsStore,
+} from '../../stores/durableWorkflows';
 import { ChatPersistenceError, useComputerChatsStore } from './store';
 import {
   artifactSchema,
@@ -32,6 +35,7 @@ export async function chatRequest<T>(
   method: 'GET' | 'POST' = 'GET',
   body?: unknown
 ): Promise<T> {
+  assertWorkflowSettingsLoaded();
   const bridge = window.electronAPI?.computerChat;
   const connection = useDurableWorkflowsStore.getState();
   if (connection.configuring) throw new Error('Wait for the workflow connection update to finish.');
@@ -151,6 +155,7 @@ async function save(id: string, patch: Partial<ComputerChat>) {
 
 type ChatContext = { value: ReturnType<typeof scoped>; epoch: number };
 function context(id: string): ChatContext {
+  assertWorkflowSettingsLoaded();
   if (useDurableWorkflowsStore.getState().configuring)
     throw new Error('Wait for the workflow connection update to finish.');
   return { value: scoped(id), epoch: contextEpoch };
@@ -218,6 +223,7 @@ export const durableChatController = {
     configuration: DurableChatConfiguration,
     source?: { id: string; title: string; messages: { role: string; content: string }[] }
   ) => {
+    assertWorkflowSettingsLoaded();
     const config = parseStartConfiguration(configuration);
     const epoch = contextEpoch;
     const connection = useDurableWorkflowsStore.getState();

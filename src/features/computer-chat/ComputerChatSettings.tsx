@@ -17,11 +17,14 @@ export function ComputerChatSettings({ tenantId, brandId, onError }: Props) {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const engineUrl = useDurableWorkflowsStore((s) => s.engineUrl);
+  const initialized = useDurableWorkflowsStore((s) => s.initialized);
 
   const save = async () => {
     setSaving(true);
     setSaved(false);
     try {
+      if (workflowKey.trim() && !useDurableWorkflowsStore.getState().initialized)
+        throw new Error('Load saved workflow settings before replacing the workflow key.');
       if (sandboxKey.trim()) await useAuthStore.getState().setSandboxApiKey(sandboxKey.trim());
       if (workflowKey.trim())
         await useDurableWorkflowsStore.getState().setConfiguration(engineUrl, workflowKey.trim());
@@ -88,7 +91,11 @@ export function ComputerChatSettings({ tenantId, brandId, onError }: Props) {
       <button
         type="button"
         onClick={() => void save()}
-        disabled={saving || !(sandboxKey.trim() || workflowKey.trim() || policyKey.trim())}
+        disabled={
+          saving ||
+          (Boolean(workflowKey.trim()) && !initialized) ||
+          !(sandboxKey.trim() || workflowKey.trim() || policyKey.trim())
+        }
         className="minimal-primary-button mt-3"
       >
         {saving ? 'Saving…' : 'Save keys'}

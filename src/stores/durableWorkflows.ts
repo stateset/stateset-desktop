@@ -72,6 +72,7 @@ export interface TrackedDurableWorkflow {
 
 interface DurableWorkflowsState {
   initialized: boolean;
+  initializationError: string | null;
   engineUrl: string;
   apiKey: string | null;
   connectionRevision: string | null;
@@ -219,8 +220,16 @@ export function isWorkflowSchedule(value: unknown): value is DurableWorkflowSche
   );
 }
 
+export function assertWorkflowSettingsLoaded() {
+  if (!useDurableWorkflowsStore.getState().initialized)
+    throw new Error(
+      'Saved workflow settings are not loaded. Retry loading them before continuing.'
+    );
+}
+
 export const useDurableWorkflowsStore = create<DurableWorkflowsState>((set, get) => ({
   initialized: false,
+  initializationError: null,
   engineUrl: DEFAULT_ENGINE_URL,
   apiKey: null,
   connectionRevision: null,
@@ -233,9 +242,12 @@ export const useDurableWorkflowsStore = create<DurableWorkflowsState>((set, get)
   initialize: async () => {
     if (get().initialized) return;
     if (initializePromise) return initializePromise;
-    const generation = configurationGeneration;
-    initializePromise = (async () => {
+    const task = (async () => {
       try {
+        // A retry must not take a snapshot halfway through an earlier save.
+        // Drain every queued native write before capturing its generation.
+        while (pendingConfigurations > 0) await configurationQueue;
+        const generation = configurationGeneration;
         const [
           storedUrl,
           storedWorkflows,
@@ -255,6 +267,7 @@ export const useDurableWorkflowsStore = create<DurableWorkflowsState>((set, get)
         ]);
         set({
           initialized: true,
+          initializationError: null,
           ...(generation === configurationGeneration
             ? {
                 engineUrl:
@@ -280,12 +293,22 @@ export const useDurableWorkflowsStore = create<DurableWorkflowsState>((set, get)
             : [],
         });
       } catch {
-        set({ initialized: true });
-      } finally {
-        initializePromise = null;
+        // Failed hydration is not an empty/default configuration. Keep its
+        // collections and connection untrusted until a complete retry succeeds.
+        set({
+          initialized: false,
+          initializationError: 'Saved workflow settings could not be loaded. Retry to reconnect.',
+        });
       }
     })();
-    return initializePromise;
+    // Clean up after assignment even if a local bridge getter threw before
+    // the task reached its first await.
+    initializePromise = task;
+    try {
+      await task;
+    } finally {
+      initializePromise = null;
+    }
   },
 
   setConfiguration: async (engineUrl, apiKey) => {
@@ -358,6 +381,7 @@ export const useDurableWorkflowsStore = create<DurableWorkflowsState>((set, get)
   },
 
   track: async (workflow) => {
+    assertWorkflowSettingsLoaded();
     const workflows = [
       workflow,
       ...get().workflows.filter((w) => w.workflowId !== workflow.workflowId),
@@ -367,6 +391,7 @@ export const useDurableWorkflowsStore = create<DurableWorkflowsState>((set, get)
   },
 
   updateStatus: async (workflowId, details, lastError) => {
+    assertWorkflowSettingsLoaded();
     const workflows = get().workflows.map((workflow) =>
       workflow.workflowId === workflowId
         ? isDurableWorkflowTerminal(workflow.status) && !isDurableWorkflowTerminal(details.status)
@@ -385,6 +410,7 @@ export const useDurableWorkflowsStore = create<DurableWorkflowsState>((set, get)
   },
 
   markStatus: async (workflowId, status) => {
+    assertWorkflowSettingsLoaded();
     const workflows = get().workflows.map((workflow) =>
       workflow.workflowId === workflowId
         ? {
@@ -408,6 +434,7 @@ export const useDurableWorkflowsStore = create<DurableWorkflowsState>((set, get)
   },
 
   setError: async (workflowId, message) => {
+    assertWorkflowSettingsLoaded();
     const workflows = get().workflows.map((workflow) =>
       workflow.workflowId === workflowId
         ? { ...workflow, lastError: message, updatedAt: new Date().toISOString() }
@@ -418,12 +445,14 @@ export const useDurableWorkflowsStore = create<DurableWorkflowsState>((set, get)
   },
 
   remove: async (workflowId) => {
+    assertWorkflowSettingsLoaded();
     const workflows = get().workflows.filter((workflow) => workflow.workflowId !== workflowId);
     set({ workflows });
     await persist(workflows);
   },
 
   saveCustomAgent: async (profile) => {
+    assertWorkflowSettingsLoaded();
     if (!isValidCustomAgentProfile(profile)) throw new Error('Agent profile is invalid.');
     const customAgents = [
       profile,
@@ -434,12 +463,14 @@ export const useDurableWorkflowsStore = create<DurableWorkflowsState>((set, get)
   },
 
   removeCustomAgent: async (profileId) => {
+    assertWorkflowSettingsLoaded();
     const customAgents = get().customAgents.filter((agent) => agent.id !== profileId);
     await window.electronAPI?.store?.set(CUSTOM_AGENTS_KEY, customAgents);
     set({ customAgents });
   },
 
   saveBlueprint: async (blueprint) => {
+    assertWorkflowSettingsLoaded();
     if (!isWorkflowBlueprint(blueprint)) throw new Error('Workflow blueprint is invalid.');
     assertNoInlineSecrets(blueprint.definition.steps);
     const blueprints = [blueprint, ...get().blueprints.filter((item) => item.id !== blueprint.id)];
@@ -448,12 +479,14 @@ export const useDurableWorkflowsStore = create<DurableWorkflowsState>((set, get)
   },
 
   removeBlueprint: async (blueprintId) => {
+    assertWorkflowSettingsLoaded();
     const blueprints = get().blueprints.filter((item) => item.id !== blueprintId);
     await window.electronAPI?.store?.set(BLUEPRINTS_KEY, blueprints);
     set({ blueprints });
   },
 
   saveSchedule: async (schedule) => {
+    assertWorkflowSettingsLoaded();
     if (!isWorkflowSchedule(schedule)) throw new Error('Workflow schedule is invalid.');
     assertNoInlineSecrets(schedule.definition.steps);
     const schedules = [schedule, ...get().schedules.filter((item) => item.id !== schedule.id)];
@@ -462,6 +495,7 @@ export const useDurableWorkflowsStore = create<DurableWorkflowsState>((set, get)
   },
 
   removeSchedule: async (scheduleId) => {
+    assertWorkflowSettingsLoaded();
     const schedules = get().schedules.filter((item) => item.id !== scheduleId);
     await window.electronAPI?.store?.set(SCHEDULES_KEY, schedules);
     set({ schedules });

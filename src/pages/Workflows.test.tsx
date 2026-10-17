@@ -1,4 +1,5 @@
 /** @vitest-environment happy-dom */
+import { act } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, mockElectronAPI, renderWithProviders, screen, waitFor } from '../test-utils';
 import { useAuthStore } from '../stores/auth';
@@ -85,6 +86,30 @@ describe('Workflows', () => {
       blueprints: [],
       schedules: [],
     });
+  });
+
+  it('offers a recoverable error instead of an indefinite startup spinner', async () => {
+    const original = useDurableWorkflowsStore.getState().initialize;
+    const retry = vi.fn().mockResolvedValue(undefined);
+    useDurableWorkflowsStore.setState({
+      initialized: false,
+      initializationError: 'Saved workflow settings could not be loaded.',
+      initialize: retry,
+    });
+    try {
+      renderWithProviders(<Workflows />);
+      expect(screen.getByRole('alert')).toHaveTextContent('could not be loaded');
+      expect(screen.queryByRole('heading', { name: 'Workflows' })).not.toBeInTheDocument();
+      expect(startMock).not.toHaveBeenCalled();
+      retry.mockImplementationOnce(async () => {
+        useDurableWorkflowsStore.setState({ initialized: true, initializationError: null });
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Retry loading settings' }));
+      await screen.findByRole('heading', { name: 'Workflows' });
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    } finally {
+      act(() => useDurableWorkflowsStore.setState({ initialize: original }));
+    }
   });
 
   it('renders the minimal workflow overview', () => {

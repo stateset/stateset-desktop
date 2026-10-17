@@ -63,6 +63,43 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 describe('connection setup readiness', () => {
+  it.each([false, true])(
+    'hydrates a restored engine without replacing an edited URL (%s)',
+    async (edited) => {
+      useDurableWorkflowsStore.setState({
+        initialized: false,
+        engineUrl: 'https://fallback.example',
+        apiKey: null,
+        initializationError: 'Saved settings are unavailable.',
+      });
+      render(<Harness />);
+      if (edited)
+        fireEvent.change(screen.getByLabelText('Workflow engine URL'), {
+          target: { value: 'https://draft-engine.example' },
+        });
+      fireEvent.change(screen.getByLabelText('Workflow API key'), {
+        target: { value: 'retained-draft-key' },
+      });
+      expect(screen.getByRole('button', { name: 'Save connection and check' })).toBeDisabled();
+      expect(window.electronAPI!.store.set).not.toHaveBeenCalled();
+      act(() =>
+        useDurableWorkflowsStore.setState({
+          initialized: true,
+          initializationError: null,
+          engineUrl: 'https://restored-engine.example',
+          apiKey: 'restored-key',
+        })
+      );
+      const expectedUrl = edited
+        ? 'https://draft-engine.example'
+        : 'https://restored-engine.example';
+      expect(screen.getByLabelText('Workflow engine URL')).toHaveValue(expectedUrl);
+      expect(screen.getByLabelText('Workflow API key')).toHaveValue('retained-draft-key');
+      check();
+      await waitFor(() => expect(request).toHaveBeenCalledOnce());
+      expect(request.mock.calls[0][0].engineUrl).toBe(expectedUrl);
+    }
+  );
   it('keeps newer edits unsaved when an earlier defaults save finishes', async () => {
     let release!: (value: boolean) => void;
     vi.mocked(window.electronAPI!.store.set).mockImplementationOnce(

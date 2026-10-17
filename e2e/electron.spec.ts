@@ -313,6 +313,7 @@ test.describe('Electron UI', () => {
         expect(
           (
             await new AxeBuilder({ page })
+              .setLegacyMode()
               .include('[aria-labelledby="update-settings-heading"]')
               .analyze()
           ).violations
@@ -340,6 +341,7 @@ test.describe('Electron UI', () => {
         expect(
           (
             await new AxeBuilder({ page })
+              .setLegacyMode()
               .include('[aria-labelledby="update-settings-heading"]')
               .analyze()
           ).violations
@@ -363,6 +365,84 @@ test.describe('Electron UI', () => {
       }
     });
   }
+
+  test('saved workflow settings recover after a temporary native read failure', async ({
+    desktop,
+  }, testInfo) => {
+    const { electronApp, page } = await launchWithMocks(desktop);
+    try {
+      await page.evaluate(async () => {
+        await window.electronAPI!.store.set(
+          'durableWorkflowEngineUrl',
+          'https://recovery-engine.example'
+        );
+        await window.electronAPI!.auth.setDurableEngineApiKey('test-workflow-engine-key');
+        await window.electronAPI!.store.set('durableTrackedWorkflows', [
+          {
+            workflowId: 'saved-workflow-recovery',
+            runId: 'saved-run',
+            requestId: 'saved-request',
+            tenantId: 'tenant_1',
+            brandId: 'brand_1',
+            goal: 'Saved reconciliation',
+            status: 'completed',
+            createdAt: '2026-10-17T00:00:00.000Z',
+            updatedAt: '2026-10-17T00:00:00.000Z',
+          },
+        ]);
+      });
+      await electronApp.evaluate(({ ipcMain }) => {
+        (globalThis as any).__WORKFLOW_READ_UNAVAILABLE__ = true;
+        ipcMain.removeHandler('auth:getDurableEngineApiKey');
+        ipcMain.handle('auth:getDurableEngineApiKey', () => {
+          if ((globalThis as any).__WORKFLOW_READ_UNAVAILABLE__)
+            throw new Error('Temporary test credential read failure');
+          return 'test-workflow-engine-key';
+        });
+      });
+      // Keep automatic online reconciliation paused so this exercises the
+      // explicit local-settings Retry action, without a timer racing the click.
+      await page.addInitScript(() => {
+        Object.defineProperty(navigator, 'onLine', { configurable: true, value: false });
+      });
+      await page.reload();
+      await page.getByRole('link', { name: 'Workflows', exact: true }).click();
+      const notice = page.getByRole('region', { name: 'Saved workflow settings', exact: true });
+      await expect(notice.getByRole('alert')).toHaveText(
+        'Saved workflow settings could not be loaded. Retry to reconnect.'
+      );
+      await expect(page.getByRole('button', { name: 'New workflow', exact: true })).toHaveCount(0);
+      expect(
+        (
+          await new AxeBuilder({ page })
+            .setLegacyMode()
+            .include('[aria-label="Saved workflow settings"]')
+            .analyze()
+        ).violations
+      ).toEqual([]);
+      await testInfo.attach('workflow-startup-retry', {
+        body: await page.screenshot({ animations: 'disabled' }),
+        contentType: 'image/png',
+      });
+      await electronApp.evaluate(() => {
+        (globalThis as any).__WORKFLOW_READ_UNAVAILABLE__ = false;
+      });
+      await notice.getByRole('button', { name: 'Retry loading settings', exact: true }).click();
+      await expect(notice).toHaveCount(0);
+      await expect(page.getByText('Saved reconciliation', { exact: true })).toBeVisible();
+      await page.getByRole('link', { name: 'Settings', exact: true }).click();
+      await page
+        .getByRole('navigation', { name: 'Settings sections' })
+        .getByRole('button', { name: 'Background', exact: true })
+        .click();
+      await expect(page.getByLabel('Engine URL', { exact: true })).toHaveValue(
+        'https://recovery-engine.example'
+      );
+      await expect(page.getByText('No key configured.', { exact: true })).toHaveCount(0);
+    } finally {
+      await electronApp.close();
+    }
+  });
 
   test('settings toggles persist', async ({ desktop }) => {
     const { electronApp, page } = await launchWithMocks(desktop);

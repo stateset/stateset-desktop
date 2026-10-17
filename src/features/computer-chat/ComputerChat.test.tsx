@@ -4,6 +4,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ComputerChat } from './ComputerChat';
 import { useComputerChatsStore } from './store';
 import { useAuthStore } from '../../stores/auth';
+import { useDurableWorkflowsStore } from '../../stores/durableWorkflows';
 import { computerChatRuntime } from './runtime';
 import type { ComputerChat as Chat } from './types';
 
@@ -46,6 +47,7 @@ function fixture(title: string): Chat {
 }
 beforeEach(() => {
   vi.clearAllMocks();
+  useDurableWorkflowsStore.setState({ initialized: true, initializationError: null });
   useAuthStore.setState({
     tenant: { id: 'tenant' } as never,
     currentBrand: { id: 'brand' } as never,

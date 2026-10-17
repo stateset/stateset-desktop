@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useNavigate } from 'react-router';
+import { WorkflowInitializationNotice } from '../components/WorkflowInitializationNotice';
 import { Modal } from '../components/Modal';
 import { DurableAgentManager } from '../components/DurableAgentManager';
 import { DurableWorkflowActivity } from '../components/DurableWorkflowActivity';
@@ -1203,8 +1204,8 @@ export default function Workflows() {
 
   if (!initialized) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-slate-500" />
+      <div className="page-shell mx-auto max-w-5xl">
+        <WorkflowInitializationNotice />
       </div>
     );
   }

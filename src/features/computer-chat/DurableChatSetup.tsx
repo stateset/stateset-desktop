@@ -40,6 +40,10 @@ export function DurableChatSetup({
   const engine = useDurableWorkflowsStore();
   const secureStorageAvailable = useSecureStorageAvailability();
   const [url, setUrl] = useState(engine.engineUrl);
+  const urlEdited = useRef(false);
+  useEffect(() => {
+    if (engine.initialized && !urlEdited.current) setUrl(engine.engineUrl);
+  }, [engine.initialized, engine.engineUrl]);
   const [key, setKey] = useState('');
   const [checking, setChecking] = useState(false);
   const [saved, setSaved] = useState<string | null>(null);
@@ -101,6 +105,10 @@ export function DurableChatSetup({
     setSaveError('');
   };
   const check = async () => {
+    if (!useDurableWorkflowsStore.getState().initialized) {
+      onError('Load saved workflow settings before checking this connection.');
+      return;
+    }
     if (inFlight.current) return;
     inFlight.current = true;
     const attempt = ++revision.current;
@@ -221,6 +229,7 @@ export function DurableChatSetup({
           <input
             value={url}
             onChange={(e) => {
+              urlEdited.current = true;
               setUrl(e.target.value);
               invalidate(true);
             }}
@@ -245,7 +254,7 @@ export function DurableChatSetup({
         <button
           type="button"
           onClick={() => void check()}
-          disabled={checking}
+          disabled={checking || !engine.initialized}
           className="minimal-primary-button self-end"
         >
           {checking ? 'Checking…' : 'Save connection and check'}
