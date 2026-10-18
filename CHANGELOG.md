@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Fixed
 
+- Keep engine connection settings readable in light and dark themes, with consistent primary actions and an API-key label separated from credential storage help.
 - Use the saved engine connection for native workflow requests and event streams, including custom origins in packaged apps. Keep CSP and TLS enforcement, cancel obsolete work, and verify the public bridge against an owned HTTPS engine fixture.
 - Keep engine connection feedback tied to the current saved connection, workspace and draft. Ignore obsolete health responses, explain unsaved changes before testing, and preserve configured credentials when removal fails.
 - Keep notifications readable and dismissible above open dialogs, including agent save failures that retain the current draft.

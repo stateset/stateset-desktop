@@ -51,6 +51,8 @@ export function DurableWorkflowSettings() {
   const mounted = useRef(true);
   const [result, setResult] = useState<Feedback | null>(null);
   const dirtyHintId = useId();
+  const keyInputId = useId();
+  const keyHelpId = useId();
   const dirty = normalizeUrl(urlInput) !== normalizeUrl(engineUrl) || keyInput.length > 0;
   const isSaving = action === 'save';
   const isTesting = action === 'test';
@@ -298,11 +300,16 @@ export function DurableWorkflowSettings() {
             }
           />
         </label>
-        <label className="block">
-          <span className="text-sm font-medium text-gray-300 flex items-center gap-2">
+        <div>
+          <label
+            htmlFor={keyInputId}
+            className="text-sm font-medium text-gray-300 flex items-center gap-2"
+          >
             <KeyRound className="w-4 h-4" aria-hidden="true" /> API key
-          </span>
+          </label>
           <input
+            id={keyInputId}
+            aria-describedby={keyHelpId}
             type="password"
             value={keyInput}
             onChange={(event) => {
@@ -319,7 +326,7 @@ export function DurableWorkflowSettings() {
             }
             autoComplete="off"
           />
-          <span className="text-xs text-[var(--ui-muted)] mt-1 block">
+          <p id={keyHelpId} className="text-xs text-[var(--ui-muted)] mt-1">
             {!initialized
               ? 'Key status unavailable until settings load.'
               : apiKey
@@ -329,8 +336,8 @@ export function DurableWorkflowSettings() {
                     ? 'The key is available for this app session. Enter it again after restarting.'
                     : 'A key is configured. Credential storage availability could not be confirmed.'
                 : 'No key configured.'}
-          </span>
-        </label>
+          </p>
+        </div>
 
         {dirty && initialized && (
           <p id={dirtyHintId} className="text-xs text-[var(--ui-muted)]">
@@ -344,8 +351,8 @@ export function DurableWorkflowSettings() {
             aria-atomic="true"
             className={`flex items-start gap-2 rounded-lg border p-3 text-sm ${
               visibleResult.ok
-                ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
-                : 'border-red-500/30 bg-red-500/10 text-red-300'
+                ? 'border-emerald-500/30 bg-emerald-500/10 text-[var(--ui-positive)]'
+                : 'border-red-500/30 bg-red-500/10 text-[var(--ui-negative)]'
             }`}
           >
             {visibleResult.ok ? (
@@ -363,7 +370,7 @@ export function DurableWorkflowSettings() {
             onClick={save}
             disabled={!initialized || busy || !urlInput.trim() || (!apiKey && !keyInput.trim())}
             aria-busy={isSaving}
-            className="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-500 disabled:opacity-50 text-sm font-medium"
+            className="ui-button ui-button-primary px-4 py-2 rounded-lg text-sm font-medium"
           >
             {isSaving ? 'Saving…' : 'Save configuration'}
           </button>
@@ -385,7 +392,7 @@ export function DurableWorkflowSettings() {
               onClick={removeKey}
               aria-label="Remove key"
               aria-busy={isRemoving}
-              className="px-3 py-2 rounded-lg text-red-300 hover:bg-red-500/10 text-sm flex items-center gap-2"
+              className="px-3 py-2 rounded-lg text-[var(--ui-negative)] hover:bg-red-500/10 text-sm flex items-center gap-2"
             >
               {isRemoving ? (
                 <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />

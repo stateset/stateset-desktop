@@ -127,6 +127,8 @@ describe('DurableWorkflowSettings', () => {
       renderWithProviders(<DurableWorkflowSettings />);
       const url = screen.getByRole('textbox', { name: 'Engine URL' });
       const key = screen.getByPlaceholderText('Key status unavailable');
+      expect(screen.getByLabelText('API key', { exact: true })).toBe(key);
+      expect(key).toHaveAccessibleDescription('Key status unavailable until settings load.');
       expect(url).toHaveValue('');
       expect(url).toHaveAttribute('placeholder', 'Saved connection not loaded');
       expect(screen.getByText('Key status unavailable until settings load.')).toBeVisible();
@@ -146,6 +148,8 @@ describe('DurableWorkflowSettings', () => {
       expect(url).toHaveValue('https://restored.example');
       expect(key).toHaveValue('retained-key-draft');
       expect(key).toHaveAttribute('placeholder', 'Required');
+      expect(key).toHaveAccessibleName('API key');
+      expect(key).toHaveAccessibleDescription('No key configured.');
       expect(screen.getByText('No key configured.')).toBeVisible();
       expect(screen.getByRole('button', { name: 'Save configuration' })).toBeEnabled();
     }
@@ -157,6 +161,9 @@ describe('DurableWorkflowSettings', () => {
     expect(screen.getByText('Durable Workflow Engine')).toBeInTheDocument();
     expect(screen.getByDisplayValue('https://engine.example.com')).toBeInTheDocument();
     expect(screen.getByText('No key configured.')).toBeInTheDocument();
+    expect(screen.getByLabelText('API key', { exact: true })).toHaveAccessibleDescription(
+      'No key configured.'
+    );
   });
 
   it('initializes the store on mount', () => {
@@ -277,12 +284,18 @@ describe('DurableWorkflowSettings', () => {
     seedStore({ apiKey: 'session-key' });
     renderWithProviders(<DurableWorkflowSettings />);
     expect(screen.getByText(/Enter it again after restarting/)).toBeInTheDocument();
+    expect(screen.getByLabelText('API key', { exact: true })).toHaveAccessibleDescription(
+      'The key is available for this app session. Enter it again after restarting.'
+    );
   });
   it('confirms operating system encryption only when available', () => {
     secureStorageMock.mockReturnValue(true);
     seedStore({ apiKey: 'stored-key' });
     renderWithProviders(<DurableWorkflowSettings />);
     expect(screen.getByText(/encrypted using operating system secure storage/)).toBeInTheDocument();
+    expect(screen.getByLabelText('API key', { exact: true })).toHaveAccessibleDescription(
+      'The key is encrypted using operating system secure storage.'
+    );
   });
 
   it.each(['URL', 'key'] as const)(
