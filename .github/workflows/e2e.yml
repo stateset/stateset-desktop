@@ -54,3 +54,4 @@ jobs:
             dist/verification/schedule-pending-*.png
             dist/verification/agent-manager-*.png
             dist/verification/agent-error-*.png
+            dist/verification/custom-engine-native-transport.json

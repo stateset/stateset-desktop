@@ -7,6 +7,7 @@ import type { ElectronApplication } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { test, expect, requireDesktopDisplay } from './desktop';
 import { installDesktopApiFixture } from './api-fixture';
+import { createWorkflowEngineFixture } from './workflow-engine-fixture';
 import { DESKTOP_TEST_ORIGIN } from './dev-server';
 import type {
   DurableWorkflowSchedule,
@@ -465,13 +466,20 @@ test('workflow blueprint imports survive restart and deletion preserves the work
     slug: 'blueprint-brand',
     enabled: true,
   };
+  const engine = await createWorkflowEngineFixture({
+    apiKey: 'blueprint-fixture-key',
+    tenantId: tenant.id,
+  });
   const openWorkspace = async (application: ElectronApplication) => {
     const page = await application.firstWindow();
     await page.waitForURL(`${DESKTOP_TEST_ORIGIN}/**`);
-    await page.evaluate(async () => {
-      await window.electronAPI!.store.set('onboardingCompleted', true);
-      await window.electronAPI!.auth.setDurableEngineApiKey('blueprint-fixture-key');
-    });
+    await page.evaluate(async (engineUrl) => {
+      if (!window.electronAPI?.durableWorkflows)
+        throw new Error('Native workflow transport is unavailable.');
+      await window.electronAPI.store.set('durableWorkflowEngineUrl', engineUrl);
+      await window.electronAPI.store.set('onboardingCompleted', true);
+      await window.electronAPI.auth.setDurableEngineApiKey('blueprint-fixture-key');
+    }, engine.url);
     await installDesktopApiFixture(application, page, { tenant, brand, sessions: [] });
     await page.context().addInitScript(
       ({ tenant, brand }) => {
@@ -574,6 +582,7 @@ test('workflow blueprint imports survive restart and deletion preserves the work
     await expect.poll(savedBlueprints).toEqual(afterDelete);
     await expect(page.getByLabel('Goal', { exact: true })).toHaveValue('Keep this working draft');
     await expect(page.getByLabel('Commands', { exact: true })).toHaveValue('audit-0');
+    expect(engine.requests).toEqual([]);
     await test.info().attach('blueprint-persistence', {
       body: Buffer.from(
         JSON.stringify({
@@ -582,12 +591,18 @@ test('workflow blueprint imports survive restart and deletion preserves the work
           afterDelete: (await savedBlueprints()).map(({ id, name }) => ({ id, name })),
           removedName: 'Orders audit',
           workingDraftPreserved: true,
+          transport: 'native',
+          workflowRequests: engine.requests,
         })
       ),
       contentType: 'application/json',
     });
   } finally {
-    await application?.close();
+    try {
+      await application?.close();
+    } finally {
+      await engine.close();
+    }
   }
 });
 
@@ -607,24 +622,24 @@ test('custom background agents survive restart and removing a profile preserves 
     slug: 'agent-profile-brand',
     enabled: true,
   };
-  const workflowRequests: Array<{ method: string; path: string }> = [];
+  const engine = await createWorkflowEngineFixture({
+    apiKey: 'custom-agent-fixture-key',
+    tenantId: tenant.id,
+  });
+  const workflowRequests = engine.requests;
   const managerLayouts: Record<string, unknown> = {};
   const openWorkspace = async (application: ElectronApplication) => {
     const page = await application.firstWindow();
     await page.waitForURL(`${DESKTOP_TEST_ORIGIN}/**`);
-    await page.route('**/v1/workflows/**', (route) => {
-      workflowRequests.push({
-        method: route.request().method(),
-        path: new URL(route.request().url()).pathname,
-      });
-      return route.abort('blockedbyclient');
-    });
-    await page.evaluate(async () => {
-      await window.electronAPI!.store.set('onboardingCompleted', true);
+    await page.evaluate(async (engineUrl) => {
+      if (!window.electronAPI?.durableWorkflows)
+        throw new Error('Native workflow transport is unavailable.');
+      await window.electronAPI.store.set('durableWorkflowEngineUrl', engineUrl);
+      await window.electronAPI.store.set('onboardingCompleted', true);
       // The owned profile uses memory-only credentials, so restore its fixture
       // key on each process launch without consulting the host's keyring.
-      await window.electronAPI!.auth.setDurableEngineApiKey('custom-agent-fixture-key');
-    });
+      await window.electronAPI.auth.setDurableEngineApiKey('custom-agent-fixture-key');
+    }, engine.url);
     await installDesktopApiFixture(application, page, { tenant, brand, sessions: [] });
     await page.context().addInitScript(
       ({ tenant, brand }) => {
@@ -840,13 +855,18 @@ test('custom background agents survive restart and removing a profile preserves 
           draftAfterDelete,
           draftPreserved: true,
           workflowRequests,
+          transport: 'native',
           managerLayouts,
         })
       ),
       contentType: 'application/json',
     });
   } finally {
-    await application?.close();
+    try {
+      await application?.close();
+    } finally {
+      await engine.close();
+    }
   }
 });
 
@@ -866,7 +886,11 @@ test('oversized multilingual agent instructions remain editable until they fit e
     slug: 'agent-limits-brand',
     enabled: true,
   };
-  const workflowRequests: Array<{ method: string; path: string }> = [];
+  const engine = await createWorkflowEngineFixture({
+    apiKey: 'custom-agent-limits-fixture-key',
+    tenantId: tenant.id,
+  });
+  const workflowRequests = engine.requests;
   const rejectedInstructions = '界'.repeat(4001);
   const acceptedInstructions = '界'.repeat(4000);
   let application: ElectronApplication | undefined;
@@ -875,21 +899,14 @@ test('oversized multilingual agent instructions remain editable until they fit e
     application = await desktop.launch(profile);
     const page = await application.firstWindow();
     await page.waitForURL(`${DESKTOP_TEST_ORIGIN}/**`);
-    await page.route(
-      (url) => url.pathname === '/v1/workflows' || url.pathname.startsWith('/v1/workflows/'),
-      (route) => {
-        workflowRequests.push({
-          method: route.request().method(),
-          path: new URL(route.request().url()).pathname,
-        });
-        return route.abort('blockedbyclient');
-      }
-    );
-    await page.evaluate(async () => {
-      await window.electronAPI!.store.set('onboardingCompleted', true);
+    await page.evaluate(async (engineUrl) => {
+      if (!window.electronAPI?.durableWorkflows)
+        throw new Error('Native workflow transport is unavailable.');
+      await window.electronAPI.store.set('durableWorkflowEngineUrl', engineUrl);
+      await window.electronAPI.store.set('onboardingCompleted', true);
       // The owned profile uses memory-only credentials and never consults the host keyring.
-      await window.electronAPI!.auth.setDurableEngineApiKey('custom-agent-limits-fixture-key');
-    });
+      await window.electronAPI.auth.setDurableEngineApiKey('custom-agent-limits-fixture-key');
+    }, engine.url);
     await installDesktopApiFixture(application, page, { tenant, brand, sessions: [] });
     await page.context().addInitScript(
       ({ tenant, brand }) => {
@@ -966,12 +983,17 @@ test('oversized multilingual agent instructions remain editable until they fit e
           profileId: stored.id,
           storedBytes,
           workflowRequests,
+          transport: 'native',
         })
       ),
       contentType: 'application/json',
     });
   } finally {
-    await application?.close();
+    try {
+      await application?.close();
+    } finally {
+      await engine.close();
+    }
   }
 });
 
@@ -993,197 +1015,203 @@ test('agent save errors stay visible above the open editor in both themes', asyn
     name: 'Evidence reviewer',
     instructions: 'Review the supplied evidence and describe any missing confirmations.',
   };
-  const workflowRequests: Array<{ theme: string; method: string; path: string }> = [];
-  const themes: Record<string, unknown> = {};
-  await mkdir('dist/verification', { recursive: true });
-  for (const theme of ['dark', 'light'] as const) {
-    let application: ElectronApplication | undefined;
-    try {
-      const profile = await desktop.createProfile({ memoryOnlyCredentials: true });
-      application = await desktop.launch(profile);
-      const page = await application.firstWindow();
-      await page.waitForURL(`${DESKTOP_TEST_ORIGIN}/**`);
-      await page.route(
-        (url) => url.pathname === '/v1/workflows' || url.pathname.startsWith('/v1/workflows/'),
-        (route) => {
-          workflowRequests.push({
-            theme,
-            method: route.request().method(),
-            path: new URL(route.request().url()).pathname,
-          });
-          return route.abort('blockedbyclient');
-        }
-      );
-      await page.evaluate(async (theme) => {
-        await window.electronAPI!.store.set('theme', theme);
-        await window.electronAPI!.store.set('onboardingCompleted', true);
-        // This credential exists only in this owned app, with no host keyring access.
-        await window.electronAPI!.auth.setDurableEngineApiKey('custom-agent-feedback-fixture-key');
-      }, theme);
-      await installDesktopApiFixture(application, page, { tenant, brand, sessions: [] });
-      await page.context().addInitScript(
-        ({ tenant, brand }) => {
-          window.__E2E_AUTH__ = { tenant, brands: [brand] } as any;
-        },
-        { tenant, brand }
-      );
-      await page.reload();
-      await expect
-        .poll(() => page.evaluate(() => document.documentElement.dataset.theme))
-        .toBe(theme);
-      await page.getByRole('link', { name: 'Workflows', exact: true }).click();
-      await page.getByRole('button', { name: 'Agents', exact: true }).click();
-      const manager = page.getByRole('dialog', { name: 'Background agents', exact: true });
-      await manager.getByLabel('Name', { exact: true }).fill(draft.name);
-      await manager.getByLabel('Instructions', { exact: true }).fill(draft.instructions);
-      await expect(
-        manager.getByRole('button', { name: 'Create agent', exact: true })
-      ).toBeEnabled();
-      // Replace only the public IPC handler in this disposable process, after
-      // startup/settings writes finish. Native reads and production source stay intact.
-      await application.evaluate(({ ipcMain }) => {
-        ipcMain.removeHandler('store:set');
-        ipcMain.handle('store:set', () => false);
-      });
-      await manager.getByRole('button', { name: 'Create agent', exact: true }).click();
-      const toast = page
-        .getByRole('region', { name: 'Notifications', exact: true })
-        .getByRole('alert');
-      await expect(toast).toBeVisible();
-      await expect(toast.locator('.toast-title')).toHaveText('Unable to save agent');
-      await expect(toast.locator('.toast-message')).toHaveText(
-        'Custom agent profiles could not be saved. Try again.'
-      );
-      await expect(manager).toBeVisible();
-      await expect(manager.getByLabel('Name', { exact: true })).toHaveValue(draft.name);
-      await expect(manager.getByLabel('Instructions', { exact: true })).toHaveValue(
-        draft.instructions
-      );
-      const savedProfiles = await page.evaluate(
-        async () =>
-          (await window.electronAPI!.store.get('durableCustomAgentProfiles')) as
-            DurableAgentProfile[] | undefined
-      );
-      expect(savedProfiles ?? []).toEqual([]);
-      await expect(
-        page.getByRole('dialog', { name: 'New background workflow', exact: true })
-      ).toHaveCount(0);
-      const readFeedback = () =>
-        toast.evaluate((element) => {
-          const toastStyle = getComputedStyle(element);
-          const inspect = (target: HTMLElement) => {
-            const rect = target.getBoundingClientRect();
-            const style = getComputedStyle(target);
-            const hit = document.elementFromPoint(
-              rect.left + rect.width / 2,
-              rect.top + rect.height / 2
-            );
-            return {
-              text: target.getAttribute('aria-label') ?? target.textContent?.trim(),
-              unobscured: hit !== null && target.contains(hit),
-              hitTag: hit?.tagName ?? null,
-              bounds: {
-                left: rect.left,
-                top: rect.top,
-                right: rect.right,
-                bottom: rect.bottom,
-              },
-              inViewport:
-                rect.width > 0 &&
-                rect.height > 0 &&
-                rect.left >= 0 &&
-                rect.top >= 0 &&
-                rect.right <= innerWidth &&
-                rect.bottom <= innerHeight,
-              color: style.color,
-              textFillColor: style.webkitTextFillColor,
-              opacity: style.opacity,
-              visibility: style.visibility,
-            };
-          };
-          return {
-            viewport: { width: innerWidth, height: innerHeight },
-            background: toastStyle.backgroundColor,
-            opacity: toastStyle.opacity,
-            visibility: toastStyle.visibility,
-            title: inspect(element.querySelector<HTMLElement>('.toast-title')!),
-            message: inspect(element.querySelector<HTMLElement>('.toast-message')!),
-            dismiss: inspect(
-              element.querySelector<HTMLElement>('[aria-label="Dismiss notification"]')!
-            ),
-          };
-        });
-      await expect.poll(async () => (await readFeedback()).opacity).toBe('1');
-      const observed = await readFeedback();
-      // Retain the real obscured probes even when the pre-fix baseline fails next.
-      await test.info().attach(`custom-agent-error-feedback-observed-${theme}`, {
-        body: Buffer.from(
-          JSON.stringify({
-            theme,
-            ...observed,
-            draftPreserved: true,
-            persistedProfileCount: (savedProfiles ?? []).length,
-            workflowRequests,
-          })
-        ),
-        contentType: 'application/json',
-      });
-      await page.screenshot({
-        path: `dist/verification/agent-error-${theme}.png`,
-        animations: 'disabled',
-      });
-      await expect
-        .poll(
-          async () => {
-            const feedback = await readFeedback();
-            return {
-              title: feedback.title.unobscured,
-              message: feedback.message.unobscured,
-              dismiss: feedback.dismiss.unobscured,
-            };
-          },
-          { timeout: 2500 }
-        )
-        .toEqual({ title: true, message: true, dismiss: true });
-      const feedback = await readFeedback();
-      expect(feedback.visibility).toBe('visible');
-      for (const probe of [feedback.title, feedback.message, feedback.dismiss]) {
-        expect(probe.inViewport).toBe(true);
-        expect(probe.opacity).toBe('1');
-        expect(probe.visibility).toBe('visible');
-        expect(probe.color).not.toBe(feedback.background);
-        expect(probe.textFillColor).not.toBe(feedback.background);
-      }
-      await toast.getByRole('button', { name: 'Dismiss notification', exact: true }).click();
-      await expect(toast).toHaveCount(0);
-      await expect(manager).toBeVisible();
-      await expect(manager.getByLabel('Name', { exact: true })).toHaveValue(draft.name);
-      await expect(manager.getByLabel('Instructions', { exact: true })).toHaveValue(
-        draft.instructions
-      );
-      themes[theme] = {
-        ...feedback,
-        draftPreserved: true,
-        draftAfterDismissalPreserved: true,
-        managerStayedOpen: true,
-        dismissed: true,
-        persistedProfileCount: (savedProfiles ?? []).length,
-      };
-    } finally {
-      await application?.close();
-    }
-  }
-  expect(workflowRequests).toEqual([]);
-  await test.info().attach('custom-agent-error-feedback', {
-    body: Buffer.from(
-      JSON.stringify({
-        themes,
-        noWorkflowRequests: workflowRequests.length === 0,
-        workflowRequests,
-      })
-    ),
-    contentType: 'application/json',
+  const engine = await createWorkflowEngineFixture({
+    apiKey: 'custom-agent-feedback-fixture-key',
+    tenantId: tenant.id,
   });
+  const workflowRequests = engine.requests;
+  const themes: Record<string, unknown> = {};
+  try {
+    await mkdir('dist/verification', { recursive: true });
+    for (const theme of ['dark', 'light'] as const) {
+      let application: ElectronApplication | undefined;
+      try {
+        const profile = await desktop.createProfile({ memoryOnlyCredentials: true });
+        application = await desktop.launch(profile);
+        const page = await application.firstWindow();
+        await page.waitForURL(`${DESKTOP_TEST_ORIGIN}/**`);
+        await page.evaluate(
+          async ({ theme, engineUrl }) => {
+            if (!window.electronAPI?.durableWorkflows)
+              throw new Error('Native workflow transport is unavailable.');
+            await window.electronAPI.store.set('durableWorkflowEngineUrl', engineUrl);
+            await window.electronAPI!.store.set('theme', theme);
+            await window.electronAPI!.store.set('onboardingCompleted', true);
+            // This credential exists only in this owned app, with no host keyring access.
+            await window.electronAPI!.auth.setDurableEngineApiKey(
+              'custom-agent-feedback-fixture-key'
+            );
+          },
+          { theme, engineUrl: engine.url }
+        );
+        await installDesktopApiFixture(application, page, { tenant, brand, sessions: [] });
+        await page.context().addInitScript(
+          ({ tenant, brand }) => {
+            window.__E2E_AUTH__ = { tenant, brands: [brand] } as any;
+          },
+          { tenant, brand }
+        );
+        await page.reload();
+        await expect
+          .poll(() => page.evaluate(() => document.documentElement.dataset.theme))
+          .toBe(theme);
+        await page.getByRole('link', { name: 'Workflows', exact: true }).click();
+        await page.getByRole('button', { name: 'Agents', exact: true }).click();
+        const manager = page.getByRole('dialog', { name: 'Background agents', exact: true });
+        await manager.getByLabel('Name', { exact: true }).fill(draft.name);
+        await manager.getByLabel('Instructions', { exact: true }).fill(draft.instructions);
+        await expect(
+          manager.getByRole('button', { name: 'Create agent', exact: true })
+        ).toBeEnabled();
+        // Replace only the public IPC handler in this disposable process, after
+        // startup/settings writes finish. Native reads and production source stay intact.
+        await application.evaluate(({ ipcMain }) => {
+          ipcMain.removeHandler('store:set');
+          ipcMain.handle('store:set', () => false);
+        });
+        await manager.getByRole('button', { name: 'Create agent', exact: true }).click();
+        const toast = page
+          .getByRole('region', { name: 'Notifications', exact: true })
+          .getByRole('alert');
+        await expect(toast).toBeVisible();
+        await expect(toast.locator('.toast-title')).toHaveText('Unable to save agent');
+        await expect(toast.locator('.toast-message')).toHaveText(
+          'Custom agent profiles could not be saved. Try again.'
+        );
+        await expect(manager).toBeVisible();
+        await expect(manager.getByLabel('Name', { exact: true })).toHaveValue(draft.name);
+        await expect(manager.getByLabel('Instructions', { exact: true })).toHaveValue(
+          draft.instructions
+        );
+        const savedProfiles = await page.evaluate(
+          async () =>
+            (await window.electronAPI!.store.get('durableCustomAgentProfiles')) as
+              DurableAgentProfile[] | undefined
+        );
+        expect(savedProfiles ?? []).toEqual([]);
+        await expect(
+          page.getByRole('dialog', { name: 'New background workflow', exact: true })
+        ).toHaveCount(0);
+        const readFeedback = () =>
+          toast.evaluate((element) => {
+            const toastStyle = getComputedStyle(element);
+            const inspect = (target: HTMLElement) => {
+              const rect = target.getBoundingClientRect();
+              const style = getComputedStyle(target);
+              const hit = document.elementFromPoint(
+                rect.left + rect.width / 2,
+                rect.top + rect.height / 2
+              );
+              return {
+                text: target.getAttribute('aria-label') ?? target.textContent?.trim(),
+                unobscured: hit !== null && target.contains(hit),
+                hitTag: hit?.tagName ?? null,
+                bounds: {
+                  left: rect.left,
+                  top: rect.top,
+                  right: rect.right,
+                  bottom: rect.bottom,
+                },
+                inViewport:
+                  rect.width > 0 &&
+                  rect.height > 0 &&
+                  rect.left >= 0 &&
+                  rect.top >= 0 &&
+                  rect.right <= innerWidth &&
+                  rect.bottom <= innerHeight,
+                color: style.color,
+                textFillColor: style.webkitTextFillColor,
+                opacity: style.opacity,
+                visibility: style.visibility,
+              };
+            };
+            return {
+              viewport: { width: innerWidth, height: innerHeight },
+              background: toastStyle.backgroundColor,
+              opacity: toastStyle.opacity,
+              visibility: toastStyle.visibility,
+              title: inspect(element.querySelector<HTMLElement>('.toast-title')!),
+              message: inspect(element.querySelector<HTMLElement>('.toast-message')!),
+              dismiss: inspect(
+                element.querySelector<HTMLElement>('[aria-label="Dismiss notification"]')!
+              ),
+            };
+          });
+        await expect.poll(async () => (await readFeedback()).opacity).toBe('1');
+        const observed = await readFeedback();
+        // Retain the real obscured probes even when the pre-fix baseline fails next.
+        await test.info().attach(`custom-agent-error-feedback-observed-${theme}`, {
+          body: Buffer.from(
+            JSON.stringify({
+              theme,
+              ...observed,
+              draftPreserved: true,
+              persistedProfileCount: (savedProfiles ?? []).length,
+              workflowRequests,
+            })
+          ),
+          contentType: 'application/json',
+        });
+        await page.screenshot({
+          path: `dist/verification/agent-error-${theme}.png`,
+          animations: 'disabled',
+        });
+        await expect
+          .poll(
+            async () => {
+              const feedback = await readFeedback();
+              return {
+                title: feedback.title.unobscured,
+                message: feedback.message.unobscured,
+                dismiss: feedback.dismiss.unobscured,
+              };
+            },
+            { timeout: 2500 }
+          )
+          .toEqual({ title: true, message: true, dismiss: true });
+        const feedback = await readFeedback();
+        expect(feedback.visibility).toBe('visible');
+        for (const probe of [feedback.title, feedback.message, feedback.dismiss]) {
+          expect(probe.inViewport).toBe(true);
+          expect(probe.opacity).toBe('1');
+          expect(probe.visibility).toBe('visible');
+          expect(probe.color).not.toBe(feedback.background);
+          expect(probe.textFillColor).not.toBe(feedback.background);
+        }
+        await toast.getByRole('button', { name: 'Dismiss notification', exact: true }).click();
+        await expect(toast).toHaveCount(0);
+        await expect(manager).toBeVisible();
+        await expect(manager.getByLabel('Name', { exact: true })).toHaveValue(draft.name);
+        await expect(manager.getByLabel('Instructions', { exact: true })).toHaveValue(
+          draft.instructions
+        );
+        themes[theme] = {
+          ...feedback,
+          draftPreserved: true,
+          draftAfterDismissalPreserved: true,
+          managerStayedOpen: true,
+          dismissed: true,
+          persistedProfileCount: (savedProfiles ?? []).length,
+        };
+      } finally {
+        await application?.close();
+      }
+    }
+    expect(workflowRequests).toEqual([]);
+    await test.info().attach('custom-agent-error-feedback', {
+      body: Buffer.from(
+        JSON.stringify({
+          themes,
+          transport: 'native',
+          noWorkflowRequests: workflowRequests.length === 0,
+          workflowRequests,
+        })
+      ),
+      contentType: 'application/json',
+    });
+  } finally {
+    await engine.close();
+  }
 });
 
 test('engine connection tests discard stale responses after editing settings', async ({
@@ -1210,6 +1238,7 @@ test('engine connection tests discard stale responses after editing settings', a
     authenticated: boolean;
   }> = [];
   const workflowRequests: Array<{ method: string; path: string }> = [];
+  const observedRequests: typeof healthRequests = [];
   let ambientRootProbeCount = 0;
   const firstResponse: { release?: () => void; finished: boolean } = { finished: false };
   const server = createServer((request, response) => {
@@ -1217,10 +1246,6 @@ test('engine connection tests discard stale responses after editing settings', a
     response.setHeader('Access-Control-Allow-Origin', DESKTOP_TEST_ORIGIN);
     response.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
     response.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type, X-Tenant-ID');
-    if (request.method === 'OPTIONS') {
-      response.writeHead(204).end();
-      return;
-    }
     if (
       request.method === 'GET' &&
       request.url === '/' &&
@@ -1231,8 +1256,19 @@ test('engine connection tests discard stale responses after editing settings', a
       response.writeHead(404).end(JSON.stringify({ message: 'Not an engine route' }));
       return;
     }
+    const recorded = {
+      method: request.method ?? '',
+      path: new URL(request.url ?? '/', 'http://fixture.invalid').pathname,
+      tenantMatches: request.headers['x-tenant-id'] === tenant.id,
+      authenticated: request.headers.authorization === `Bearer ${fixtureKey}`,
+    };
+    observedRequests.push(recorded);
+    if (request.method === 'OPTIONS') {
+      response.writeHead(204).end();
+      return;
+    }
     if (request.url?.startsWith('/v1/workflows')) {
-      workflowRequests.push({ method: request.method ?? '', path: request.url });
+      workflowRequests.push({ method: recorded.method, path: recorded.path });
       response.writeHead(405).end(JSON.stringify({ message: 'Workflow launches are not allowed' }));
       return;
     }
@@ -1240,12 +1276,6 @@ test('engine connection tests discard stale responses after editing settings', a
       response.writeHead(404).end(JSON.stringify({ message: 'This fixture only serves health' }));
       return;
     }
-    const recorded = {
-      method: request.method,
-      path: request.url,
-      tenantMatches: request.headers['x-tenant-id'] === tenant.id,
-      authenticated: request.headers.authorization === `Bearer ${fixtureKey}`,
-    };
     healthRequests.push(recorded);
     if (!recorded.tenantMatches || !recorded.authenticated) {
       response.writeHead(401).end(JSON.stringify({ message: 'Fixture credentials were rejected' }));
@@ -1275,18 +1305,10 @@ test('engine connection tests discard stale responses after editing settings', a
     application = await desktop.launch(profile);
     const page = await application.firstWindow();
     await page.waitForURL(`${DESKTOP_TEST_ORIGIN}/**`);
-    await page.route(
-      (url) => url.pathname === '/v1/workflows' || url.pathname.startsWith('/v1/workflows/'),
-      (route) => {
-        workflowRequests.push({
-          method: route.request().method(),
-          path: new URL(route.request().url()).pathname,
-        });
-        return route.abort('blockedbyclient');
-      }
-    );
     await page.evaluate(
       async ({ engineUrl, fixtureKey }) => {
+        if (!window.electronAPI?.durableWorkflows)
+          throw new Error('Native workflow transport is unavailable.');
         await window.electronAPI!.store.set('durableWorkflowEngineUrl', engineUrl);
         await window.electronAPI!.auth.setDurableEngineApiKey(fixtureKey);
         await window.electronAPI!.store.set('onboardingCompleted', true);
@@ -1313,12 +1335,52 @@ test('engine connection tests discard stale responses after editing settings', a
     const testConnection = section.getByRole('button', { name: 'Test connection', exact: true });
     await expect(engineInput).toHaveValue(engineUrl);
     await expect(testConnection).toBeEnabled();
-    const oldResponse = page.waitForResponse(
-      (response) =>
-        response.url() === `${engineUrl}/health` && response.request().method() === 'GET'
-    );
-    // Keep cleanup from reporting an unhandled waiter if an earlier assertion fails.
-    void oldResponse.catch(() => undefined);
+    // Observe settlement without replacing the actual API, IPC or network result.
+    await page.evaluate(async () => {
+      const modulePath = '/src/lib/durableWorkflows.ts';
+      const { durableWorkflowApi } = await import(modulePath);
+      const owner = window as Window & {
+        __nativeHealthObservation?: {
+          calls: number;
+          settled: number;
+          resolved: number;
+          rejected: number;
+        };
+      };
+      const observation = { calls: 0, settled: 0, resolved: 0, rejected: 0 };
+      owner.__nativeHealthObservation = observation;
+      const actualHealth = durableWorkflowApi.health.bind(durableWorkflowApi) as (
+        tenantId: string
+      ) => Promise<void>;
+      durableWorkflowApi.health = async (tenantId: string) => {
+        observation.calls++;
+        try {
+          const result = await actualHealth(tenantId);
+          observation.resolved++;
+          return result;
+        } catch (error) {
+          observation.rejected++;
+          throw error;
+        } finally {
+          observation.settled++;
+        }
+      };
+    });
+    const readHealthObservation = () =>
+      page.evaluate(() => {
+        const observation = (
+          window as Window & {
+            __nativeHealthObservation?: {
+              calls: number;
+              settled: number;
+              resolved: number;
+              rejected: number;
+            };
+          }
+        ).__nativeHealthObservation;
+        if (!observation) throw new Error('Health settlement observation is unavailable.');
+        return observation;
+      });
     await testConnection.click();
     await expect.poll(() => healthRequests.length).toBe(1);
     await engineInput.fill(editedUrl);
@@ -1326,17 +1388,10 @@ test('engine connection tests discard stale responses after editing settings', a
     await expect(testConnection).toBeDisabled();
     if (!firstResponse.release) throw new Error('The first health response was not deferred');
     firstResponse.release();
-    const obsoleteResponse = await oldResponse;
-    expect(obsoleteResponse.status()).toBe(200);
-    expect(await obsoleteResponse.finished()).toBeNull();
     await expect.poll(() => firstResponse.finished).toBe(true);
-    // Allow the renderer to consume the finished response without adding a timed sleep.
-    await page.evaluate(
-      () =>
-        new Promise<void>((resolve) =>
-          requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
-        )
-    );
+    await expect
+      .poll(readHealthObservation)
+      .toEqual({ calls: 1, settled: 1, resolved: 1, rejected: 0 });
     await expect(engineInput).toHaveValue(editedUrl);
     await expect(testConnection).toBeDisabled();
     await expect(
@@ -1360,6 +1415,9 @@ test('engine connection tests discard stale responses after editing settings', a
       section.getByText('Durable workflow engine is reachable.', { exact: true })
     ).toBeVisible();
     await expect(testConnection).toBeEnabled();
+    await expect
+      .poll(readHealthObservation)
+      .toEqual({ calls: 2, settled: 2, resolved: 2, rejected: 0 });
     expect(healthRequests).toEqual(
       [1, 2].map(() => ({
         method: 'GET',
@@ -1368,11 +1426,15 @@ test('engine connection tests discard stale responses after editing settings', a
         authenticated: true,
       }))
     );
+    expect(observedRequests).toEqual(healthRequests);
     expect(workflowRequests).toEqual([]);
     await test.info().attach('engine-settings-health', {
       body: Buffer.from(
         JSON.stringify({
           healthRequests,
+          observedRequests,
+          transport: 'native',
+          healthObservation: await readHealthObservation(),
           firstResponseFinished: firstResponse.finished,
           staleResponseDiscarded: true,
           editedDraftPreserved: true,
@@ -1417,161 +1479,161 @@ test('engine credential removal retains failed keys and confirms native removal'
   };
   const fixtureKey = 'engine-removal-fixture-key';
   const phases: Record<string, unknown> = {};
-  const workflowRequests: Array<{ phase: string; method: string; path: string }> = [];
-  for (const phase of ['failed', 'successful'] as const) {
-    let application: ElectronApplication | undefined;
-    try {
-      const profile = await desktop.createProfile({ memoryOnlyCredentials: true });
-      application = await desktop.launch(profile);
-      const page = await application.firstWindow();
-      let pageErrorCount = 0;
-      page.on('pageerror', () => {
-        pageErrorCount++;
-      });
-      await page.waitForURL(`${DESKTOP_TEST_ORIGIN}/**`);
-      await page.route(
-        (url) => url.pathname === '/v1/workflows' || url.pathname.startsWith('/v1/workflows/'),
-        (route) => {
-          workflowRequests.push({
-            phase,
-            method: route.request().method(),
-            path: new URL(route.request().url()).pathname,
-          });
-          return route.abort('blockedbyclient');
-        }
-      );
-      await page.evaluate(async (fixtureKey) => {
-        await window.electronAPI!.store.set('durableWorkflowEngineUrl', 'http://127.0.0.1:8787');
-        await window.electronAPI!.auth.setDurableEngineApiKey(fixtureKey);
-        await window.electronAPI!.store.set('onboardingCompleted', true);
-      }, fixtureKey);
-      await installDesktopApiFixture(application, page, { tenant, brand, sessions: [] });
-      await page.context().addInitScript(
-        ({ tenant, brand }) => {
-          window.__E2E_AUTH__ = { tenant, brands: [brand] } as any;
-        },
-        { tenant, brand }
-      );
-      await page.reload();
-      await page.getByRole('link', { name: 'Settings', exact: true }).click();
-      await page
-        .getByRole('navigation', { name: 'Settings sections', exact: true })
-        .getByRole('button', { name: 'Background', exact: true })
-        .click();
-      const section = page.locator('section').filter({
-        has: page.getByRole('heading', { name: 'Durable Workflow Engine', exact: true }),
-      });
-      const removeKey = section.getByRole('button', { name: 'Remove key', exact: true });
-      await expect(removeKey).toBeEnabled();
-      const nativeKeyMatches = () =>
-        page.evaluate(
-          async (fixtureKey) =>
-            (await window.electronAPI!.auth.getDurableEngineApiKey()) === fixtureKey,
-          fixtureKey
-        );
-      expect(await nativeKeyMatches()).toBe(true);
-      if (phase === 'failed') {
-        // A rejected public IPC acknowledgement leaves the actual native key intact.
-        await application.evaluate(({ ipcMain }) => {
-          const fixture = globalThis as typeof globalThis & { __engineRemovalCalls: number };
-          fixture.__engineRemovalCalls = 0;
-          ipcMain.removeHandler('auth:clearDurableEngineApiKey');
-          ipcMain.handle('auth:clearDurableEngineApiKey', () => {
-            fixture.__engineRemovalCalls++;
-            return false;
-          });
+  const engine = await createWorkflowEngineFixture({ apiKey: fixtureKey, tenantId: tenant.id });
+  const workflowRequests = engine.requests;
+  try {
+    for (const phase of ['failed', 'successful'] as const) {
+      let application: ElectronApplication | undefined;
+      try {
+        const profile = await desktop.createProfile({ memoryOnlyCredentials: true });
+        application = await desktop.launch(profile);
+        const page = await application.firstWindow();
+        let pageErrorCount = 0;
+        page.on('pageerror', () => {
+          pageErrorCount++;
         });
-        const failedApplication = application;
-        const removalCalls = () =>
-          failedApplication.evaluate(
-            () =>
-              (globalThis as typeof globalThis & { __engineRemovalCalls: number })
-                .__engineRemovalCalls
-          );
-        for (const attempt of [1, 2]) {
-          await removeKey.click();
-          await expect(section.getByRole('alert')).toContainText(
-            /could not be removed|could not remove|unable to remove/i
-          );
-          await expect.poll(removalCalls).toBe(attempt);
-          await expect(removeKey).toBeEnabled();
-          expect(await nativeKeyMatches()).toBe(true);
-          await expect(section.getByText('No key configured.', { exact: true })).toHaveCount(0);
-        }
-        expect(pageErrorCount).toBe(0);
-        phases[phase] = {
-          attempts: await removalCalls(),
-          caughtErrorVisible: true,
-          nativeKeyRetained: await nativeKeyMatches(),
-          retryEnabled: await removeKey.isEnabled(),
-          pageErrorCount,
-        };
-      } else {
-        // Use the untouched handler in a separate process; never fake success.
-        await removeKey.click();
-        await expect(section.getByRole('status')).toContainText(/removed/i);
-        await expect(section.getByText('No key configured.', { exact: true })).toBeVisible();
-        const nativeKeyRemoved = await page.evaluate(async () => {
-          const key = await window.electronAPI!.auth.getDurableEngineApiKey();
-          return key === undefined || key === null;
-        });
-        expect(nativeKeyRemoved).toBe(true);
-        await expect(removeKey).toHaveCount(0);
-        await expect(
-          section.getByRole('button', { name: 'Test connection', exact: true })
-        ).toBeDisabled();
-        // Reconfigure through the real UI, then fail only the post-deletion
-        // connection read. The original credential clear handler stays intact.
-        await section.getByLabel(/API key/).fill(fixtureKey);
-        await section.getByRole('button', { name: 'Save configuration', exact: true }).click();
-        await expect(section.getByRole('status')).toHaveText(
-          'Durable workflow configuration saved.'
+        await page.waitForURL(`${DESKTOP_TEST_ORIGIN}/**`);
+        await page.evaluate(
+          async ({ fixtureKey, engineUrl }) => {
+            if (!window.electronAPI?.durableWorkflows)
+              throw new Error('Native workflow transport is unavailable.');
+            await window.electronAPI.store.set('durableWorkflowEngineUrl', engineUrl);
+            await window.electronAPI!.auth.setDurableEngineApiKey(fixtureKey);
+            await window.electronAPI!.store.set('onboardingCompleted', true);
+          },
+          { fixtureKey, engineUrl: engine.url }
         );
+        await installDesktopApiFixture(application, page, { tenant, brand, sessions: [] });
+        await page.context().addInitScript(
+          ({ tenant, brand }) => {
+            window.__E2E_AUTH__ = { tenant, brands: [brand] } as any;
+          },
+          { tenant, brand }
+        );
+        await page.reload();
+        await page.getByRole('link', { name: 'Settings', exact: true }).click();
+        await page
+          .getByRole('navigation', { name: 'Settings sections', exact: true })
+          .getByRole('button', { name: 'Background', exact: true })
+          .click();
+        const section = page.locator('section').filter({
+          has: page.getByRole('heading', { name: 'Durable Workflow Engine', exact: true }),
+        });
+        const removeKey = section.getByRole('button', { name: 'Remove key', exact: true });
+        await expect(removeKey).toBeEnabled();
+        const nativeKeyMatches = () =>
+          page.evaluate(
+            async (fixtureKey) =>
+              (await window.electronAPI!.auth.getDurableEngineApiKey()) === fixtureKey,
+            fixtureKey
+          );
         expect(await nativeKeyMatches()).toBe(true);
-        await application.evaluate(({ ipcMain }) => {
-          ipcMain.removeHandler('computer-chat:getConnection');
-          ipcMain.handle('computer-chat:getConnection', () => {
-            throw new Error('Temporary post-removal connection refresh failure');
+        if (phase === 'failed') {
+          // A rejected public IPC acknowledgement leaves the actual native key intact.
+          await application.evaluate(({ ipcMain }) => {
+            const fixture = globalThis as typeof globalThis & { __engineRemovalCalls: number };
+            fixture.__engineRemovalCalls = 0;
+            ipcMain.removeHandler('auth:clearDurableEngineApiKey');
+            ipcMain.handle('auth:clearDurableEngineApiKey', () => {
+              fixture.__engineRemovalCalls++;
+              return false;
+            });
           });
-        });
-        await removeKey.click();
-        await expect(section.getByRole('status')).toContainText(/removed/i);
-        await expect(section.getByRole('alert')).toHaveCount(0);
-        await expect(section.getByText('No key configured.', { exact: true })).toBeVisible();
-        const nativeKeyRemovedAfterRefreshFailure = await page.evaluate(async () => {
-          const key = await window.electronAPI!.auth.getDurableEngineApiKey();
-          return key === undefined || key === null;
-        });
-        expect(nativeKeyRemovedAfterRefreshFailure).toBe(true);
-        await expect(removeKey).toHaveCount(0);
-        await expect(
-          section.getByRole('button', { name: 'Test connection', exact: true })
-        ).toBeDisabled();
-        expect(pageErrorCount).toBe(0);
-        phases[phase] = {
-          nativeKeyRemoved,
-          nativeKeyRemovedAfterRefreshFailure,
-          refreshFailureRemovalSucceeded: true,
-          ordinaryRemovalConfirmed: true,
-          noKeyConfigured: true,
-          testDisabled: true,
-          pageErrorCount,
-          originalHandlerUsed: true,
-        };
+          const failedApplication = application;
+          const removalCalls = () =>
+            failedApplication.evaluate(
+              () =>
+                (globalThis as typeof globalThis & { __engineRemovalCalls: number })
+                  .__engineRemovalCalls
+            );
+          for (const attempt of [1, 2]) {
+            await removeKey.click();
+            await expect(section.getByRole('alert')).toContainText(
+              /could not be removed|could not remove|unable to remove/i
+            );
+            await expect.poll(removalCalls).toBe(attempt);
+            await expect(removeKey).toBeEnabled();
+            expect(await nativeKeyMatches()).toBe(true);
+            await expect(section.getByText('No key configured.', { exact: true })).toHaveCount(0);
+          }
+          expect(pageErrorCount).toBe(0);
+          phases[phase] = {
+            attempts: await removalCalls(),
+            caughtErrorVisible: true,
+            nativeKeyRetained: await nativeKeyMatches(),
+            retryEnabled: await removeKey.isEnabled(),
+            pageErrorCount,
+          };
+        } else {
+          // Use the untouched handler in a separate process; never fake success.
+          await removeKey.click();
+          await expect(section.getByRole('status')).toContainText(/removed/i);
+          await expect(section.getByText('No key configured.', { exact: true })).toBeVisible();
+          const nativeKeyRemoved = await page.evaluate(async () => {
+            const key = await window.electronAPI!.auth.getDurableEngineApiKey();
+            return key === undefined || key === null;
+          });
+          expect(nativeKeyRemoved).toBe(true);
+          await expect(removeKey).toHaveCount(0);
+          await expect(
+            section.getByRole('button', { name: 'Test connection', exact: true })
+          ).toBeDisabled();
+          // Reconfigure through the real UI, then fail only the post-deletion
+          // connection read. The original credential clear handler stays intact.
+          await section.getByLabel(/API key/).fill(fixtureKey);
+          await section.getByRole('button', { name: 'Save configuration', exact: true }).click();
+          await expect(section.getByRole('status')).toHaveText(
+            'Durable workflow configuration saved.'
+          );
+          expect(await nativeKeyMatches()).toBe(true);
+          await application.evaluate(({ ipcMain }) => {
+            ipcMain.removeHandler('computer-chat:getConnection');
+            ipcMain.handle('computer-chat:getConnection', () => {
+              throw new Error('Temporary post-removal connection refresh failure');
+            });
+          });
+          await removeKey.click();
+          await expect(section.getByRole('status')).toContainText(/removed/i);
+          await expect(section.getByRole('alert')).toHaveCount(0);
+          await expect(section.getByText('No key configured.', { exact: true })).toBeVisible();
+          const nativeKeyRemovedAfterRefreshFailure = await page.evaluate(async () => {
+            const key = await window.electronAPI!.auth.getDurableEngineApiKey();
+            return key === undefined || key === null;
+          });
+          expect(nativeKeyRemovedAfterRefreshFailure).toBe(true);
+          await expect(removeKey).toHaveCount(0);
+          await expect(
+            section.getByRole('button', { name: 'Test connection', exact: true })
+          ).toBeDisabled();
+          expect(pageErrorCount).toBe(0);
+          phases[phase] = {
+            nativeKeyRemoved,
+            nativeKeyRemovedAfterRefreshFailure,
+            refreshFailureRemovalSucceeded: true,
+            ordinaryRemovalConfirmed: true,
+            noKeyConfigured: true,
+            testDisabled: true,
+            pageErrorCount,
+            originalHandlerUsed: true,
+          };
+        }
+      } finally {
+        await application?.close();
       }
-    } finally {
-      await application?.close();
     }
+    expect(workflowRequests).toEqual([]);
+    await test.info().attach('engine-settings-removal', {
+      body: Buffer.from(
+        JSON.stringify({
+          phases,
+          transport: 'native',
+          noWorkflowRequests: workflowRequests.length === 0,
+          workflowRequests,
+        })
+      ),
+      contentType: 'application/json',
+    });
+  } finally {
+    await engine.close();
   }
-  expect(workflowRequests).toEqual([]);
-  await test.info().attach('engine-settings-removal', {
-    body: Buffer.from(
-      JSON.stringify({
-        phases,
-        noWorkflowRequests: workflowRequests.length === 0,
-        workflowRequests,
-      })
-    ),
-    contentType: 'application/json',
-  });
 });

@@ -165,7 +165,7 @@ describe('DurableAgentManager', () => {
     await waitFor(() => expect(onCreated).toHaveBeenCalledTimes(1));
     expect(electron.store.set).toHaveBeenCalledTimes(2);
     expect(useDurableWorkflowsStore.getState().customAgents).toHaveLength(1);
-    expect(screen.getByLabelText('Name')).toHaveValue('');
+    await waitFor(() => expect(screen.getByLabelText('Name')).toHaveValue(''));
   });
 
   it('retains the saved profile and unrelated draft through a failed removal, then retries', async () => {

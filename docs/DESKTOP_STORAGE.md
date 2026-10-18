@@ -40,6 +40,22 @@ unavailable until a later configuration refresh. Saving, testing and removal do 
 through the settings controls. Fields remain editable during a save so a newer
 draft can be retained; completion feedback never clears that newer draft.
 
+### Native workflow connections
+
+The desktop sends workflow HTTP requests and event streams through its native
+bridge using the saved engine URL, credential and connection revision. This
+supports custom HTTPS engines and HTTP loopback engines without widening the
+packaged renderer's Content Security Policy. Browser previews without that bridge
+continue to use renderer networking and its CSP/CORS restrictions; a native
+request failure never switches transport to bypass the failure.
+
+The bridge accepts only supported workflow routes from the current application's
+top-level window. It obtains credentials from native storage, rejects redirects,
+and binds work to the saved connection revision. Changing that connection,
+replacing or closing the renderer, or explicitly cancelling an operation aborts
+its pending network work. Events retain their resume cursor and cannot update a
+workspace after its connection or organization changes.
+
 ## Scheduled workflow recovery
 
 Schedules are managed by the open desktop application. Before sending a scheduled
@@ -123,6 +139,16 @@ the production renderer after its initial navigation and closes the native windo
 through the normal IPC bridge. A startup screenshot is saved to
 `dist/verification/linux-bundle-startup.png`. Electron documents Linux application data isolation
 through [`XDG_CONFIG_HOME`](https://www.electronjs.org/docs/latest/api/app#appgetpathname).
+
+The same bundle suite checks a saved custom HTTPS engine through the public
+preload bridge. An owned local server and a temporary certificate authority let
+it verify TLS rejection without trust, a scoped trusted child process, enforced
+renderer CSP, authenticated workflow requests, event streaming, cancellation and
+stale revision rejection. The certificate is trusted only by that test process;
+private keys and credentials are excluded from the transport receipt at
+`dist/verification/custom-engine-native-transport.json`. Both CI workflows retain
+the packaged reports and this receipt. The server simulates engine responses;
+these checks do not establish live Temporal, sandbox or policy execution.
 
 The ordinary Electron project also tests the packaged startup branch with an
 isolated bootstrap, including legacy plaintext migration. Neither test uses live

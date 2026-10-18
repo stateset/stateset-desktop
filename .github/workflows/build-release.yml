@@ -361,6 +361,18 @@ jobs:
           CI: true
           STATESET_LINUX_ARTIFACTS_DIR: release
 
+      - name: Upload Linux Playwright artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-playwright-artifacts
+          path: |
+            playwright-report
+            test-results
+            e2e/*-results.json
+            dist/verification/linux-bundle-startup.png
+            dist/verification/custom-engine-native-transport.json
+
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
         with:

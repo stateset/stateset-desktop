@@ -39,7 +39,7 @@ export class DesktopHarness {
   async launchBundle(
     executable: string,
     profile: BundleProfile,
-    options: { appImagePath?: string } = {}
+    options: { appImagePath?: string; extraCACertPath?: string } = {}
   ) {
     if (process.platform !== 'linux') throw new Error('This bundle smoke test requires Linux.');
     const child = spawn(
@@ -49,6 +49,9 @@ export class DesktopHarness {
         stdio: ['ignore', 'ignore', 'pipe'],
         env: {
           ...process.env,
+          ...(options.extraCACertPath
+            ? { NODE_EXTRA_CA_CERTS: path.resolve(options.extraCACertPath) }
+            : {}),
           // An AppImage terminal can leak its own mount into child processes.
           // Extracted AppRun must resolve the application we are testing.
           APPDIR: options.appImagePath ? path.dirname(path.resolve(executable)) : '',
@@ -65,6 +68,12 @@ export class DesktopHarness {
         },
       }
     );
+    // Keep bounded startup diagnostics after CDP opens too: a main-process
+    // dependency failure can expose CDP without ever creating the renderer.
+    let startupStderr = '';
+    child.stderr.on('data', (bytes: Buffer) => {
+      startupStderr = (startupStderr + bytes.toString()).slice(-20_000);
+    });
     let exited = false;
     const exit = new Promise<void>((resolve) => {
       const done = () => {
@@ -171,7 +180,12 @@ export class DesktopHarness {
       };
     } catch (error) {
       await bundle.close();
-      throw error;
+      throw Object.assign(
+        new Error(
+          `${error instanceof Error ? error.message : String(error)}\nBundle startup stderr:\n${startupStderr}`
+        ),
+        { cause: error }
+      );
     }
   }
 
@@ -213,7 +227,8 @@ export class DesktopHarness {
   }
 
   async launch(
-    profile: DesktopProfile | Promise<DesktopProfile> = this.createProfile()
+    profile: DesktopProfile | Promise<DesktopProfile> = this.createProfile(),
+    options: { extraCACertPath?: string } = {}
   ): Promise<ElectronApplication> {
     const isolated = await profile;
     const args = [isolated.entry];
@@ -224,6 +239,9 @@ export class DesktopHarness {
       args,
       env: {
         ...process.env,
+        ...(options.extraCACertPath
+          ? { NODE_EXTRA_CA_CERTS: path.resolve(options.extraCACertPath) }
+          : {}),
         NODE_ENV: isolated.packaged ? 'production' : 'development',
         STORE_ENCRYPTION_KEY: '',
         E2E_TEST: 'true',

@@ -6,8 +6,20 @@ const mockRemoveListener = vi.fn();
 const mockExposeInMainWorld = vi.fn();
 
 let exposedApi: Record<string, unknown> | undefined;
+type IpcListener = (event: unknown, ...args: unknown[]) => void;
+const listeners = new Map<string, Set<IpcListener>>();
 
 interface PreloadApi {
+  durableWorkflows: {
+    request: (
+      request: import('./durable-workflow-bridge').DurableWorkflowRequest
+    ) => Promise<import('./durable-workflow-bridge').DurableWorkflowResponse>;
+    stream: (
+      request: import('./durable-workflow-bridge').DurableWorkflowStreamRequest,
+      onEvent: (event: import('./durable-workflow-bridge').DurableWorkflowEvent) => void
+    ) => Promise<void>;
+    cancel: (id: string) => Promise<boolean>;
+  };
   oauth: {
     shopify: {
       start: (shop: string) => Promise<unknown>;
@@ -97,13 +109,58 @@ vi.mock('electron', () => ({
 async function loadPreload() {
   vi.resetModules();
   mockExposeInMainWorld.mockClear();
-  mockInvoke.mockClear();
-  mockOn.mockClear();
-  mockRemoveListener.mockClear();
+  mockInvoke.mockReset();
+  listeners.clear();
+  mockOn.mockReset().mockImplementation((channel: string, listener: IpcListener) => {
+    if (!listeners.has(channel)) listeners.set(channel, new Set());
+    listeners.get(channel)!.add(listener);
+  });
+  mockRemoveListener.mockReset().mockImplementation((channel: string, listener: IpcListener) => {
+    listeners.get(channel)?.delete(listener);
+  });
   exposedApi = undefined;
 
   await import('./preload');
   return exposedApi as unknown as PreloadApi;
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (error: Error) => void;
+  const promise = new Promise<T>((finish, fail) => {
+    resolve = finish;
+    reject = fail;
+  });
+  return { promise, resolve, reject };
+}
+
+const firstStreamId = '11111111-1111-4111-8111-111111111111';
+const secondStreamId = '22222222-2222-4222-8222-222222222222';
+const workflowEvent = {
+  event_id: 42,
+  kind: 'activity_completed',
+  ts: '2026-10-17T12:00:00Z',
+  activity: 'run_sandbox',
+};
+
+function streamRequest(
+  id = firstStreamId
+): import('./durable-workflow-bridge').DurableWorkflowStreamRequest {
+  return {
+    id,
+    engineUrl: 'https://engine.example.com',
+    revision: 'connection-revision',
+    tenantId: 'tenant-1',
+    workflowId: 'workflow-1',
+    lastEventId: 41,
+  };
+}
+
+function emitWorkflowEvent(id: string, payload = workflowEvent) {
+  const event = { sender: 'must not escape preload' };
+  for (const listener of [...(listeners.get('durable-workflows:event') ?? [])]) {
+    listener(event, id, payload);
+  }
 }
 
 describe('preload', () => {
@@ -122,6 +179,7 @@ describe('preload', () => {
     expect(api.app).toBeDefined();
     expect(api.background).toBeDefined();
     expect(api.notifications).toBeDefined();
+    expect(api.durableWorkflows).toBeDefined();
   });
 
   it('forwards invoke-based methods through ipcRenderer.invoke', async () => {
@@ -345,5 +403,275 @@ describe('preload', () => {
     process.env.PLAYWRIGHT_TEST = 'true';
     const apiFromPlaywrightFlag = await loadPreload();
     expect(apiFromPlaywrightFlag.app.isE2ETest).toBe(true);
+  });
+
+  describe('durable workflow transport', () => {
+    it('dispatches scoped requests and explicit cancellation without exposing raw IPC', async () => {
+      const api = await loadPreload();
+      const request: import('./durable-workflow-bridge').DurableWorkflowRequest = {
+        id: firstStreamId,
+        engineUrl: 'https://engine.example.com',
+        revision: 'connection-revision',
+        tenantId: 'tenant-1',
+        path: '/v1/workflows/active-horizon-agent/workflow-1/steer',
+        method: 'POST',
+        body: { note: 'Inspect the evidence first.' },
+      };
+      const response = { ok: false, status: 409, body: { error: 'Connection changed.' } };
+      mockInvoke.mockResolvedValueOnce(response).mockResolvedValueOnce(true);
+
+      await expect(api.durableWorkflows.request(request)).resolves.toEqual(response);
+      await expect(api.durableWorkflows.cancel(firstStreamId)).resolves.toBe(true);
+      expect(mockInvoke.mock.calls).toEqual([
+        ['durable-workflows:request', request],
+        ['durable-workflows:cancel', firstStreamId],
+      ]);
+      expect(Object.keys(api.durableWorkflows).sort()).toEqual(['cancel', 'request', 'stream']);
+      expect(mockOn).not.toHaveBeenCalled();
+    });
+
+    it('registers before invoke, filters IDs and removes its own listener on completion', async () => {
+      const api = await loadPreload();
+      const pending = deferred<void>();
+      const onEvent = vi.fn();
+      const request = streamRequest();
+      mockInvoke.mockImplementation((channel: string, submitted: unknown) => {
+        expect(channel).toBe('durable-workflows:stream');
+        expect(submitted).toEqual(request);
+        expect(listeners.get('durable-workflows:event')?.size).toBe(1);
+        emitWorkflowEvent(secondStreamId);
+        emitWorkflowEvent(firstStreamId);
+        return pending.promise;
+      });
+
+      const streaming = api.durableWorkflows.stream(request, onEvent);
+      expect(onEvent.mock.calls).toEqual([[workflowEvent]]);
+      expect(mockRemoveListener).not.toHaveBeenCalled();
+      const listener = mockOn.mock.calls[0][1];
+      pending.resolve();
+      await expect(streaming).resolves.toBeUndefined();
+      expect(mockRemoveListener.mock.calls).toEqual([['durable-workflows:event', listener]]);
+      expect(listeners.get('durable-workflows:event')?.size).toBe(0);
+      emitWorkflowEvent(firstStreamId);
+      expect(onEvent).toHaveBeenCalledOnce();
+    });
+
+    it.each(['rejection', 'synchronous throw'] as const)(
+      'cleans up a failed stream invoke (%s)',
+      async (failure) => {
+        const api = await loadPreload();
+        const error = new Error('Native stream unavailable.');
+        mockInvoke.mockImplementation(() => {
+          if (failure === 'synchronous throw') throw error;
+          return Promise.reject(error);
+        });
+        const onEvent = vi.fn();
+        await expect(api.durableWorkflows.stream(streamRequest(), onEvent)).rejects.toBe(error);
+        expect(mockRemoveListener.mock.calls).toEqual([
+          ['durable-workflows:event', mockOn.mock.calls[0][1]],
+        ]);
+        expect(listeners.get('durable-workflows:event')?.size).toBe(0);
+        emitWorkflowEvent(firstStreamId);
+        expect(onEvent).not.toHaveBeenCalled();
+      }
+    );
+
+    it('isolates simultaneous streams and does not remove another stream on cancellation', async () => {
+      const api = await loadPreload();
+      const first = deferred<void>();
+      const second = deferred<void>();
+      mockInvoke.mockImplementation((channel: string, request: { id?: string } | string) => {
+        if (channel === 'durable-workflows:cancel') {
+          first.resolve();
+          return Promise.resolve(true);
+        }
+        return typeof request !== 'string' && request.id === firstStreamId
+          ? first.promise
+          : second.promise;
+      });
+      const firstEvent = vi.fn();
+      const secondEvent = vi.fn();
+      const firstStreaming = api.durableWorkflows.stream(streamRequest(), firstEvent);
+      const secondStreaming = api.durableWorkflows.stream(
+        streamRequest(secondStreamId),
+        secondEvent
+      );
+      expect(listeners.get('durable-workflows:event')?.size).toBe(2);
+      emitWorkflowEvent(firstStreamId);
+      expect(firstEvent.mock.calls).toEqual([[workflowEvent]]);
+      expect(secondEvent).not.toHaveBeenCalled();
+      emitWorkflowEvent(secondStreamId, { ...workflowEvent, event_id: 43 });
+      expect(secondEvent.mock.calls).toEqual([[{ ...workflowEvent, event_id: 43 }]]);
+
+      await expect(api.durableWorkflows.cancel(firstStreamId)).resolves.toBe(true);
+      await firstStreaming;
+      expect(listeners.get('durable-workflows:event')?.size).toBe(1);
+      expect(mockRemoveListener.mock.calls).toEqual([
+        ['durable-workflows:event', mockOn.mock.calls[0][1]],
+      ]);
+      emitWorkflowEvent(firstStreamId);
+      emitWorkflowEvent(secondStreamId, { ...workflowEvent, event_id: 44 });
+      expect(firstEvent).toHaveBeenCalledOnce();
+      expect(secondEvent).toHaveBeenCalledTimes(2);
+      second.resolve();
+      await secondStreaming;
+      expect(listeners.get('durable-workflows:event')?.size).toBe(0);
+      expect(mockRemoveListener.mock.calls[1]).toEqual([
+        'durable-workflows:event',
+        mockOn.mock.calls[1][1],
+      ]);
+    });
+
+    it.each(['resolve', 'reject'] as const)(
+      'rejects callback failures immediately and observes a later native %s',
+      async (completion) => {
+        const api = await loadPreload();
+        const native = deferred<void>();
+        const callbackError = new Error('Renderer event handler failed.');
+        mockInvoke.mockImplementation((channel: string) =>
+          channel === 'durable-workflows:cancel' ? Promise.resolve(true) : native.promise
+        );
+        const onEvent = vi.fn(() => {
+          throw callbackError;
+        });
+        const streaming = api.durableWorkflows.stream(streamRequest(), onEvent);
+        const rejected = expect(streaming).rejects.toBe(callbackError);
+        emitWorkflowEvent(firstStreamId);
+        await rejected;
+        expect(mockInvoke).toHaveBeenCalledWith('durable-workflows:cancel', firstStreamId);
+        expect(listeners.get('durable-workflows:event')?.size).toBe(0);
+        expect(mockRemoveListener).toHaveBeenCalledOnce();
+        emitWorkflowEvent(firstStreamId);
+        expect(onEvent).toHaveBeenCalledOnce();
+        if (completion === 'resolve') native.resolve();
+        else native.reject(new Error('Native rejection after renderer failure.'));
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(mockRemoveListener).toHaveBeenCalledOnce();
+      }
+    );
+
+    it.each(['rejection', 'synchronous throw'] as const)(
+      'keeps the callback failure authoritative when cancellation fails (%s)',
+      async (failure) => {
+        const api = await loadPreload();
+        const native = deferred<void>();
+        const callbackError = new Error('Renderer callback failed.');
+        mockInvoke.mockImplementation((channel: string) => {
+          if (channel !== 'durable-workflows:cancel') return native.promise;
+          if (failure === 'synchronous throw') throw new Error('Cancel IPC unavailable.');
+          return Promise.reject(new Error('Cancel IPC unavailable.'));
+        });
+        const streaming = api.durableWorkflows.stream(streamRequest(), () => {
+          throw callbackError;
+        });
+        const rejected = expect(streaming).rejects.toBe(callbackError);
+        emitWorkflowEvent(firstStreamId);
+        await rejected;
+        native.reject(new Error('Late native failure.'));
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(listeners.get('durable-workflows:event')?.size).toBe(0);
+        expect(mockRemoveListener).toHaveBeenCalledOnce();
+      }
+    );
+
+    it('observes native rejection when a callback fails synchronously during invoke', async () => {
+      const api = await loadPreload();
+      const callbackError = new Error('Immediate event callback failed.');
+      mockInvoke.mockImplementation((channel: string) => {
+        if (channel === 'durable-workflows:cancel') return Promise.resolve(true);
+        emitWorkflowEvent(firstStreamId);
+        return Promise.reject(new Error('Native invocation failed afterwards.'));
+      });
+      await expect(
+        api.durableWorkflows.stream(streamRequest(), () => {
+          throw callbackError;
+        })
+      ).rejects.toBe(callbackError);
+      expect(listeners.get('durable-workflows:event')?.size).toBe(0);
+      expect(mockRemoveListener).toHaveBeenCalledOnce();
+      expect(mockInvoke).toHaveBeenCalledWith('durable-workflows:cancel', firstStreamId);
+    });
+
+    it('observes a rejected callback promise even if native streaming has already completed', async () => {
+      const api = await loadPreload();
+      const native = deferred<void>();
+      const callback = deferred<void>();
+      const error = new Error('Async event callback failed.');
+      mockInvoke.mockImplementation((channel: string) =>
+        channel === 'durable-workflows:cancel' ? Promise.resolve(true) : native.promise
+      );
+      const streaming = api.durableWorkflows.stream(streamRequest(), () => callback.promise);
+      const rejected = expect(streaming).rejects.toBe(error);
+      emitWorkflowEvent(firstStreamId);
+      native.resolve();
+      await Promise.resolve();
+      expect(listeners.get('durable-workflows:event')?.size).toBe(0);
+      callback.reject(error);
+      await rejected;
+      expect(mockInvoke).toHaveBeenCalledWith('durable-workflows:cancel', firstStreamId);
+      expect(listeners.get('durable-workflows:event')?.size).toBe(0);
+      expect(mockRemoveListener).toHaveBeenCalledOnce();
+    });
+
+    it('detaches at native EOF while a callback remains pending, even when cancellation finds no active stream', async () => {
+      const api = await loadPreload();
+      const native = deferred<void>();
+      const callback = deferred<void>();
+      mockInvoke.mockImplementation((channel: string) =>
+        channel === 'durable-workflows:cancel' ? Promise.resolve(false) : native.promise
+      );
+      const onEvent = vi.fn(() => callback.promise);
+      const streaming = api.durableWorkflows.stream(streamRequest(), onEvent);
+      let settled = false;
+      void streaming.then(() => {
+        settled = true;
+      });
+      const queuedListener = mockOn.mock.calls[0][1] as IpcListener;
+      emitWorkflowEvent(firstStreamId);
+      native.resolve();
+      await native.promise;
+      expect(settled).toBe(false);
+      expect(listeners.get('durable-workflows:event')?.size).toBe(0);
+      expect(mockRemoveListener).toHaveBeenCalledOnce();
+      await expect(api.durableWorkflows.cancel(firstStreamId)).resolves.toBe(false);
+      emitWorkflowEvent(firstStreamId);
+      queuedListener({}, firstStreamId, workflowEvent);
+      expect(onEvent).toHaveBeenCalledOnce();
+      expect(settled).toBe(false);
+      callback.resolve();
+      await expect(streaming).resolves.toBeUndefined();
+      expect(mockRemoveListener).toHaveBeenCalledOnce();
+    });
+
+    it('retains another stream when one event callback fails', async () => {
+      const api = await loadPreload();
+      const first = deferred<void>();
+      const second = deferred<void>();
+      const error = new Error('First stream callback failed.');
+      mockInvoke.mockImplementation((channel: string, request: { id?: string }) => {
+        if (channel === 'durable-workflows:cancel') return Promise.resolve(true);
+        return request.id === firstStreamId ? first.promise : second.promise;
+      });
+      const failing = api.durableWorkflows.stream(streamRequest(), () => {
+        throw error;
+      });
+      const rejected = expect(failing).rejects.toBe(error);
+      const onSecondEvent = vi.fn();
+      const surviving = api.durableWorkflows.stream(streamRequest(secondStreamId), onSecondEvent);
+      emitWorkflowEvent(firstStreamId);
+      await rejected;
+      expect(listeners.get('durable-workflows:event')?.size).toBe(1);
+      emitWorkflowEvent(secondStreamId);
+      expect(onSecondEvent.mock.calls).toEqual([[workflowEvent]]);
+      first.reject(new Error('Late failure of the first native stream.'));
+      second.resolve();
+      await surviving;
+      expect(listeners.get('durable-workflows:event')?.size).toBe(0);
+      expect(mockRemoveListener.mock.calls.map((call) => call[1])).toEqual(
+        mockOn.mock.calls.map((call) => call[1])
+      );
+    });
   });
 });

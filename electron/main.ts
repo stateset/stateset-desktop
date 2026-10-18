@@ -36,6 +36,7 @@ import {
 import { resolveTrayIconPath } from './runtime-assets';
 import { createRateLimiter } from './ipc-rate-limit';
 import { probeMcpServer } from './mcp-probe';
+import { registerDurableWorkflowIpc } from './durable-workflow-ipc';
 import { promises as dnsPromises } from 'dns';
 import {
   createComputerChatConnection,
@@ -1136,7 +1137,7 @@ ipcMain.handle('store:set', (event, key: string, value: unknown) => {
     );
   }
   store.set(key, value);
-  if (key === 'durableWorkflowEngineUrl') computerChatConnection.invalidate();
+  if (key === 'durableWorkflowEngineUrl') invalidateWorkflowConnection();
   return true;
 });
 
@@ -1147,7 +1148,7 @@ ipcMain.handle('store:delete', (event, key: string) => {
   }
   assertStoreKey(key);
   store.delete(key);
-  if (key === 'durableWorkflowEngineUrl') computerChatConnection.invalidate();
+  if (key === 'durableWorkflowEngineUrl') invalidateWorkflowConnection();
   return true;
 });
 
@@ -1156,7 +1157,7 @@ ipcMain.handle('store:clear', () => {
     return false;
   }
   store.clear();
-  computerChatConnection.invalidate();
+  invalidateWorkflowConnection();
   return true;
 });
 
@@ -1248,7 +1249,7 @@ ipcMain.handle('auth:clearSandboxApiKey', () => {
 ipcMain.handle('auth:setDurableEngineApiKey', (_event, apiKey: string) => {
   assertNonEmptyString(apiKey, 'apiKey', 4096);
   const result = setSecureValue(apiKey, DURABLE_ENGINE_KEY_STORAGE);
-  computerChatConnection.invalidate();
+  invalidateWorkflowConnection();
   return result;
 });
 
@@ -1258,7 +1259,7 @@ ipcMain.handle('auth:getDurableEngineApiKey', () => {
 
 ipcMain.handle('auth:clearDurableEngineApiKey', () => {
   const result = clearSecureValue(DURABLE_ENGINE_KEY_STORAGE);
-  computerChatConnection.invalidate();
+  invalidateWorkflowConnection();
   return result;
 });
 
@@ -1269,6 +1270,38 @@ function computerChatConfiguration() {
     apiKey: getSecureValue(DURABLE_ENGINE_KEY_STORAGE) ?? '',
   };
 }
+const durableWorkflowIpc = registerDurableWorkflowIpc<Electron.IpcMainInvokeEvent>({
+  ipcMain,
+  assertTrustedSender(event, channel) {
+    // Only the current application's top-level renderer may use the saved
+    // connection. Subframes and other windows cannot borrow its credentials.
+    const contents = mainWindow?.webContents;
+    if (
+      !contents ||
+      contents.isDestroyed() ||
+      event.sender !== contents ||
+      !event.senderFrame ||
+      event.senderFrame !== contents.mainFrame ||
+      !isAllowedRendererSource(event.senderFrame.url)
+    ) {
+      throw new Error('Durable workflow access requires the desktop application window');
+    }
+    assertIpcRate(event, channel);
+  },
+  getConnection() {
+    const configuration = computerChatConfiguration();
+    const { revision } = computerChatConnection.read(configuration);
+    return { ...configuration, revision };
+  },
+});
+
+function invalidateWorkflowConnection() {
+  computerChatConnection.invalidate();
+  durableWorkflowIpc.invalidateConnection();
+}
+
+app.on('will-quit', () => durableWorkflowIpc.dispose());
+
 ipcMain.handle('computer-chat:getConnection', (event) => {
   assertIpcRate(event, 'computer-chat:getConnection');
   return computerChatConnection.read(computerChatConfiguration());
