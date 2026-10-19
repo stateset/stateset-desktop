@@ -56,3 +56,4 @@ jobs:
             dist/verification/agent-error-*.png
             dist/verification/engine-settings-*.png
             dist/verification/custom-engine-native-transport.json
+            dist/verification/linux-bundle-startup.png

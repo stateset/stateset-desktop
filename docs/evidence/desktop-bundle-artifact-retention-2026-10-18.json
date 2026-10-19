@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "source_parent_commit": "0bf9991a13e3d3d1260b9f4b037d9a484fceca8f",
+  "scope": "Retain the already-generated independent packaged Linux startup screenshot in its existing artifact upload.",
+  "baseline": {
+    "schema_version": 1,
+    "status": "ci_passed_evidence_incomplete",
+    "commit": "0bf9991a13e3d3d1260b9f4b037d9a484fceca8f",
+    "workflows": {
+      "build": {
+        "databaseId": 39183082697,
+        "headSha": "0bf9991a13e3d3d1260b9f4b037d9a484fceca8f",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/stateset/stateset-desktop/actions/runs/39183082697"
+      },
+      "e2e": {
+        "databaseId": 39183082705,
+        "headSha": "0bf9991a13e3d3d1260b9f4b037d9a484fceca8f",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/stateset/stateset-desktop/actions/runs/39183082705"
+      }
+    },
+    "counts": {
+      "unit": 3131,
+      "unit_files": 232,
+      "native_per_suite": 86,
+      "designated_live_skips_per_suite": 3,
+      "linux_bundle_per_suite": 2,
+      "linux_installers": 3
+    },
+    "gap": "Independent playwright-artifacts omitted dist/verification/linux-bundle-startup.png; source uploader never listed it. Both independent bundle cases passed; collector refuses complete acceptance because required image absent.",
+    "qualification": "No successful strict acceptance receipt generated. No workflow/test failure is inferred from artifact retention gap."
+  },
+  "implementation": [
+    "Add exactly dist/verification/linux-bundle-startup.png to Upload Playwright artifacts in independent E2E workflow.",
+    "Preserve every existing upload path, full native/bundle commands, main Linux uploader, artifact name and always condition."
+  ],
+  "verification": {
+    "checks": [
+      "Exact one-line workflow delta against parent",
+      "Existing main workflow and application/dependency source unchanged",
+      "Prettier check and git diff --check before normal-hook commit"
+    ],
+    "dependency_audit": {
+      "production": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 0,
+        "critical": 0,
+        "total": 0
+      },
+      "all": {
+        "info": 0,
+        "low": 0,
+        "moderate": 10,
+        "high": 5,
+        "critical": 0,
+        "total": 15
+      },
+      "qualification": "Unchanged package/lock bytes retain the prior source-bound audit (production 0, development 15 affected-package entries). This is not a fresh full audit; the new exact-head CI production gate is required."
+    },
+    "dependency_audit_qualification": "Package metadata and resolutions unchanged; inherited development audit findings remain. New complete audit not claimed.",
+    "full_ci": "Required for the follow-up commit; prior successful CI has the explicit image-retention gap."
+  },
+  "changed_source_sha256": {
+    ".github/workflows/e2e.yml": "9f14ad80a9fc3e11b8383d51ad2872811289b1e7a0adb644ff7522af0f2312af"
+  },
+  "limitations": [
+    "No application/runtime change; existing local transport/design gates cover their earlier commits.",
+    "No live engine/Temporal/sandbox/NSR, OS keyring or signed update acceptance established.",
+    "This source record does not claim its own future exact-head CI result."
+  ]
+}
