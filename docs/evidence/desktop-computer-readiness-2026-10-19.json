@@ -1,0 +1,324 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-19T16:35:53.873207+00:00",
+  "source_parent_commit": "79583d9b620685e2dd2b538dc43abd19b5d739fd",
+  "scope": "Reject incomplete/ambiguous computer readiness in desktop and live harness; provide a credential-safe read-only preflight, and distinguish real local sandbox execution from full workflow acceptance.",
+  "runtime_status": {
+    "desktop_temporal_sandbox_policy_execution_verified": false,
+    "local_preflight": {
+      "schema_version": 1,
+      "ready_for_live_test": false,
+      "workflow_execution_verified": false,
+      "checks": [
+        {
+          "key": "CHAT_TEST_ENGINE_URL",
+          "status": "pass",
+          "message": "Configured."
+        },
+        {
+          "key": "CHAT_TEST_ENGINE_KEY",
+          "status": "fail",
+          "message": "Required configuration is missing."
+        },
+        {
+          "key": "CHAT_TEST_TENANT_ID",
+          "status": "fail",
+          "message": "Required configuration is missing."
+        },
+        {
+          "key": "CHAT_TEST_BRAND_ID",
+          "status": "fail",
+          "message": "Required configuration is missing."
+        },
+        {
+          "key": "CHAT_TEST_NSR_URL",
+          "status": "fail",
+          "message": "Required configuration is missing."
+        },
+        {
+          "key": "CHAT_TEST_NSR_KEY",
+          "status": "fail",
+          "message": "Required configuration is missing."
+        },
+        {
+          "key": "engine_health",
+          "status": "fail",
+          "message": "Engine health is unreachable, timed out, redirected or returned an invalid response."
+        },
+        {
+          "key": "engine_capabilities",
+          "status": "blocked",
+          "message": "Configure engine URL/key and organization/brand UUIDs before checking connectors."
+        },
+        {
+          "key": "policy_acceptance_access",
+          "status": "blocked",
+          "message": "Configure the direct policy URL/key required by live acceptance."
+        }
+      ],
+      "next_step": "Run npm run test:computer-chat:live through Buildr after preflight passes.",
+      "qualification": "Read-only connectivity and declared capability checks. No workflow, sandbox, inference or artifact verification is executed. Worker execution and service organization alignment must still pass the live acceptance harness."
+    },
+    "local_sandbox_execution_verified": true,
+    "reason": "During inspection no local engine API, Temporal server or sandbox controller was listening, and no CHAT_TEST or provider credentials were present in this session. The approved local startup/configuration path remains needed. Source directories do not start the stack."
+  },
+  "baseline": {
+    "job": {
+      "id": "4595070522fc",
+      "state": "failed",
+      "exit_code": 1,
+      "cwd": "/home/dom/stateset-desktop",
+      "argv": [
+        "env",
+        "PATH=/home/dom/.nvm/versions/node/v22.18.0/bin:/usr/local/bin:/usr/bin:/bin",
+        "UV_THREADPOOL_SIZE=1",
+        "node",
+        "node_modules/vitest/vitest.mjs",
+        "run",
+        "src/features/computer-chat/setupReadiness.test.ts",
+        "--maxWorkers=1",
+        "--no-file-parallelism",
+        "--no-coverage",
+        "--reporter=default",
+        "--reporter=json",
+        "--outputFile.json=dist/verification/computer-readiness-baseline.json"
+      ],
+      "wait_seconds": 0.025853872299194336,
+      "elapsed_seconds": 5.987755298614502
+    },
+    "failed": 10,
+    "total": 14,
+    "production_source_unchanged": true,
+    "report_sha256": "462285a45dcd2a64f319368c62d9b07277e29646b5b55af3d7b859ac641bf2ad"
+  },
+  "implementation": [
+    "Require all seven version-one capability checks and unique check/tool identities before accepting ready=true; preserve partial failed reports for troubleshooting.",
+    "Share required capability names across the renderer and Node preflight/live harness. The live harness rejects incomplete readiness before starting or stopping a workflow.",
+    "Parse approved environment files as data without shell execution or inherited credential mixing. Never print configuration values, raw response bodies or fetch errors.",
+    "Check control-plane database and Temporal health, computer capability declarations and direct policy capabilities with deadlines, bounded response bodies, TLS/loopback URL restrictions and redirect rejection.",
+    "Report ready_for_live_test separately from workflow_execution_verified, which remains false until real execution acceptance.",
+    "Use realistic complete readiness fixtures while retaining existing scope, draft, approval, connection and restart assertions."
+  ],
+  "verification": {
+    "job": {
+      "id": "650b5cb16d43",
+      "state": "succeeded",
+      "exit_code": 0,
+      "cwd": "/home/dom/stateset-desktop",
+      "argv": ["bash", "/tmp/stateset-desktop-readiness-bind.sh"],
+      "wait_seconds": 0.10586333274841309,
+      "elapsed_seconds": 13.651180267333984
+    },
+    "binding_scope": "Formatting and source/report binding only; test outcomes are phase-specific below",
+    "focused": {
+      "job": {
+        "id": "589090ac00fc",
+        "state": "succeeded",
+        "exit_code": 0,
+        "cwd": "/home/dom/stateset-desktop",
+        "argv": ["bash", "/tmp/stateset-desktop-readiness-check.sh"],
+        "wait_seconds": 0.059533119201660156,
+        "elapsed_seconds": 303.21503496170044
+      },
+      "passed": 398,
+      "files": 25,
+      "skipped": 0,
+      "report_sha256": "d1b8dae2ac8fcbf8b945e807dfe15f54a376f372f3f3301fc723cc2c2b9a54d9",
+      "checks": [
+        "Both renderer and e2e typechecks",
+        "Strict affected-file lint and formatting",
+        "Complete computer-chat feature/recovery unit selection",
+        "Renderer production build"
+      ],
+      "qualification": "Only four Node scripts changed after this phase; renderer/e2e production and test sources are unchanged. Final documentation changes are separately bound below."
+    },
+    "harness": {
+      "job": {
+        "id": "927599856248",
+        "state": "failed",
+        "exit_code": 1,
+        "cwd": "/home/dom/stateset-desktop",
+        "argv": ["bash", "/tmp/stateset-desktop-readiness-final.sh"],
+        "wait_seconds": 81.73061108589172,
+        "elapsed_seconds": 92.07780694961548
+      },
+      "passed": 31,
+      "skips": 0,
+      "report_sha256": "441d682f77f230ab006ba21ddad26778bf18d5823acb54b58ea25188e3a1cbc7",
+      "qualification": "All 31 fixtures and the actual local CLI preflight passed. The enclosing job failed later because an anchored Playwright grep selected no tests. The unchanged native source was rerun with a corrected selector."
+    },
+    "native": {
+      "job": {
+        "id": "614bcde3dd8e",
+        "state": "failed",
+        "exit_code": 1,
+        "cwd": "/home/dom/stateset-desktop",
+        "argv": ["bash", "/tmp/stateset-desktop-readiness-native.sh"],
+        "wait_seconds": 0.6834743022918701,
+        "elapsed_seconds": 273.349894285202
+      },
+      "passed": 0,
+      "timed_out": 1,
+      "status": "pending_exact_head_ci",
+      "retries": 0,
+      "skips": 0,
+      "cases": [
+        "native chats survive restart with distinct computers and no automatic signal replay"
+      ],
+      "report_sha256": "e5ca87b4f36630742951120b575beea60dfe184a9c3eb3cb3eafd39b88d34e66",
+      "qualification": "Owned temporary Electron profiles and controlled local engine fixture. The case exceeded its 120-second limit during initial navigation before readiness/restart assertions; the trace shows cold Electron launch consumed most of that limit. No passing current-source native claim. Reused Electron compilation with unchanged Electron source; fresh full exact-head CI is required."
+    },
+    "local_sandbox": {
+      "job": {
+        "id": "a134f63b4756",
+        "state": "succeeded",
+        "exit_code": 0,
+        "cwd": "/tmp/stateset-desktop-local-sandbox-proof",
+        "argv": ["python3", "/tmp/stateset-desktop-local-sandbox-proof/run.py"],
+        "wait_seconds": 0.04711270332336426,
+        "elapsed_seconds": 20.720988273620605
+      },
+      "receipt_sha256": "6a523520a8a9130b17f663feb5ca2605131528ee457ebd6e72d4310f1cc683d0",
+      "receipt": {
+        "passed": true,
+        "backend": "sandboxctl-local-docker",
+        "image": "stateset/sandbox:owned-stdin-20261018",
+        "qualification": "Real owned local Docker sandbox execution through stateset-sandbox CLI. Does not traverse engine API, Temporal, controller agent sessions, model inference or NSR; not live desktop workflow acceptance.",
+        "image_id": "sha256:912e19e87687f7591784bda8fd33b86bb33942f23220fbed9bd9b602da5c6201",
+        "sandbox_source_head": "b0fb742f6afdb4df28dd92511c7f30704859111f",
+        "selected_source_sha256": {
+          "sandboxctl": "18f80b8b1e4016abade5e1761fc2358d4c7fad7f587323f3ecd2edd5de88c078",
+          "cli/src/sandboxctl.ts": "c0681fd0dbe453153382833d54ec6c9735bd428840b37c6cdcf4e3f724cd21fc",
+          "cli/src/workbench/docker.ts": "c011b0d7e634acf2fa11abe27a7757d86893644cda99ccc91de0313f2b3bf5cf",
+          "cli/src/workbench/commands.ts": "bfcb5281e8e940285ffa55021903c8c4d2ca20f4d7a41f682714e720e6722b4e",
+          "package-lock.json": "558120854aa0951a6971cd6757cd9119d6efd5873bd2e29dbc1f09cfb60a80a5"
+        },
+        "sandbox_id": "ss-local-af5b0578-f1b5-4130-93c7-a5e2af7fe868",
+        "isolation": {
+          "network": "none",
+          "read_only_root": true,
+          "host_binds": false,
+          "cpu_limit": 1,
+          "memory_mib": 512,
+          "pid_limit": 128,
+          "privileged": false
+        },
+        "artifact": "/workspace/desktop-proof.json",
+        "artifact_sha256": "b485edfa7f22b3e4ec2457834127572955b4977e56edc906154327deb7e27721",
+        "marker": "808722fc-65bf-45e3-80a1-8010ee21ce5a",
+        "execution_uid": 1001,
+        "write_exit": 0,
+        "independent_read_exit": 0,
+        "execution_passed": true,
+        "cleanup_confirmed": true
+      },
+      "qualification": "Selected CLI source fingerprints were captured at test start with shared mutable dependencies, not an immutable source snapshot. The pinned cached image ran real Python under UID 1001, with resource limits and confirmed owned-container cleanup."
+    },
+    "backend_route_review": {
+      "observed_at": "2026-10-19T16:23:21.200071+00:00",
+      "qualification": "Static route/worker registration review and current working-copy fingerprints. This does not prove compilation, deployment, running workers or real workflow acceptance.",
+      "repositories": {
+        "desktop": {
+          "path": "/home/dom/stateset-desktop",
+          "head": "79583d9b620685e2dd2b538dc43abd19b5d739fd",
+          "files": {
+            "src/features/computer-chat/durable.ts": {
+              "sha256": "5ff7254e4bc0091ee6feb51a23419c60a2efe08d863ce77c78080b5a783cc726",
+              "tracked": true
+            },
+            "electron/main.ts": {
+              "sha256": "2f3acbde9b24a28b511d5a1cbe9135688c50576804b68240e1f295ad33242756",
+              "tracked": true
+            }
+          }
+        },
+        "engine": {
+          "path": "/home/dom/next-temporal-rs",
+          "head": "a1aff037db85dc5c304c4e15b6f2864dd08c778d",
+          "files": {
+            "crates/engine-api/src/workflows/computer_chat.rs": {
+              "sha256": "8b5460d45be9de5d607499e81e168ecebe6201a0b8b127c77ae424bb7d270838",
+              "tracked": false
+            },
+            "crates/engine-workflows/src/computer_chat.rs": {
+              "sha256": "5d6c68efdf8a0873b69fb619a3344d8e8b91b107269089e8cc8beef765814dbe",
+              "tracked": false
+            },
+            "crates/engine-worker/src/main.rs": {
+              "sha256": "d653a317b5551eaf6b7d79dec7d3d6adf8d69f47c2726862cdd0eefdc2c2a90b",
+              "tracked": true
+            }
+          }
+        },
+        "sandbox": {
+          "path": "/home/dom/stateset-sandbox",
+          "head": "b0fb742f6afdb4df28dd92511c7f30704859111f",
+          "files": {
+            "controller/src/routes/agent-sessions.routes.ts": {
+              "sha256": "0ddad7f32b033af1be74e05b0054c169c2e19d82ec0fa285d40ce6fdcd0a97ac",
+              "tracked": true
+            }
+          }
+        },
+        "policy": {
+          "path": "/home/dom/stateset-nsr",
+          "head": "4ac9d2d8fc64c8a35cc58250428be5e730dd0a13",
+          "files": {
+            "src/api/nsr_handlers/computer_evidence.rs": {
+              "sha256": "b2c7af4b841b0b76b9cfcf58a42394b044c37b3d8e3d3f3feaa276aece84bf79",
+              "tracked": false
+            },
+            "src/api/routes.rs": {
+              "sha256": "0b4c4cadffbd93a704071fb3fd249558c4660892a490821e8f903b50c7694140",
+              "tracked": true
+            }
+          }
+        }
+      }
+    },
+    "documentation_delta_since_native": ["CHANGELOG.md", "RELEASE_NOTES_v1.1.22.md"],
+    "source_manifest_sha256": "f279df27f7e6c7ed6d8ae3ea8c2e13406c8f92af851eec030d0908e245521ced",
+    "dependency_audit": {
+      "production": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 0,
+        "critical": 0,
+        "total": 0
+      },
+      "all": {
+        "info": 0,
+        "low": 0,
+        "moderate": 10,
+        "high": 5,
+        "critical": 0,
+        "total": 15
+      },
+      "qualification": "Inherited production 0 and full 15 affected development-tool entries. Package dependencies and all lock bytes remain unchanged; no fresh audit is claimed. Exact-head CI production audit remains required."
+    }
+  },
+  "changed_source_sha256": {
+    "CHANGELOG.md": "a70844af93d1d14fc2bade80c017af692e18c2f32b1467993ad73875f40136a6",
+    "RELEASE_NOTES_v1.1.22.md": "1ac1ba7f4897ff66700349fd58fa2d066bd1d37ee7b0c965c3ca60169c2d99e3",
+    "docs/COMPUTER_CHATS.md": "93866e9e1a3c66f92220e2277f410ed7db0f4c7275da2edada97aadd45efc2ed",
+    "e2e/computer-chat.spec.ts": "35e55fa63c3e1eb33cf97a327e908cf7e3eafada8c98779be34ba7dd3805fdb1",
+    "package.json": "b0eea6bd0077a277ed17c2e0c4e5c31d8ccbcb18fa38e090fac0820d538927ff",
+    "scripts/computer-chat-live.mjs": "8d83baebd1038c1a59d8641efa2aa7512399b4547404243d56f440c99e4cbec1",
+    "scripts/computer-chat-live.test.mjs": "deb0437aba7f77292e977c1e0bc178b2997a788f95cfdef1ef054a929b1efcd5",
+    "scripts/computer-chat-preflight.mjs": "894099420ffa9ad1eb126317af6fb8b2a96dcf4960a8dd1b2004a58d2d6186c6",
+    "scripts/computer-chat-preflight.test.mjs": "8dab4851db94536781d650f32401f440d5307a8aca7b76eebddcb16829a618d0",
+    "src/features/computer-chat/DurableChatSetup.test.tsx": "9a15849c664ecbbfc68dfe223e24a3dab3c654179c4b2ddf3917d8a8f1c2bdbd",
+    "src/features/computer-chat/DurableComputerChat.test.tsx": "384376117fd93232dc4187471c4e3b7ec2b96ea208d3858886abc93e18c16979",
+    "src/features/computer-chat/durableTypes.ts": "48d116f5db25a30a5aa7b0a60bda333842bb9aa9a1e0734add4fbbb9b35ff622",
+    "src/features/computer-chat/setup-checks.json": "c9560af3c661187f74f94835b3439c61b38df2ff71cd9d94fbb8a96a34556071",
+    "src/features/computer-chat/setupReadiness.test.ts": "1d8fd6d503a2369434f229ede31b060c498440e1b94d0b56eb859873c24e3a71"
+  },
+  "limits": [
+    "Local Docker execution through sandboxctl does not exercise the controller durable session API, engine API, Temporal worker, provider inference or NSR.",
+    "Capability/health responses cannot prove worker consumption, funded model output, sandbox action execution or independent artifact acceptance; the configured real-service harness must establish those outcomes.",
+    "Backend computer-chat and NSR evidence modules exist as untracked working-copy files; source review does not establish their compilation or deployment. External repositories were not modified by this increment.",
+    "No host interactive desktop profile, OS keyring, macOS/Windows runtime, signed update or installer publication acceptance is claimed.",
+    "Version 1.1.22 remains an untagged candidate until full exact-head CI passes."
+  ]
+}

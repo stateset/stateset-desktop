@@ -2,6 +2,7 @@
 
 This patch makes desktop agents and settings more predictable, with clearer controls in both themes.
 
+- Computer setup requires complete sandbox and policy capability evidence. `doctor:computer-chat` checks database/Temporal health and live-test prerequisites without launching work or logging credentials.
 - Saved engine connections support native workflow requests and event streams with HTTPS, credential, workspace and cancellation guards.
 - Settings distinguish pending saves from confirmed values and retain clear Retry feedback across navigation. Turning sharing off immediately stops local telemetry, even when saving fails.
 - Automatic agent recovery waits for confirmed settings and owned session data. Workspace, authentication and preference changes cancel obsolete continuations; query refreshes do not duplicate submitted starts.

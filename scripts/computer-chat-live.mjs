@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Real APIs only. This command fails when credentials/services are missing.
 import assert from 'node:assert/strict';
+import { inspectComputerSetupReport } from './computer-chat-preflight.mjs';
 import { createHash, randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 const required = (name) => {
@@ -58,7 +59,10 @@ const api = async (base, token, path, body, expectOk = true, timeoutMs = 60000) 
 const call = async (path, body, timeoutMs) =>
   (await api(engine, key, path, body, true, timeoutMs)).result;
 const diagnostics = await call('/v1/computer-chats/diagnostics', { brand_id: brand });
-assert(diagnostics.ready, JSON.stringify(diagnostics.checks));
+assert(
+  inspectComputerSetupReport(diagnostics).ready,
+  'Computer service readiness is incomplete; run doctor:computer-chat before live acceptance.'
+);
 const id = randomUUID(),
   marker = randomUUID(),
   messageId = randomUUID();

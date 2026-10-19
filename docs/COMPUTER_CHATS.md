@@ -338,9 +338,36 @@ follow the backend deployment policies.
 
 ## Validation
 
+Check a configured test stack without creating a workflow or spending inference
+budget:
+
+```bash
+npm run doctor:computer-chat -- --env-file /path/to/approved-local-test.env
+```
+
+Use the six `CHAT_TEST_*` variables shown below. An explicit environment file is
+parsed as data, never executed, and supplies the complete test configuration;
+shell credentials are not mixed into it. Without `--env-file`, the command uses
+the current environment. Output is JSON, omits configuration values and service
+error bodies, and exits nonzero when configuration or readiness is incomplete.
+It checks the engine's control-plane database and Temporal namespace, all seven
+required computer capability checks, and direct policy capability access. It
+rejects redirects, duplicated or incomplete readiness evidence, and oversized
+responses. The desktop also requires all seven capability checks before accepting
+a ready report.
+
+`ready_for_live_test` means those declared prerequisites passed. It does not prove
+that a worker consumed a task, a model generated output, a sandbox executed an
+action, or NSR verified the result. Only the live harness below establishes those
+execution outcomes. A local Docker sandbox created by `sandboxctl --backend docker`
+does not provide the controller's durable agent-session APIs and cannot substitute
+for the engine's sandbox connector. Source directories alone do not start services.
+
 `npm run test:computer-chat:harness` checks the live acceptance harness against
 owned local failure fixtures. It covers lost start acknowledgements, malformed
 workflow identities, delayed shutdown evidence and explicit cleanup failures.
+It also checks the read-only preflight against owned local HTTP fixtures, including
+Temporal failures, missing capability evidence and credential-safe errors.
 It does not exercise real sandbox, workflow or policy services. The release
 workflow runs this check before the unit coverage suite.
 

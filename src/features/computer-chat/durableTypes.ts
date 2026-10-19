@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import requiredSetupChecks from './setup-checks.json';
 
 export const budgetSchema = z.object({
   max_cost_cents: z.number().int().min(1).max(2000),
@@ -179,10 +180,18 @@ export const setupReportSchema = z
   })
   .refine(
     (report) =>
+      new Set(report.checks.map((check) => check.key)).size === report.checks.length &&
+      new Set(report.mcp_servers.map((server) => server.key)).size === report.mcp_servers.length,
+    { message: 'Connection and tool checks must have unique identities.' }
+  )
+  .refine(
+    (report) =>
       !report.ready ||
-      (report.checks.length > 0 && report.checks.every((check) => check.status === 'pass')),
+      (requiredSetupChecks.every((key) => report.checks.some((check) => check.key === key)) &&
+        report.checks.every((check) => check.status === 'pass')),
     {
-      message: 'The ready diagnostic report must include passing connection checks.',
+      message:
+        'Readiness requires passing sandbox, policy, durable capacity, inference, computer image, workspace evidence and organization checks.',
     }
   );
 export type SetupReport = z.infer<typeof setupReportSchema>;

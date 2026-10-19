@@ -17,6 +17,7 @@ import { useAuthStore } from '../../stores/auth';
 import { DEFAULT_CHAT_CONFIGURATION, type DurableChatStatus } from './durableTypes';
 import type { ComputerChat } from './types';
 import { durableChatController } from './durable';
+import requiredSetupChecks from './setup-checks.json';
 vi.mock('../chat-playground/components/ChatMessageBubble', () => ({
   ChatMessageBubble: ({ message }: { message: { content: string } }) => <p>{message.content}</p>,
 }));
@@ -623,7 +624,11 @@ describe('checked computer creation', () => {
   const diagnostics = {
     version: 1,
     ready: true,
-    checks: [{ key: 'computer', status: 'pass', message: 'Setup checked' }],
+    checks: requiredSetupChecks.map((key) => ({
+      key,
+      status: 'pass',
+      message: key === 'sandbox' ? 'Setup checked' : `${key} configured`,
+    })),
     mcp_servers: [{ key: 'reports', ready: true }],
   };
   async function checked() {

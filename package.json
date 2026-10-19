@@ -50,7 +50,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:computer-chat:live": "npm run preflight && node scripts/computer-chat-live.mjs",
-    "test:computer-chat:harness": "npm run preflight && node --test --test-concurrency=1 scripts/computer-chat-live.test.mjs",
+    "test:computer-chat:harness": "npm run preflight && node --test --test-concurrency=1 scripts/computer-chat-live.test.mjs scripts/computer-chat-preflight.test.mjs",
     "test:coverage": "vitest run --coverage",
     "pretest:e2e": "npm run preflight",
     "test:e2e": "npm run build:electron && npm run build:vite && node ./node_modules/@playwright/test/cli.js test --project=electron --project=accessibility --project=integration",
@@ -70,7 +70,9 @@
     "test:e2e:distribution": "npm run preflight && node ./node_modules/@playwright/test/cli.js test --config=playwright.distribution.config.ts --workers=1",
     "setup:electron": "install-electron",
     "prebuild:electron": "npm run preflight && npm run setup:electron",
-    "test:release-source": "node --test --test-concurrency=1 scripts/release-source.test.mjs"
+    "test:release-source": "node --test --test-concurrency=1 scripts/release-source.test.mjs",
+    "doctor:computer-chat": "npm run preflight && node scripts/computer-chat-preflight.mjs",
+    "test:computer-chat:preflight": "npm run preflight && node --test --test-concurrency=1 scripts/computer-chat-preflight.test.mjs"
   },
   "dependencies": {
     "@axe-core/react": "^4.11.0",

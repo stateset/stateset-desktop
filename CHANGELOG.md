@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Fixed
 
+- Require complete, unambiguous sandbox and policy capability checks before accepting computer readiness. Add a read-only preflight for engine database/Temporal health and live acceptance configuration, without starting workflows or exposing credentials.
 - Wait for confirmed settings and owned sessions before automatically restarting agents. Cancel obsolete recovery after workspace, authentication or preference changes, preserve saved restart IDs while loading, and avoid duplicate submitted starts.
 - Stop telemetry immediately when sharing is turned off, including failed saves; show acknowledged preference states, persistence errors and retry actions.
 - Make all seven settings toggles distinguish on and off in both themes, with visible keyboard focus, larger click targets, and associated descriptions.
