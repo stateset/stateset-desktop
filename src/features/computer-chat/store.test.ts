@@ -37,6 +37,19 @@ afterEach(async () => {
 });
 
 describe('computer chat persistence', () => {
+  it('retains the Sandbox API runtime marker and session identity across reload', async () => {
+    const chat = { ...fixture(), sandboxApiSession: { version: 1 as const }, draft: 'Unsent work' };
+    vi.mocked(window.electronAPI!.store.get).mockImplementation(async (key) =>
+      key === 'computerChats' ? [chat] : undefined
+    );
+    await store.getState().initialize();
+    expect(store.getState().chats[0]).toMatchObject({
+      id: chat.id,
+      sandboxApiSession: { version: 1 },
+      session: chat.session,
+      draft: 'Unsent work',
+    });
+  });
   it('serializes brand default saves and merges each committed brand', async () => {
     store.setState({ configurations: {} });
     let release!: (value: boolean) => void;

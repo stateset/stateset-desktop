@@ -1,7 +1,8 @@
 import { z } from 'zod';
-import { sandboxRequest } from '../../lib/sandbox';
+import { sandboxRequest, SandboxRequestError } from '../../lib/sandbox';
 import { engineRequest } from '../../lib/durableWorkflows';
 import { localSecretsApi } from '../../lib/localSecrets';
+import sandboxSessionConfiguration from './sandbox-session.json';
 import type {
   ActionResult,
   ComputerAction,
@@ -93,26 +94,32 @@ export const computerSessionApi = {
         timeoutMs: 90_000,
         headers: { 'Idempotency-Key': `desktop-chat-${chatId}` },
         body: JSON.stringify({
+          ...sandboxSessionConfiguration,
           clientId: `desktop-chat-${chatId}`,
-          name: 'Desktop computer chat',
-          sandbox: {
-            template: 'computer-use',
-            cpus: '2',
-            memory: '4Gi',
-            isolation: 'gvisor',
-            timeoutSeconds: 3600,
-          },
-          budget: { iterationLimit: 500, durationLimitSeconds: 3600, onExhausted: 'stop' },
         }),
       })
     ),
   get: async (id: string): Promise<ComputerSession> =>
     sessionSchema.parse(await sandboxRequest(`/api/v1/agent/sessions/${encodeURIComponent(id)}`)),
+  sandboxStopped: async (id: string): Promise<boolean> => {
+    try {
+      const response = await sandboxRequest(`/api/v1/sandbox/${encodeURIComponent(id)}/status`, {
+        timeoutMs: 5000,
+        maxRetries: 0,
+        clearAuthOnUnauthorized: false,
+      });
+      const result = z.object({ status: z.string() }).parse(response);
+      return ['stopped', 'terminated', 'deleted'].includes(result.status);
+    } catch (error) {
+      if (error instanceof SandboxRequestError && error.status === 404) return true;
+      throw error;
+    }
+  },
   start: async (id: string): Promise<ComputerSession> =>
     sessionSchema.parse(
       await sandboxRequest(`/api/v1/agent/sessions/${encodeURIComponent(id)}/start`, {
         method: 'POST',
-        timeoutMs: 120_000,
+        timeoutMs: 420_000,
       })
     ),
   stop: (id: string) =>

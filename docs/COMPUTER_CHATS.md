@@ -1,6 +1,42 @@
-# Durable computer chats
+# Computer chats
 
-Every **New chat** creates a `ComputerChatWorkflow` in `next-temporal-rs` and a
+New chats use **Sandbox API** by default. Open **Chats → Settings**, save a
+Sandbox API key, then choose **New Chat**. The chat is saved first; its dedicated
+computer is created in the background through `POST /api/v1/agent/sessions` and
+started through the session's `/start` endpoint. The desktop uses the
+`computer-use` template with 2 CPUs, 4 GiB, gVisor and a one-hour session budget.
+These sessions explicitly request `durable: false`, so they do not depend on the
+hosted durable-sandbox feature flag or workflow-engine credentials.
+
+The chat ID supplies a stable create idempotency key. The desktop persists the
+returned session ID before starting its computer. **Retry computer setup** reuses
+that session. After an unconfirmed startup request, **Check computer setup** only
+reads the existing session until the outcome is known; it does not send another
+start request. Reopening a saved chat only reads its current status. It never
+replays an action or silently creates a replacement computer. Stop the computer
+before deleting the saved chat; archiving retains the running computer.
+
+Agent work runs while the desktop is open. The Sandbox API manages the computer
+and its lifetime; closing the window does not imply that its compute has stopped.
+Use **Stop computer** to end the session. The desktop confirms the session has
+ended and the sandbox is stopped or absent before marking cleanup complete.
+If cleanup is unconfirmed, use **Check shutdown**; further actions stay blocked. Runtime errors and provisioning failures
+remain visible in the conversation, with the transcript and draft retained.
+
+The sandbox organization must supply inference credentials. NSR admission and
+output checks are on by default for actions and require a policy key saved in
+Chat settings. Disabling checks is explicit in **Computer and permissions**;
+policy denial, approval requests and rewrites are never silently executed.
+These checks do not certify the factual correctness of an answer.
+
+Choose **Durable workflow** in **New chat runtime** to create an engine-owned
+computer instead. That mode retains its seven required connection checks,
+organization bindings, server-side budgets, recovery and approval behavior.
+Existing engine-owned chats continue to use their original runtime.
+
+## Durable workflow chats
+
+When **New chat runtime** is **Durable workflow**, each new chat creates a `ComputerChatWorkflow` in `next-temporal-rs` and a
 dedicated `computer-use` agent session in `stateset-sandbox`. The workflow owns
 model planning, policy admission, approvals, execution, output collection and
 acceptance checks. Closing the desktop stops its display polling; the worker

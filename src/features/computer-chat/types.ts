@@ -43,6 +43,7 @@ export interface PendingAction {
 }
 
 export interface ComputerChat {
+  sandboxApiSession?: { version: 1 };
   lastOpenedAt?: string;
   draft?: string;
   pinned?: boolean;
@@ -62,6 +63,8 @@ export interface ComputerChat {
   updatedAt: string;
   session?: ComputerSession;
   provisioningAttempted?: boolean;
+  sandboxStartUnconfirmed?: boolean;
+  sandboxStopRequested?: boolean;
   messages: ChatMessage[];
   pending?: PendingAction;
   workflows: { workflowId: string; runId: string }[];

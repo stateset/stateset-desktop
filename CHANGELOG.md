@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## Unreleased
 
+## [1.1.23] - 2026-10-19
+
+### Added
+
+- Create a dedicated computer in the background for each new chat using the Sandbox API. Preserve chat/session identities, retry setup without allocating another session, and reopen saved computers without replaying actions. Keep durable workflows available as an explicit runtime option.
+
 ## [1.1.22] - 2026-10-19
 
 ### Fixed

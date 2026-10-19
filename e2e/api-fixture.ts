@@ -13,6 +13,7 @@ export async function installDesktopApiFixture(
     sessions: unknown[];
     platforms?: string[];
     sessionsStatus?: number;
+    sandboxChats?: boolean;
     actions?: { blocked?: boolean; failIds?: string[] };
   }
 ) {
@@ -27,9 +28,32 @@ export async function installDesktopApiFixture(
   await electronApp.evaluate(
     (
       { session },
-      { apiOrigin, rendererOrigin, tenant, brand, sessions, platforms, sessionsStatus, actions }
+      {
+        apiOrigin,
+        rendererOrigin,
+        tenant,
+        brand,
+        sessions,
+        platforms,
+        sessionsStatus,
+        actions,
+        sandboxChats,
+      }
     ) => {
       const fixtureState = globalThis as typeof globalThis & {
+        __desktopSandboxChats?: {
+          sessions: Record<
+            string,
+            { id: string; organizationId: string; status: string; currentSandboxId: string | null }
+          >;
+          creates: Record<string, string>;
+          requests: {
+            path: string;
+            method: string;
+            idempotencyKey: string | null;
+            body?: unknown;
+          }[];
+        };
         __desktopFixtureSessionStatus?: number;
         __desktopFixtureActions?: {
           blocked: boolean;
@@ -39,6 +63,8 @@ export async function installDesktopApiFixture(
         };
       };
       fixtureState.__desktopFixtureSessionStatus = sessionsStatus;
+      if (sandboxChats)
+        fixtureState.__desktopSandboxChats = { sessions: {}, creates: {}, requests: [] };
       fixtureState.__desktopFixtureActions = {
         blocked: actions?.blocked ?? false,
         failIds: actions?.failIds ?? [],
@@ -54,8 +80,44 @@ export async function installDesktopApiFixture(
           'access-control-allow-credentials': 'true',
           'access-control-allow-methods': 'GET, POST, PUT, DELETE, OPTIONS',
           'access-control-allow-headers':
-            'Authorization, Content-Type, X-Requested-With, X-API-Key, X-Tenant-ID',
+            'Authorization, Content-Type, X-Requested-With, X-API-Key, X-Tenant-ID, Idempotency-Key',
         };
+        if (sandboxChats && url.origin === 'https://api.sandbox.stateset.app') {
+          if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers });
+          if (request.headers.get('Authorization') !== 'ApiKey native-sandbox-test-key')
+            return new Response('{}', { status: 401, headers });
+          const state = fixtureState.__desktopSandboxChats!;
+          const body =
+            request.method === 'POST' ? await request.json().catch(() => undefined) : undefined;
+          const idempotencyKey = request.headers.get('Idempotency-Key');
+          state.requests.push({ path: url.pathname, method: request.method, idempotencyKey, body });
+          let value: unknown;
+          if (url.pathname === '/api/v1/agent/sessions' && request.method === 'POST') {
+            if (!idempotencyKey) return new Response('{}', { status: 400, headers });
+            const id = state.creates[idempotencyKey] ?? crypto.randomUUID();
+            state.creates[idempotencyKey] = id;
+            state.sessions[id] ??= {
+              id,
+              organizationId: 'sandbox-test-org',
+              status: 'pending',
+              currentSandboxId: null,
+            };
+            value = state.sessions[id];
+          } else {
+            const match = url.pathname.match(
+              /^\/api\/v1\/agent\/sessions\/([^/]+)(?:\/(start|stop))?$/
+            );
+            const session = match && state.sessions[match[1]];
+            if (!match || !session) return new Response('{}', { status: 404, headers });
+            if (request.method === 'POST' && match[2] === 'start') {
+              session.status = 'running';
+              session.currentSandboxId = `sandbox-${session.id}`;
+            }
+            if (request.method === 'POST' && match[2] === 'stop') session.status = 'completed';
+            value = session;
+          }
+          return new Response(JSON.stringify(value), { status: 200, headers });
+        }
         if (url.origin !== apiOrigin) return new Response('Not a fixture service', { status: 404 });
         if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers });
         let body: unknown;
@@ -130,6 +192,7 @@ export async function installDesktopApiFixture(
       platforms: fixture.platforms ?? ['shopify'],
       sessionsStatus: fixture.sessionsStatus ?? 200,
       actions: fixture.actions,
+      sandboxChats: fixture.sandboxChats,
     }
   );
 }

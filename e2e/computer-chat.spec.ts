@@ -199,6 +199,10 @@ async function openChats(
   await page.reload();
   await page.getByRole('link', { name: 'Chats', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Chats', exact: true })).toBeVisible();
+  // This suite verifies the optional engine-owned workflow runtime explicitly.
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await page.getByLabel('New chat runtime').selectOption('workflow');
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
   return page;
 }
 

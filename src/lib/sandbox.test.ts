@@ -61,6 +61,7 @@ describe('sandboxApi', () => {
       expect.stringContaining('/api/sandbox/create'),
       expect.objectContaining({
         method: 'POST',
+        redirect: 'error',
         headers: expect.objectContaining({
           Authorization: 'ApiKey sandbox-key',
         }),
@@ -99,12 +100,23 @@ describe('sandboxApi', () => {
     global.fetch = vi
       .fn()
       .mockResolvedValueOnce(new Response('unauthorized', { status: 401 }))
-      .mockResolvedValueOnce(new Response('forbidden', { status: 403 }))
-      .mockResolvedValueOnce(new Response('still forbidden', { status: 403 }));
+      .mockResolvedValueOnce(new Response('unauthorized', { status: 401 }))
+      .mockResolvedValueOnce(new Response('still unauthorized', { status: 401 }));
     const { sandboxApi } = await import('./sandbox');
 
     await expect(sandboxApi.get('sandbox-1')).rejects.toThrow();
     expect(clearSandboxApiKey).toHaveBeenCalledTimes(1);
+  });
+
+  it('preserves a valid key on permission denial and exposes structured service errors', async () => {
+    global.fetch = vi
+      .fn()
+      .mockImplementation(async () =>
+        jsonResponse({ error: { message: 'Sandbox write permission required' } }, 403)
+      );
+    const { sandboxApi, SandboxRequestError } = await import('./sandbox');
+    await expect(sandboxApi.create()).rejects.toBeInstanceOf(SandboxRequestError);
+    expect(clearSandboxApiKey).not.toHaveBeenCalled();
   });
 
   it('retries safe GET requests on retryable status', async () => {

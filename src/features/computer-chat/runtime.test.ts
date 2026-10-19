@@ -6,6 +6,7 @@ import { computerSessionApi, computerWorkflowApi, evaluateAction } from './api';
 import { useAuthStore } from '../../stores/auth';
 import { useDurableWorkflowsStore } from '../../stores/durableWorkflows';
 import type { ComputerChat, PendingAction, PolicyReceipt } from './types';
+import { SandboxRequestError } from '../../lib/sandbox';
 
 vi.mock('./api', async (original) => {
   const actual = await original<typeof import('./api')>();
@@ -18,6 +19,7 @@ vi.mock('./api', async (original) => {
       execute: vi.fn(),
       infer: vi.fn(),
       stop: vi.fn(),
+      sandboxStopped: vi.fn(),
     },
     computerWorkflowApi: { start: vi.fn(), status: vi.fn(), cancel: vi.fn() },
     evaluateAction: vi.fn(),
@@ -81,6 +83,10 @@ beforeEach(() => {
   vi.mocked(computerSessionApi.start).mockResolvedValue(session);
   vi.mocked(computerSessionApi.get).mockResolvedValue(session);
   vi.mocked(computerSessionApi.execute).mockResolvedValue(result);
+  vi.mocked(computerSessionApi.sandboxStopped).mockResolvedValue(true);
+  vi.mocked(computerSessionApi.stop).mockImplementation(async () => {
+    vi.mocked(computerSessionApi.get).mockResolvedValue({ ...session, status: 'completed' });
+  });
   vi.mocked(computerSessionApi.infer).mockResolvedValue({
     content: [{ type: 'text', text: 'Done.' }],
   });
@@ -93,6 +99,68 @@ beforeEach(() => {
 });
 
 describe('computer chat lifecycle', () => {
+  it('keeps an unconfirmed shutdown recoverable and blocks subsequent actions', async () => {
+    const id = await chat();
+    vi.mocked(computerSessionApi.sandboxStopped).mockRejectedValueOnce(
+      new Error('cleanup status unavailable')
+    );
+    await computerChatRuntime.stop(id);
+    expect(read(id).stopped).not.toBe(true);
+    expect(read(id).sandboxStopRequested).toBe(true);
+    await computerChatRuntime.send(id, 'more work', options);
+    expect(computerSessionApi.infer).not.toHaveBeenCalled();
+    await computerChatRuntime.stop(id);
+    expect(read(id).stopped).toBe(true);
+    expect(computerSessionApi.create).toHaveBeenCalledOnce();
+  });
+  it('reconciles an unconfirmed start without submitting another start request', async () => {
+    const id = await computerChatRuntime.create('tenant-1', 'brand-1');
+    vi.mocked(computerSessionApi.start).mockRejectedValueOnce(new Error('connection lost'));
+    await computerChatRuntime.provision(id);
+    expect(read(id).sandboxStartUnconfirmed).toBe(true);
+    vi.mocked(computerSessionApi.get).mockResolvedValueOnce({
+      ...session,
+      status: 'pending',
+      currentSandboxId: null,
+    });
+    await computerChatRuntime.provision(id);
+    expect(computerSessionApi.start).toHaveBeenCalledOnce();
+    expect(read(id).error).toContain('startup is unconfirmed');
+    await computerChatRuntime.provision(id);
+    expect(read(id).session?.status).toBe('running');
+    expect(read(id).sandboxStartUnconfirmed).toBe(false);
+    expect(computerSessionApi.create).toHaveBeenCalledOnce();
+    expect(computerSessionApi.start).toHaveBeenCalledOnce();
+  });
+  it('does not allocate a second session during overlapping background setup', async () => {
+    const id = await computerChatRuntime.create('tenant-1', 'brand-1');
+    let finish!: () => void;
+    vi.mocked(computerSessionApi.create).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = () => resolve({ ...session, status: 'pending' });
+        })
+    );
+    const first = computerChatRuntime.provision(id);
+    await vi.waitFor(() => expect(finish).toBeTypeOf('function'));
+    await computerChatRuntime.provision(id);
+    finish();
+    await first;
+    expect(computerSessionApi.create).toHaveBeenCalledOnce();
+    expect(computerSessionApi.start).toHaveBeenCalledOnce();
+  });
+
+  it('keeps the returned identity but does not start it under a changed API key', async () => {
+    const id = await computerChatRuntime.create('tenant-1', 'brand-1');
+    vi.mocked(computerSessionApi.create).mockImplementationOnce(async () => {
+      useAuthStore.setState({ sandboxApiKey: 'different-key' });
+      return { ...session, status: 'pending' };
+    });
+    await computerChatRuntime.provision(id);
+    expect(read(id).session?.id).toBe(session.id);
+    expect(read(id).error).toContain('connection changed');
+    expect(computerSessionApi.start).not.toHaveBeenCalled();
+  });
   it('creates distinct sessions for new chats and retains saved session identities', async () => {
     const first = await chat();
     vi.mocked(computerSessionApi.create).mockResolvedValueOnce({
@@ -115,7 +183,9 @@ describe('computer chat lifecycle', () => {
   });
 
   it('retains a created identity if starting its sandbox fails', async () => {
-    vi.mocked(computerSessionApi.start).mockRejectedValueOnce(new Error('start unavailable'));
+    vi.mocked(computerSessionApi.start).mockRejectedValueOnce(
+      new SandboxRequestError('start unavailable', 429)
+    );
     const id = await chat();
     expect(read(id).session?.id).toBe('session-1');
     expect(read(id).error).toBe('start unavailable');

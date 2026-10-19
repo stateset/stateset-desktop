@@ -1,4 +1,5 @@
 import { useAuthStore } from '../../stores/auth';
+import { SandboxRequestError } from '../../lib/sandbox';
 import { useDurableWorkflowsStore } from '../../stores/durableWorkflows';
 import { useComputerChatsStore } from './store';
 import {
@@ -18,6 +19,7 @@ export interface ComputerChatOptions {
   model: string;
 }
 const controllers = new Map<string, AbortController>();
+const connectionKeys = new Map<string, string | null>();
 
 function stored(id: string): ComputerChat {
   const chat = useComputerChatsStore.getState().chats.find((item) => item.id === id);
@@ -31,6 +33,8 @@ function current(id: string): ComputerChat {
   if (auth.tenant?.id !== chat.tenantId || auth.currentBrand?.id !== chat.brandId) {
     throw new Error('Select this chat’s original organization and brand before continuing.');
   }
+  if (connectionKeys.has(id) && connectionKeys.get(id) !== auth.sandboxApiKey)
+    throw new Error('The Sandbox API connection changed. Check the connection before continuing.');
   return chat;
 }
 
@@ -53,13 +57,18 @@ async function message(id: string, role: 'user' | 'assistant' | 'system', conten
   });
 }
 
-async function exclusive(id: string, fn: (signal: AbortSignal) => Promise<void>) {
+async function exclusive(
+  id: string,
+  fn: (signal: AbortSignal) => Promise<void>,
+  clearError = true
+) {
   if (controllers.has(id)) return;
   const controller = new AbortController();
   controllers.set(id, controller);
+  connectionKeys.set(id, useAuthStore.getState().sandboxApiKey);
   useComputerChatsStore.getState().setBusy(id, true);
   try {
-    await update(id, { error: undefined });
+    if (clearError) await update(id, { error: undefined });
     await fn(controller.signal);
   } catch (error) {
     const detail = controller.signal.aborted
@@ -76,6 +85,7 @@ async function exclusive(id: string, fn: (signal: AbortSignal) => Promise<void>)
     }
   } finally {
     controllers.delete(id);
+    connectionKeys.delete(id);
     useComputerChatsStore.getState().setBusy(id, false);
   }
 }
@@ -86,6 +96,10 @@ async function ensureSession(id: string): Promise<ComputerChat> {
     throw new Error(
       'This computer session is stopped. Create a new chat to start another computer.'
     );
+  if (chat.sandboxStopRequested)
+    throw new Error(
+      'Shutdown has been requested. Confirm cleanup before starting another computer.'
+    );
   if (!useAuthStore.getState().sandboxApiKey)
     throw new Error('Configure a Sandbox API key in Settings first.');
   if (!chat.session) await update(id, { provisioningAttempted: true });
@@ -95,8 +109,29 @@ async function ensureSession(id: string): Promise<ComputerChat> {
   // Persist the identity before starting: a start failure must not allocate a second session.
   await update(id, { session });
   current(id);
-  if (session.status === 'pending')
-    await update(id, { session: await computerSessionApi.start(session.id) });
+  if (session.status === 'pending') {
+    if (stored(id).sandboxStartUnconfirmed)
+      throw new Error(
+        'Computer startup is unconfirmed. Check setup again shortly; no duplicate start was sent. Stop this computer before starting a new chat if it cannot recover.'
+      );
+    // The start endpoint does not deduplicate requests. Retain intent before
+    // sending it, so a timeout or restart can only reconcile the existing start.
+    await update(id, { sandboxStartUnconfirmed: true });
+    current(id);
+    try {
+      const started = await computerSessionApi.start(session.id);
+      await update(id, { session: started, sandboxStartUnconfirmed: false });
+    } catch (error) {
+      if (
+        error instanceof SandboxRequestError &&
+        [400, 401, 402, 403, 404, 422, 429].includes(error.status)
+      )
+        await update(id, { sandboxStartUnconfirmed: false });
+      throw error;
+    }
+  } else if (session.status === 'running') {
+    await update(id, { sandboxStartUnconfirmed: false });
+  }
   chat = current(id);
   if (chat.session?.status !== 'running' || !chat.session.currentSandboxId) {
     throw new Error(
@@ -352,6 +387,9 @@ async function modelTurn(id: string, options: ComputerChatOptions, signal: Abort
 
 export const computerChatRuntime = {
   create: async (tenantId: string, brandId: string): Promise<string> => {
+    const auth = useAuthStore.getState();
+    if (auth.tenant?.id !== tenantId || auth.currentBrand?.id !== brandId)
+      throw new Error('Select this organization and brand before starting a computer chat.');
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
     await useComputerChatsStore.getState().save({
@@ -363,6 +401,7 @@ export const computerChatRuntime = {
       updatedAt: now,
       messages: [],
       workflows: [],
+      sandboxApiSession: { version: 1 },
     });
     return id;
   },
@@ -370,15 +409,33 @@ export const computerChatRuntime = {
     exclusive(id, async () => {
       await ensureSession(id);
     }),
+  // Reopening a saved chat only reads its existing session. It never allocates
+  // a replacement computer or replays an action.
+  refresh: async (id: string) => {
+    if (!current(id).session || current(id).stopped || current(id).sandboxStopRequested) return;
+    return exclusive(
+      id,
+      async () => {
+        const chat = current(id);
+        const session = await computerSessionApi.get(chat.session!.id);
+        await update(id, {
+          session,
+          ...(session.status === 'running' ? { sandboxStartUnconfirmed: false } : {}),
+        });
+      },
+      false
+    );
+  },
   send: (id: string, text: string, options: ComputerChatOptions) =>
     exclusive(id, async (signal) => {
       if (!text.trim()) return;
       if (current(id).pending)
         throw new Error('Resume the pending action before sending a message.');
       await ensureSession(id);
-      if (!current(id).messages.some((item) => item.role === 'user'))
+      if (!current(id).customTitle && !current(id).messages.some((item) => item.role === 'user'))
         await update(id, { title: text.trim().slice(0, 60) });
       await message(id, 'user', text.trim());
+      await update(id, { draft: '' });
       await modelTurn(id, options, signal);
     }),
   resume: (id: string) =>
@@ -402,6 +459,7 @@ export const computerChatRuntime = {
   stop: (id: string) =>
     exclusive(id, async () => {
       let chat = current(id);
+      if (chat.sandboxApiSession) await update(id, { sandboxStopRequested: true });
       if (!chat.session && chat.provisioningAttempted) {
         // A timed-out create can have succeeded on the server. Recover the
         // same idempotent identity before stopping, rather than orphaning it.
@@ -413,6 +471,40 @@ export const computerChatRuntime = {
         await computerWorkflowApi.cancel(chat.tenantId, chat.pending.workflowId);
       }
       if (chat.session) await computerSessionApi.stop(chat.session.id);
-      await update(id, { stopped: true, pending: undefined, screenshot: undefined });
+      if (chat.sandboxApiSession && chat.session) {
+        current(id);
+        const ended = await computerSessionApi.get(chat.session.id);
+        if (!['completed', 'cancelled'].includes(ended.status))
+          throw new Error(
+            'Shutdown was requested but the session has not ended. Check shutdown again shortly.'
+          );
+        const sandboxId = chat.session.currentSandboxId;
+        if (!sandboxId && chat.sandboxStartUnconfirmed)
+          throw new Error(
+            'Shutdown was requested while startup was unconfirmed. Sandbox cleanup still needs inspection.'
+          );
+        if (sandboxId) {
+          let confirmed = false;
+          for (let attempt = 0; attempt < 8; attempt++) {
+            current(id);
+            if (await computerSessionApi.sandboxStopped(sandboxId)) {
+              confirmed = true;
+              break;
+            }
+            if (attempt < 7) await new Promise((resolve) => setTimeout(resolve, 1000));
+          }
+          if (!confirmed)
+            throw new Error(
+              'The session has ended, but sandbox cleanup is still pending. Check shutdown again shortly.'
+            );
+        }
+      }
+      await update(id, {
+        stopped: true,
+        sandboxStopRequested: false,
+        sandboxStartUnconfirmed: false,
+        pending: undefined,
+        screenshot: undefined,
+      });
     }),
 };

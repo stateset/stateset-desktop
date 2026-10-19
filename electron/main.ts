@@ -917,7 +917,7 @@ function createWindow() {
       const allowedOrigin = resolveCorsOrigin(details);
       headers['access-control-allow-origin'] = [allowedOrigin];
       headers['access-control-allow-headers'] = [
-        'Authorization, Content-Type, X-Requested-With, X-API-Key, X-Tenant-ID',
+        'Authorization, Content-Type, X-Requested-With, X-API-Key, X-Tenant-ID, Idempotency-Key',
       ];
       headers['access-control-allow-methods'] = ['GET, POST, PUT, DELETE, OPTIONS'];
       headers['access-control-allow-credentials'] = ['true'];

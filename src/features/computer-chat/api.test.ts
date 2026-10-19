@@ -38,6 +38,12 @@ afterEach(() => {
 });
 
 describe('computer service contracts', () => {
+  it('confirms sandbox disappearance but never treats a permission error as cleanup', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(new Response('{}', { status: 404 }));
+    await expect(computerSessionApi.sandboxStopped('sandbox-1')).resolves.toBe(true);
+    vi.mocked(fetch).mockImplementation(async () => new Response('{}', { status: 403 }));
+    await expect(computerSessionApi.sandboxStopped('sandbox-1')).rejects.toThrow();
+  });
   it('creates the desktop template with stable idempotency and bounded budgets', async () => {
     vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify(chat.session)));
     await computerSessionApi.create('chat-1');
@@ -48,7 +54,12 @@ describe('computer service contracts', () => {
       Authorization: 'ApiKey sandbox-key',
     });
     expect(JSON.parse(init?.body as string)).toMatchObject({
-      sandbox: { template: 'computer-use', isolation: 'gvisor' },
+      sandbox: {
+        template: 'computer-use',
+        isolation: 'gvisor',
+        durable: false,
+        timeoutSeconds: 3600,
+      },
       budget: { iterationLimit: 500 },
     });
   });

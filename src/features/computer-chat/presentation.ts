@@ -12,6 +12,22 @@ export function conversationStatus(
   connection?: Pick<ChatConnection, 'status'>
 ): ConversationStatus {
   const state = chat.serverState;
+  if (chat.sandboxApiSession) {
+    if (chatEnded(chat)) return { label: 'Computer ended', tone: 'quiet' };
+    if (chat.sandboxStopRequested)
+      return {
+        label: chat.error ? 'Cleanup needs attention' : 'Stopping computer',
+        tone: chat.error ? 'attention' : 'quiet',
+      };
+    if (chat.error) return { label: 'Needs attention', tone: 'attention' };
+    if (chat.pending) return { label: 'Action pending', tone: 'attention' };
+    if (chat.session?.status === 'running' && chat.session.currentSandboxId)
+      return { label: 'Ready', tone: 'active' };
+    return {
+      label: chat.session?.status === 'pending' ? 'Preparing computer' : 'Computer not ready',
+      tone: 'quiet',
+    };
+  }
   if (!chat.durableSession)
     return { label: chatEnded(chat) ? 'Computer ended' : 'Previous local session', tone: 'quiet' };
   if (state?.status === 'cleanup_pending')

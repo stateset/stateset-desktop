@@ -27,6 +27,7 @@ const policySchema = z.object({
 });
 // Validate persisted scope and identity before allowing a stored chat to execute.
 const storedChatSchema = z.object({
+  sandboxApiSession: z.object({ version: z.literal(1) }).optional(),
   id: z.uuid(),
   tenantId: z.string().min(1),
   brandId: z.string().min(1),
@@ -75,6 +76,8 @@ const storedChatSchema = z.object({
     })
     .optional(),
   provisioningAttempted: z.boolean().optional(),
+  sandboxStartUnconfirmed: z.boolean().optional(),
+  sandboxStopRequested: z.boolean().optional(),
   pending: z
     .object({
       requestId: z.uuid(),

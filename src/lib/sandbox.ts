@@ -10,6 +10,16 @@ const SANDBOX_API_URL = import.meta.env.VITE_SANDBOX_API_URL || 'https://api.san
 const RETRYABLE_STATUS_CODES = [429, 500, 502, 503, 504];
 const RETRY_SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
+export class SandboxRequestError extends Error {
+  constructor(
+    message: string,
+    readonly status: number
+  ) {
+    super(message);
+    this.name = 'SandboxRequestError';
+  }
+}
+
 type SandboxRequestOptions = RequestInit & {
   timeoutMs?: number;
   maxRetries?: number;
@@ -157,6 +167,7 @@ export async function sandboxRequest<T>(
       for (let candidateIndex = 0; candidateIndex < authCandidates.length; candidateIndex++) {
         response = await fetch(`${SANDBOX_API_URL}${path}`, {
           ...fetchOptions,
+          redirect: 'error',
           signal: fetchOptions.signal ?? controller?.signal,
           headers: {
             ...buildHeaders(
@@ -187,14 +198,18 @@ export async function sandboxRequest<T>(
         let errorMessage = `HTTP ${response.status}`;
         try {
           const parsed = JSON.parse(errorText);
-          errorMessage = parsed.error || parsed.message || errorMessage;
+          const message =
+            typeof parsed.error === 'string'
+              ? parsed.error
+              : (parsed.error?.message ?? parsed.message);
+          if (typeof message === 'string') errorMessage = message;
         } catch {
           if (errorText) errorMessage = errorText;
         }
-        const error = new Error(errorMessage);
+        const error = new SandboxRequestError(errorMessage, response.status);
         lastError = error;
 
-        if (clearAuthOnUnauthorized && (response.status === 401 || response.status === 403)) {
+        if (clearAuthOnUnauthorized && response.status === 401) {
           const authState = useAuthStore.getState();
           if (authState.sandboxApiKey && includeAuthHeader) {
             void authState.clearSandboxApiKey();
