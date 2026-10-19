@@ -202,18 +202,23 @@ test('settings toggles keep clear states and keyboard focus in both themes at mi
               await input.press('Space');
             }
             await expect(input).not.toBeChecked();
+            await expect(input).toHaveAttribute('aria-busy', 'false');
             // Clicking the visible caption must activate the same native checkbox.
             await page.getByText(field.name, { exact: true }).click();
             await expect(input).toBeChecked();
+            await expect(input).toHaveAttribute('aria-busy', 'false');
             // Space turns the checkbox off and back on, with a visible keyboard ring.
             await input.focus();
             await input.press('Space');
             await expect(input).not.toBeChecked();
+            await expect(input).toHaveAttribute('aria-busy', 'false');
             await input.press('Space');
             await expect(input).toBeChecked();
+            await expect(input).toHaveAttribute('aria-busy', 'false');
             const on = await measure(input);
             await input.press('Space');
             await expect(input).not.toBeChecked();
+            await expect(input).toHaveAttribute('aria-busy', 'false');
             const off = await measure(input);
             expect(on.track).not.toBe(off.track);
             expect(on.transform).not.toBe(off.transform);
@@ -292,9 +297,11 @@ test('settings toggle preferences survive native restart', async ({ desktop }) =
       for (const field of group.fields) {
         const input = current.page.getByRole('checkbox', { name: field.name, exact: true });
         await expect(input).not.toBeChecked();
+        await expect(input).toHaveAttribute('aria-busy', 'false');
         await input.focus();
         await input.press('Space');
         await expect(input).toBeChecked();
+        await expect(input).toHaveAttribute('aria-busy', 'false');
         await expect
           .poll(() => current.page.evaluate((key) => window.electronAPI!.store.get(key), field.key))
           .toBe(true);

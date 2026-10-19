@@ -28,9 +28,11 @@ describe('BackgroundSettings', () => {
     const api = mockElectronAPI() as ReturnType<typeof mockElectronAPI> & {
       background: { setMinimizeToTray: ReturnType<typeof vi.fn> };
     };
-    api.background = { setMinimizeToTray: vi.fn().mockResolvedValue(undefined) };
+    api.background = { setMinimizeToTray: vi.fn().mockResolvedValue(true) };
     electronAPI = api;
     usePreferencesStore.setState({
+      initialized: true,
+      saves: {},
       minimizeToTray: true,
       autoStartAgentsOnLaunch: true,
     });
@@ -64,7 +66,7 @@ describe('BackgroundSettings', () => {
 
     fireEvent.click(screen.getByRole('checkbox', { name: 'Minimize to System Tray' }));
 
-    expect(usePreferencesStore.getState().minimizeToTray).toBe(false);
+    await waitFor(() => expect(usePreferencesStore.getState().minimizeToTray).toBe(false));
     await waitFor(() => {
       expect(electronAPI.background.setMinimizeToTray).toHaveBeenCalledWith(false);
     });
@@ -75,7 +77,7 @@ describe('BackgroundSettings', () => {
 
     fireEvent.click(screen.getByRole('checkbox', { name: 'Auto-start Agents on Launch' }));
 
-    expect(usePreferencesStore.getState().autoStartAgentsOnLaunch).toBe(false);
+    await waitFor(() => expect(usePreferencesStore.getState().autoStartAgentsOnLaunch).toBe(false));
     await waitFor(() => {
       expect(electronAPI.store.set).toHaveBeenCalledWith('autoStartAgentsOnLaunch', false);
     });

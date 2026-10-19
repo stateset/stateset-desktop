@@ -51,6 +51,9 @@ const TELEMETRY_ENABLED_KEY = 'telemetryEnabled';
 const TELEMETRY_USER_ID_KEY = 'telemetryUserId';
 let inMemoryTelemetryEnabled: boolean | null = null;
 let inMemoryTelemetryUserId: string | null = null;
+let sessionConsent: boolean | null = null;
+let consentWrites: Promise<void> = Promise.resolve();
+type NativePreferenceStore = NonNullable<Window['electronAPI']>['store'];
 
 const getSessionStorage = (): Storage | null => {
   if (typeof window === 'undefined') return null;
@@ -143,15 +146,19 @@ async function readTelemetryPreference(): Promise<boolean | null> {
   return null;
 }
 
-async function writeTelemetryPreference(enabled: boolean): Promise<void> {
-  inMemoryTelemetryEnabled = enabled;
+async function persistTelemetryPreference(
+  enabled: boolean,
+  store?: NativePreferenceStore,
+  strict = false
+): Promise<void> {
   try {
-    if (window.electronAPI?.store?.set) {
-      await window.electronAPI.store.set(TELEMETRY_ENABLED_KEY, enabled);
+    if (store?.set) {
+      const acknowledged = await store.set(TELEMETRY_ENABLED_KEY, enabled);
+      if (acknowledged !== true) throw new Error('Preference write was not acknowledged');
       return;
     }
-  } catch {
-    // Ignore storage errors
+  } catch (error) {
+    if (strict) throw error;
   }
 
   if (typeof window !== 'undefined') {
@@ -167,11 +174,33 @@ async function writeTelemetryPreference(enabled: boolean): Promise<void> {
       }
     }
     try {
-      localStorage?.setItem(TELEMETRY_ENABLED_KEY, String(enabled));
+      if (localStorage) {
+        localStorage.setItem(TELEMETRY_ENABLED_KEY, String(enabled));
+        return;
+      }
     } catch {
-      // Ignore storage errors
+      // Strict settings saves report storage failure to the caller.
     }
   }
+  if (strict) throw new Error('Preference storage is unavailable');
+}
+
+function queueTelemetryPreference(enabled: boolean, strict = false): Promise<void> {
+  inMemoryTelemetryEnabled = enabled;
+  let store: NativePreferenceStore | undefined;
+  try {
+    store = typeof window === 'undefined' ? undefined : window.electronAPI?.store;
+  } catch {
+    /* Storage may be unavailable. */
+  }
+  const write = consentWrites.then(() => persistTelemetryPreference(enabled, store, strict));
+  consentWrites = write.catch(() => {});
+  return write;
+}
+
+/** Native consent writes share ordering with the collector's compatibility API. */
+export function saveTelemetryConsent(enabled: boolean): Promise<void> {
+  return queueTelemetryPreference(enabled, true);
 }
 
 class TelemetryCollector {
@@ -183,11 +212,21 @@ class TelemetryCollector {
   private events: TelemetryEventPayload[] = [];
   private flushTimer: NodeJS.Timeout | null = null;
   private config: TelemetryConfig;
-  private flushPromise: Promise<void> | null = null;
+  private consentVersion = 0;
+  private activeFlush: {
+    version: number;
+    controller: AbortController;
+    promise?: Promise<void>;
+  } | null = null;
 
   constructor(config: Partial<TelemetryConfig> = {}) {
     this.hasExplicitEnabled = typeof config.enabled === 'boolean';
-    this.enabled = this.hasExplicitEnabled ? Boolean(config.enabled) : shouldCollectTelemetry();
+    this.enabled =
+      sessionConsent === false
+        ? false
+        : this.hasExplicitEnabled
+          ? Boolean(config.enabled)
+          : (sessionConsent ?? shouldCollectTelemetry());
     this.sessionId = this.generateSessionId();
     this.config = {
       enabled: this.enabled,
@@ -202,7 +241,7 @@ class TelemetryCollector {
       this.collectUserId();
     }
 
-    if (!this.hasExplicitEnabled) {
+    if (!this.hasExplicitEnabled && sessionConsent === null) {
       void this.syncEnabledFromStorage();
     }
   }
@@ -214,7 +253,9 @@ class TelemetryCollector {
   private async collectVersion(): Promise<void> {
     try {
       if (window.electronAPI?.app?.getVersion) {
-        this.version = (await window.electronAPI.app.getVersion()) as string;
+        const version = this.consentVersion;
+        const value = await window.electronAPI.app.getVersion();
+        if (this.enabled && version === this.consentVersion) this.version = value as string;
       }
     } catch {
       // Ignore errors
@@ -222,10 +263,13 @@ class TelemetryCollector {
   }
 
   private async collectUserId(): Promise<void> {
-    if (this.userId) return;
+    if (this.userId || !this.enabled) return;
+    const version = this.consentVersion;
+    const current = () => this.enabled && version === this.consentVersion;
     try {
       if (window.electronAPI?.store?.get) {
         const userId = await window.electronAPI.store.get(TELEMETRY_USER_ID_KEY);
+        if (!current()) return;
         if (!userId) {
           const newUserId = `user_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
           this.userId = newUserId;
@@ -241,6 +285,7 @@ class TelemetryCollector {
       // Ignore errors
     }
 
+    if (!current()) return;
     if (inMemoryTelemetryUserId) {
       this.userId = inMemoryTelemetryUserId;
       return;
@@ -291,12 +336,34 @@ class TelemetryCollector {
   }
 
   private async syncEnabledFromStorage(): Promise<void> {
+    const version = this.consentVersion;
     const preference = await readTelemetryPreference();
-    if (preference === null) return;
-    if (preference && !this.enabled) {
-      this.enable();
-    } else if (!preference && this.enabled) {
-      await this.disable();
+    if (preference === null || version !== this.consentVersion) return;
+    this.restoreConsent(preference);
+  }
+
+  /** Apply persisted consent without rewriting it or replacing an explicit session choice. */
+  restoreConsent(enabled: boolean): boolean {
+    // An observed stored revocation holds collection off until a fresh explicit opt-in.
+    if (!enabled) sessionConsent = false;
+    const effective = sessionConsent === false ? false : enabled;
+    this.applyConsent(effective);
+    return effective;
+  }
+
+  private applyConsent(enabled: boolean): void {
+    if (enabled && this.enabled) return;
+    this.consentVersion++;
+    this.enabled = enabled;
+    if (enabled) {
+      this.startFlushTimer();
+      void this.collectVersion();
+      void this.collectUserId();
+    } else {
+      this.stopFlushTimer();
+      this.events = [];
+      this.activeFlush?.controller.abort();
+      this.activeFlush = null;
     }
   }
 
@@ -383,30 +450,32 @@ class TelemetryCollector {
    * Flush events to the endpoint
    */
   private async flush(): Promise<void> {
-    if (this.events.length === 0 || this.flushPromise) {
-      return;
-    }
-
-    const eventsToFlush = [...this.events];
+    if (!this.enabled || this.events.length === 0 || this.activeFlush) return;
+    const events = this.events;
     this.events = [];
-
+    const operation = {
+      version: this.consentVersion,
+      controller: new AbortController(),
+      promise: undefined as Promise<void> | undefined,
+    };
+    this.activeFlush = operation;
     try {
-      this.flushPromise = this.sendEvents(eventsToFlush);
-      await this.flushPromise;
+      operation.promise = this.sendEvents(events, operation.controller.signal);
+      await operation.promise;
     } catch {
-      // If flush fails, add events back to the queue (up to a limit)
-      const maxRetrySize = 100;
-      const eventsToRetry = eventsToFlush.slice(-maxRetrySize);
-      this.events = [...eventsToRetry, ...this.events];
+      // A revoked batch must never enter a later consent session's queue.
+      if (this.enabled && operation.version === this.consentVersion) {
+        this.events = [...events.slice(-100), ...this.events];
+      }
     } finally {
-      this.flushPromise = null;
+      if (this.activeFlush === operation) this.activeFlush = null;
     }
   }
 
   /**
    * Send events to the telemetry endpoint
    */
-  private async sendEvents(events: TelemetryEventPayload[]): Promise<void> {
+  private async sendEvents(events: TelemetryEventPayload[], signal: AbortSignal): Promise<void> {
     if (!this.config.endpoint) {
       // If no endpoint is configured, just log events
       if (import.meta.env.DEV) {
@@ -421,7 +490,7 @@ class TelemetryCollector {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ events }),
-      signal: AbortSignal.timeout(10000), // 10 second timeout
+      signal: AbortSignal.any([signal, AbortSignal.timeout(10000)]),
     });
 
     if (!response.ok) {
@@ -439,28 +508,18 @@ class TelemetryCollector {
   /**
    * Enable telemetry collection
    */
-  enable(): void {
-    this.enabled = true;
-    this.startFlushTimer();
-    this.collectVersion();
-    this.collectUserId();
+  enable(options: { persist?: boolean } = {}): void {
+    sessionConsent = true;
+    this.applyConsent(true);
     this.track('feature.used', { feature: 'telemetry.enabled' });
-    void writeTelemetryPreference(true);
+    if (options.persist !== false) void queueTelemetryPreference(true);
   }
 
-  /**
-   * Disable telemetry collection
-   */
-  async disable(): Promise<void> {
-    await this.flush();
-    this.enabled = false;
-    this.stopFlushTimer();
-
-    try {
-      await writeTelemetryPreference(false);
-    } catch {
-      // Ignore errors
-    }
+  /** Stop immediately; discard queued events and abort the current request. */
+  async disable(options: { persist?: boolean } = {}): Promise<void> {
+    sessionConsent = false;
+    this.applyConsent(false);
+    if (options.persist !== false) await queueTelemetryPreference(false);
   }
 
   /**
@@ -481,6 +540,23 @@ class TelemetryCollector {
 
 // Global telemetry instance
 let telemetryInstance: TelemetryCollector | null = null;
+
+/** Apply an explicit user choice, including before the collector is initialized. */
+export function applyTelemetryConsent(enabled: boolean, options: { persist?: boolean } = {}): void {
+  sessionConsent = enabled;
+  if (telemetryInstance) {
+    if (enabled) telemetryInstance.enable({ persist: options.persist ?? false });
+    else void telemetryInstance.disable({ persist: options.persist ?? false });
+  } else if (options.persist) {
+    void queueTelemetryPreference(enabled);
+  }
+}
+
+/** Restore saved consent while preserving any newer explicit session choice. */
+export function restoreTelemetryConsent(enabled: boolean): boolean {
+  if (!enabled) sessionConsent = false;
+  return telemetryInstance?.restoreConsent(enabled) ?? (sessionConsent === false ? false : enabled);
+}
 
 /**
  * Initialize the telemetry system

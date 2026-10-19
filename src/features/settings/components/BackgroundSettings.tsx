@@ -18,12 +18,14 @@ export function BackgroundSettings() {
         </div>
         <div className="p-5 space-y-5">
           <SettingsToggle
+            preference="minimizeToTray"
             label="Minimize to System Tray"
             description="Keep agents running when you close the window"
             checked={minimizeToTray}
             onChange={setMinimizeToTray}
           />
           <SettingsToggle
+            preference="autoStartAgentsOnLaunch"
             label="Auto-start Agents on Launch"
             description="Restart agents that were running when you last closed the app"
             checked={autoStartAgentsOnLaunch}

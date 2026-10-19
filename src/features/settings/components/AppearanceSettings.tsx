@@ -71,12 +71,14 @@ export function AppearanceSettings() {
           </div>
         </div>
         <SettingsToggle
+          preference="compactMode"
           label="Compact Mode"
           description="Reduce spacing and overall scale"
           checked={compactMode}
           onChange={setCompactMode}
         />
         <SettingsToggle
+          preference="reduceMotion"
           label="Reduce Motion"
           description="Limit animations and transitions"
           checked={reduceMotion}

@@ -17,6 +17,8 @@ describe('NotificationSettings', () => {
     vi.clearAllMocks();
     electronAPI = mockElectronAPI();
     usePreferencesStore.setState({
+      initialized: true,
+      saves: {},
       desktopNotifications: true,
       soundAlerts: true,
       telemetryEnabled: false,
@@ -49,7 +51,7 @@ describe('NotificationSettings', () => {
 
     fireEvent.click(screen.getByRole('checkbox', { name: 'Desktop Notifications' }));
 
-    expect(usePreferencesStore.getState().desktopNotifications).toBe(false);
+    await waitFor(() => expect(usePreferencesStore.getState().desktopNotifications).toBe(false));
     await waitFor(() => {
       expect(electronAPI.store.set).toHaveBeenCalledWith('desktopNotifications', false);
     });
@@ -60,7 +62,7 @@ describe('NotificationSettings', () => {
 
     fireEvent.click(screen.getByRole('checkbox', { name: 'Sound Alerts' }));
 
-    expect(usePreferencesStore.getState().soundAlerts).toBe(false);
+    await waitFor(() => expect(usePreferencesStore.getState().soundAlerts).toBe(false));
     await waitFor(() => {
       expect(electronAPI.store.set).toHaveBeenCalledWith('soundAlerts', false);
     });
@@ -71,7 +73,7 @@ describe('NotificationSettings', () => {
 
     fireEvent.click(screen.getByRole('checkbox', { name: 'Share anonymous usage data' }));
 
-    expect(usePreferencesStore.getState().telemetryEnabled).toBe(true);
+    await waitFor(() => expect(usePreferencesStore.getState().telemetryEnabled).toBe(true));
     await waitFor(() => {
       expect(electronAPI.store.set).toHaveBeenCalledWith('telemetryEnabled', true);
     });

@@ -153,6 +153,7 @@ jobs:
             dist/verification/agent-error-*.png
             dist/verification/engine-settings-*.png
             dist/verification/settings-toggles-*.png
+            dist/verification/settings-save-*.png
 
   # Build for macOS
   build-macos:

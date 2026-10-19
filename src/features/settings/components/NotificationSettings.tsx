@@ -47,12 +47,14 @@ export function NotificationSettings() {
         </div>
         <div className="p-5 space-y-5">
           <SettingsToggle
+            preference="desktopNotifications"
             label="Desktop Notifications"
             description="Get notified when agents need attention"
             checked={desktopNotifications}
             onChange={setDesktopNotifications}
           />
           <SettingsToggle
+            preference="soundAlerts"
             label="Sound Alerts"
             description="Play sounds for important events"
             checked={soundAlerts}
@@ -82,6 +84,7 @@ export function NotificationSettings() {
         </div>
         <div className="p-5 space-y-5">
           <SettingsToggle
+            preference="telemetryEnabled"
             label="Share anonymous usage data"
             description="Help improve StateSet by sending anonymized telemetry. Opt-in only."
             checked={telemetryEnabled}
