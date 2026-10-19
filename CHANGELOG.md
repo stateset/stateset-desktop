@@ -6,8 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## Unreleased
 
+## [1.1.22] - 2026-10-19
+
 ### Fixed
 
+- Wait for confirmed settings and owned sessions before automatically restarting agents. Cancel obsolete recovery after workspace, authentication or preference changes, preserve saved restart IDs while loading, and avoid duplicate submitted starts.
 - Stop telemetry immediately when sharing is turned off, including failed saves; show acknowledged preference states, persistence errors and retry actions.
 - Make all seven settings toggles distinguish on and off in both themes, with visible keyboard focus, larger click targets, and associated descriptions.
 - Keep engine connection settings readable in light and dark themes, with consistent primary actions and an API-key label separated from credential storage help.

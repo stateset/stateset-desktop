@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useRef } from 'react';
+import { useEffect, useCallback, useRef, useReducer, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../stores/auth';
 import { agentApi } from '../lib/api';
@@ -6,6 +6,9 @@ import { queryKeys } from '../lib/queryKeys';
 import { usePreferencesStore } from '../stores/preferences';
 import { requireTenantId } from '../lib/auth-guards';
 import type { AgentSession } from '../types';
+
+// Serialize read/merge/write operations so independent workspace snapshots cannot erase each other.
+let runningAgentWrites: Promise<void> = Promise.resolve();
 
 interface UseBackgroundAgentsOptions {
   /** Auto-start agents that were running before app closed */
@@ -62,12 +65,91 @@ export function useBackgroundAgents(
 
   const tenant = useAuthStore((s) => s.tenant);
   const currentBrand = useAuthStore((s) => s.currentBrand);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const authLoading = useAuthStore((s) => s.isLoading);
+  const apiKey = useAuthStore((s) => s.apiKey);
+  const initialized = usePreferencesStore((s) => s.initialized);
+  const autoStartEnabled = usePreferencesStore((s) => s.autoStartAgentsOnLaunch);
+  const autoStartSave = usePreferencesStore((s) => s.saves.autoStartAgentsOnLaunch);
+  const preferencesReady = initialized && !autoStartSave?.pending && !autoStartSave?.error;
   const desktopNotifications = usePreferencesStore((s) => s.desktopNotifications);
   const soundAlerts = usePreferencesStore((s) => s.soundAlerts);
   const refreshInterval = usePreferencesStore((s) => s.refreshInterval);
   const queryClient = useQueryClient();
   const previousRunningRef = useRef<Set<string>>(new Set());
-  const hasAutoRestarted = useRef(false);
+  const lifecycle = useRef({ version: 0, mounted: false });
+  const recovery = useRef<{ version: number; settled: boolean } | null>(null);
+  const attempted = useRef(new Set<string>());
+  const persistenceVersion = useRef(0);
+  const autoRestartRef = useRef(autoRestart);
+  autoRestartRef.current = autoRestart;
+  const [recoveryRevision, markRecovered] = useReducer((n: number) => n + 1, 0);
+
+  useEffect(() => {
+    const lifetime = lifecycle.current;
+    lifetime.mounted = true;
+    // Invalidate synchronously, including an away/back transition batched into one render.
+    const auth = useAuthStore.subscribe((state, previous) => {
+      if (
+        state.tenant?.id !== previous.tenant?.id ||
+        state.currentBrand?.id !== previous.currentBrand?.id ||
+        state.currentBrand?.tenant_id !== previous.currentBrand?.tenant_id ||
+        state.currentBrand?.enabled !== previous.currentBrand?.enabled ||
+        state.apiKey !== previous.apiKey ||
+        state.isAuthenticated !== previous.isAuthenticated ||
+        state.isLoading !== previous.isLoading
+      )
+        lifetime.version++;
+    });
+    const preferences = usePreferencesStore.subscribe((state, previous) => {
+      if (
+        state.initialized !== previous.initialized ||
+        state.autoStartAgentsOnLaunch !== previous.autoStartAgentsOnLaunch ||
+        state.saves.autoStartAgentsOnLaunch?.pending !==
+          previous.saves.autoStartAgentsOnLaunch?.pending ||
+        state.saves.autoStartAgentsOnLaunch?.error !== previous.saves.autoStartAgentsOnLaunch?.error
+      )
+        lifetime.version++;
+    });
+    return () => {
+      lifetime.mounted = false;
+      lifetime.version++;
+      auth();
+      preferences();
+    };
+  }, []);
+
+  useEffect(() => {
+    lifecycle.current.version++;
+  }, [autoRestart]);
+
+  const currentOwner = useCallback(() => {
+    const auth = useAuthStore.getState();
+    const preferences = usePreferencesStore.getState();
+    const save = preferences.saves.autoStartAgentsOnLaunch;
+    const snapshot = queryClient.getQueryData<AgentSession[]>(
+      queryKeys.sessions.list(tenant?.id, currentBrand?.id)
+    );
+    return (
+      lifecycle.current.mounted &&
+      auth.isAuthenticated &&
+      !auth.isLoading &&
+      auth.apiKey === apiKey &&
+      !!tenant?.id &&
+      !!currentBrand?.id &&
+      auth.tenant?.id === tenant.id &&
+      auth.currentBrand?.id === currentBrand.id &&
+      auth.currentBrand.enabled !== false &&
+      auth.currentBrand.tenant_id === tenant.id &&
+      Array.isArray(snapshot) &&
+      snapshot.every((item) => item.tenant_id === tenant.id) &&
+      preferences.initialized &&
+      !save?.pending &&
+      !save?.error &&
+      queryClient.getQueryState(queryKeys.sessions.list(tenant.id, currentBrand.id))?.status ===
+        'success'
+    );
+  }, [tenant?.id, currentBrand?.id, apiKey, queryClient]);
   const hasInitializedRunningState = useRef(false);
 
   useEffect(() => {
@@ -105,12 +187,24 @@ export function useBackgroundAgents(
   }, [soundsEnabled]);
 
   // Fetch all sessions
-  const { data: sessions = [], isLoading } = useQuery({
+  const {
+    data: allSessions,
+    isLoading,
+    isSuccess,
+  } = useQuery({
     queryKey: queryKeys.sessions.list(tenant?.id, currentBrand?.id),
     queryFn: () => agentApi.listSessions(requireTenantId(tenant), currentBrand?.id),
-    enabled: !!tenant?.id,
+    enabled: isAuthenticated && !authLoading && !!tenant?.id && !!currentBrand?.id,
     refetchInterval: refreshInterval,
   });
+
+  const sessions = useMemo(
+    () =>
+      (allSessions ?? []).filter(
+        (item) => item.tenant_id === tenant?.id && item.brand_id === currentBrand?.id
+      ),
+    [allSessions, tenant?.id, currentBrand?.id]
+  );
 
   const runningCount = sessions.filter((s) => s.status === 'running').length;
   const totalCount = sessions.length;
@@ -169,68 +263,174 @@ export function useBackgroundAgents(
     hasInitializedRunningState.current = true;
   }, [sessions, showNotifications, desktopNotifications, playNotificationSound]);
 
-  // Auto-restart previously running agents
+  // Restore once per confirmed context; refreshes must not duplicate outstanding starts.
   useEffect(() => {
-    if (!autoRestart || hasAutoRestarted.current || !tenant || !currentBrand) return;
-
+    if (
+      !autoRestart ||
+      !preferencesReady ||
+      !autoStartEnabled ||
+      !isSuccess ||
+      !tenant ||
+      !currentBrand ||
+      !currentOwner()
+    )
+      return;
+    const version = lifecycle.current.version;
+    if (recovery.current?.version === version) return;
+    const run = { version, settled: false };
+    recovery.current = run;
+    const current = () =>
+      currentOwner() &&
+      lifecycle.current.version === version &&
+      recovery.current === run &&
+      autoRestartRef.current &&
+      usePreferencesStore.getState().autoStartAgentsOnLaunch;
     const restoreAgents = async () => {
       try {
-        // Get list of agents that should be running from local storage
-        const electronAPI = window.electronAPI;
-        if (!electronAPI) return;
-        const contextKey = getRunningAgentsKey(tenant.id, currentBrand.id);
-        const storedRunning = await electronAPI.store.get('runningAgents');
-        const runningMap = normalizeRunningAgentsMap(storedRunning, contextKey);
-        const savedRunning = runningMap[contextKey];
-
-        if (Array.isArray(storedRunning)) {
-          await electronAPI.store.set('runningAgents', runningMap);
-        }
-
-        if (!savedRunning || savedRunning.length === 0) return;
-
-        hasAutoRestarted.current = true;
-
-        // Start each agent that was previously running
-        for (const sessionId of savedRunning) {
-          const session = sessions.find((s) => s.id === sessionId);
-          if (session && (session.status === 'stopped' || session.status === 'failed')) {
-            try {
-              await agentApi.startSession(tenant.id, currentBrand.id, sessionId);
-            } catch (err) {
-              console.error(`Failed to auto-restart agent ${sessionId}:`, err);
-            }
+        const api = window.electronAPI;
+        if (!api) return;
+        const key = getRunningAgentsKey(tenant.id, currentBrand.id);
+        const stored = await api.store.get('runningAgents');
+        if (!current()) return;
+        const saved = normalizeRunningAgentsMap(stored, key)[key] ?? [];
+        const acknowledged: AgentSession[] = [];
+        for (const id of new Set(saved)) {
+          if (!current()) return;
+          const latest = queryClient.getQueryData<AgentSession[]>(
+            queryKeys.sessions.list(tenant.id, currentBrand.id)
+          );
+          const session = latest?.find(
+            (item) =>
+              item.id === id && item.tenant_id === tenant.id && item.brand_id === currentBrand.id
+          );
+          const attemptKey = `${key}:${id}`;
+          if (
+            !session ||
+            !['stopped', 'failed'].includes(session.status) ||
+            attempted.current.has(attemptKey)
+          )
+            continue;
+          // A submitted request can outlive this lease. Never automatically replay it.
+          attempted.current.add(attemptKey);
+          try {
+            const result = await agentApi.startSession(tenant.id, currentBrand.id, id);
+            if (!current()) return;
+            if (
+              result.id !== id ||
+              result.tenant_id !== tenant.id ||
+              result.brand_id !== currentBrand.id
+            )
+              return;
+            acknowledged.push(result);
+          } catch (error) {
+            if (!current()) return;
+            console.error(`Failed to auto-restart agent ${id}:`, error);
           }
         }
-
-        queryClient.invalidateQueries({ queryKey: queryKeys.sessions.all });
-      } catch (err) {
-        console.error('Failed to restore running agents:', err);
+        if (!current()) return;
+        // Use the acknowledged states before recording the next restart snapshot.
+        // An immediate refetch could replace them with an older stopped snapshot.
+        queryClient.setQueryData<AgentSession[]>(
+          queryKeys.sessions.list(tenant.id, currentBrand.id),
+          (existing) =>
+            existing?.map((item) =>
+              item.tenant_id === tenant.id && item.brand_id === currentBrand.id
+                ? (acknowledged.find((result) => result.id === item.id) ?? item)
+                : item
+            )
+        );
+        run.settled = true;
+        markRecovered();
+      } catch (error) {
+        if (current()) {
+          recovery.current = null; // A later successful session refresh may retry the read.
+          console.error('Failed to restore running agents:', error);
+        }
+      } finally {
+        // A temporary query error must not leave recovery permanently occupied.
+        if (!run.settled && recovery.current === run && !currentOwner()) recovery.current = null;
       }
     };
+    void restoreAgents();
+  }, [
+    autoRestart,
+    preferencesReady,
+    autoStartEnabled,
+    isSuccess,
+    sessions,
+    tenant,
+    currentBrand,
+    currentOwner,
+    queryClient,
+  ]);
 
-    if (sessions.length > 0) {
-      restoreAgents();
-    }
-  }, [autoRestart, sessions, tenant, currentBrand, queryClient]);
-
-  // Save running agents to local storage on change
   useEffect(() => {
-    const electronAPI = window.electronAPI;
-    if (!electronAPI || !tenant?.id || !currentBrand?.id) return;
-
-    const runningIds = sessions.filter((s) => s.status === 'running').map((s) => s.id);
-
-    const persistRunningAgents = async () => {
-      const contextKey = getRunningAgentsKey(tenant.id, currentBrand.id);
-      const storedRunning = await electronAPI.store.get('runningAgents');
-      const runningMap = normalizeRunningAgentsMap(storedRunning, contextKey);
-      runningMap[contextKey] = runningIds;
-      await electronAPI.store.set('runningAgents', runningMap);
-    };
-
-    persistRunningAgents().catch(() => {});
-  }, [sessions, tenant?.id, currentBrand?.id]);
+    const api = window.electronAPI;
+    if (
+      !api ||
+      !tenant?.id ||
+      !currentBrand?.id ||
+      !preferencesReady ||
+      !isSuccess ||
+      !currentOwner()
+    )
+      return;
+    const version = lifecycle.current.version;
+    // Do not erase saved IDs with the empty/loading or pre-restoration session list.
+    if (
+      autoRestart &&
+      autoStartEnabled &&
+      (recovery.current?.version !== version || !recovery.current.settled)
+    )
+      return;
+    const sequence = ++persistenceVersion.current;
+    const current = () =>
+      currentOwner() &&
+      lifecycle.current.version === version &&
+      persistenceVersion.current === sequence;
+    const write = runningAgentWrites.then(async () => {
+      if (!current()) return;
+      const key = getRunningAgentsKey(tenant.id, currentBrand.id);
+      const stored = await api.store.get('runningAgents');
+      if (!current()) return;
+      const latest =
+        queryClient.getQueryData<AgentSession[]>(
+          queryKeys.sessions.list(tenant.id, currentBrand.id)
+        ) ?? [];
+      const runningIds = [
+        ...new Set(
+          latest
+            .filter(
+              (item) =>
+                item.tenant_id === tenant.id &&
+                item.brand_id === currentBrand.id &&
+                item.status === 'running'
+            )
+            .map((item) => item.id)
+        ),
+      ];
+      const map = normalizeRunningAgentsMap(stored, key);
+      // A tenant-wide list may include other brands. Preserve saved IDs if a
+      // conflicting record attributes one of this brand's IDs to another brand.
+      if (latest.some((item) => map[key]?.includes(item.id) && item.brand_id !== currentBrand.id))
+        return;
+      map[key] = runningIds;
+      if ((await api.store.set('runningAgents', map)) !== true)
+        throw new Error('Restart snapshot was not acknowledged');
+    });
+    runningAgentWrites = write.catch(() => {});
+  }, [
+    sessions,
+    tenant?.id,
+    currentBrand?.id,
+    preferencesReady,
+    isSuccess,
+    autoRestart,
+    autoStartEnabled,
+    currentOwner,
+    recoveryRevision,
+    queryClient,
+  ]);
 
   // Start session mutation
   const startMutation = useMutation({

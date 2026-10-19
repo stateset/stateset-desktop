@@ -11,27 +11,49 @@ import type { AgentSession, AgentSessionStatus } from '../types';
 // --- Mocks ---
 
 const mockTenant = { id: 'tenant-1', name: 'Test Tenant' };
-const mockBrand = { id: 'brand-1', name: 'Test Brand' };
+const mockBrand = { id: 'brand-1', tenant_id: 'tenant-1', enabled: true, name: 'Test Brand' };
 
-const mockAuthState: { tenant: typeof mockTenant | null; currentBrand: typeof mockBrand | null } = {
+const mockAuthState: {
+  tenant: typeof mockTenant | null;
+  currentBrand: typeof mockBrand | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  apiKey: string | null;
+} = {
+  isAuthenticated: true,
+  isLoading: false,
+  apiKey: 'owned-key',
   tenant: mockTenant,
   currentBrand: mockBrand,
 };
 
 vi.mock('../stores/auth', () => ({
-  useAuthStore: (selector?: (s: typeof mockAuthState) => unknown) =>
-    selector ? selector(mockAuthState) : mockAuthState,
+  useAuthStore: Object.assign(
+    (selector?: (s: typeof mockAuthState) => unknown) =>
+      selector ? selector(mockAuthState) : mockAuthState,
+    { getState: () => mockAuthState, subscribe: () => () => {} }
+  ),
 }));
 
 const mockPrefsState = {
+  initialized: true,
+  autoStartAgentsOnLaunch: true,
+  saves: {} as Partial<
+    Record<
+      import('../stores/preferences').TogglePreference,
+      import('../stores/preferences').PreferenceSave
+    >
+  >,
   desktopNotifications: true,
   soundAlerts: false,
   refreshInterval: 0,
 };
 
 vi.mock('../stores/preferences', () => ({
-  usePreferencesStore: (selector: (s: typeof mockPrefsState) => unknown) =>
-    selector(mockPrefsState),
+  usePreferencesStore: Object.assign(
+    (selector: (s: typeof mockPrefsState) => unknown) => selector(mockPrefsState),
+    { getState: () => mockPrefsState, subscribe: () => () => {} }
+  ),
 }));
 
 vi.mock('../lib/api', () => ({
