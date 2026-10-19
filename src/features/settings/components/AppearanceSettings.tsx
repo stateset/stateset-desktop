@@ -1,3 +1,4 @@
+import { SettingsToggle } from './SettingsToggle';
 import { Palette } from 'lucide-react';
 import {
   usePreferencesStore,
@@ -69,38 +70,18 @@ export function AppearanceSettings() {
             </div>
           </div>
         </div>
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="font-medium">Compact Mode</p>
-            <p className="text-sm text-gray-400">Reduce spacing and overall scale</p>
-          </div>
-          <label className="relative inline-flex items-center cursor-pointer">
-            <input
-              type="checkbox"
-              className="sr-only peer focus:outline-none focus-visible:ring-0"
-              aria-label="Compact Mode"
-              checked={compactMode}
-              onChange={(e) => setCompactMode(e.target.checked)}
-            />
-            <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-brand-500/40 peer-focus-visible:ring-offset-1 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-600 peer-checked:shadow-md peer-checked:shadow-brand-500/30 transition-shadow duration-200"></div>
-          </label>
-        </div>
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="font-medium">Reduce Motion</p>
-            <p className="text-sm text-gray-400">Limit animations and transitions</p>
-          </div>
-          <label className="relative inline-flex items-center cursor-pointer">
-            <input
-              type="checkbox"
-              className="sr-only peer focus:outline-none focus-visible:ring-0"
-              aria-label="Reduce Motion"
-              checked={reduceMotion}
-              onChange={(e) => setReduceMotion(e.target.checked)}
-            />
-            <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-brand-500/40 peer-focus-visible:ring-offset-1 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-600 peer-checked:shadow-md peer-checked:shadow-brand-500/30 transition-shadow duration-200"></div>
-          </label>
-        </div>
+        <SettingsToggle
+          label="Compact Mode"
+          description="Reduce spacing and overall scale"
+          checked={compactMode}
+          onChange={setCompactMode}
+        />
+        <SettingsToggle
+          label="Reduce Motion"
+          description="Limit animations and transitions"
+          checked={reduceMotion}
+          onChange={setReduceMotion}
+        />
         <div className="flex items-center justify-between">
           <div>
             <p className="font-medium">Refresh Interval</p>
