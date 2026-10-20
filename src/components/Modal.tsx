@@ -1,4 +1,5 @@
 import { useEffect, useId } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import clsx from 'clsx';
 import { useFocusTrap } from '../hooks/useFocusTrap';
@@ -55,7 +56,10 @@ export function Modal({
     };
   }, [isOpen, onClose, preventClose]);
 
-  return isOpen ? (
+  if (!isOpen) return null;
+
+  // Escape page transforms and clipping without changing the React context.
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-6 backdrop-blur-md"
       onClick={(e) => {
@@ -99,6 +103,7 @@ export function Modal({
         </div>
         <div className="overflow-y-auto p-6">{children}</div>
       </div>
-    </div>
-  ) : null;
+    </div>,
+    document.body
+  );
 }

@@ -1,8 +1,101 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
+function streamDurableWorkflowEvents(
+  request: import('./durable-workflow-bridge').DurableWorkflowStreamRequest,
+  onEvent: (event: import('./durable-workflow-bridge').DurableWorkflowEvent) => void
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    let nativeCompleted = false;
+    let pendingCallbacks = 0;
+    let detached = false;
+    const cleanup = () => {
+      if (detached) return;
+      detached = true;
+      ipcRenderer.removeListener('durable-workflows:event', listener);
+    };
+    const complete = () => {
+      nativeCompleted = true;
+      cleanup();
+      if (settled || pendingCallbacks) return;
+      settled = true;
+      resolve();
+    };
+    const fail = (error: unknown) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(error);
+    };
+    const callbackFailed = (error: unknown) => {
+      if (settled) return;
+      fail(error);
+      try {
+        void Promise.resolve(ipcRenderer.invoke('durable-workflows:cancel', request.id)).catch(
+          () => undefined
+        );
+      } catch {
+        // The callback failure remains authoritative if native cancellation fails.
+      }
+    };
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      id: string,
+      payload: import('./durable-workflow-bridge').DurableWorkflowEvent
+    ) => {
+      if (settled || nativeCompleted || id !== request.id) return;
+      try {
+        const returned: unknown = onEvent(payload);
+        // JavaScript callbacks may return promises despite their void signature.
+        if (returned !== undefined) {
+          pendingCallbacks++;
+          void Promise.resolve(returned).then(
+            () => {
+              pendingCallbacks--;
+              if (nativeCompleted) complete();
+            },
+            (error: unknown) => {
+              pendingCallbacks--;
+              callbackFailed(error);
+            }
+          );
+        }
+      } catch (error) {
+        callbackFailed(error);
+      }
+    };
+    ipcRenderer.on('durable-workflows:event', listener);
+    try {
+      // Install both handlers even if a callback already failed during invoke.
+      // Native completion must never leave a later rejection unobserved.
+      void Promise.resolve(ipcRenderer.invoke('durable-workflows:stream', request)).then(
+        complete,
+        fail
+      );
+    } catch (error) {
+      fail(error);
+    }
+  });
+}
+
 // Expose protected methods that allow the renderer process to use
 // the ipcRenderer without exposing the entire object
 contextBridge.exposeInMainWorld('electronAPI', {
+  serviceApi: {
+    request: (
+      request: import('./service-api-bridge').DesktopServiceRequest
+    ): Promise<import('./service-api-bridge').DesktopServiceResponse> =>
+      ipcRenderer.invoke('service-api:request', request),
+    cancel: (id: string): Promise<boolean> => ipcRenderer.invoke('service-api:cancel', id),
+  },
+  durableWorkflows: {
+    request: (
+      request: import('./durable-workflow-bridge').DurableWorkflowRequest
+    ): Promise<import('./durable-workflow-bridge').DurableWorkflowResponse> =>
+      ipcRenderer.invoke('durable-workflows:request', request),
+    stream: streamDurableWorkflowEvents,
+    cancel: (id: string): Promise<boolean> => ipcRenderer.invoke('durable-workflows:cancel', id),
+  },
   computerChat: {
     getConnection: () => ipcRenderer.invoke('computer-chat:getConnection'),
     request: (request: import('./computer-chat-bridge').ComputerChatRequest) =>
@@ -178,6 +271,22 @@ interface UpdateStatusSnapshot {
 
 // Type definitions for the exposed API
 export interface ElectronAPI {
+  serviceApi: {
+    request: (
+      request: import('./service-api-bridge').DesktopServiceRequest
+    ) => Promise<import('./service-api-bridge').DesktopServiceResponse>;
+    cancel: (id: string) => Promise<boolean>;
+  };
+  durableWorkflows: {
+    request: (
+      request: import('./durable-workflow-bridge').DurableWorkflowRequest
+    ) => Promise<import('./durable-workflow-bridge').DurableWorkflowResponse>;
+    stream: (
+      request: import('./durable-workflow-bridge').DurableWorkflowStreamRequest,
+      onEvent: (event: import('./durable-workflow-bridge').DurableWorkflowEvent) => void
+    ) => Promise<void>;
+    cancel: (id: string) => Promise<boolean>;
+  };
   computerChat: {
     getConnection: () => Promise<import('./computer-chat-bridge').ComputerChatConnection>;
     request: (

@@ -20,6 +20,8 @@ describe('usePreferencesStore', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockElectronAPI.store.get.mockResolvedValue(undefined);
+    mockElectronAPI.store.set.mockResolvedValue(true);
+    mockElectronAPI.background.setMinimizeToTray.mockResolvedValue(true);
     usePreferencesStore.setState({
       initialized: false,
       theme: 'dark',

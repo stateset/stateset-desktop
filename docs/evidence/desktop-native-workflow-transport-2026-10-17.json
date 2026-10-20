@@ -1,0 +1,915 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-18T20:35:44.401402+00:00",
+  "source_parent_commit": "bbb9711cd7587b1eded3a656e343886b2f5cf3f2",
+  "scope": "Use the saved native engine connection for workflow HTTP and SSE transport while retaining packaged renderer CSP, TLS, ownership, cancellation and recovery protections.",
+  "baseline": {
+    "source_commit": "bbb9711cd7587b1eded3a656e343886b2f5cf3f2",
+    "prior_source_evidence": "docs/evidence/desktop-engine-settings-feedback-2026-10-17.json",
+    "ci": {
+      "status": "passed",
+      "counts": {
+        "unit_files": 229,
+        "unit": 2975,
+        "native_per_suite": 85,
+        "live_skipped_per_suite": 3,
+        "linux_bundle": 1,
+        "linux_installers": 3
+      },
+      "workflows": {
+        "build": "https://github.com/stateset/stateset-desktop/actions/runs/39058490743",
+        "e2e": "https://github.com/stateset/stateset-desktop/actions/runs/39058490747"
+      }
+    },
+    "finding": "Source review found that renderer workflow fetches could not reach saved custom engine origins outside fixed packaged CSP. The new packaged test retains an enforced renderer CSP negative control against the same HTTPS origin that native transport reaches.",
+    "qualification": "No separate pre-fix packaged application run was performed for this transport finding. The negative control and subsequent native requests use the same final real bundle and owned HTTPS server."
+  },
+  "prior_verification_attempts": [
+    {
+      "job": "d9fd1a845378",
+      "state": "failed",
+      "unit_passed": 249,
+      "qualification": "Renderer typecheck, strict lint, Electron compilation and all focused tests passed. E2E typecheck rejected a required custom Window property assertion in the new bundle test. An optional property plus runtime presence guard corrected that fixture; the complete probe is preserved."
+    },
+    {
+      "job": "118f8c65ab17",
+      "state": "succeeded",
+      "qualification": "The corrected bundle fixture passed E2E typecheck. This predates integrating the verified settings commit and the final EOF cleanup refinement."
+    },
+    {
+      "job": "093bfb4fc557",
+      "state": "failed",
+      "bundle_passed": 0,
+      "bundle_failed": 2,
+      "qualification": "Per-entry dependency symlinks produced an incomplete ASAR. Builder diagnostics and read-only ASAR inventory confirmed missing Sentry core/node and conf packages; both cases timed out before opening the production renderer, before transport acceptance. Reports, traces, job log, source manifest and failed ASAR are retained. A normal isolated lockfile installation replaces this unsupported packaging input layout; no queue failure is inferred."
+    },
+    {
+      "job": "bac1a90f603e",
+      "state": "failed",
+      "unit_passed": 540,
+      "unit_files": 22,
+      "native_passed": 8,
+      "bundle_passed": 1,
+      "bundle_failed": 1,
+      "qualification": "Formatting, both typechecks, strict lint, focused tests, eight native cases and actual packaged startup/restart passed. The custom HTTPS case confirmed no-CA TLS rejection and enforced renderer CSP but its trusted-child native health call failed with a generic fetch failure. Full reports, traces, source/unit receipts and the actual ASAR are retained. TLS root cause investigation was required before acceptance."
+    }
+  ],
+  "async_retry_test_refinement": {
+    "failed_job": "ad0275229185",
+    "unit_passed": 539,
+    "unit_failed": 1,
+    "finding": "The existing agent retry test waited for synchronous onCreated, then read the input before React committed the subsequent queued reset. Failure was Name still containing the retained draft, after acknowledged persistence and callback count passed.",
+    "correction": "Await the same empty Name value using the existing waitFor helper and default timeout. No application behavior, assertion condition or timeout changed; native and bundle checks were not reached in that attempt."
+  },
+  "tls_fixture_diagnosis": {
+    "before_job": "7eadf3cc294d",
+    "after_job": "f955e292dc8e",
+    "before": "Standalone Node22 and the instrumented actual packaged Node24 process both loaded exactly one owned CA with the correct file hash, but its X509Certificate.ca was false and both fetches failed with UNABLE_TO_VERIFY_LEAF_SIGNATURE.",
+    "correction": "Use owned explicit OpenSSL configurations and named root/server extension sections, then verify CA status, issuer/signatures, IP SAN, validity and sslserver purpose before listening. Existing host configuration also supplied CA constraints; exact duplicate-extension causation was not established from retained DER.",
+    "after": "The generated root reports ca=true; Node22 and the same unchanged actual packaged ASAR return the default-deny HTTP404 when trusting the owned CA, while the no-CA control still rejects TLS.",
+    "qualification": "Inspector observations are diagnostics, not public-preload packaged transport acceptance. The later complete bundle gate must independently establish that acceptance."
+  },
+  "implementation": [
+    "Prefer the native bridge for workflow HTTP and SSE whenever it is available. Do not fall back to renderer networking after a native failure; retain browser/legacy compatibility when the namespace is absent.",
+    "Admit only supported workflow routes and methods, safe encoded legacy IDs, bounded JSON bodies and non-nil operation UUIDs. Preserve the three existing connector workflow consumers.",
+    "Read native URL, key and opaque revision; reject mismatched revisions and redirects before exposing responses or events. Retain authenticated Bearer/ApiKey fallback, bounded response/frame/chunk reads and stream_error handling.",
+    "Require the current desktop window, top-level frame and approved renderer source; isolate operation IDs and cancellation by sender object. Bound per-owner active operations and abort work on connection invalidation, renderer replacement/crash/destruction or disposal.",
+    "Cancel renderer operations and ignore late results across URL/key/revision/generation/organization changes, including A-to-B-to-A transitions. Release subscriptions and event listeners without allowing an older completion to affect another operation.",
+    "Detach the preload event listener immediately at native EOF, including when an asynchronous event callback remains pending. Continue observing callback promises and report their errors. This cleanup refinement was identified in source review; no separate pre-fix failing runtime baseline was run.",
+    "Replace renderer-only workflow interception with owned deny-by-default HTTP servers in native recovery/settings cases. Observe actual health API settlement and server-side traffic rather than waiting for a renderer response that native fetch bypasses.",
+    "Issue owned root/server certificates with explicit extensions and validate their CA constraints, issuer/signatures, IP SAN, validity and sslserver purpose before the HTTPS fixture listens.",
+    "Exercise real packaged HTTPS requests, TLS rejection without the owned CA, scoped trust with it, enforced renderer CSP, SSE cursors/UTF-8 decoding/cancellation and stale-revision rejection with no extra HTTP traffic.",
+    "Retain packaged transport receipts and Linux Playwright reports in both CI workflows. Include bounded startup stderr in harness launch failures so missing native dependencies are diagnosable."
+  ],
+  "verification": {
+    "jobs": {
+      "integrated": {
+        "id": "b1b4bd0f74a2",
+        "state": "succeeded",
+        "exit_code": 0,
+        "command_display": "bash /tmp/stateset-desktop-native-workflow-final.sh",
+        "wait_seconds": 17707.390204191208,
+        "elapsed_seconds": 195.91712760925293
+      },
+      "isolated_lockfile_install": {
+        "id": "086c77077bab",
+        "state": "succeeded",
+        "exit_code": 0,
+        "command_display": "bash /tmp/stateset-desktop-native-workflow-install.sh",
+        "wait_seconds": 1649.0775907039642,
+        "elapsed_seconds": 43.11764931678772
+      }
+    },
+    "unit_tests": 540,
+    "unit_files": 22,
+    "checks": [
+      "Formatting",
+      "Renderer typecheck",
+      "Desktop-test typecheck",
+      "Uncached strict lint with unchanged rules",
+      "Single-worker focused tests",
+      "Electron compilation",
+      "Renderer production build",
+      "Unsigned Linux packaging"
+    ],
+    "native": {
+      "stats": {
+        "startTime": "2026-10-18T20:07:53.199Z",
+        "duration": 71088.04400000001,
+        "expected": 8,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "critical_cases": {
+        "saved workflow settings recover after a temporary native read failure": {
+          "file": "electron.spec.ts",
+          "status": "passed",
+          "retry": 0
+        },
+        "submitted scheduled runs recover after restart without resubmitting work": {
+          "file": "startup.spec.ts",
+          "status": "passed",
+          "retry": 0
+        },
+        "workflow blueprint imports survive restart and deletion preserves the working draft": {
+          "file": "startup.spec.ts",
+          "status": "passed",
+          "retry": 0
+        },
+        "custom background agents survive restart and removing a profile preserves the new draft": {
+          "file": "startup.spec.ts",
+          "status": "passed",
+          "retry": 0
+        },
+        "oversized multilingual agent instructions remain editable until they fit engine byte limits": {
+          "file": "startup.spec.ts",
+          "status": "passed",
+          "retry": 0
+        },
+        "agent save errors stay visible above the open editor in both themes": {
+          "file": "startup.spec.ts",
+          "status": "passed",
+          "retry": 0
+        },
+        "engine connection tests discard stale responses after editing settings": {
+          "file": "startup.spec.ts",
+          "status": "passed",
+          "retry": 0
+        },
+        "engine credential removal retains failed keys and confirms native removal": {
+          "file": "startup.spec.ts",
+          "status": "passed",
+          "retry": 0
+        }
+      },
+      "startup_retry_image_sha256": "45bc679b8026084ade5a7e29593c31f82072e0ea9ab7984a5b9212daa805f98d",
+      "scheduled_recovery_evidence": {
+        "attachment_sha256": "4ea35747fa7c8ed4d98e727e3d8d04d45dd3a35af0bfc3b8d2da8423434b554d",
+        "status_path": "/v1/workflows/active-horizon-agent/active-horizon-agent-22222222222242228222222222222222-33333333333343338333333333333333/status",
+        "status_get_count": 2,
+        "ambient_root_probe_count": 2,
+        "primary_styles": {
+          "dark": {
+            "beforeScan": {
+              "text": " New workflow",
+              "color": "rgb(255, 255, 255)",
+              "textFillColor": "rgb(255, 255, 255)",
+              "background": "rgb(3, 105, 161)",
+              "opacity": "1",
+              "visibility": "visible"
+            },
+            "afterScan": {
+              "text": " New workflow",
+              "color": "rgb(255, 255, 255)",
+              "textFillColor": "rgb(255, 255, 255)",
+              "background": "rgb(3, 105, 161)",
+              "opacity": "1",
+              "visibility": "visible"
+            }
+          },
+          "light": {
+            "beforeScan": {
+              "text": " New workflow",
+              "color": "rgb(255, 255, 255)",
+              "textFillColor": "rgb(255, 255, 255)",
+              "background": "rgb(3, 105, 161)",
+              "opacity": "1",
+              "visibility": "visible"
+            },
+            "afterScan": {
+              "text": " New workflow",
+              "color": "rgb(255, 255, 255)",
+              "textFillColor": "rgb(255, 255, 255)",
+              "background": "rgb(3, 105, 161)",
+              "opacity": "1",
+              "visibility": "visible"
+            }
+          }
+        },
+        "viewport_layouts": {
+          "standard-dark": {
+            "viewportWidth": 1024,
+            "viewportHeight": 768,
+            "stacked": true,
+            "viewportFits": true,
+            "headerFits": true,
+            "buttons": [
+              {
+                "name": "Agents",
+                "lines": 1,
+                "fits": true
+              },
+              {
+                "name": "Track existing",
+                "lines": 1,
+                "fits": true
+              },
+              {
+                "name": "New workflow",
+                "lines": 1,
+                "fits": true
+              }
+            ]
+          },
+          "standard-light": {
+            "viewportWidth": 1024,
+            "viewportHeight": 768,
+            "stacked": true,
+            "viewportFits": true,
+            "headerFits": true,
+            "buttons": [
+              {
+                "name": "Agents",
+                "lines": 1,
+                "fits": true
+              },
+              {
+                "name": "Track existing",
+                "lines": 1,
+                "fits": true
+              },
+              {
+                "name": "New workflow",
+                "lines": 1,
+                "fits": true
+              }
+            ]
+          },
+          "minimum-dark": {
+            "viewportWidth": 1000,
+            "viewportHeight": 673,
+            "stacked": true,
+            "viewportFits": true,
+            "headerFits": true,
+            "buttons": [
+              {
+                "name": "Agents",
+                "lines": 1,
+                "fits": true
+              },
+              {
+                "name": "Track existing",
+                "lines": 1,
+                "fits": true
+              },
+              {
+                "name": "New workflow",
+                "lines": 1,
+                "fits": true
+              }
+            ]
+          },
+          "minimum-light": {
+            "viewportWidth": 1000,
+            "viewportHeight": 673,
+            "stacked": true,
+            "viewportFits": true,
+            "headerFits": true,
+            "buttons": [
+              {
+                "name": "Agents",
+                "lines": 1,
+                "fits": true
+              },
+              {
+                "name": "Track existing",
+                "lines": 1,
+                "fits": true
+              },
+              {
+                "name": "New workflow",
+                "lines": 1,
+                "fits": true
+              }
+            ]
+          }
+        },
+        "qualification": "Computed style checks preserve visible button text before/after the scoped Axe scan; this does not replace the test's accessibility analysis."
+      },
+      "blueprint_recovery_evidence": {
+        "attachment_sha256": "9fcce4436d96cb37164347de48ebd28bfb11f64fea2aacca8971ca60c9ba20a3",
+        "before_restart": [
+          {
+            "id": "blueprint-222ba516-4731-4f6c-a5ef-7f99ef284bd0",
+            "name": "Orders audit"
+          },
+          {
+            "id": "blueprint-ae7c7618-40c0-46bd-a33b-b4315b362fcd",
+            "name": "Returns audit"
+          },
+          {
+            "id": "blueprint-5b00dc63-fcd1-4d90-b04b-2ba0557fd2f0",
+            "name": "Weekly inventory"
+          }
+        ],
+        "after_restart": [
+          {
+            "id": "blueprint-222ba516-4731-4f6c-a5ef-7f99ef284bd0",
+            "name": "Orders audit"
+          },
+          {
+            "id": "blueprint-ae7c7618-40c0-46bd-a33b-b4315b362fcd",
+            "name": "Returns audit"
+          },
+          {
+            "id": "blueprint-5b00dc63-fcd1-4d90-b04b-2ba0557fd2f0",
+            "name": "Weekly inventory"
+          }
+        ],
+        "after_delete": [
+          {
+            "id": "blueprint-ae7c7618-40c0-46bd-a33b-b4315b362fcd",
+            "name": "Returns audit"
+          },
+          {
+            "id": "blueprint-5b00dc63-fcd1-4d90-b04b-2ba0557fd2f0",
+            "name": "Weekly inventory"
+          }
+        ],
+        "working_draft_preserved": true
+      },
+      "custom_agent_evidence": {
+        "attachment_sha256": "6ea3aca15c870e8f107608e2ccf60ab7dff51d7bd807c130cc4366d5b235036e",
+        "before_restart": [
+          {
+            "id": "custom-13a06c80-7c20-4ca9-a98b-226a6edeb9b4",
+            "name": "Inventory investigator",
+            "description": "Checks inventory exports against saved evidence",
+            "provider": "openai",
+            "connectorKey": "openai-primary",
+            "model": "gpt-5.4",
+            "systemPrompt": "Inspect the inventory export, report mismatches, and preserve the source files.",
+            "maxIterations": 10,
+            "allowedExecutables": ["rg", "jq", "cat", "head", "tail", "wc", "sort"],
+            "maxTokens": 1024,
+            "maxTotalTokens": 20000
+          }
+        ],
+        "after_restart": [
+          {
+            "id": "custom-13a06c80-7c20-4ca9-a98b-226a6edeb9b4",
+            "name": "Inventory investigator",
+            "description": "Checks inventory exports against saved evidence",
+            "provider": "openai",
+            "connectorKey": "openai-primary",
+            "model": "gpt-5.4",
+            "systemPrompt": "Inspect the inventory export, report mismatches, and preserve the source files.",
+            "maxIterations": 10,
+            "allowedExecutables": ["rg", "jq", "cat", "head", "tail", "wc", "sort"],
+            "maxTokens": 1024,
+            "maxTotalTokens": 20000
+          }
+        ],
+        "after_delete": [],
+        "after_second_save": [
+          {
+            "id": "custom-2af93c33-beff-4ebe-afd8-7ed09167450f",
+            "name": "Delivery evidence reviewer",
+            "description": "Reviews delivery receipts and reports missing evidence",
+            "provider": "openai",
+            "connectorKey": "openai-primary",
+            "model": "gpt-5.4",
+            "systemPrompt": "Inspect the delivery receipts and explain every missing confirmation before finishing.",
+            "maxIterations": 10,
+            "allowedExecutables": ["rg", "jq", "cat", "head", "tail", "wc", "sort"],
+            "maxTokens": 1024,
+            "maxTotalTokens": 20000
+          }
+        ],
+        "draft_preserved": true,
+        "workflow_requests": [],
+        "manager_layouts": {
+          "dark": {
+            "viewportWidth": 1024,
+            "viewportHeight": 768,
+            "inViewport": true,
+            "centered": true,
+            "coversViewport": true,
+            "bodyOverlay": true,
+            "unobscured": true,
+            "input": {
+              "color": "rgb(241, 245, 249)",
+              "background": "rgb(21, 22, 24)",
+              "opacity": "1",
+              "disabled": false
+            }
+          },
+          "light": {
+            "viewportWidth": 1024,
+            "viewportHeight": 768,
+            "inViewport": true,
+            "centered": true,
+            "coversViewport": true,
+            "bodyOverlay": true,
+            "unobscured": true,
+            "input": {
+              "color": "rgb(15, 23, 42)",
+              "background": "rgb(255, 255, 255)",
+              "opacity": "1",
+              "disabled": false
+            }
+          }
+        }
+      },
+      "custom_agent_byte_limits": {
+        "rejectedBytes": 12003,
+        "acceptedBytes": 12000,
+        "draftPreserved": true,
+        "profileId": "custom-1fd43fb2-d9c5-4aa2-ba38-63d86a5882fb",
+        "storedBytes": 12000,
+        "workflowRequests": [],
+        "transport": "native",
+        "attachment_sha256": "67f7077026e3dbde02e210bc5938a065ab3f644871ecd33f951b38b756eb381b"
+      },
+      "custom_agent_error_feedback": {
+        "themes": {
+          "dark": {
+            "viewport": {
+              "width": 1400,
+              "height": 873
+            },
+            "background": "rgb(23, 30, 41)",
+            "opacity": "1",
+            "visibility": "visible",
+            "title": {
+              "text": "Unable to save agent",
+              "unobscured": true,
+              "hitTag": "DIV",
+              "bounds": {
+                "left": 1051,
+                "top": 29,
+                "right": 1339,
+                "bottom": 49
+              },
+              "inViewport": true,
+              "color": "rgb(248, 250, 252)",
+              "textFillColor": "rgb(248, 250, 252)",
+              "opacity": "1",
+              "visibility": "visible"
+            },
+            "message": {
+              "text": "Custom agent profiles could not be saved. Try again.",
+              "unobscured": true,
+              "hitTag": "DIV",
+              "bounds": {
+                "left": 1051,
+                "top": 49,
+                "right": 1339,
+                "bottom": 94.5
+              },
+              "inViewport": true,
+              "color": "rgb(226, 232, 240)",
+              "textFillColor": "rgb(226, 232, 240)",
+              "opacity": "1",
+              "visibility": "visible"
+            },
+            "dismiss": {
+              "text": "Dismiss notification",
+              "unobscured": true,
+              "hitTag": "path",
+              "bounds": {
+                "left": 1347,
+                "top": 25,
+                "right": 1371,
+                "bottom": 49
+              },
+              "inViewport": true,
+              "color": "rgb(203, 213, 225)",
+              "textFillColor": "rgb(203, 213, 225)",
+              "opacity": "1",
+              "visibility": "visible"
+            },
+            "draftPreserved": true,
+            "draftAfterDismissalPreserved": true,
+            "managerStayedOpen": true,
+            "dismissed": true,
+            "persistedProfileCount": 0
+          },
+          "light": {
+            "viewport": {
+              "width": 1400,
+              "height": 873
+            },
+            "background": "rgb(255, 255, 255)",
+            "opacity": "1",
+            "visibility": "visible",
+            "title": {
+              "text": "Unable to save agent",
+              "unobscured": true,
+              "hitTag": "DIV",
+              "bounds": {
+                "left": 1051,
+                "top": 29,
+                "right": 1339,
+                "bottom": 49
+              },
+              "inViewport": true,
+              "color": "rgb(17, 24, 39)",
+              "textFillColor": "rgb(17, 24, 39)",
+              "opacity": "1",
+              "visibility": "visible"
+            },
+            "message": {
+              "text": "Custom agent profiles could not be saved. Try again.",
+              "unobscured": true,
+              "hitTag": "DIV",
+              "bounds": {
+                "left": 1051,
+                "top": 49,
+                "right": 1339,
+                "bottom": 94.5
+              },
+              "inViewport": true,
+              "color": "rgb(51, 65, 85)",
+              "textFillColor": "rgb(51, 65, 85)",
+              "opacity": "1",
+              "visibility": "visible"
+            },
+            "dismiss": {
+              "text": "Dismiss notification",
+              "unobscured": true,
+              "hitTag": "path",
+              "bounds": {
+                "left": 1347,
+                "top": 25,
+                "right": 1371,
+                "bottom": 49
+              },
+              "inViewport": true,
+              "color": "rgb(71, 85, 105)",
+              "textFillColor": "rgb(71, 85, 105)",
+              "opacity": "1",
+              "visibility": "visible"
+            },
+            "draftPreserved": true,
+            "draftAfterDismissalPreserved": true,
+            "managerStayedOpen": true,
+            "dismissed": true,
+            "persistedProfileCount": 0
+          }
+        },
+        "transport": "native",
+        "noWorkflowRequests": true,
+        "workflowRequests": [],
+        "attachment_sha256": "8d592421ea0ba5220743a83856c5327bf1d6f8881ef75003369ac876f8ef4d49"
+      },
+      "engine_settings": {
+        "health": {
+          "healthRequests": [
+            {
+              "method": "GET",
+              "path": "/health",
+              "tenantMatches": true,
+              "authenticated": true
+            },
+            {
+              "method": "GET",
+              "path": "/health",
+              "tenantMatches": true,
+              "authenticated": true
+            }
+          ],
+          "observedRequests": [
+            {
+              "method": "GET",
+              "path": "/health",
+              "tenantMatches": true,
+              "authenticated": true
+            },
+            {
+              "method": "GET",
+              "path": "/health",
+              "tenantMatches": true,
+              "authenticated": true
+            }
+          ],
+          "transport": "native",
+          "healthObservation": {
+            "calls": 2,
+            "settled": 2,
+            "resolved": 2,
+            "rejected": 0
+          },
+          "firstResponseFinished": true,
+          "staleResponseDiscarded": true,
+          "editedDraftPreserved": true,
+          "dirtyTestDisabled": true,
+          "savedUrlUnchanged": true,
+          "freshTestSucceeded": true,
+          "ambientRootProbeCount": 0,
+          "noWorkflowRequests": true,
+          "workflowRequests": [],
+          "attachment_sha256": "cc4746b7e80efb77db1dbb465d0e7a759fc9dbae6f98671f216c62ad691476b5"
+        },
+        "removal": {
+          "phases": {
+            "failed": {
+              "attempts": 2,
+              "caughtErrorVisible": true,
+              "nativeKeyRetained": true,
+              "retryEnabled": true,
+              "pageErrorCount": 0
+            },
+            "successful": {
+              "nativeKeyRemoved": true,
+              "nativeKeyRemovedAfterRefreshFailure": true,
+              "refreshFailureRemovalSucceeded": true,
+              "ordinaryRemovalConfirmed": true,
+              "noKeyConfigured": true,
+              "testDisabled": true,
+              "pageErrorCount": 0,
+              "originalHandlerUsed": true
+            }
+          },
+          "transport": "native",
+          "noWorkflowRequests": true,
+          "workflowRequests": [],
+          "attachment_sha256": "8b9b098f029697387f06644d569763532ce0fa6b0a7c148edfc186078c79e5a3"
+        }
+      },
+      "inventory_sha256": "3f1ea3bf2cfa414302ef4e096b0dce25a7357d2438b9d3a5a5ba93b75a3a2f56",
+      "retries": 0
+    },
+    "bundle": {
+      "stats": {
+        "startTime": "2026-10-18T20:09:46.050Z",
+        "duration": 13200.372,
+        "expected": 2,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "critical_cases": {},
+      "startup_retry_image_sha256": null,
+      "scheduled_recovery_evidence": null,
+      "blueprint_recovery_evidence": null,
+      "custom_agent_evidence": null,
+      "custom_agent_byte_limits": null,
+      "custom_agent_error_feedback": null,
+      "engine_settings": {},
+      "inventory_sha256": "3aba4c54417147dd9df2156ea03a712bfc77609f7c48ba06894d431c5dde8eae",
+      "retries": 0
+    },
+    "packaged_transport": {
+      "schemaVersion": 1,
+      "productionRenderer": true,
+      "e2eMode": false,
+      "scopedCertificateAuthority": true,
+      "withoutCa": {
+        "rejected": true,
+        "tlsFailure": true
+      },
+      "untrustedTlsFailures": 1,
+      "untrustedHttpRequests": 0,
+      "rendererControl": {
+        "rejected": true,
+        "enforcedConnectSrc": true
+      },
+      "rendererControlHttpRequests": 0,
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/health",
+          "authorizationMatches": true,
+          "tenantMatches": true,
+          "lastEventIdAbsent": true,
+          "lastEventIdMatches": false,
+          "acceptsEventStream": false
+        },
+        {
+          "method": "POST",
+          "path": "/v1/workflows/active-horizon-agent/start",
+          "authorizationMatches": true,
+          "tenantMatches": true,
+          "lastEventIdAbsent": true,
+          "lastEventIdMatches": false,
+          "acceptsEventStream": false
+        },
+        {
+          "method": "GET",
+          "path": "/v1/workflows/active-horizon-agent/active-horizon-agent-22222222222242228222222222222222-33333333333343338333333333333333/status",
+          "authorizationMatches": true,
+          "tenantMatches": true,
+          "lastEventIdAbsent": true,
+          "lastEventIdMatches": false,
+          "acceptsEventStream": false
+        },
+        {
+          "method": "POST",
+          "path": "/v1/workflows/active-horizon-agent/active-horizon-agent-22222222222242228222222222222222-33333333333343338333333333333333/cancel",
+          "authorizationMatches": true,
+          "tenantMatches": true,
+          "lastEventIdAbsent": true,
+          "lastEventIdMatches": false,
+          "acceptsEventStream": false
+        },
+        {
+          "method": "GET",
+          "path": "/v1/workflows/active-horizon-agent-22222222222242228222222222222222-33333333333343338333333333333333/events",
+          "authorizationMatches": true,
+          "tenantMatches": true,
+          "lastEventIdAbsent": true,
+          "lastEventIdMatches": false,
+          "acceptsEventStream": true
+        },
+        {
+          "method": "GET",
+          "path": "/v1/workflows/active-horizon-agent-22222222222242228222222222222222-33333333333343338333333333333333/events",
+          "authorizationMatches": true,
+          "tenantMatches": true,
+          "lastEventIdAbsent": false,
+          "lastEventIdMatches": true,
+          "acceptsEventStream": true
+        }
+      ],
+      "startBodyMatches": true,
+      "initialStream": {
+        "events": [
+          {
+            "id": 1,
+            "decoded": true
+          }
+        ],
+        "settled": true,
+        "rejected": true
+      },
+      "resumedStream": {
+        "events": [
+          {
+            "id": 2,
+            "decoded": true
+          }
+        ],
+        "settled": true,
+        "rejected": false
+      },
+      "cancelledStreamClosed": true,
+      "changedKeyStored": true,
+      "changedRevision": true,
+      "staleRevisionRejected": true,
+      "staleRevisionHttpRequests": 0,
+      "ambientRootProbeCount": 0,
+      "qualification": "Real Linux executable, production renderer/CSP and public preload bridge; owned HTTPS responses simulate workflow execution. No live Temporal, sandbox, policy execution or OS-keyring persistence is claimed.",
+      "attachment_sha256": "1e1d9835e105e9a09a756940e50e038fe4dfc22ec9a001c48a412991224d94c2",
+      "receipt_sha256": "1e1d9835e105e9a09a756940e50e038fe4dfc22ec9a001c48a412991224d94c2",
+      "receipt_path": "dist/verification/workflow-transport-bundle/custom-engine-native-transport.json"
+    },
+    "source_guard": {
+      "inputs": 663,
+      "manifest_sha256": "584cef36d95876b1f8b6c428f323e4fb59f990a81521f57331ddf4df5284bfe3",
+      "qualification": "Manual before/after source hashes; not an immutable filesystem snapshot."
+    },
+    "queue_source_tracking": {
+      "recorded": true,
+      "qualification": "Requested bounded queue fingerprints supplement the manual source guard. They are not an immutable source snapshot."
+    },
+    "unit_report_sha256": "969513d5e7ef9534f6206df682d297a4b5f7416a75a81e3e99edd7b91580114a",
+    "native_report_sha256": "ce25a56806d64ad2ab4ac13ea66de088b52c9e65c344a47a4245ae562789a1c8",
+    "bundle_report_sha256": "090ca813439a550e245e6f594d24b8d3f4448d9236cec19c9792cd38bdc835c9",
+    "package": {
+      "appAsarSha256": "332adb2ad7ba866d8a6449cf7484f90f521345801861f0be4db34881087d0b8d",
+      "appAsarBytes": 149300722,
+      "compiled": {
+        "dist/electron/main.js": "1c9a43c12a2474ddfa451e18448aaf9a5ed4bf49a09af4b349b42c5cd20eb0da",
+        "dist/electron/preload.js": "2e7570727f42733e17f1b42c3dc7372202d8c43fef6433c88ac7b0efb9718c13",
+        "dist/electron/durable-workflow-bridge.js": "f40e861acdc117c7782fdca354dca0868359366637d8d7cb1933683ebc4d29ef",
+        "dist/electron/durable-workflow-ipc.js": "ece0805e2779fa700b7f549b63bbdb480b46b4505aaf44f2bcd0f05e7e195bea",
+        "dist/renderer/assets/AgentConsole-7og9vPGf.js": "e624734773a04cd47958c2d80a9e049ad3e68b37b3aed218202a7799d5d27e22",
+        "dist/renderer/assets/Analytics-DfwV-ryB.js": "2b7cf37a34efd7372f57f60d11c031ddf0624a627138a879a5845df3afd17d0d",
+        "dist/renderer/assets/AuditLog-DyJoBHsq.js": "2ec0c5f9782cf6bdf1c9dbf14367316d5bf1b66274ab69a9b374444643e3b267",
+        "dist/renderer/assets/Button-L1J9e3O5.js": "330b725759a938776ccc116a7c76470ff5a377944012da897dd6f107dfb14e14",
+        "dist/renderer/assets/ChatPlayground-BAm9WWXB.js": "e8580bc3e44c5c0a0d2730621135b21b404e1f3a344c296d65eb030e29dcdc89",
+        "dist/renderer/assets/ChatPlayground-CR1Wh_Nz.css": "ac72a3c0ae5d668d91f860494e79c35426579016fa1807225db663031e7d716c",
+        "dist/renderer/assets/ConfirmDialog-DVH9e3rl.js": "e8ec7b54119a3ac529fa64125dd8493ba82b34d18883b92e328fdbbf7e0a4d0a",
+        "dist/renderer/assets/Connections-9XjqM2dD.js": "5685b75533198ff89a6bc314d23b917100e53cd326ff8b89dbbe0bbb2640b62f",
+        "dist/renderer/assets/Dashboard-DWcTow9c.js": "fa07bb470366d7370d13039becc69547680a295ea1f86605af292f5724ddd82f",
+        "dist/renderer/assets/EmptyState-DgmvWwYo.js": "37763ad0f1861b823f4668707a08309ada281eef78dd9d1ffedf37ac6fdd3a00",
+        "dist/renderer/assets/Login-CmQIr1vS.js": "967d90e81ac15177c6540d178ec8d0f2834fbe725e66cf49e77bad8fa1882662",
+        "dist/renderer/assets/Markdown-BQxCEOEW.js": "f56f3ed79b4fb94c8a443d7e4006434d667e1b5506934fa172a92e7c1b649ef2",
+        "dist/renderer/assets/OfflineBanner-Dah59UCB.js": "5938d38cc7f3eed49e70ac7e72556fbb3e36dc5456cd15ddcc8a7db1b7364dc1",
+        "dist/renderer/assets/Onboarding-D6isnBPy.js": "b9f543d46ed3d1a1fa905d13cf2f8821c2d3a38f0c3c0fd65c9cca8e1d9f29d4",
+        "dist/renderer/assets/Register-CWI-g7M-.js": "700ec6bf33e190733d2efb8b0f11fc234b9b0be5e94d756f2ff5d55f5e94b1c9",
+        "dist/renderer/assets/SaveAsTemplateDialog-BubK11TQ.js": "f24e77de35bd003e24be7e93f4c71b65a14f8d56703be29765a7abb6989f41ed",
+        "dist/renderer/assets/Settings-CxbwS1Kg.js": "6a87c95d5fb366185e829a88b7222348386db28d85259b6b2b32b2c813c15a03",
+        "dist/renderer/assets/Skeleton-5hyPPfT3.js": "924e33be85a978bc4fc7d89ebb24888073d9e3aeb5a1b25a0a71fe663ebdd823",
+        "dist/renderer/assets/Spinner-DqQjcj23.js": "380bc5ce2933d64ac662b7654c5224fbaf73a700025660ace5a84823ae291e3b",
+        "dist/renderer/assets/TemplateCard-CuO1TZTO.js": "8a54f8cde783237210aee5ebb09e1f0ee3be80c1a34b40fc23474ff287071fd8",
+        "dist/renderer/assets/Templates-RX6tZvcQ.js": "844695c9b55546d999774bf5bb24a4034fd9ae3e88134e56aa3859a35d25a966",
+        "dist/renderer/assets/Voice-BxaxHZRw.js": "874ee6c02fd03335e9965edbdb22608c64ecc83858896345e0c861f88dbf574e",
+        "dist/renderer/assets/Webhooks-UGmpgD5W.js": "d8998df63ec955cb246721178eb251d6c5483d667c829b3ee86558c9dad9e8e4",
+        "dist/renderer/assets/WorkflowInitializationNotice-D0gW4Vxm.js": "ee2dc5a5a825e08925ec6ec8ce5be56c1b7ad9b6d237046ebf7800befcaaa3a1",
+        "dist/renderer/assets/Workflows-DZNaebPj.js": "fdbbdf20ceb33cca7e78e69876731c23d4de829cf1737bee49902d353e7ef803",
+        "dist/renderer/assets/animations-1P7nlh9T.js": "ada5e54fd98c97bd45efb78e36918b0cc73f6a6bd24f5778c1500150e1eddead",
+        "dist/renderer/assets/bash-CG6S6Dwl.js": "ddad42a148e39254cd12aa8945a8055810ae8f94fa6c08f9430a9200ff8f6e43",
+        "dist/renderer/assets/data-vendor-BuD9f2zY.js": "0693e6fd1ad874b8aabca1a70d15b0629acf04ca2af5bba8c9238623b323a913",
+        "dist/renderer/assets/export-BCqQ51N8.js": "c9d0057bf8f8a845e53e222cd41a6e430ceb33043f952ad4e898d7a55a2d152c",
+        "dist/renderer/assets/index-CsXf2ckp.js": "491f98e296eda597e0bfb43c401cd404bb9f0154363183830eb4fead373cf5c4",
+        "dist/renderer/assets/index-Devamm-k.css": "fa8753875a9a20e8043ab55df463dd3189cad179e3ebab9a4a8cba07c5bd2766",
+        "dist/renderer/assets/index-Dj4Aw-tf.js": "4d327c20b93fdbc4730559c8213d84f3d08bdc08a7d3220afd1d99546d2c0f7a",
+        "dist/renderer/assets/javascript-BV9DYW3p.js": "a82efa0fe3cdc9a4f2984e96db3771d06c014db0ab2baf5f3e3abb9a20aae63f",
+        "dist/renderer/assets/javascript-CHOBgqRB.js": "7c484f6ca160181fc322acbb31059ca8f2bcf7d90ca9b163fbc0c462da494a84",
+        "dist/renderer/assets/json-unC8z3UW.js": "9724c01530ec92293f2ca4324bb76e006ae2d43040d75b08274cb83977f7feac",
+        "dist/renderer/assets/prism-light-DC6ZxYUa.js": "63ca8a0b8b9d7cd25968a554d55bd81becf1f825ebba6c1229c500026ccb8a41",
+        "dist/renderer/assets/python-3xaErVbm.js": "525e40776345b6d36e720b3136596a55f7ecaf07e423a09f8c85a737f790ebb1",
+        "dist/renderer/assets/react-vendor-DfR4FxCU.js": "b87abffd9f6ceef21c1d6dc3ea14f3c23ee6259c6156794f8fabd740c3fb8892",
+        "dist/renderer/assets/registration-W-dU5pvm.js": "46f6ed02248da005e63ead6ee3468096fb57cc89278b1f0617f5dda3b74bab23",
+        "dist/renderer/assets/sql-KgLHHO9i.js": "13528b58a36707ac8c51ab5a4ffd0c53b6ddca7240decd730f32fa17c3878f4e",
+        "dist/renderer/assets/templates-Bm6yk_ws.js": "7d541b63b4e18c4c5047a083f1c9c7c99bb77cc8cd628f5977fa430fa1c9c814",
+        "dist/renderer/assets/tsx-BtIO8qfS.js": "a32830f2444dafbe9b838b02031d7b69a6d5acfbf1ae1c2732137062020d387c",
+        "dist/renderer/assets/typescript-BwsQxImi.js": "5c8778af04b3b96b798d8554609a0ad06762ae463292425f362a08ef8e5f119c",
+        "dist/renderer/assets/typescript-hKDPgb8J.js": "afc0dfb7e4466386efcfa3d06c87d5a9a1ff3c45ee02fb019607d13df878ab8f",
+        "dist/renderer/assets/ui-vendor-x2IwoC03.js": "bf1d98ab6a40eb4a08fb6e35ee5be0c58f34b25be9ec0302fe7e9dcd0db77dbf",
+        "dist/renderer/assets/useAgentStream-7Dz8Yu3i.js": "ed6fa3366bf200e5cf7df6347272fef42092d8c444156ea51671d96856225a7e",
+        "dist/renderer/assets/useConfirmDialog-CBgAaKHi.js": "ef76eec61ca70c78bb7b24010b219e2b90d53edf4454959d5bfb801edb746ab6",
+        "dist/renderer/assets/useDebounce-Cnc380vy.js": "43a13292c03bfd6de611200a8b1e9060bdcad374f59ab97d2d47e5c55e054657",
+        "dist/renderer/assets/useMcpServerOptions-O2WzzcLx.js": "556c4b4a37ed780b086a53f97aa958a8e86addc66fd970be475c426ce51a7a87",
+        "dist/renderer/assets/usePagination-CS9JL9q4.js": "f8c9b769a483fc15bc535be2205b953cd231e40e909ce9b9e6d996c821d4b5f6",
+        "dist/renderer/assets/useSecureStorageAvailability-COdh-KNJ.js": "018812af1ba67f1dc1e31b3f789211c8c00614e9397690c49d546a4626dfad10",
+        "dist/renderer/assets/yaml-JfT7KDqq.js": "5e0d1902534ec2da8fc33b056560b57ac4319f5a311b8359a0625ec748631660",
+        "dist/renderer/index.html": "53490be8eb01f4272faf6f8dc0f836c0f9671889cf72e0f99447e905dfcbbf60",
+        "dist/renderer/stateset.svg": "8ffb8b8a2d77060868dcd633f3168a980d3591b106e8b370a8cf7dc9168691b3"
+      },
+      "qualification": "Local actual bundle bytes match the compiled inputs of the source-guarded gate; this is not an immutable source snapshot or a signed installer."
+    },
+    "screenshots": {
+      "agent-manager-dark.png": "1f2c127e02b0d36fac777caa515cc8a553b597c62140a563db3f034fb03c787a",
+      "agent-manager-light.png": "ab79251f1a7a23dfd08f756d7164904311794dab96247a25ccd30a289fe49c02",
+      "agent-error-dark.png": "ba04948aec5bc63e97f147ccf9ccfd0dc638934898403fc41da3ffc7092391fb",
+      "agent-error-light.png": "b2c546e74c90bec2089230ce0b597a3c4211f4e19b644c4bde4846d0ba5d7ae6",
+      "schedule-pending-dark.png": "a35d1ad6c703e21c161b328b4a2f41c0a11fe32992c90cda1a5238dce4d248c7",
+      "schedule-pending-light.png": "57f8ed2745da85c6c26938b06e6f1d05b511fe0076482aa13e4a23befcf58eb0",
+      "schedule-pending-minimum-dark.png": "ccf9a6907fc3a4934f50ddc6b9601091ace5f53f4d4065d3fe46647596d76f96",
+      "schedule-pending-minimum-light.png": "097f942e38443ef6c0413f6db0e714880e237786c5e9d72e93141f7d7ac77b1b"
+    },
+    "dependency_audit": {
+      "production": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 0,
+        "critical": 0,
+        "total": 0
+      },
+      "all": {
+        "info": 0,
+        "low": 0,
+        "moderate": 10,
+        "high": 5,
+        "critical": 0,
+        "total": 15
+      },
+      "qualification": "Unchanged package/lock bytes retain the prior source-bound audit (production 0, development 15 affected-package entries). This is not a fresh full audit; the new exact-head CI production gate is required."
+    },
+    "dependency_audit_qualification": "Package metadata and the lockfile are unchanged. Earlier complete-audit findings remain applicable to this resolution graph; a fresh exact-head production audit and complete CI remain required.",
+    "full_ci": "Required on the next committed source. This local gate does not establish exact new-head full-suite or platform acceptance."
+  },
+  "changed_source_sha256": {
+    ".github/workflows/build-release.yml": "63e8b2ed38b8039565c8fd032f0dddafe4f426931f998c41d18933470e59e318",
+    ".github/workflows/e2e.yml": "50aee3d66fbe34c2ef5320929839cbd0dde8ed29c11e1551df0adb088ca82fd0",
+    "CHANGELOG.md": "b8677c537a6b068a107a7021e37e8508efdeeb1fb650761e5121dea810a7a3c0",
+    "docs/DESKTOP_STORAGE.md": "1d9286164432a4c518b233f4adf6eabd412077080191114cedad608209520328",
+    "e2e/bundle.spec.ts": "66e654efe6e0d7a32e846b024c3ad99d41ddfd380816536a7e5108a1cc629b09",
+    "e2e/desktop.ts": "36f0bc1ce3d1d4d66d5f07a787176e2c11aef05622547f12a8afdc287a35fb42",
+    "e2e/startup.spec.ts": "e0d45b32268f912bffd343d246e375e857fcf85c3108e6458f34ea5f0315475e",
+    "e2e/workflow-engine-fixture.ts": "00968e9634d9ae142b82c083b103295679a396869413e49b2fefa729b19907f6",
+    "electron/durable-workflow-bridge.test.ts": "be00beae86309f6db493b438ec5830952d451246441ada43c9e978e80b3fc37c",
+    "electron/durable-workflow-bridge.ts": "08d250bd12b54d2eed3741b87cc4ddf9af161ed25be279ca648dc20df23c443b",
+    "electron/durable-workflow-ipc.test.ts": "27a97114a3859d5abd9c5d0a2efdb21992f677346ab118bfd40a98308061afcb",
+    "electron/durable-workflow-ipc.ts": "548ea44cc3bb1da4b2e8e98d1adf8115628f8d32a311518e881f8de3210c9cac",
+    "electron/main.ts": "2f3acbde9b24a28b511d5a1cbe9135688c50576804b68240e1f295ad33242756",
+    "electron/preload.test.ts": "718b2d01685e5250ea11de030821a6836fcbe5142bbd28ce279d0444417a3a46",
+    "electron/preload.ts": "2aa55b0c085f75cb454d2982657f9014a2a97aea79825235ac3994a4d103c351",
+    "src/components/DurableAgentManager.test.tsx": "2214cca8ec7bf35e1927f0cdca934f3e16b57810c5b443fa6ce88b3ba83a1969",
+    "src/lib/durableWorkflowNativeTransport.test.ts": "5bb696d8b19577436ae609bb9adab1e0bbcf2954274b73c628eaaef39096c01b",
+    "src/lib/durableWorkflows.ts": "2c86aff901c9ef54d282c565631f749842bb6c8baed2b3454a4311dd43904c80",
+    "src/vite-env.d.ts": "f1534ef47723e3ac6615e926a225fb10a2dc304dbb1424df8a7d42aafe2b8f82"
+  },
+  "limitations": [
+    "Owned HTTPS/HTTP servers simulate engine responses. No live engine, Temporal, sandbox, provider or NSR execution is established.",
+    "The temporary certificate authority is trusted only by an owned test child process. These tests do not establish enterprise certificate deployment or OS-keyring persistence.",
+    "Transport cancellation aborts local network work; it cannot prove that a previously submitted engine operation was not admitted. Existing durable request identities and recovery remain necessary.",
+    "Linux runtime checks do not establish native runtime behavior on macOS/Windows, whole-application accessibility, or signed installer/update delivery.",
+    "The v1.1.21 tag remains at 4189d16. These changes are unreleased; signing/notarization settings remain unavailable."
+  ]
+}

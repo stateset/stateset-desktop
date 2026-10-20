@@ -17,6 +17,8 @@ describe('AppearanceSettings', () => {
     vi.clearAllMocks();
     electronAPI = mockElectronAPI();
     usePreferencesStore.setState({
+      initialized: true,
+      saves: {},
       theme: 'dark',
       reduceMotion: false,
       compactMode: false,
@@ -70,7 +72,7 @@ describe('AppearanceSettings', () => {
 
     fireEvent.click(screen.getByRole('checkbox', { name: 'Compact Mode' }));
 
-    expect(usePreferencesStore.getState().compactMode).toBe(true);
+    await waitFor(() => expect(usePreferencesStore.getState().compactMode).toBe(true));
     await waitFor(() => {
       expect(electronAPI.store.set).toHaveBeenCalledWith('compactMode', true);
     });
@@ -85,7 +87,7 @@ describe('AppearanceSettings', () => {
 
     fireEvent.click(toggle);
 
-    expect(usePreferencesStore.getState().reduceMotion).toBe(false);
+    await waitFor(() => expect(usePreferencesStore.getState().reduceMotion).toBe(false));
     await waitFor(() => {
       expect(electronAPI.store.set).toHaveBeenCalledWith('reduceMotion', false);
     });

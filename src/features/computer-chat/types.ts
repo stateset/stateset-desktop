@@ -1,5 +1,7 @@
 import type { ChatMessage } from '../../types';
 import type { DurableChatIdentity, DurableChatStatus } from './durableTypes';
+import type { SandboxArtifactReceipt } from './sandboxArtifact';
+import type { ChatIssueCode } from './chatIssue';
 
 export interface ComputerSession {
   id: string;
@@ -21,6 +23,7 @@ export interface ActionResult {
 }
 
 export interface PolicyReceipt {
+  source?: 'decisions-v1';
   phase: 'admission' | 'verification';
   verdict: 'allow' | 'rewrite' | 'ask_user' | 'deny';
   actionHash: string;
@@ -31,6 +34,7 @@ export interface PolicyReceipt {
 
 export interface PendingAction {
   requestId: string;
+  computer?: { sessionId: string; sandboxId: string; organizationId: string };
   action: ComputerAction;
   command: string[];
   durable: boolean;
@@ -43,8 +47,10 @@ export interface PendingAction {
 }
 
 export interface ComputerChat {
+  sandboxApiSession?: { version: 1 };
   lastOpenedAt?: string;
   draft?: string;
+  draftRevision?: number;
   pinned?: boolean;
   archived?: boolean;
   customTitle?: boolean;
@@ -62,6 +68,10 @@ export interface ComputerChat {
   updatedAt: string;
   session?: ComputerSession;
   provisioningAttempted?: boolean;
+  sandboxStartUnconfirmed?: boolean;
+  sandboxStopRequested?: boolean;
+  sandboxCleanupIds?: string[];
+  artifactVerification?: SandboxArtifactReceipt;
   messages: ChatMessage[];
   pending?: PendingAction;
   workflows: { workflowId: string; runId: string }[];
@@ -70,6 +80,9 @@ export interface ComputerChat {
   screenshot?: string;
   stopped?: boolean;
   error?: string;
+  errorCode?: ChatIssueCode;
+  pauseNotice?: string;
+  agentTurnUnfinished?: boolean;
 }
 
 export interface ChatConnection {
@@ -78,4 +91,9 @@ export interface ChatConnection {
   lastSyncedAt?: number;
   nextRetryAt?: number;
   message?: string;
+}
+
+export interface ComputerChatActivity {
+  kind: 'setup' | 'status' | 'agent' | 'recovery' | 'screenshot' | 'file-check' | 'shutdown';
+  pausing: boolean;
 }

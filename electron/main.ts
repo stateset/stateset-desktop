@@ -2,6 +2,7 @@ import {
   app,
   BrowserWindow,
   ipcMain,
+  net,
   shell,
   Tray,
   Menu,
@@ -36,6 +37,8 @@ import {
 import { resolveTrayIconPath } from './runtime-assets';
 import { createRateLimiter } from './ipc-rate-limit';
 import { probeMcpServer } from './mcp-probe';
+import { registerDurableWorkflowIpc } from './durable-workflow-ipc';
+import { registerDesktopServiceIpc } from './service-api-bridge';
 import { promises as dnsPromises } from 'dns';
 import {
   createComputerChatConnection,
@@ -105,6 +108,7 @@ const STORE_KEYS = new Set([
   'chatPlaygroundConversations',
   'computerChats',
   'computerChatPreferences',
+  'sandboxChatPreferences',
   'durableWorkflowEngineUrl',
   'durableTrackedWorkflows',
   'durableCustomAgentProfiles',
@@ -916,7 +920,7 @@ function createWindow() {
       const allowedOrigin = resolveCorsOrigin(details);
       headers['access-control-allow-origin'] = [allowedOrigin];
       headers['access-control-allow-headers'] = [
-        'Authorization, Content-Type, X-Requested-With, X-API-Key, X-Tenant-ID',
+        'Authorization, Content-Type, X-Requested-With, X-API-Key, X-Tenant-ID, Idempotency-Key',
       ];
       headers['access-control-allow-methods'] = ['GET, POST, PUT, DELETE, OPTIONS'];
       headers['access-control-allow-credentials'] = ['true'];
@@ -1136,7 +1140,7 @@ ipcMain.handle('store:set', (event, key: string, value: unknown) => {
     );
   }
   store.set(key, value);
-  if (key === 'durableWorkflowEngineUrl') computerChatConnection.invalidate();
+  if (key === 'durableWorkflowEngineUrl') invalidateWorkflowConnection();
   return true;
 });
 
@@ -1147,7 +1151,7 @@ ipcMain.handle('store:delete', (event, key: string) => {
   }
   assertStoreKey(key);
   store.delete(key);
-  if (key === 'durableWorkflowEngineUrl') computerChatConnection.invalidate();
+  if (key === 'durableWorkflowEngineUrl') invalidateWorkflowConnection();
   return true;
 });
 
@@ -1156,7 +1160,7 @@ ipcMain.handle('store:clear', () => {
     return false;
   }
   store.clear();
-  computerChatConnection.invalidate();
+  invalidateWorkflowConnection();
   return true;
 });
 
@@ -1248,7 +1252,7 @@ ipcMain.handle('auth:clearSandboxApiKey', () => {
 ipcMain.handle('auth:setDurableEngineApiKey', (_event, apiKey: string) => {
   assertNonEmptyString(apiKey, 'apiKey', 4096);
   const result = setSecureValue(apiKey, DURABLE_ENGINE_KEY_STORAGE);
-  computerChatConnection.invalidate();
+  invalidateWorkflowConnection();
   return result;
 });
 
@@ -1258,7 +1262,7 @@ ipcMain.handle('auth:getDurableEngineApiKey', () => {
 
 ipcMain.handle('auth:clearDurableEngineApiKey', () => {
   const result = clearSecureValue(DURABLE_ENGINE_KEY_STORAGE);
-  computerChatConnection.invalidate();
+  invalidateWorkflowConnection();
   return result;
 });
 
@@ -1269,6 +1273,86 @@ function computerChatConfiguration() {
     apiKey: getSecureValue(DURABLE_ENGINE_KEY_STORAGE) ?? '',
   };
 }
+const durableWorkflowIpc = registerDurableWorkflowIpc<Electron.IpcMainInvokeEvent>({
+  ipcMain,
+  assertTrustedSender(event, channel) {
+    // Only the current application's top-level renderer may use the saved
+    // connection. Subframes and other windows cannot borrow its credentials.
+    const contents = mainWindow?.webContents;
+    if (
+      !contents ||
+      contents.isDestroyed() ||
+      event.sender !== contents ||
+      !event.senderFrame ||
+      event.senderFrame !== contents.mainFrame ||
+      !isAllowedRendererSource(event.senderFrame.url)
+    ) {
+      throw new Error('Durable workflow access requires the desktop application window');
+    }
+    assertIpcRate(event, channel);
+  },
+  getConnection() {
+    const configuration = computerChatConfiguration();
+    const { revision } = computerChatConnection.read(configuration);
+    return { ...configuration, revision };
+  },
+});
+
+// Native service requests use only the configured endpoints and the saved
+// credentials. Renderer CORS/preflight policy must not decide API reachability.
+const desktopServiceIpc = registerDesktopServiceIpc<Electron.IpcMainInvokeEvent>({
+  ipcMain,
+  assertTrustedSender(event, channel) {
+    const contents = mainWindow?.webContents;
+    if (
+      !contents ||
+      contents.isDestroyed() ||
+      event.sender !== contents ||
+      !event.senderFrame ||
+      event.senderFrame !== contents.mainFrame ||
+      !isAllowedRendererSource(event.senderFrame.url)
+    )
+      throw new Error('Service API access requires the desktop application window');
+    assertIpcRate(event, channel);
+  },
+  getConfiguration(request) {
+    if (request.service === 'sandbox')
+      return {
+        baseUrl: SANDBOX_API_URL.toString(),
+        apiKey: getSecureValue(SANDBOX_KEY_STORAGE) ?? '',
+      };
+    let apiKey = '';
+    try {
+      const raw = getSecureValue(LOCAL_SECRETS_STORAGE);
+      const vault: unknown = raw ? JSON.parse(raw) : {};
+      const own = (value: unknown, key: string): unknown =>
+        value && typeof value === 'object' && Object.prototype.hasOwnProperty.call(value, key)
+          ? (value as Record<string, unknown>)[key]
+          : undefined;
+      const scope = request.scope!;
+      const credentials = own(
+        own(own(own(vault, scope.tenantId), scope.brandId), 'computer-chat-policy'),
+        'credentials'
+      );
+      const key = own(credentials, 'api_key');
+      if (typeof key === 'string') apiKey = key.trim();
+    } catch {
+      throw new Error('The saved NSR policy connection could not be read');
+    }
+    return { baseUrl: POLICY_API_URL.toString(), apiKey };
+  },
+  // Electron networking honors the app's proxy and certificate settings.
+  fetcher: (input, init) => net.fetch(input instanceof URL ? input.toString() : input, init),
+});
+app.on('will-quit', () => desktopServiceIpc.dispose());
+
+function invalidateWorkflowConnection() {
+  computerChatConnection.invalidate();
+  durableWorkflowIpc.invalidateConnection();
+}
+
+app.on('will-quit', () => durableWorkflowIpc.dispose());
+
 ipcMain.handle('computer-chat:getConnection', (event) => {
   assertIpcRate(event, 'computer-chat:getConnection');
   return computerChatConnection.read(computerChatConfiguration());

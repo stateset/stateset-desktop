@@ -118,23 +118,21 @@ describe('telemetry opt-in gating', () => {
     );
   });
 
-  it('disable() flushes pending events, persists opt-out, and stops collection', async () => {
+  it('disable() discards pending events, persists opt-out, and stops collection', async () => {
     const mod = await loadTelemetry();
     const instance = mod.initializeTelemetry({ enabled: true, endpoint: ENDPOINT, batchSize: 50 });
 
     await instance.disable();
 
     expect(instance.isEnabled()).toBe(false);
-    // app.started was queued by initializeTelemetry and flushed by disable()
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(sentEvents(0).map((e) => e.event)).toContain('app.started');
+    expect(fetchMock).not.toHaveBeenCalled();
     await vi.waitFor(() => {
       expect(window.sessionStorage.getItem('telemetryEnabled')).toBe('false');
     });
 
     mod.track('feature.used', { feature: 'after-disable' });
     await instance.cleanup();
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('honors a stored opt-in preference from sessionStorage', async () => {

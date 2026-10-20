@@ -1,0 +1,245 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-19T02:26:05.423391+00:00",
+  "source_parent_commit": "1291570ba581b6cbc21827fc2cfa2a950a76d468",
+  "scope": "Make all seven settings checkboxes distinguish on/off in both themes, with stable names, associated help, visible keyboard focus and 44px targets.",
+  "baseline": {
+    "job": {
+      "id": "3e6fbd00b719",
+      "state": "succeeded",
+      "exit_code": 0,
+      "cwd": "/home/dom/stateset-desktop",
+      "argv": ["bash", "/tmp/stateset-desktop-toggle-baseline/run.sh"],
+      "wait_seconds": 0.02281785011291504,
+      "elapsed_seconds": 26.731817960739136
+    },
+    "measurements_sha256": "221e0b96a3de97f292065e890eebe9043375e4a0f7f4a71d223f288b1cad702c",
+    "native_findings": "All seven light-theme tracks stayed rgb(226,232,240) in both states; all seven dark-theme tracks changed color.",
+    "cause": "The generic light-theme bg-gray-700!important remapping overrode peer-checked backgrounds.",
+    "parent_ci": {
+      "commit": "1291570ba581b6cbc21827fc2cfa2a950a76d468",
+      "status": "passed",
+      "workflows": {
+        "build": "https://github.com/stateset/stateset-desktop/actions/runs/39184652810",
+        "e2e": "https://github.com/stateset/stateset-desktop/actions/runs/39184652703"
+      },
+      "counts": {
+        "unit_files": 232,
+        "unit": 3131,
+        "native_per_suite": 86,
+        "live_skipped_per_suite": 3,
+        "linux_bundle": 2,
+        "independent_bundle": 2,
+        "linux_installers": 3,
+        "settings_design_layouts_per_native_suite": 4,
+        "settings_design_contrast_scans_per_native_suite": 8,
+        "settings_design_screenshots_per_native_suite": 4
+      }
+    }
+  },
+  "implementation": [
+    "Replace seven duplicated tracks with a shared native checkbox field and dedicated theme-token CSS.",
+    "Associate visible captions and help separately so the checkbox name remains exact and its caption is clickable.",
+    "Keep existing preference actions, defaults and notification sound test; maintain a 44x44 input target with a 44x24 visual track.",
+    "Provide contrast for both knob states, the control boundary and visible keyboard focus; use knob position as a second state cue.",
+    "Separate notification/privacy cards with the existing spacing scale; retain twelve native screenshots in both CI workflows."
+  ],
+  "verification": {
+    "job": {
+      "id": "030807ff30f6",
+      "state": "succeeded",
+      "exit_code": 0,
+      "cwd": "/home/dom/stateset-desktop",
+      "argv": ["bash", "/tmp/stateset-desktop-settings-toggles-check.sh"],
+      "wait_seconds": 0.03463244438171387,
+      "elapsed_seconds": 118.30541324615479
+    },
+    "checks": [
+      "Formatting",
+      "Renderer and desktop-test typechecks",
+      "Full uncached strict lint",
+      "34 existing preference/settings tests in 4 files",
+      "Electron compilation",
+      "5 native cases without retries/skips",
+      "Renderer production build"
+    ],
+    "unit": {
+      "passed": 34,
+      "files": 4,
+      "skipped": 0,
+      "report_sha256": "d41d4e0624d9ae8f3826273b6a28a56ae65a7f054486d85cb7157c0f8f82d4b9"
+    },
+    "native": {
+      "stats": {
+        "startTime": "2026-10-19T02:24:40.817Z",
+        "duration": 58658.325000000004,
+        "expected": 5,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "retries": 0,
+      "critical_cases": [
+        "engine connection tests discard stale responses after editing settings",
+        "engine credential removal retains failed keys and confirms native removal",
+        "engine settings stay readable and keyboard accessible in both themes at minimum window width",
+        "settings toggle preferences survive native restart",
+        "settings toggles keep clear states and keyboard focus in both themes at minimum width"
+      ],
+      "report_sha256": "ff5503745c9e8f6e6001717070635c89b319b8e767adbee2d246a36397582038",
+      "toggle_design": {
+        "layouts": 4,
+        "controls": 28,
+        "states": 56,
+        "contrast_scans": 12,
+        "minimums": {
+          "thumbContrast": 5.647658864232564,
+          "boundaryContrast": 7.577663953533317,
+          "focusContrast": 5.933638668604332,
+          "targetWidth": 44,
+          "targetHeight": 44,
+          "outlineWidth": 2,
+          "outlineOffset": 3
+        },
+        "attachment_sha256": "2d21f0133a20ed5784fb70e9953bb6bbd708f5d99f053593ab0117c51519e064"
+      },
+      "persistence": {
+        "keys": [
+          "minimizeToTray",
+          "autoStartAgentsOnLaunch",
+          "compactMode",
+          "reduceMotion",
+          "desktopNotifications",
+          "soundAlerts",
+          "telemetryEnabled"
+        ],
+        "acknowledged": 7,
+        "restored": 7,
+        "transport": "native-profile",
+        "attachment_sha256": "2ec88a46c4e63adcc1204c054e6edad706e78b7f48cb833db5b92114097de850"
+      },
+      "screenshots": {
+        "settings-toggles-standard-dark-background.png": {
+          "sha256": "aa0a9e42ae47ec866af17606a7ed75c0a68601725ca85a6b7551bd3a60c138e9",
+          "width": 2800,
+          "height": 1800
+        },
+        "settings-toggles-standard-dark-appearance.png": {
+          "sha256": "78baf35a54fe48bd08c7b4bd30316fed698f58fd54f58b7af1328ce4574169b4",
+          "width": 2800,
+          "height": 1800
+        },
+        "settings-toggles-standard-dark-notifications.png": {
+          "sha256": "80d863d703adba6a23adea6a9e0d0e2b3673108b25b1189cd939dba54a44428b",
+          "width": 2800,
+          "height": 1800
+        },
+        "settings-toggles-standard-light-background.png": {
+          "sha256": "770fd2511689e1db9d0a719ae24c9dfdaba19e4147ce82b4c0647098c5eb77d2",
+          "width": 2800,
+          "height": 1800
+        },
+        "settings-toggles-standard-light-appearance.png": {
+          "sha256": "28a7cb46dcda62fd42385dd719061c43e54af65391e2c8ec0e09bc510c5c099b",
+          "width": 2800,
+          "height": 1800
+        },
+        "settings-toggles-standard-light-notifications.png": {
+          "sha256": "6cf952245bfb34a25e87b45b5c0232d2d57bfc899620f4d88f1efafa8e8b98e7",
+          "width": 2800,
+          "height": 1800
+        },
+        "settings-toggles-minimum-dark-background.png": {
+          "sha256": "b413850a6b71c4707158c852269655fc909629eab6ba611373161e63016a1bb8",
+          "width": 2000,
+          "height": 1346
+        },
+        "settings-toggles-minimum-dark-appearance.png": {
+          "sha256": "0a30abc7f1e94f5eaf02d7107d92d44050c7e33ee1301e67f12d573726b4a19b",
+          "width": 2000,
+          "height": 1346
+        },
+        "settings-toggles-minimum-dark-notifications.png": {
+          "sha256": "3f9f928d6a9d41ee10e8434900a73e186b0fc071fb7abe9d4f1738f2561e5f15",
+          "width": 2000,
+          "height": 1346
+        },
+        "settings-toggles-minimum-light-background.png": {
+          "sha256": "8445b91d1b7fbb46652d19cb88db2c13a6fe6c8e266717163859342cf5414b45",
+          "width": 2000,
+          "height": 1346
+        },
+        "settings-toggles-minimum-light-appearance.png": {
+          "sha256": "cbb9243cdccbb381700bd7070c234bf9aafbbd4ad090df0e17fbea41c7257da8",
+          "width": 2000,
+          "height": 1346
+        },
+        "settings-toggles-minimum-light-notifications.png": {
+          "sha256": "6da404dc14977f889e019ecbfe6258aa098b7fd85964ef8d5e6ee19362791507",
+          "width": 2000,
+          "height": 1346
+        }
+      },
+      "existing_engine_settings_design": {
+        "layouts": 4,
+        "contrast_scans": 8,
+        "attachment_sha256": "e1cbd0a6d431b3cb254f3f6b1e803ae650497b743436d65438ec07cd2d9a5d2e"
+      }
+    },
+    "source_guard": {
+      "inputs": 669,
+      "manifest_sha256": "268d6a18ceb6b646aab889b3a2eeae58e4570b20fb2b59349a5f0f92ee7e1ccc",
+      "qualification": "Full nonignored source before/after hashes and selected installed lock identity; shared filesystem/dependencies remain mutable, not an immutable source snapshot."
+    },
+    "dependency_audit": {
+      "production": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 0,
+        "critical": 0,
+        "total": 0
+      },
+      "all": {
+        "info": 0,
+        "low": 0,
+        "moderate": 10,
+        "high": 5,
+        "critical": 0,
+        "total": 15
+      },
+      "qualification": "Unchanged package/lock bytes retain the prior source-bound audit (production 0, development 15 affected-package entries). This is not a fresh full audit; the new exact-head CI production gate is required."
+    },
+    "dependency_audit_qualification": "Package metadata/resolutions unchanged. Parent complete development audit remains inherited; new full audit not claimed.",
+    "collector_sha256": "fe1b318103d427fb9315a6a9b65cce64fed3ebc9a1d432c22566243c167e7486",
+    "receipt_validator_sha256": "4891f4bba38ad7eea755ff04429cfadf920d48fa480848a1ed35d5bedc43b7e2",
+    "earlier_format_failure": {
+      "failed_job": "4c26670adf61",
+      "qualification": "New test attach call chains needed a second formatter pass. No typecheck/unit/native command ran. Application source and test assertions unchanged."
+    },
+    "visual_refinement": {
+      "prior_passing_job": "78293b699ee2",
+      "finding": "Native minimum-width captures show notification and privacy card borders touching.",
+      "change": "Add existing space-y-5 layout around the two cards; preferences/controls unchanged."
+    },
+    "full_ci": "Required after committing; local counts are not full-suite or multi-platform acceptance."
+  },
+  "changed_source_sha256": {
+    ".github/workflows/build-release.yml": "2c4a914aa560198080f6cda92255232babe9e85bd2c4dcb0db92f0a76333df7a",
+    ".github/workflows/e2e.yml": "791368ea951b6afdc6c2cdc5c7d49176e6b2022c8fac0e090181609a445a95c5",
+    "CHANGELOG.md": "56d9455a2b4b7f45db4e5144e75f34cb07d4968ac45c00b39f6a137f2641497e",
+    "e2e/settings-toggles.electron.spec.ts": "7e7a8d02dad3a98235d230e6115acb1f40b1e66afa7be179dbb9955d88b0da49",
+    "src/features/settings/components/AppearanceSettings.tsx": "dd43150e5a4a3179d23c8a8ee2837b2b0f6ba5591ce78e88964d385a05f6bc0a",
+    "src/features/settings/components/BackgroundSettings.tsx": "a746278bd69f0aa85beb0ca9c820beb9adf92deeafe166676abdbe6188e98efb",
+    "src/features/settings/components/NotificationSettings.tsx": "05f627a7973061572bc830fbf78e480883e522b251b5963b007d257abdd2ce7a",
+    "src/features/settings/components/SettingsToggle.tsx": "b0e7a9fec5f0b5ed2fd7a1ad66399929d4dd5ccb497eb4f05e59f7fc97511196",
+    "src/index.css": "754195fcef06dad5dbda450e60ee303dd07ad927d5c0599fd62df7d1299049de"
+  },
+  "limitations": [
+    "Owned-profile/native checks use injected API responses; no live engine/Temporal/sandbox/provider/NSR acceptance.",
+    "Scoped text/control contrast and measured layouts are not a whole-app accessibility audit.",
+    "Preference restart checks establish these seven native profile settings; they do not establish OS-keyring persistence.",
+    "Linux local runtime and unsigned review CI do not establish signed update delivery/install/restart or macOS/Windows runtime acceptance.",
+    "No release, deployment, version bump or PR merge is performed by this increment."
+  ]
+}

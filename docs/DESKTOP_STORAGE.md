@@ -24,6 +24,38 @@ atomic configuration storage on startup. Configuration writes use owner-only
 permissions. Release bundles include the runtime and built renderer, excluding
 Electron unit test files and `dist/verification` artifacts.
 
+## Engine connection settings
+
+Connection tests use the saved engine URL and credential. Save edited values
+before testing; changing a draft does not silently update the saved connection.
+Health feedback is scoped to the current workspace, saved connection and draft.
+An obsolete response cannot replace a newer result, including when settings are
+changed and then restored while a check is pending.
+
+Credential removal requires an actual native handler and an accepted
+acknowledgement. A rejected or false acknowledgement leaves the configured key
+available and shows an error for retry. If deletion succeeds but refreshing the
+connection fails, the key stays removed and its connection revision remains
+unavailable until a later configuration refresh. Saving, testing and removal do not overlap
+through the settings controls. Fields remain editable during a save so a newer
+draft can be retained; completion feedback never clears that newer draft.
+
+### Native workflow connections
+
+The desktop sends workflow HTTP requests and event streams through its native
+bridge using the saved engine URL, credential and connection revision. This
+supports custom HTTPS engines and HTTP loopback engines without widening the
+packaged renderer's Content Security Policy. Browser previews without that bridge
+continue to use renderer networking and its CSP/CORS restrictions; a native
+request failure never switches transport to bypass the failure.
+
+The bridge accepts only supported workflow routes from the current application's
+top-level window. It obtains credentials from native storage, rejects redirects,
+and binds work to the saved connection revision. Changing that connection,
+replacing or closing the renderer, or explicitly cancelling an operation aborts
+its pending network work. Events retain their resume cursor and cannot update a
+workspace after its connection or organization changes.
+
 ## Scheduled workflow recovery
 
 Schedules are managed by the open desktop application. Before sending a scheduled
@@ -46,6 +78,29 @@ identity needed for recovery. A known unsent occurrence can be retried or edited
 Malformed saved pending records stop workflow settings from loading so they cannot
 be silently discarded by a later save. Keep the original profile and restore a
 valid backup if retrying cannot recover its records.
+
+## Custom background agents
+
+Custom agent saves and removals share a write queue. Each operation uses the
+latest acknowledged collection, and submitted profiles are copied before they
+wait. Missing desktop storage, rejected writes and false acknowledgements leave
+the previous profiles available for retry.
+
+The agent editor keeps its fields and actions stable while a save or removal is
+pending. Failed creation retains the draft; failed removal retains the saved
+profile. Removing a profile leaves an unrelated new-agent draft intact. Existing
+workflows keep their agent snapshots and are unaffected by profile removal.
+Saved-agent status and mutations remain unavailable until settings load.
+Save and removal errors appear above the open editor so their feedback stays
+readable and dismissible while the draft remains available for retry.
+
+New profiles and workflow launch requests validate engine-bound model, connector
+key and instruction limits using UTF-8 bytes. The editor keeps oversized
+instructions editable with a byte count and field error. It does not truncate the
+draft. Existing saved profiles, blueprints and schedules remain available even
+when an older agent definition exceeds current engine limits; a new launch asks
+for a corrected definition before sending work. A submitted scheduled occurrence
+can still be recovered by its original workflow identity.
 
 ## Workflow blueprints
 
@@ -84,6 +139,16 @@ the production renderer after its initial navigation and closes the native windo
 through the normal IPC bridge. A startup screenshot is saved to
 `dist/verification/linux-bundle-startup.png`. Electron documents Linux application data isolation
 through [`XDG_CONFIG_HOME`](https://www.electronjs.org/docs/latest/api/app#appgetpathname).
+
+The same bundle suite checks a saved custom HTTPS engine through the public
+preload bridge. An owned local server and a temporary certificate authority let
+it verify TLS rejection without trust, a scoped trusted child process, enforced
+renderer CSP, authenticated workflow requests, event streaming, cancellation and
+stale revision rejection. The certificate is trusted only by that test process;
+private keys and credentials are excluded from the transport receipt at
+`dist/verification/custom-engine-native-transport.json`. Both CI workflows retain
+the packaged reports and this receipt. The server simulates engine responses;
+these checks do not establish live Temporal, sandbox or policy execution.
 
 The ordinary Electron project also tests the packaged startup branch with an
 isolated bootstrap, including legacy plaintext migration. Neither test uses live

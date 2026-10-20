@@ -6,6 +6,7 @@ import { DurableChatSetup } from './DurableChatSetup';
 import { DEFAULT_CHAT_CONFIGURATION, type DurableChatConfiguration } from './durableTypes';
 import type { CheckedSetup } from './setup';
 import { useDurableWorkflowsStore } from '../../stores/durableWorkflows';
+import requiredSetupChecks from './setup-checks.json';
 
 const request = vi.fn();
 const onReport = vi.fn();
@@ -13,7 +14,11 @@ const onError = vi.fn();
 const ready = {
   version: 1,
   ready: true,
-  checks: [{ key: 'sandbox', status: 'pass', message: 'Computer service ready' }],
+  checks: requiredSetupChecks.map((key) => ({
+    key,
+    status: 'pass',
+    message: key === 'sandbox' ? 'Computer service ready' : `${key} configured`,
+  })),
   mcp_servers: [
     { key: 'reports', ready: true },
     { key: 'inventory', ready: true },

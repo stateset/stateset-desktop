@@ -193,6 +193,53 @@
 .chat-connection-age {
   font-size: 11px;
 }
+.chat-issue-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  flex-shrink: 0;
+  max-height: 35%;
+  overflow: auto;
+  margin: 0 28px 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--chat-border);
+  border-radius: 10px;
+  background: var(--chat-subtle);
+  color: var(--chat-muted);
+  font-size: 12px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.chat-issue-notice > svg,
+.chat-issue-title {
+  color: var(--chat-warning);
+}
+.chat-issue-title {
+  font-weight: 500;
+}
+.chat-issue-details summary,
+.chat-tool-disclosure summary {
+  cursor: pointer;
+}
+.chat-issue-details pre {
+  max-height: 120px;
+  overflow: auto;
+  margin-top: 8px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 11px;
+}
+.chat-tool-disclosure {
+  margin: 0 28px;
+  padding: 12px 0;
+  border-top: 1px solid var(--chat-border);
+  color: var(--chat-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.chat-tool-disclosure > summary {
+  color: var(--chat-text);
+}
 .chat-connection-status {
   margin: 0 28px 4px;
   font-size: 10px;

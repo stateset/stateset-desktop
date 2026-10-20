@@ -25,6 +25,7 @@ beforeEach(() => {
     chats: [fixture()],
     busy: {},
     connections: {},
+    activities: {},
     persistenceError: undefined,
     loaded: true,
     updateMetadata,
@@ -42,6 +43,49 @@ function open() {
   fireEvent.click(screen.getByLabelText('Options for October report'));
 }
 describe('conversation library controls', () => {
+  it('updates live activity without changing the chat or losing search focus and restores saved review', () => {
+    const value = {
+      ...fixture(),
+      sandboxApiSession: { version: 1 as const },
+      error: 'Review required',
+    };
+    store.setState({ chats: [value] });
+    const onSelect = vi.fn();
+    render(<ChatLibrary onSelect={onSelect} onError={vi.fn()} />);
+    const search = screen.getByRole('searchbox', { name: 'Search conversations' });
+    fireEvent.change(search, { target: { value: 'October' } });
+    search.focus();
+    expect(screen.getByText('Needs attention')).toHaveAttribute('data-tone', 'attention');
+    act(() => store.getState().setActivity(value.id, { kind: 'agent', pausing: false }));
+    expect(screen.getByText('Working')).toHaveAttribute('data-tone', 'active');
+    act(() => store.getState().setActivity(value.id, { kind: 'agent', pausing: true }));
+    expect(screen.getByText('Pausing…')).toHaveAttribute('data-tone', 'paused');
+    expect(search).toHaveValue('October');
+    expect(search).toHaveFocus();
+    expect(store.getState().chats[0]).toBe(value);
+    expect(onSelect).not.toHaveBeenCalled();
+    act(() => store.getState().setActivity(value.id));
+    expect(screen.getByText('Needs attention')).toHaveAttribute('data-tone', 'attention');
+    expect(search).toHaveFocus();
+  });
+  it('keeps active agent work out of interrupted-work attention counts until activity ends', () => {
+    const value = {
+      ...fixture(),
+      sandboxApiSession: { version: 1 as const },
+      agentTurnUnfinished: true,
+    };
+    store.setState({ chats: [value] });
+    act(() => store.getState().setActivity(value.id, { kind: 'agent', pausing: false }));
+    render(<ChatLibrary onSelect={vi.fn()} onError={vi.fn()} />);
+    const filter = screen.getByRole('combobox', { name: 'Filter conversations' });
+    fireEvent.change(filter, { target: { value: 'attention' } });
+    expect(screen.getByRole('list', { name: 'Saved conversations' })).toBeEmptyDOMElement();
+    expect(screen.queryByRole('option', { name: 'Needs attention (1)' })).not.toBeInTheDocument();
+    act(() => store.getState().setActivity(value.id));
+    expect(screen.getByText('Work interrupted')).toBeVisible();
+    expect(screen.getByRole('option', { name: 'Needs attention (1)' })).toBeInTheDocument();
+    expect(filter).toHaveValue('attention');
+  });
   it('renames a conversation without changing its computer identity', async () => {
     render(<ChatLibrary onSelect={vi.fn()} onError={vi.fn()} />);
     open();

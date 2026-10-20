@@ -72,6 +72,95 @@ describe('localSecretsApi', () => {
     expect(payload.tenant1).toBeDefined();
   });
 
+  it.each([false, undefined])(
+    'rejects an unconfirmed credential save (%s) and permits a later retry',
+    async (ack) => {
+      const { setLocal } = createElectronSecretsMock('{}');
+      setLocal.mockResolvedValueOnce(ack);
+      const { localSecretsApi } = await import('./localSecrets');
+      await expect(
+        localSecretsApi.storeCredentials('tenant', 'brand', 'nsr', { api_key: 'key' })
+      ).rejects.toThrow('did not confirm the save');
+      await expect(
+        localSecretsApi.storeCredentials('tenant', 'brand', 'nsr', { api_key: 'new-key' })
+      ).resolves.toBeUndefined();
+      expect(setLocal).toHaveBeenCalledTimes(2);
+    }
+  );
+  it('serializes overlapping brand saves against the latest vault and snapshots submitted values', async () => {
+    const { getLocal, setLocal } = createElectronSecretsMock('{}');
+    let vault = '{}';
+    let finish!: () => void;
+    getLocal.mockImplementation(async () => vault);
+    setLocal
+      .mockImplementationOnce(
+        (payload: string) =>
+          new Promise<boolean>((resolve) => {
+            finish = () => {
+              vault = payload;
+              resolve(true);
+            };
+          })
+      )
+      .mockImplementation(async (payload: string) => {
+        vault = payload;
+        return true;
+      });
+    const { localSecretsApi } = await import('./localSecrets');
+    const first = localSecretsApi.storeCredentials('tenant', 'first', 'nsr', {
+      api_key: 'first-key',
+    });
+    await vi.waitFor(() => expect(finish).toBeTypeOf('function'));
+    const submitted = { api_key: 'second-key' };
+    const second = localSecretsApi.storeCredentials('tenant', 'second', 'nsr', submitted);
+    submitted.api_key = 'unsaved-edit';
+    expect(getLocal).toHaveBeenCalledOnce();
+    finish();
+    await Promise.all([first, second]);
+    const result = JSON.parse(vault);
+    expect(result.tenant.first.nsr.credentials.api_key).toBe('first-key');
+    expect(result.tenant.second.nsr.credentials.api_key).toBe('second-key');
+  });
+  it('retains a concurrent brand save when removing a different brand connection', async () => {
+    const { getLocal, setLocal } = createElectronSecretsMock();
+    let vault = JSON.stringify({
+      tenant: { first: { nsr: { credentials: { api_key: 'old-key' }, updated_at: '' } } },
+    });
+    let finish!: () => void;
+    getLocal.mockImplementation(async () => vault);
+    setLocal
+      .mockImplementationOnce(
+        (payload: string) =>
+          new Promise<boolean>((resolve) => {
+            finish = () => {
+              vault = payload;
+              resolve(true);
+            };
+          })
+      )
+      .mockImplementation(async (payload: string) => {
+        vault = payload;
+        return true;
+      });
+    const { localSecretsApi } = await import('./localSecrets');
+    const saving = localSecretsApi.storeCredentials('tenant', 'second', 'nsr', {
+      api_key: 'new-key',
+    });
+    await vi.waitFor(() => expect(finish).toBeTypeOf('function'));
+    const deleting = localSecretsApi.deleteCredentials('tenant', 'first', 'nsr');
+    finish();
+    await Promise.all([saving, deleting]);
+    expect(JSON.parse(vault).tenant.first).toBeUndefined();
+    expect(JSON.parse(vault).tenant.second.nsr.credentials.api_key).toBe('new-key');
+  });
+  it('rejects an unconfirmed credential removal', async () => {
+    const { clearLocal } = createElectronSecretsMock(payloadWith({ token: 'keep-me' }));
+    clearLocal.mockResolvedValueOnce(false);
+    const { localSecretsApi } = await import('./localSecrets');
+    await expect(localSecretsApi.deleteCredentials('t', 'b', 'stateset-sync')).rejects.toThrow(
+      'did not confirm the removal'
+    );
+  });
   it('deletes credentials and clears storage when state becomes empty', async () => {
     const { clearLocal, setLocal } = createElectronSecretsMock(
       JSON.stringify({

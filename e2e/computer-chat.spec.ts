@@ -10,6 +10,7 @@ import { DESKTOP_TEST_ORIGIN } from './dev-server';
 import { installDesktopApiFixture } from './api-fixture';
 import { DEFAULT_CHAT_CONFIGURATION } from '../src/features/computer-chat/durableTypes';
 import type { DurableChatStatus } from '../src/features/computer-chat/durableTypes';
+import requiredSetupChecks from '../src/features/computer-chat/setup-checks.json';
 
 const tenant = {
   id: '11111111-1111-4111-8111-111111111111',
@@ -66,7 +67,11 @@ async function startEngine() {
       reply({
         version: 1,
         ready: true,
-        checks: [{ key: 'engine', status: 'pass', message: 'Native bridge connected' }],
+        checks: requiredSetupChecks.map((key) => ({
+          key,
+          status: 'pass',
+          message: key === 'sandbox' ? 'Native bridge connected' : `${key} configured`,
+        })),
         mcp_servers: [],
       });
       return;
@@ -194,6 +199,10 @@ async function openChats(
   await page.reload();
   await page.getByRole('link', { name: 'Chats', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Chats', exact: true })).toBeVisible();
+  // This suite verifies the optional engine-owned workflow runtime explicitly.
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await page.getByLabel('New chat runtime').selectOption('workflow');
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
   return page;
 }
 

@@ -1,3 +1,4 @@
+import { desktopServiceFetch } from './desktopServiceTransport';
 /**
  * Sandbox API Client
  *
@@ -10,6 +11,16 @@ const SANDBOX_API_URL = import.meta.env.VITE_SANDBOX_API_URL || 'https://api.san
 const RETRYABLE_STATUS_CODES = [429, 500, 502, 503, 504];
 const RETRY_SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
+export class SandboxRequestError extends Error {
+  constructor(
+    message: string,
+    readonly status: number
+  ) {
+    super(message);
+    this.name = 'SandboxRequestError';
+  }
+}
+
 type SandboxRequestOptions = RequestInit & {
   timeoutMs?: number;
   maxRetries?: number;
@@ -17,6 +28,7 @@ type SandboxRequestOptions = RequestInit & {
   retryOn?: 'safe' | 'all';
   clearAuthOnUnauthorized?: boolean;
   includeAuthHeader?: boolean;
+  authFallback?: boolean;
 };
 
 // ============================================
@@ -134,6 +146,7 @@ export async function sandboxRequest<T>(
     retryOn = 'safe',
     clearAuthOnUnauthorized = true,
     includeAuthHeader = true,
+    authFallback = true,
     ...fetchOptions
   } = options;
 
@@ -142,30 +155,49 @@ export async function sandboxRequest<T>(
 
   let lastError: Error | null = null;
   let lastStatus: number | undefined;
+  const sandboxApiKey = useAuthStore.getState().sandboxApiKey;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    const controller = fetchOptions.signal ? null : new AbortController();
-    const timeoutId = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+    const controller = new AbortController();
+    const cancel = () => controller.abort(fetchOptions.signal?.reason);
+    fetchOptions.signal?.addEventListener('abort', cancel, { once: true });
+    if (fetchOptions.signal?.aborted) cancel();
+    let timedOut = false;
+    const timeoutId = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, timeoutMs);
 
     try {
-      const sandboxApiKey = useAuthStore.getState().sandboxApiKey;
       const authCandidates: SandboxAuthHeaderCandidate[] =
-        includeAuthHeader && sandboxApiKey ? buildAuthHeaderCandidates(sandboxApiKey) : [{}];
+        includeAuthHeader && sandboxApiKey
+          ? buildAuthHeaderCandidates(sandboxApiKey).slice(0, authFallback ? undefined : 1)
+          : [{}];
 
       let response: Response | null = null;
 
       for (let candidateIndex = 0; candidateIndex < authCandidates.length; candidateIndex++) {
-        response = await fetch(`${SANDBOX_API_URL}${path}`, {
-          ...fetchOptions,
-          signal: fetchOptions.signal ?? controller?.signal,
-          headers: {
-            ...buildHeaders(
-              fetchOptions.headers,
-              fetchOptions.body,
-              authCandidates[candidateIndex]
-            ),
+        if (includeAuthHeader && useAuthStore.getState().sandboxApiKey !== sandboxApiKey)
+          throw new Error('The Sandbox API connection changed. Retry with the current connection.');
+        controller.signal.throwIfAborted();
+        response = await desktopServiceFetch(
+          'sandbox',
+          SANDBOX_API_URL,
+          path,
+          {
+            ...fetchOptions,
+            redirect: 'error',
+            signal: controller.signal,
+            headers: {
+              ...buildHeaders(
+                fetchOptions.headers,
+                fetchOptions.body,
+                authCandidates[candidateIndex]
+              ),
+            },
           },
-        });
+          { timeoutMs }
+        );
 
         lastStatus = response.status;
         const isAuthError = response.status === 401 || response.status === 403;
@@ -187,16 +219,20 @@ export async function sandboxRequest<T>(
         let errorMessage = `HTTP ${response.status}`;
         try {
           const parsed = JSON.parse(errorText);
-          errorMessage = parsed.error || parsed.message || errorMessage;
+          const message =
+            typeof parsed.error === 'string'
+              ? parsed.error
+              : (parsed.error?.message ?? parsed.message);
+          if (typeof message === 'string') errorMessage = message;
         } catch {
           if (errorText) errorMessage = errorText;
         }
-        const error = new Error(errorMessage);
+        const error = new SandboxRequestError(errorMessage, response.status);
         lastError = error;
 
-        if (clearAuthOnUnauthorized && (response.status === 401 || response.status === 403)) {
+        if (clearAuthOnUnauthorized && response.status === 401) {
           const authState = useAuthStore.getState();
-          if (authState.sandboxApiKey && includeAuthHeader) {
+          if (sandboxApiKey && authState.sandboxApiKey === sandboxApiKey && includeAuthHeader) {
             void authState.clearSandboxApiKey();
           }
         }
@@ -217,7 +253,9 @@ export async function sandboxRequest<T>(
         clearTimeout(timeoutId);
       }
 
-      if (error instanceof DOMException && error.name === 'AbortError') {
+      if (fetchOptions.signal?.aborted) {
+        throw fetchOptions.signal.reason ?? new DOMException('Request cancelled', 'AbortError');
+      } else if (timedOut) {
         lastError = new Error('Request timed out');
       } else if (error instanceof Error) {
         lastError = error;
@@ -231,6 +269,7 @@ export async function sandboxRequest<T>(
 
       throw lastError;
     } finally {
+      fetchOptions.signal?.removeEventListener('abort', cancel);
       if (timeoutId) {
         clearTimeout(timeoutId);
       }

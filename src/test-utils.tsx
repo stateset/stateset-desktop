@@ -52,7 +52,7 @@ export function mockElectronAPI() {
     },
     store: {
       get: vi.fn().mockResolvedValue(undefined),
-      set: vi.fn().mockResolvedValue(undefined),
+      set: vi.fn().mockResolvedValue(true),
     },
     app: {
       getVersion: vi.fn().mockReturnValue('1.0.1-test'),

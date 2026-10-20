@@ -6,6 +6,74 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## Unreleased
 
+## [1.1.25] - 2026-10-20
+
+### Changed
+
+- Validate file-check paths, digests and byte limits inline and again before status/evidence requests. Keep invalid entries editable, expose progress and retry without automatic resubmission, and label saved receipts as the last recorded check with technical metadata collapsed.
+- Preserve NSR error provenance for transport failures and malformed decision/proof responses without exposing backend payloads. Keep caller cancellation and workspace-change guards intact, and route missing file-verification policy keys to connection settings.
+- Give Sandbox chat errors service-specific guidance for provider credits, model access, policy credentials and proof failures. Retain technical details under a disclosure, route proof failures to file review, and avoid showing ready guidance beneath an unresolved error.
+- Keep computer/session identifiers under Session details and use shared theme surfaces for chat notices and tool disclosures.
+- Bound saved upstream error details and redact both the request-start and current Sandbox keys before persistence. Preserve error guidance during read-only computer status checks.
+- Give each settings-toggle layout its own native test budget, preserving interaction and contrast assertions without increasing timeouts. Native execution remains unverified after the user-requested Playwright stop.
+
+### Added
+
+- Check saved Sandbox connections on demand through the read-only capabilities endpoint. Validate complete versioned responses, retain rejected keys, discard stale results after key/workspace changes, and distinguish declared capabilities from actual model credits, execution, NSR and Temporal acceptance.
+- Add `doctor:release` with structured local checks and optional read-only GitHub evidence for source tags, signing settings and installer publication. Preserve all existing publication gates.
+
+## [1.1.24] - 2026-10-20
+
+### Added
+
+- Show a compact computer-access and policy-key checklist in Chat settings, with clear organization/brand scope, local-versus-live status and keyring lifetime guidance.
+- Save model and NSR preferences per Sandbox chat after confirmed storage, restore them when reopening, and show policy-off status outside collapsed settings. Keep unsaved preferences from starting new work.
+- Keep Sandbox chat drafts editable during computer setup, agent work and pending-action review. Block submission while unavailable, preserve newer edits during send acknowledgement, and require an explicit send after work finishes.
+- Add a compact action recovery panel with state-specific controls, original request/computer details and bounded, unverified output previews. Keep unsafe recovery controls hidden and the composer and Stop computer visible.
+- Independently check a Sandbox API chat's workspace file against expected text or a SHA-256 digest through NSR. Validate exact collected bytes and identity-bound receipts; retain receipt metadata, mark earlier checks outdated after work continues, and keep file contents and expectations out of saved transcripts.
+
+### Fixed
+
+- Close test-owned Electron processes and remove their temporary profiles after each native case while retaining suite-owned windows, preventing accumulation during long desktop regressions.
+
+- Send Sandbox and NSR requests through a restricted native transport so hosted API preflights cannot block desktop chats. Bind requests to saved endpoints and credentials, reject redirects and foreign destinations, and cancel owned requests when their document closes.
+
+- Require acknowledged credential saves and removals, serialize vault changes across brands, retain failed entries after partial setup saves, and prevent late saves from continuing after a workspace switch.
+- Retain unfinished agent work with the saved task before inference begins. After reopening, distinguish interrupted work from an idle computer, include it in Needs attention, and require an explicit follow-up without replaying the task or its actions.
+- Share live Sandbox activity across the conversation header, saved-chat library and command search. Show setup, pausing, recovery, file checks and shutdown consistently, then restore the saved state when work finishes.
+- Honor pause requests at setup, inference and action boundaries; retain late session identities and execution receipts without starting another step. Show pending pause and saved paused state, keep cleanup uninterrupted, and reject foreign shutdown identities.
+- Validate model names in UTF-8 bytes before computer access or draft submission, preserving tasks when model settings are invalid.
+- Use the shared, bounded transcript reader for Sandbox API chats, including older history, position-preserving updates and keyboard-accessible return to latest. Distinguish stopped, interrupted and actively preparing computers in empty chat guidance.
+- Recover pending work through read-only session reconciliation without allocating or starting a computer. Include pending actions in attention filtering even without an error.
+- Bind pending computer actions to their original organization, session and sandbox before dispatch. Block replay and output acceptance after identity changes, retain uncertain receipts, and reject foreign status/startup identities.
+- Check for the scoped NSR key before model inference, preserve unsent tasks when setup is incomplete, and offer connection settings beside chat errors.
+- Use NSR Decisions API requests and organization-scoped API-key headers for desktop action and file checks. Require exact-goal proof replay, live approvals and execution routing; keep file contents and expectations local while submitting bound comparison observations.
+- Retain every observed Sandbox API computer identity across session completion and desktop restarts so cleanup cannot be confirmed without checking the known computers.
+- Preserve newly saved Sandbox API credentials after stale failures, distinguish inference-provider authentication failures, and enforce request deadlines alongside user cancellation.
+- Carry bounded tool observations into follow-up agent turns, require fresh GUI observations, and clarify the scope of NSR execution-policy checks without persisting raw tool output.
+
+## [1.1.23] - 2026-10-19
+
+### Added
+
+- Create a dedicated computer in the background for each new chat using the Sandbox API. Preserve chat/session identities, retry setup without allocating another session, and reopen saved computers without replaying actions. Keep durable workflows available as an explicit runtime option.
+
+## [1.1.22] - 2026-10-19
+
+### Fixed
+
+- Require complete, unambiguous sandbox and policy capability checks before accepting computer readiness. Add a read-only preflight for engine database/Temporal health and live acceptance configuration, without starting workflows or exposing credentials.
+- Wait for confirmed settings and owned sessions before automatically restarting agents. Cancel obsolete recovery after workspace, authentication or preference changes, preserve saved restart IDs while loading, and avoid duplicate submitted starts.
+- Stop telemetry immediately when sharing is turned off, including failed saves; show acknowledged preference states, persistence errors and retry actions.
+- Make all seven settings toggles distinguish on and off in both themes, with visible keyboard focus, larger click targets, and associated descriptions.
+- Keep engine connection settings readable in light and dark themes, with consistent primary actions and an API-key label separated from credential storage help.
+- Use the saved engine connection for native workflow requests and event streams, including custom origins in packaged apps. Keep CSP and TLS enforcement, cancel obsolete work, and verify the public bridge against an owned HTTPS engine fixture.
+- Keep engine connection feedback tied to the current saved connection, workspace and draft. Ignore obsolete health responses, explain unsaved changes before testing, and preserve configured credentials when removal fails.
+- Keep notifications readable and dismissible above open dialogs, including agent save failures that retain the current draft.
+- Validate agent instructions, models and connector keys against engine UTF-8 byte limits before saving new profiles or submitting work. Preserve oversized drafts and legacy saved definitions, and keep local validation failures distinct from uncertain scheduled launches.
+- Preserve custom background agents through concurrent saves and storage failures. Keep drafts available for retry, guard pending creation and removal, and use readable agent-editor surfaces in both themes.
+- Keep dialogs above page clipping and sidebar stacking so their titles, saved profiles, and form controls remain fully visible.
+
 ## [1.1.21] - 2026-10-17
 
 ### Changed

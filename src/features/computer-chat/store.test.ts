@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useComputerChatsStore as store } from './store';
 import type { ComputerChat } from './types';
 import { DEFAULT_CHAT_CONFIGURATION } from './durableTypes';
+import { sandboxPreferencesKey } from './sandboxPreferences';
 
 function fixture(): ComputerChat {
   return {
@@ -23,7 +24,13 @@ function fixture(): ComputerChat {
   };
 }
 beforeEach(() => {
-  store.setState({ chats: [], loaded: false, busy: {}, persistenceError: undefined });
+  store.setState({
+    chats: [],
+    loaded: false,
+    busy: {},
+    persistenceError: undefined,
+    sandboxPreferences: {},
+  });
   window.electronAPI = {
     store: { get: vi.fn(), set: vi.fn().mockResolvedValue(true) },
   } as unknown as typeof window.electronAPI;
@@ -37,6 +44,137 @@ afterEach(async () => {
 });
 
 describe('computer chat persistence', () => {
+  it('restores typed failure guidance without discarding a chat that has a newer unknown issue code', async () => {
+    const first = {
+      ...fixture(),
+      error: 'Insufficient credits',
+      errorCode: 'provider-credit' as const,
+    };
+    const newer = { ...fixture(), error: 'Newer client issue', errorCode: 'future-issue-code' };
+    vi.mocked(window.electronAPI!.store.get).mockImplementation(async (key) =>
+      key === 'computerChats' ? [first, newer] : undefined
+    );
+    await store.getState().initialize();
+    expect(store.getState().chats.find((item) => item.id === first.id)).toMatchObject({
+      error: 'Insufficient credits',
+      errorCode: 'provider-credit',
+    });
+    expect(store.getState().chats.find((item) => item.id === newer.id)).toMatchObject({
+      error: 'Newer client issue',
+    });
+    expect(store.getState().chats.find((item) => item.id === newer.id)?.errorCode).toBeUndefined();
+  });
+  it('commits scoped Sandbox preferences after acknowledgement, serializes saves and preserves concurrent drafts', async () => {
+    const first = { ...fixture(), sandboxApiSession: { version: 1 as const } };
+    const second = {
+      ...fixture(),
+      sandboxApiSession: { version: 1 as const },
+      brandId: 'other-brand',
+    };
+    await store.getState().save(first);
+    await store.getState().save(second);
+    let release!: () => void;
+    const write = vi.mocked(window.electronAPI!.store.set);
+    write.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          release = () => resolve(true);
+        })
+    );
+    const firstSave = store
+      .getState()
+      .setSandboxPreferences(first.id, { model: 'first-model', verify: false });
+    await vi.waitFor(() => expect(release).toBeTypeOf('function'));
+    const secondSave = store
+      .getState()
+      .setSandboxPreferences(second.id, { model: 'second-model', verify: true });
+    try {
+      expect(store.getState().sandboxPreferences).toEqual({});
+      store.getState().setDraft(first.id, 'Concurrent draft');
+    } finally {
+      release();
+      await Promise.all([firstSave, secondSave]);
+    }
+    expect(store.getState().sandboxPreferences).toEqual({
+      [sandboxPreferencesKey(first)]: { model: 'first-model', verify: false },
+      [sandboxPreferencesKey(second)]: { model: 'second-model', verify: true },
+    });
+    expect(write.mock.lastCall).toEqual([
+      'sandboxChatPreferences',
+      store.getState().sandboxPreferences,
+    ]);
+    expect(store.getState().chats.find((chat) => chat.id === first.id)?.draft).toBe(
+      'Concurrent draft'
+    );
+  });
+
+  it.each([false, undefined])(
+    'retains acknowledged preferences after an unconfirmed save (%s) and permits retry',
+    async (acknowledgement) => {
+      const chat = { ...fixture(), sandboxApiSession: { version: 1 as const } };
+      await store.getState().save(chat);
+      const before = { model: 'original', verify: true };
+      await store.getState().setSandboxPreferences(chat.id, before);
+      vi.mocked(window.electronAPI!.store.set).mockResolvedValueOnce(acknowledgement as boolean);
+      await expect(
+        store.getState().setSandboxPreferences(chat.id, { model: 'changed', verify: false })
+      ).rejects.toThrow('did not confirm');
+      expect(store.getState().sandboxPreferences[sandboxPreferencesKey(chat)]).toEqual(before);
+      await store.getState().setSandboxPreferences(chat.id, { model: 'changed', verify: false });
+      expect(store.getState().sandboxPreferences[sandboxPreferencesKey(chat)]).toEqual({
+        model: 'changed',
+        verify: false,
+      });
+    }
+  );
+
+  it('restores only valid preferences for each exact chat scope without dropping invalid or legacy chats', async () => {
+    const first = { ...fixture(), sandboxApiSession: { version: 1 as const } };
+    const second = { ...fixture(), sandboxApiSession: { version: 1 as const } };
+    const legacy = fixture();
+    const preferences = {
+      [sandboxPreferencesKey(first)]: { model: 'custom-model', verify: false },
+      [sandboxPreferencesKey(second)]: { model: ' ', verify: false },
+      [sandboxPreferencesKey({ ...second, brandId: 'foreign' })]: {
+        model: 'foreign-model',
+        verify: false,
+      },
+      [sandboxPreferencesKey(legacy)]: { model: 'legacy-model', verify: false },
+    };
+    vi.mocked(window.electronAPI!.store.get).mockImplementation(async (key) =>
+      key === 'computerChats'
+        ? [first, second, legacy]
+        : key === 'sandboxChatPreferences'
+          ? preferences
+          : undefined
+    );
+    await store.getState().initialize();
+    expect(store.getState().chats).toHaveLength(3);
+    expect(store.getState().sandboxPreferences).toEqual({
+      [sandboxPreferencesKey(first)]: preferences[sandboxPreferencesKey(first)],
+    });
+  });
+  it('retains the Sandbox API runtime marker and session identity across reload', async () => {
+    const chat = {
+      ...fixture(),
+      sandboxApiSession: { version: 1 as const },
+      draft: 'Unsent work',
+      pauseNotice: 'Work paused. Your chat and computer are still available.',
+      agentTurnUnfinished: true,
+    };
+    vi.mocked(window.electronAPI!.store.get).mockImplementation(async (key) =>
+      key === 'computerChats' ? [chat] : undefined
+    );
+    await store.getState().initialize();
+    expect(store.getState().chats[0]).toMatchObject({
+      id: chat.id,
+      sandboxApiSession: { version: 1 },
+      session: chat.session,
+      draft: 'Unsent work',
+      pauseNotice: chat.pauseNotice,
+      agentTurnUnfinished: true,
+    });
+  });
   it('serializes brand default saves and merges each committed brand', async () => {
     store.setState({ configurations: {} });
     let release!: (value: boolean) => void;
@@ -174,6 +312,7 @@ describe('computer chat persistence', () => {
     store.getState().setDraft(first.id, 'Unfinished');
     store.getState().setDraft(first.id, 'Unfinished instruction');
     store.getState().setDraft(second.id, 'Different draft');
+    store.getState().setDraft(first.id, 'Unfinished instruction');
     expect(window.electronAPI!.store.set).not.toHaveBeenCalled();
     expect(store.getState().chats.map((c) => c.id)).toEqual([second.id, first.id]);
     await vi.advanceTimersByTimeAsync(350);
@@ -184,9 +323,11 @@ describe('computer chat persistence', () => {
     await store.getState().initialize();
     expect(store.getState().chats.find((c) => c.id === first.id)).toMatchObject({
       draft: 'Unfinished instruction',
+      draftRevision: 2,
       updatedAt: first.updatedAt,
     });
     expect(store.getState().chats.find((c) => c.id === second.id)?.draft).toBe('Different draft');
+    expect(store.getState().chats.find((c) => c.id === second.id)?.draftRevision).toBe(1);
   });
 
   it('retains a draft after storage failure and allows immediate retry', async () => {
@@ -207,6 +348,7 @@ describe('computer chat persistence', () => {
     const chat = fixture();
     chat.pending = {
       requestId: crypto.randomUUID(),
+      computer: { sessionId: 'session', sandboxId: 'sandbox', organizationId: 'org' },
       action: { name: 'execute', arguments: { command: ['pwd'] } },
       command: ['pwd'],
       durable: true,
@@ -218,6 +360,21 @@ describe('computer chat persistence', () => {
     vi.mocked(window.electronAPI!.store.get).mockResolvedValue([chat]);
     await store.getState().initialize();
     expect(store.getState().chats[0]).toEqual(chat);
+  });
+
+  it('keeps older pending actions readable without inventing a computer binding', async () => {
+    const chat = fixture();
+    chat.pending = {
+      requestId: crypto.randomUUID(),
+      action: { name: 'execute', arguments: { command: ['pwd'] } },
+      command: ['pwd'],
+      durable: false,
+      verify: true,
+    };
+    vi.mocked(window.electronAPI!.store.get).mockResolvedValue([chat]);
+    await store.getState().initialize();
+    expect(store.getState().chats[0]?.pending).toEqual(chat.pending);
+    expect(store.getState().chats[0]?.pending?.computer).toBeUndefined();
   });
 
   it('rejects stored chats with missing scope or malformed pending actions', async () => {

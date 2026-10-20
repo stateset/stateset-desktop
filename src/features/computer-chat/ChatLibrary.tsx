@@ -18,12 +18,21 @@ export function ChatLibrary({ activeId, onSelect, onError, searchRef }: Props) {
   const brandId = useAuthStore((s) => s.currentBrand?.id);
   const chats = useComputerChatsStore((s) => s.chats);
   const connections = useComputerChatsStore((s) => s.connections);
+  const activities = useComputerChatsStore((s) => s.activities);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<ChatFilter>('all');
   const localSearchRef = useRef<HTMLInputElement>(null);
   const librarySearchRef = searchRef ?? localSearchRef;
-  const visible = selectChats(chats, tenantId, brandId, query, filter, connections);
-  const attentionCount = selectChats(chats, tenantId, brandId, '', 'attention', connections).length;
+  const visible = selectChats(chats, tenantId, brandId, query, filter, connections, activities);
+  const attentionCount = selectChats(
+    chats,
+    tenantId,
+    brandId,
+    '',
+    'attention',
+    connections,
+    activities
+  ).length;
   return (
     <div className="chat-library-list mt-5 space-y-4">
       <label className="relative block">
@@ -109,7 +118,12 @@ const ChatLibraryRow = memo(function ChatLibraryRow({
   const archiveHintId = useId();
   const busy = useComputerChatsStore((s) => s.busy[chat.id]);
   const connection = useComputerChatsStore((s) => s.connections[chat.id]?.status);
-  const status = conversationStatus(chat, connection ? { status: connection } : undefined);
+  const activity = useComputerChatsStore((s) => s.activities[chat.id]);
+  const status = conversationStatus(
+    chat,
+    connection ? { status: connection } : undefined,
+    activity
+  );
   useLayoutEffect(() => {
     if (!menu.isOpen) return;
     const trigger = triggerRef.current;

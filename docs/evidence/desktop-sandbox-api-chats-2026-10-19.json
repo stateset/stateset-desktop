@@ -1,0 +1,217 @@
+{
+  "recorded_at": "2026-10-19T18:37:48.333383+00:00",
+  "version": "1.1.23",
+  "source_parent": "ddf7c02f128e82678ac3a3b3b92d788d58b7b1fb",
+  "changed_file_sha256": {
+    "CHANGELOG.md": "487c190a6ff24f5921556bd448464efaf3c48137121eefd7b14f560a59a43510",
+    "RELEASE_NOTES_v1.1.23.md": "4c1086fc0dd036b04a0350f57c935ee4d5a1d3a1302eca8edcf3037ac0a304de",
+    "docs/COMPUTER_CHATS.md": "281b08734e4f52f85836cb8bc55a5b4b7aa087a1c07dfc094565c0a9c6ec93aa",
+    "e2e/api-fixture.ts": "2ec2579f28ccf26e1b935a6d35495931cdcbe729cc72be38e56436833e9fb6b9",
+    "e2e/computer-chat.spec.ts": "6d4897f2183a61d4ab11bf3b3efdeebea2511107cd87ac5b3d4284297c0aafb9",
+    "e2e/sandbox-chat.electron.spec.ts": "99bebe65490144e0bf4f3715943e1a111d0fde074604d0e66a14cd28c4034303",
+    "electron/main.ts": "c5d115b340a9463a9418123bbd6f470eb4b497c14fd283d34b5134a7635c4612",
+    "package-lock.json": "1de89f2b3f9c9431a662bd965c1a4e50b1299db23b18a3e65d7ffd1a11e968ce",
+    "package.json": "f3b866ca4404a27f3a3b3f9b8fd6db5e440eeace3c5ea36da2462d3106c4d0c1",
+    "src/features/computer-chat/DurableComputerChat.test.tsx": "73eaeaf9018fd24725c2b9c3490349984b3e5f8f1593c0f22259725bf34996e8",
+    "src/features/computer-chat/DurableComputerChat.tsx": "07f3fddf0a4fc9a70235c710a7e5f260c682ae9908353f83a8b7b2f707de83e0",
+    "src/features/computer-chat/SandboxConversation.test.tsx": "110a4bdbc33eb781eca3d81127960c72f1cd960238d1bece63980bb4f417efe0",
+    "src/features/computer-chat/SandboxConversation.tsx": "52f0276d9836a55da3e58854387d8eb2234ed0e3988905172eed3cda41b3999f",
+    "src/features/computer-chat/api.test.ts": "59696f7cb222210b9f8fa18a3fee5b9a0008cdeeacc040e6a3db68553a31f581",
+    "src/features/computer-chat/api.ts": "e1dbff5d53c548d53ea6e0eff1ef90a7122f90defa4c503c03d0d58b48fd3453",
+    "src/features/computer-chat/presentation.ts": "52c2f8ebb3d019f35471731cefe0002eccf6ad9e8fbe5174448a190082af334f",
+    "src/features/computer-chat/runtime.test.ts": "df36ffa446540e40e1a80700abed48a7020b75f7c3ca7fd6d27cd6b488cdd5c7",
+    "src/features/computer-chat/runtime.ts": "f1f720fbeff04322a7584428c8bb2b2f586b71b624d018a3067af55c54baaf62",
+    "src/features/computer-chat/sandbox-session.json": "d35924a216c607f45086cc017ddb7b8394ce83bbdfb980459830936bf29a9ef1",
+    "src/features/computer-chat/store.test.ts": "74604b838385c34eaf7c492664be53e1bec996bf3e1bea330c90913dae21c8c4",
+    "src/features/computer-chat/store.ts": "32d91d0c640bea69e8b2734db98204b45b1c7284e3e1d5f07c8efa2f5fa5d07b",
+    "src/features/computer-chat/types.ts": "3627c47b172d627b10e9c8d148aa903ae0db834e074b3745b1a558240595ad1b",
+    "src/lib/sandbox.test.ts": "81c504fe3cab0a8ae6e4ac23d7e28b380cebc0088cf277a3caece8199b7c9095",
+    "src/lib/sandbox.ts": "d7cc4c02ae38ea22b49c255a2aa9991208cfef8342dd24a7f294a9c895c5c0ce"
+  },
+  "behavior": [
+    "New chats default to a dedicated computer provisioned in the background through the authenticated Sandbox API.",
+    "Chat identity is persisted before provisioning; stable create keys deduplicate acknowledgement retries.",
+    "Startup intent is retained before the non-idempotent start endpoint; uncertain starts reconcile without another start.",
+    "Saved chats reopen by reading their original session. No computer action or allocation is replayed.",
+    "Confirmed shutdown requires a terminal session plus a stopped or absent known sandbox. Pending cleanup blocks actions.",
+    "Optional engine-owned durable chats retain complete readiness checks and server-side recovery."
+  ],
+  "verification": {
+    "core_job": "158a2afce94e",
+    "unit_passed": 134,
+    "unit_files": 7,
+    "typecheck": true,
+    "electron_build": true,
+    "affected_production_lint": true,
+    "formatting": true,
+    "release_source_fixtures": true,
+    "release_asset_fixtures": true,
+    "renderer_production_build": true,
+    "unit_report_sha256": "bb9dfee9ca04152911ff2bff2efad6fda863ef54864157dbafd4c286699204cd",
+    "native_job": "ca8766017518",
+    "native_cases": 2,
+    "native_retries": 0,
+    "native_flaky": 0,
+    "native_report_sha256": "44c4bcd97cbfbe96d641a3a6fd149b48ae0e9c9e70ee4b4353c58645a9cf5277",
+    "native_scope": "Temporary-profile Electron, controlled Sandbox API responses: distinct computers, default API-key runtime, saved draft, reload without replay, NSR enabled by default and confirmed shutdown, in light and dark themes. After this phase only the status-parser expression in api.ts was rewritten for stable formatting; the final unit/type/build gate verifies that expression. Full exact-head CI remains separate.",
+    "screenshots": {
+      "dark": "64f09fbd8cb4d313a76fcabf020b8d142aa59aef3f23ccba94de93d34c0f25b9",
+      "light": "6df8458bac4a9a5c9b86007f092dd3a118e2006fb22df51f519fa46b547c7802"
+    },
+    "hosted_acceptance": {
+      "passed": true,
+      "execution_job": "3fcd2ee36741",
+      "execution_report": "dist/verification/sandbox-api-chats/hosted-live.json",
+      "execution_report_sha256": "d75865156fe83bd4a0379e601b0a648881125da53b60507f96f76f67d040c54a",
+      "cleanup_report": "dist/verification/sandbox-api-chats/hosted-cleanup-inspection.json",
+      "cleanup_report_sha256": "b0dd6d4be8d14c3b62205badaca098bb5b6367bc9aaaedb1e6e10eee6c5aa3e6",
+      "qualification": "Both hosted computers ran isolated file writes and reads. The original execution job failed its immediate shutdown check; later read-only inspection independently confirmed both sessions completed and both sandboxes absent (HTTP 404). No new execution was needed for cleanup confirmation.",
+      "sandbox_configuration_sha256": "d35924a216c607f45086cc017ddb7b8394ce83bbdfb980459830936bf29a9ef1",
+      "engine_temporal_verified": false,
+      "nsr_verified": false,
+      "session_ids": [
+        "47338bc5-4b4b-4450-90a6-3e93db954008",
+        "16417820-575e-4715-81f0-ce71fc7550f9"
+      ],
+      "sandbox_ids": [
+        "aa441de5-8039-45e7-b1be-4029bd390056",
+        "715985b1-9bfc-4f5e-90d8-01a8191b376d"
+      ]
+    },
+    "hosted_execution": {
+      "recorded_at": "2026-10-19T18:26:08.448504+00:00",
+      "origin": "https://api.sandbox.stateset.app",
+      "profile": "agent-live",
+      "configuration_sha256": "d35924a216c607f45086cc017ddb7b8394ce83bbdfb980459830936bf29a9ef1",
+      "sessions": [
+        {
+          "chat_id": "8433424b-cd27-4662-9c40-79b6a1a00309",
+          "client_id": "desktop-chat-8433424b-cd27-4662-9c40-79b6a1a00309",
+          "create_attempted": true,
+          "session_id": "47338bc5-4b4b-4450-90a6-3e93db954008",
+          "idempotency_confirmed": true,
+          "sandbox_id": "aa441de5-8039-45e7-b1be-4029bd390056",
+          "running": true,
+          "marker_sha256": "d645ae088220e5c13cb261972788aec6935d9cacba4c0ebf4d618ef532ed33b7",
+          "workspace_write_verified": true,
+          "isolated_workspace_read_verified": true,
+          "stop_http_status": 200,
+          "terminal_session_confirmed": true,
+          "sandbox_stopped_confirmed": false,
+          "cleanup_confirmed": false
+        },
+        {
+          "chat_id": "f569d6cd-354e-46ec-ae98-d2483fcccf6b",
+          "client_id": "desktop-chat-f569d6cd-354e-46ec-ae98-d2483fcccf6b",
+          "create_attempted": true,
+          "session_id": "16417820-575e-4715-81f0-ce71fc7550f9",
+          "idempotency_confirmed": true,
+          "sandbox_id": "715985b1-9bfc-4f5e-90d8-01a8191b376d",
+          "running": true,
+          "marker_sha256": "b950ccec5302fbb2b8ab0874eb89df2f661e17939bd8932ba40a875cf6ae7d68",
+          "workspace_write_verified": true,
+          "isolated_workspace_read_verified": true,
+          "stop_http_status": 200,
+          "terminal_session_confirmed": true,
+          "sandbox_stopped_confirmed": false,
+          "cleanup_confirmed": false
+        }
+      ],
+      "passed": false,
+      "engine_temporal_verified": false,
+      "nsr_verified": false,
+      "cleanup_confirmed": false
+    },
+    "hosted_cleanup_inspection": {
+      "recorded_at": "2026-10-19T18:30:55.606648+00:00",
+      "read_only": true,
+      "results": [
+        {
+          "session_id": "47338bc5-4b4b-4450-90a6-3e93db954008",
+          "sandbox_id": "aa441de5-8039-45e7-b1be-4029bd390056",
+          "session_http_status": 200,
+          "session_top_level_fields": [
+            "id",
+            "organizationId",
+            "status",
+            "name",
+            "agentContext",
+            "toolRegistry",
+            "budgetConfig",
+            "budgetConsumed",
+            "rotationConfig",
+            "sandboxConfig",
+            "createdAt",
+            "startedAt",
+            "completedAt",
+            "lastActivityAt",
+            "clientId",
+            "lastHeartbeatAt",
+            "rotationCount",
+            "totalExecCount"
+          ],
+          "session_status": "completed",
+          "sandbox_http_status": 404,
+          "sandbox_top_level_fields": ["error"]
+        },
+        {
+          "session_id": "16417820-575e-4715-81f0-ce71fc7550f9",
+          "sandbox_id": "715985b1-9bfc-4f5e-90d8-01a8191b376d",
+          "session_http_status": 200,
+          "session_top_level_fields": [
+            "id",
+            "organizationId",
+            "status",
+            "name",
+            "agentContext",
+            "toolRegistry",
+            "budgetConfig",
+            "budgetConsumed",
+            "rotationConfig",
+            "sandboxConfig",
+            "createdAt",
+            "startedAt",
+            "completedAt",
+            "lastActivityAt",
+            "clientId",
+            "lastHeartbeatAt",
+            "rotationCount",
+            "totalExecCount"
+          ],
+          "session_status": "completed",
+          "sandbox_http_status": 404,
+          "sandbox_top_level_fields": ["error"]
+        }
+      ]
+    }
+  },
+  "failed_attempts": [
+    {
+      "job": "af2c3dd15544",
+      "reason": "124/126 selected cases passed; new test fixtures needed correction. Initial formatting overlapped source capture; this is not final acceptance."
+    },
+    {
+      "job": "3f34e106ff2b",
+      "reason": "128/129 passed; a new UI assertion ran before the selected conversation rendered. The assertion now waits and releases the held startup in finally."
+    },
+    {
+      "job": "1c79f25b68d5",
+      "reason": "First hosted computer executed and cleanup passed; second startup exceeded the original 120-second client deadline. Both owned sessions were stopped. Deadline increased to 420 seconds and ambiguous startup no longer retries the start operation."
+    },
+    {
+      "job": "3fcd2ee36741",
+      "reason": "Both hosted computers executed and retained independent workspace files. The job failed its immediate shutdown-state assertion; subsequent read-only inspection confirmed both sessions completed and both sandboxes absent. The original failure is retained."
+    },
+    {
+      "job": "afb527429a73",
+      "reason": "The final gate stopped at a status-parser formatting issue before unit checks. Parser expression simplified; final formatting and unit/type/build gate rerun."
+    }
+  ],
+  "limits": [
+    "Hosted proof covers sandbox allocation, idempotent session identity, isolated command/file execution and eventual cleanup; it does not prove provider inference, Temporal execution or NSR acceptance.",
+    "Sandbox API agent work runs while the desktop is open. Sessions use a one-hour budget and do not require the hosted durable-storage feature flag.",
+    "Policy checks are on by default but require separately configured NSR credentials; no missing credentials are replaced with an allow.",
+    "Dependencies are shared mutable installed inputs. Dependency resolutions are unchanged; ignored build outputs and environment are outside Buildr Git source tracking.",
+    "Signed installer publication still requires Apple and Windows signing secrets. No signing or TLS gates were bypassed."
+  ]
+}

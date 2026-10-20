@@ -17,6 +17,7 @@ import { useAuthStore } from '../../stores/auth';
 import { DEFAULT_CHAT_CONFIGURATION, type DurableChatStatus } from './durableTypes';
 import type { ComputerChat } from './types';
 import { durableChatController } from './durable';
+import requiredSetupChecks from './setup-checks.json';
 vi.mock('../chat-playground/components/ChatMessageBubble', () => ({
   ChatMessageBubble: ({ message }: { message: { content: string } }) => <p>{message.content}</p>,
 }));
@@ -124,7 +125,7 @@ describe('durable chat workspace integration', () => {
         'tenant:other': { ...DEFAULT_CHAT_CONFIGURATION, model: 'second-brand-model' },
       },
     });
-    render(<DurableComputerChat />);
+    render(<DurableComputerChat initialRuntime="workflow" />);
     fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
     fireEvent.click(screen.getByText('Defaults and permissions'));
     expect(screen.getByLabelText('Computer chat model')).toHaveValue('first-brand-model');
@@ -144,7 +145,7 @@ describe('durable chat workspace integration', () => {
           })
         : Promise.resolve(true)
     );
-    render(<DurableComputerChat />);
+    render(<DurableComputerChat initialRuntime="workflow" />);
     fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
     fireEvent.click(screen.getByText('Defaults and permissions'));
     fireEvent.click(screen.getByRole('button', { name: 'Save defaults for this brand' }));
@@ -157,7 +158,7 @@ describe('durable chat workspace integration', () => {
     expect(screen.queryByText('Defaults saved')).not.toBeInTheDocument();
   });
   it('keeps the current draft when another brand saves its defaults', async () => {
-    render(<DurableComputerChat />);
+    render(<DurableComputerChat initialRuntime="workflow" />);
     fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
     fireEvent.click(screen.getByText('Defaults and permissions'));
     fireEvent.change(screen.getByLabelText('Computer chat model'), {
@@ -175,7 +176,7 @@ describe('durable chat workspace integration', () => {
     const first = useComputerChatsStore.getState().chats[0];
     const second = fixture('Second computer');
     useComputerChatsStore.setState((s) => ({ chats: [...s.chats, second] }));
-    render(<DurableComputerChat />, `/playground?chat=${first.id}`);
+    render(<DurableComputerChat initialRuntime="workflow" />, `/playground?chat=${first.id}`);
     expect(screen.getByLabelText('Chat message')).toBeVisible();
     fireEvent.click(screen.getByText('Second computer', { exact: true }));
     expect(screen.getByLabelText('Current route')).toHaveTextContent(second.id);
@@ -194,7 +195,7 @@ describe('durable chat workspace integration', () => {
         draft: 'Preserved draft',
       })),
     }));
-    render(<DurableComputerChat />);
+    render(<DurableComputerChat initialRuntime="workflow" />);
     expect(screen.getByRole('heading', { name: 'My computer' })).toBeVisible();
     expect(screen.getByLabelText('Chat message')).toHaveValue('Preserved draft');
     expect(screen.queryByText('Other brand')).not.toBeInTheDocument();
@@ -202,7 +203,7 @@ describe('durable chat workspace integration', () => {
 
   it('does not reveal or open a linked conversation from another brand', () => {
     const foreign = useComputerChatsStore.getState().chats[1];
-    render(<DurableComputerChat />, `/playground?chat=${foreign.id}`);
+    render(<DurableComputerChat initialRuntime="workflow" />, `/playground?chat=${foreign.id}`);
     expect(screen.getByRole('heading', { name: 'Conversation unavailable' })).toBeVisible();
     expect(screen.queryByLabelText('Chat message')).not.toBeInTheDocument();
     expect(screen.queryByText('Other brand')).not.toBeInTheDocument();
@@ -219,7 +220,7 @@ describe('durable chat workspace integration', () => {
         chat.id === foreign.id ? { ...chat, lastOpenedAt: '2026-10-14T00:00:00Z' } : chat
       ),
     }));
-    render(<DurableComputerChat />, `/playground?chat=${first.id}`);
+    render(<DurableComputerChat initialRuntime="workflow" />, `/playground?chat=${first.id}`);
     expect(screen.getByRole('heading', { name: 'My computer' })).toBeVisible();
     act(() => useAuthStore.setState({ currentBrand: { id: 'different' } } as never));
     expect(screen.getByRole('heading', { name: 'Other brand' })).toBeVisible();
@@ -230,14 +231,14 @@ describe('durable chat workspace integration', () => {
   it('preserves a requested chat while the initial brand selection is loading', () => {
     const own = useComputerChatsStore.getState().chats[0];
     useAuthStore.setState({ currentBrand: null });
-    render(<DurableComputerChat />, `/playground?chat=${own.id}`);
+    render(<DurableComputerChat initialRuntime="workflow" />, `/playground?chat=${own.id}`);
     act(() => useAuthStore.setState({ currentBrand: { id: 'brand' } } as never));
     expect(screen.getByRole('heading', { name: 'My computer' })).toBeVisible();
     expect(screen.getByLabelText('Current route')).toHaveTextContent(own.id);
   });
 
   it('opens the library and focuses search from the keyboard without losing the draft', () => {
-    render(<DurableComputerChat />);
+    render(<DurableComputerChat initialRuntime="workflow" />);
     fireEvent.click(screen.getByText('My computer', { exact: true }));
     fireEvent.change(screen.getByLabelText('Chat message'), {
       target: { value: 'Keep this draft' },
@@ -256,7 +257,7 @@ describe('durable chat workspace integration', () => {
       .spyOn(window, 'matchMedia')
       .mockReturnValue({ matches: true } as MediaQueryList);
     try {
-      render(<DurableComputerChat />);
+      render(<DurableComputerChat initialRuntime="workflow" />);
       fireEvent.click(screen.getByText('My computer', { exact: true }));
       expect(
         screen.queryByRole('complementary', { name: 'Computer conversations' })
@@ -271,7 +272,7 @@ describe('durable chat workspace integration', () => {
   it('keeps independent drafts when switching chats and reopening the workspace', async () => {
     const second = fixture('Second computer');
     useComputerChatsStore.setState((s) => ({ chats: [...s.chats, second] }));
-    const { unmount } = render(<DurableComputerChat />);
+    const { unmount } = render(<DurableComputerChat initialRuntime="workflow" />);
     fireEvent.click(screen.getByText('My computer', { exact: true }));
     fireEvent.change(screen.getByLabelText('Chat message'), {
       target: { value: 'Unsent instruction' },
@@ -283,13 +284,13 @@ describe('durable chat workspace integration', () => {
     expect(screen.getByLabelText('Chat message')).toHaveValue('Unsent instruction');
     unmount();
     await useComputerChatsStore.getState().flushDrafts();
-    render(<DurableComputerChat />);
+    render(<DurableComputerChat initialRuntime="workflow" />);
     fireEvent.click(screen.getByText('Second computer', { exact: true }));
     expect(screen.getByLabelText('Chat message')).toHaveValue('Second draft');
     expect(useComputerChatsStore.getState().chats.every((chat) => !chat.pendingMessage)).toBe(true);
   });
   it('opens the retained transcript and timeline from the scoped library', () => {
-    render(<DurableComputerChat />);
+    render(<DurableComputerChat initialRuntime="workflow" />);
     expect(screen.queryByText('Other brand')).not.toBeInTheDocument();
     fireEvent.click(screen.getByText('My computer', { exact: true }));
     expect(screen.getByText('Earlier retained instruction')).toBeInTheDocument();
@@ -299,7 +300,7 @@ describe('durable chat workspace integration', () => {
     expect(screen.getByText(/cached evidence/)).toBeInTheDocument();
   });
   it('reveals settings when a new computer needs a connection check', () => {
-    render(<DurableComputerChat />);
+    render(<DurableComputerChat initialRuntime="workflow" />);
     expect(
       screen.queryByRole('region', { name: 'Computer setup and defaults' })
     ).not.toBeInTheDocument();
@@ -312,7 +313,7 @@ describe('durable chat workspace integration', () => {
   });
 
   it('supports keyboard tabs and returns focus when computer details are dismissed', () => {
-    render(<DurableComputerChat />);
+    render(<DurableComputerChat initialRuntime="workflow" />);
     fireEvent.click(screen.getByText('My computer', { exact: true }));
     expect(
       screen.queryByRole('complementary', { name: 'Computer workspace and evidence' })
@@ -332,7 +333,7 @@ describe('durable chat workspace integration', () => {
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
   });
   it('preserves a selected running computer when the chat is archived', () => {
-    render(<DurableComputerChat />);
+    render(<DurableComputerChat initialRuntime="workflow" />);
     fireEvent.click(screen.getByText('My computer', { exact: true }));
     fireEvent.click(screen.getByLabelText('Options for My computer'));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Archive chat' }));
@@ -345,7 +346,7 @@ describe('durable chat workspace integration', () => {
   });
   it('makes failed local saves visible and lets the user retry without restarting work', async () => {
     useComputerChatsStore.setState({ persistenceError: 'Device storage full' });
-    render(<DurableComputerChat />);
+    render(<DurableComputerChat initialRuntime="workflow" />);
     expect(screen.getByText(/Recent chat changes could not be saved/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Retry saving chats' }));
     await waitFor(() =>
@@ -375,7 +376,7 @@ describe('actionable conversation attention', () => {
         },
       ],
     });
-    render(<DurableComputerChat />, `/playground?chat=${own.id}`);
+    render(<DurableComputerChat initialRuntime="workflow" />, `/playground?chat=${own.id}`);
     expect(screen.getByLabelText('Conversation status')).toHaveTextContent(
       'Acceptance check failed'
     );
@@ -385,7 +386,7 @@ describe('actionable conversation attention', () => {
   it('opens connection settings, focuses its URL, and returns focus on Escape', () => {
     const own = useComputerChatsStore.getState().chats[0];
     useDurableWorkflowsStore.setState({ engineUrl: 'https://other.example' });
-    render(<DurableComputerChat />, `/playground?chat=${own.id}`);
+    render(<DurableComputerChat initialRuntime="workflow" />, `/playground?chat=${own.id}`);
     fireEvent.click(screen.getByRole('button', { name: 'Open connection settings' }));
     const url = screen.getByLabelText('Workflow engine URL');
     expect(url).toHaveFocus();
@@ -400,7 +401,7 @@ describe('actionable conversation attention', () => {
       .spyOn(window, 'matchMedia')
       .mockReturnValue({ matches: true } as MediaQueryList);
     try {
-      render(<DurableComputerChat />);
+      render(<DurableComputerChat initialRuntime="workflow" />);
       const search = screen.getByRole('searchbox', { name: 'Search conversations' });
       fireEvent.change(search, { target: { value: 'query' } });
       fireEvent.keyDown(search, { key: 'Escape' });
@@ -425,7 +426,7 @@ describe('actionable conversation attention', () => {
         },
       ],
     });
-    render(<DurableComputerChat />, `/playground?chat=${own.id}`);
+    render(<DurableComputerChat initialRuntime="workflow" />, `/playground?chat=${own.id}`);
     expect(screen.getByRole('button', { name: 'Resend safely' })).toBeDisabled();
     fireEvent.click(screen.getByText('View unconfirmed message'));
     expect(screen.getByText(content.trim(), { exact: true })).toBeVisible();
@@ -447,7 +448,7 @@ it('keeps an ended saved chat read-only while its server snapshot is unavailable
       },
     ],
   });
-  render(<DurableComputerChat />, `/playground?chat=${own.id}`);
+  render(<DurableComputerChat initialRuntime="workflow" />, `/playground?chat=${own.id}`);
   expect(screen.getByRole('button', { name: 'Resend safely' })).toBeDisabled();
   expect(screen.queryByRole('button', { name: 'Connect computer workflow' })).toBeNull();
   expect(
@@ -497,7 +498,7 @@ describe('approval keyboard navigation', () => {
     const scroll = vi
       .spyOn(HTMLElement.prototype, 'scrollIntoView')
       .mockImplementation(() => undefined);
-    render(<DurableComputerChat />, `/playground?chat=${chat.id}`);
+    render(<DurableComputerChat initialRuntime="workflow" />, `/playground?chat=${chat.id}`);
     fireEvent.click(screen.getByRole('button', { name: 'Review pending action' }));
     expect(screen.getByRole('heading', { name: 'Review action' })).toHaveFocus();
     expect(scroll).toHaveBeenCalledWith({ block: 'nearest' });
@@ -508,14 +509,14 @@ describe('approval keyboard navigation', () => {
   });
   it('returns focus to the conversation heading after the focused review disappears', async () => {
     const chat = withApproval();
-    render(<DurableComputerChat />, `/playground?chat=${chat.id}`);
+    render(<DurableComputerChat initialRuntime="workflow" />, `/playground?chat=${chat.id}`);
     act(() => screen.getByRole('heading', { name: 'Review action' }).focus());
     await act(async () => updateApproval(chat, { status: 'thinking', pending_action: null }));
     expect(screen.getByRole('heading', { name: chat.title })).toHaveFocus();
   });
   it('moves focus to the revised review when its displayed action changes', async () => {
     const chat = withApproval();
-    render(<DurableComputerChat />, `/playground?chat=${chat.id}`);
+    render(<DurableComputerChat initialRuntime="workflow" />, `/playground?chat=${chat.id}`);
     act(() => screen.getByRole('button', { name: 'Approve action' }).focus());
     await act(async () =>
       updateApproval(chat, {
@@ -529,7 +530,7 @@ describe('approval keyboard navigation', () => {
   });
   it('keeps focus in the draft when an approval arrives or disappears in the background', async () => {
     const chat = useComputerChatsStore.getState().chats[0];
-    render(<DurableComputerChat />, `/playground?chat=${chat.id}`);
+    render(<DurableComputerChat initialRuntime="workflow" />, `/playground?chat=${chat.id}`);
     const input = screen.getByLabelText('Chat message');
     act(() => input.focus());
     await act(async () => {
@@ -541,7 +542,7 @@ describe('approval keyboard navigation', () => {
   });
   it('does not reclaim focus after the user moves to another control', async () => {
     const chat = withApproval();
-    render(<DurableComputerChat />, `/playground?chat=${chat.id}`);
+    render(<DurableComputerChat initialRuntime="workflow" />, `/playground?chat=${chat.id}`);
     act(() => screen.getByRole('button', { name: 'Approve action' }).focus());
     const target = screen.getByRole('button', { name: 'Show computer details' });
     act(() => target.focus());
@@ -552,7 +553,7 @@ describe('approval keyboard navigation', () => {
     const chat = withApproval();
     const second = fixture('Another computer');
     useComputerChatsStore.setState((s) => ({ chats: [...s.chats, second] }));
-    render(<DurableComputerChat />, `/playground?chat=${chat.id}`);
+    render(<DurableComputerChat initialRuntime="workflow" />, `/playground?chat=${chat.id}`);
     act(() => screen.getByRole('heading', { name: 'Review action' }).focus());
     await act(async () => {
       fireEvent.click(screen.getByText('Another computer', { exact: true }));
@@ -564,7 +565,7 @@ describe('approval keyboard navigation', () => {
 describe('narrow workspace panels', () => {
   it('opens one drawer at a time and lets conversation search take focus', () => {
     vi.spyOn(window, 'matchMedia').mockReturnValue({ matches: true } as MediaQueryList);
-    render(<DurableComputerChat />);
+    render(<DurableComputerChat initialRuntime="workflow" />);
     fireEvent.click(screen.getByText('My computer', { exact: true }));
     fireEvent.click(screen.getByRole('button', { name: 'Show computer details' }));
     expect(
@@ -594,7 +595,7 @@ describe('narrow workspace panels', () => {
         removeEventListener: () => undefined,
       };
       vi.spyOn(window, 'matchMedia').mockReturnValue(media as unknown as MediaQueryList);
-      render(<DurableComputerChat />);
+      render(<DurableComputerChat initialRuntime="workflow" />);
       fireEvent.click(screen.getByText('My computer', { exact: true }));
       fireEvent.click(screen.getByRole('button', { name: 'Show computer details' }));
       const focus =
@@ -623,14 +624,18 @@ describe('checked computer creation', () => {
   const diagnostics = {
     version: 1,
     ready: true,
-    checks: [{ key: 'computer', status: 'pass', message: 'Setup checked' }],
+    checks: requiredSetupChecks.map((key) => ({
+      key,
+      status: 'pass',
+      message: key === 'sandbox' ? 'Setup checked' : `${key} configured`,
+    })),
     mcp_servers: [{ key: 'reports', ready: true }],
   };
   async function checked() {
     const request = vi.fn().mockResolvedValue({ ok: true, status: 200, body: diagnostics });
     window.electronAPI!.computerChat = { request } as never;
     const provision = vi.spyOn(durableChatController, 'provision').mockResolvedValue(undefined);
-    render(<DurableComputerChat />);
+    render(<DurableComputerChat initialRuntime="workflow" />);
     fireEvent.click(screen.getByRole('button', { name: /^Settings$/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Save connection and check' }));
     await screen.findByText(/Setup checked/);
@@ -674,7 +679,7 @@ describe('checked computer creation', () => {
     );
     window.electronAPI!.computerChat = { request } as never;
     const provision = vi.spyOn(durableChatController, 'provision').mockResolvedValue(undefined);
-    render(<DurableComputerChat />);
+    render(<DurableComputerChat initialRuntime="workflow" />);
     fireEvent.click(screen.getByRole('button', { name: /^Settings$/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Save connection and check' }));
     await waitFor(() => expect(request).toHaveBeenCalledTimes(1));

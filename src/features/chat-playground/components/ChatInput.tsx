@@ -6,6 +6,8 @@ interface ChatInputProps {
   isLoading: boolean;
   placeholder?: string;
   disabled?: boolean;
+  allowDraftEditing?: boolean;
+  hint?: string;
   value?: string;
   onChange?: (value: string) => void;
   onBlur?: () => void;
@@ -22,6 +24,8 @@ export function ChatInput({
   isLoading,
   placeholder,
   disabled = false,
+  allowDraftEditing = false,
+  hint,
   value,
   onChange,
   onBlur,
@@ -33,6 +37,14 @@ export function ChatInput({
   const tooLong = maxBytes !== undefined && bytes > maxBytes;
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const sizeDescription = useId();
+  const hintDescription = useId();
+  const description =
+    [
+      hint ? hintDescription : undefined,
+      maxBytes !== undefined && bytes > 0 ? sizeDescription : undefined,
+    ]
+      .filter(Boolean)
+      .join(' ') || undefined;
   useLayoutEffect(() => {
     const textarea = textareaRef.current;
     if (!textarea) return;
@@ -97,10 +109,10 @@ export function ChatInput({
             placeholder={placeholder || 'Type a message... (Shift+Enter for new line)'}
             rows={1}
             className="w-full px-4 py-3 bg-transparent resize-none focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1 disabled:opacity-50 text-sm"
-            disabled={isLoading || disabled}
+            disabled={(isLoading || disabled) && !allowDraftEditing}
             aria-label="Chat message"
             aria-invalid={tooLong || undefined}
-            aria-describedby={maxBytes !== undefined && bytes > 0 ? sizeDescription : undefined}
+            aria-describedby={description}
           />
         </div>
         <button
@@ -120,6 +132,11 @@ export function ChatInput({
           )}
         </button>
       </div>
+      {hint && (
+        <p id={hintDescription} className="mt-2 text-xs text-gray-500">
+          {hint}
+        </p>
+      )}
       {maxBytes !== undefined && bytes > 0 && (
         <p
           id={sizeDescription}

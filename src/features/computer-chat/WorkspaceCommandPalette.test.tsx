@@ -34,6 +34,7 @@ beforeEach(() => {
   useAuthStore.setState({ tenant: { id: 'tenant' }, currentBrand: { id: 'brand' } } as never);
   useComputerChatsStore.setState({
     connections: {},
+    activities: {},
     chats: [
       chat('Pinned conversation', { pinned: true }),
       chat('Archived conversation', { archived: true, stopped: true }),
@@ -81,4 +82,28 @@ it('updates status summaries when a connection needs attention', () => {
     useComputerChatsStore.getState().setConnection('Report', { status: 'attention', failures: 1 })
   );
   expect(screen.getByRole('listitem')).toHaveTextContent('Report · Connection needs attention');
+});
+
+it('updates live activity without chat mutations, restores saved state, and withholds it while closed', () => {
+  const value = chat('Computer report', {
+    sandboxApiSession: { version: 1 },
+    pauseNotice: 'Previously paused',
+  });
+  useComputerChatsStore.setState({ chats: [value] });
+  const { rerender } = render(<WorkspaceCommandPalette isOpen onClose={vi.fn()} />);
+  expect(screen.getByRole('listitem')).toHaveTextContent('Computer report · Paused');
+  act(() =>
+    useComputerChatsStore.getState().setActivity(value.id, { kind: 'recovery', pausing: false })
+  );
+  expect(screen.getByRole('listitem')).toHaveTextContent('Computer report · Recovering action…');
+  act(() =>
+    useComputerChatsStore.getState().setActivity(value.id, { kind: 'recovery', pausing: true })
+  );
+  expect(screen.getByRole('listitem')).toHaveTextContent('Computer report · Pausing…');
+  expect(useComputerChatsStore.getState().chats[0]).toBe(value);
+  rerender(<WorkspaceCommandPalette isOpen={false} onClose={vi.fn()} />);
+  act(() => useComputerChatsStore.getState().setActivity(value.id));
+  expect(screen.queryAllByRole('listitem')).toHaveLength(0);
+  rerender(<WorkspaceCommandPalette isOpen onClose={vi.fn()} />);
+  expect(screen.getByRole('listitem')).toHaveTextContent('Computer report · Paused');
 });

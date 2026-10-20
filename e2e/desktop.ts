@@ -24,6 +24,14 @@ export class DesktopHarness {
   private applications = new Set<ElectronApplication>();
   private bundles = new Set<{ page?: Page; close: () => Promise<void> }>();
 
+  checkpoint() {
+    return {
+      applications: new Set(this.applications),
+      bundles: new Set(this.bundles),
+      directories: new Set(this.directories),
+    };
+  }
+
   async createBundleProfile(): Promise<BundleProfile> {
     const directory = await mkdtemp(path.join(tmpdir(), 'stateset-bundle-e2e-'));
     this.directories.push(directory);
@@ -39,7 +47,7 @@ export class DesktopHarness {
   async launchBundle(
     executable: string,
     profile: BundleProfile,
-    options: { appImagePath?: string } = {}
+    options: { appImagePath?: string; extraCACertPath?: string } = {}
   ) {
     if (process.platform !== 'linux') throw new Error('This bundle smoke test requires Linux.');
     const child = spawn(
@@ -49,6 +57,9 @@ export class DesktopHarness {
         stdio: ['ignore', 'ignore', 'pipe'],
         env: {
           ...process.env,
+          ...(options.extraCACertPath
+            ? { NODE_EXTRA_CA_CERTS: path.resolve(options.extraCACertPath) }
+            : {}),
           // An AppImage terminal can leak its own mount into child processes.
           // Extracted AppRun must resolve the application we are testing.
           APPDIR: options.appImagePath ? path.dirname(path.resolve(executable)) : '',
@@ -65,6 +76,12 @@ export class DesktopHarness {
         },
       }
     );
+    // Keep bounded startup diagnostics after CDP opens too: a main-process
+    // dependency failure can expose CDP without ever creating the renderer.
+    let startupStderr = '';
+    child.stderr.on('data', (bytes: Buffer) => {
+      startupStderr = (startupStderr + bytes.toString()).slice(-20_000);
+    });
     let exited = false;
     const exit = new Promise<void>((resolve) => {
       const done = () => {
@@ -171,7 +188,12 @@ export class DesktopHarness {
       };
     } catch (error) {
       await bundle.close();
-      throw error;
+      throw Object.assign(
+        new Error(
+          `${error instanceof Error ? error.message : String(error)}\nBundle startup stderr:\n${startupStderr}`
+        ),
+        { cause: error }
+      );
     }
   }
 
@@ -213,7 +235,8 @@ export class DesktopHarness {
   }
 
   async launch(
-    profile: DesktopProfile | Promise<DesktopProfile> = this.createProfile()
+    profile: DesktopProfile | Promise<DesktopProfile> = this.createProfile(),
+    options: { extraCACertPath?: string } = {}
   ): Promise<ElectronApplication> {
     const isolated = await profile;
     const args = [isolated.entry];
@@ -224,6 +247,9 @@ export class DesktopHarness {
       args,
       env: {
         ...process.env,
+        ...(options.extraCACertPath
+          ? { NODE_EXTRA_CA_CERTS: path.resolve(options.extraCACertPath) }
+          : {}),
         NODE_ENV: isolated.packaged ? 'production' : 'development',
         STORE_ENCRYPTION_KEY: '',
         E2E_TEST: 'true',
@@ -279,11 +305,30 @@ export class DesktopHarness {
     }
   }
 
-  async dispose() {
+  async disposeAfter(checkpoint: ReturnType<DesktopHarness['checkpoint']>) {
     // Close processes before deleting their profiles; a setup failure still gets cleaned up.
-    await Promise.all([...this.bundles].map((bundle) => bundle.close()));
-    await Promise.all([...this.applications].map((application) => application.close()));
-    await Promise.all(this.directories.map((directory) => rm(directory, { recursive: true })));
+    const bundles = [...this.bundles].filter((bundle) => !checkpoint.bundles.has(bundle));
+    const applications = [...this.applications].filter(
+      (application) => !checkpoint.applications.has(application)
+    );
+    const directories = this.directories.filter(
+      (directory) => !checkpoint.directories.has(directory)
+    );
+    await Promise.all(bundles.map((bundle) => bundle.close()));
+    await Promise.all(applications.map((application) => application.close()));
+    for (const application of applications) this.applications.delete(application);
+    await Promise.all(directories.map((directory) => rm(directory, { recursive: true })));
+    this.directories = this.directories.filter((directory) =>
+      checkpoint.directories.has(directory)
+    );
+  }
+
+  async dispose() {
+    await this.disposeAfter({
+      applications: new Set(),
+      bundles: new Set(),
+      directories: new Set(),
+    });
   }
 }
 
@@ -296,7 +341,7 @@ export function requireDesktopDisplay() {
   // A configured display or an Electron launch failure must fail, rather than silently skip.
 }
 
-export const test = base.extend<object, { desktop: DesktopHarness }>({
+export const test = base.extend<{ desktopTestCleanup: void }, { desktop: DesktopHarness }>({
   desktop: [
     // Playwright requires object destructuring for fixture dependency discovery.
     // eslint-disable-next-line no-empty-pattern
@@ -310,12 +355,24 @@ export const test = base.extend<object, { desktop: DesktopHarness }>({
     },
     { scope: 'worker' },
   ],
-});
-
-test.afterEach(async ({ desktop }, info) => {
-  if (info.status !== info.expectedStatus && info.status !== 'skipped') {
-    await desktop.captureFailure(info);
-  }
+  desktopTestCleanup: [
+    async ({ desktop }, use, info) => {
+      // BeforeAll windows belong to the suite. Every test owns only the new
+      // processes/profiles created after this checkpoint, including failed setup.
+      const checkpoint = desktop.checkpoint();
+      try {
+        await use();
+      } finally {
+        try {
+          if (info.status !== info.expectedStatus && info.status !== 'skipped')
+            await desktop.captureFailure(info);
+        } finally {
+          await desktop.disposeAfter(checkpoint);
+        }
+      }
+    },
+    { auto: true },
+  ],
 });
 
 export { expect };

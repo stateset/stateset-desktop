@@ -15,6 +15,22 @@ export type McpProbeResult =
   | { ok: false; error: string; status?: number; unreachable?: boolean };
 
 interface ElectronAPI {
+  serviceApi?: {
+    request: (
+      request: import('../electron/service-api-bridge').DesktopServiceRequest
+    ) => Promise<import('../electron/service-api-bridge').DesktopServiceResponse>;
+    cancel: (id: string) => Promise<boolean>;
+  };
+  durableWorkflows?: {
+    request: (
+      request: import('../electron/durable-workflow-bridge').DurableWorkflowRequest
+    ) => Promise<import('../electron/durable-workflow-bridge').DurableWorkflowResponse>;
+    stream: (
+      request: import('../electron/durable-workflow-bridge').DurableWorkflowStreamRequest,
+      onEvent: (event: import('../electron/durable-workflow-bridge').DurableWorkflowEvent) => void
+    ) => Promise<void>;
+    cancel: (id: string) => Promise<boolean>;
+  };
   computerChat?: {
     getConnection: () => Promise<{ engineUrl: string; revision: string }>;
     request: (request: {

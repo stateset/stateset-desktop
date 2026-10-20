@@ -17,6 +17,36 @@ function makeProps(overrides: Partial<Parameters<typeof ChatInput>[0]> = {}) {
 }
 
 describe('ChatInput', () => {
+  it.each([{ isLoading: true }, { disabled: true }])(
+    'allows opt-in drafting while submission is blocked by %j',
+    (blocked) => {
+      const props = makeProps({
+        ...blocked,
+        allowDraftEditing: true,
+        hint: 'Draft now. Send when ready.',
+        maxBytes: 8,
+      });
+      const { rerender } = render(<ChatInput {...props} />);
+      const textarea = screen.getByLabelText('Chat message');
+      expect(textarea).toBeEnabled();
+      fireEvent.change(textarea, { target: { value: 'Next' } });
+      expect(textarea).toHaveValue('Next');
+      expect(textarea).toHaveAccessibleDescription('Draft now. Send when ready. 4 / 8 bytes');
+      expect(screen.getByRole('button', { name: 'Send message' })).toBeDisabled();
+      fireEvent.keyDown(textarea, { key: 'Enter' });
+      fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
+      expect(props.onSend).not.toHaveBeenCalled();
+      rerender(<ChatInput {...props} isLoading={false} disabled={false} hint={undefined} />);
+      expect(textarea).toHaveValue('Next');
+      expect(props.onSend).not.toHaveBeenCalled();
+      fireEvent.change(textarea, { target: { value: '🙂🙂🙂' } });
+      fireEvent.keyDown(textarea, { key: 'Enter' });
+      expect(props.onSend).not.toHaveBeenCalled();
+      fireEvent.change(textarea, { target: { value: 'Next' } });
+      fireEvent.keyDown(textarea, { key: 'Enter' });
+      expect(props.onSend).toHaveBeenCalledExactlyOnceWith('Next');
+    }
+  );
   it('retains a controlled draft until the owner clears the saved submission', () => {
     const props = makeProps({ value: 'Recovered draft', onChange: vi.fn(), onBlur: vi.fn() });
     const { rerender } = render(<ChatInput {...props} />);

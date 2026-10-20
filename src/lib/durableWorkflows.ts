@@ -1,5 +1,10 @@
-import { assertWorkflowSettingsLoaded, useDurableWorkflowsStore } from '../stores/durableWorkflows';
-import type { DurableAgentProfile } from './durableAgentProfiles';
+import { useAuthStore } from '../stores/auth';
+import {
+  assertWorkflowSettingsLoaded,
+  getWorkflowConnectionGeneration,
+  useDurableWorkflowsStore,
+} from '../stores/durableWorkflows';
+import { assertDurableAgentEngineLimits, type DurableAgentProfile } from './durableAgentProfiles';
 import { assertNoInlineSecrets } from './workflowCommandSecurity';
 export { assertNoInlineSecrets } from './workflowCommandSecurity';
 
@@ -89,16 +94,172 @@ type RequestOptions = {
 
 function configuredClient() {
   assertWorkflowSettingsLoaded();
-  const { engineUrl, apiKey, configuring } = useDurableWorkflowsStore.getState();
+  const { engineUrl, apiKey, configuring, connectionRevision } =
+    useDurableWorkflowsStore.getState();
   if (configuring) throw new Error('Wait for the workflow connection update to finish.');
   if (!engineUrl.trim() || !apiKey?.trim()) {
     throw new Error('Configure the durable workflow engine URL and API key first.');
   }
-  return { baseUrl: engineUrl.trim().replace(/\/+$/, ''), apiKey: apiKey.trim() };
+  return {
+    baseUrl: engineUrl.trim().replace(/\/+$/, ''),
+    apiKey: apiKey.trim(),
+    engineUrl,
+    savedKey: apiKey,
+    revision: connectionRevision,
+    generation: getWorkflowConnectionGeneration(),
+  };
+}
+
+type NativeWorkflowBridge = NonNullable<NonNullable<Window['electronAPI']>['durableWorkflows']>;
+
+function connectionChanged() {
+  return new Error('The workflow connection or organization changed. Try again.');
+}
+
+function abortError() {
+  return new DOMException('The workflow request was cancelled.', 'AbortError');
+}
+
+function nativeOperation<T>(
+  bridge: NativeWorkflowBridge,
+  connection: ReturnType<typeof configuredClient>,
+  tenantId: string,
+  signal: AbortSignal | undefined,
+  execute: (id: string, deliver: (event: DurableWorkflowEvent) => void) => Promise<T>,
+  onEvent?: (event: DurableWorkflowEvent) => void
+): Promise<T> {
+  if (signal?.aborted) return Promise.reject(abortError());
+  if (!connection.revision)
+    return Promise.reject(new Error('Reconnect to the workflow engine before trying again.'));
+  if (useAuthStore.getState().tenant?.id !== tenantId) return Promise.reject(connectionChanged());
+  const id = crypto.randomUUID();
+  return new Promise((resolve, reject) => {
+    let active = true;
+    let started = false;
+    let unsubscribeConnection = () => {};
+    let unsubscribeTenant = () => {};
+    const current = () => {
+      const state = useDurableWorkflowsStore.getState();
+      return (
+        state.initialized &&
+        !state.configuring &&
+        state.engineUrl === connection.engineUrl &&
+        state.apiKey === connection.savedKey &&
+        state.connectionRevision === connection.revision &&
+        getWorkflowConnectionGeneration() === connection.generation &&
+        useAuthStore.getState().tenant?.id === tenantId
+      );
+    };
+    const cleanup = () => {
+      unsubscribeConnection();
+      unsubscribeTenant();
+      signal?.removeEventListener('abort', onAbort);
+    };
+    const cancel = () => {
+      if (!started) return;
+      try {
+        void Promise.resolve(bridge.cancel(id)).catch(() => undefined);
+      } catch {
+        // Cancellation cannot replace the original abort or connection error.
+      }
+    };
+    const fail = (error: unknown, cancelNative = false) => {
+      if (!active) return;
+      active = false;
+      cleanup();
+      if (cancelNative) cancel();
+      reject(error);
+    };
+    const onAbort = () => fail(abortError(), true);
+    const changed = () => {
+      if (!current()) fail(connectionChanged(), true);
+    };
+    unsubscribeConnection = useDurableWorkflowsStore.subscribe(changed);
+    unsubscribeTenant = useAuthStore.subscribe(changed);
+    signal?.addEventListener('abort', onAbort, { once: true });
+    if (signal?.aborted) {
+      onAbort();
+      return;
+    }
+    if (!current()) {
+      fail(connectionChanged());
+      return;
+    }
+    const deliver = (event: DurableWorkflowEvent) => {
+      if (!active) return;
+      if (!current()) {
+        fail(connectionChanged(), true);
+        return;
+      }
+      try {
+        return onEvent?.(event);
+      } catch (error) {
+        // Rethrow so preload also removes its event listener and cancels native
+        // streaming; reject here even if a legacy bridge delays its completion.
+        fail(error);
+        throw error;
+      }
+    };
+    try {
+      started = true;
+      void Promise.resolve(execute(id, deliver)).then(
+        (value) => {
+          if (!active) return;
+          if (!current()) {
+            fail(connectionChanged(), true);
+            return;
+          }
+          active = false;
+          cleanup();
+          resolve(value);
+        },
+        (error: unknown) => fail(current() ? error : connectionChanged())
+      );
+    } catch (error) {
+      fail(current() ? error : connectionChanged());
+    }
+  });
+}
+
+function responsePayload<T>(response: { ok: boolean; status: number; body: unknown }): T {
+  const payload = response.body;
+  if (!response.ok) {
+    const record =
+      payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
+    const message =
+      (typeof record.message === 'string' && record.message) ||
+      (typeof record.error === 'string' && record.error) ||
+      (typeof payload === 'string' && payload) ||
+      `Durable workflow engine returned ${response.status}`;
+    throw Object.assign(new Error(message), { status: response.status });
+  }
+  return payload as T;
 }
 
 export async function engineRequest<T>(path: string, options: RequestOptions): Promise<T> {
-  const { baseUrl, apiKey } = configuredClient();
+  if (options.signal?.aborted) throw abortError();
+  const connection = configuredClient();
+  const bridge = typeof window === 'undefined' ? undefined : window.electronAPI?.durableWorkflows;
+  if (bridge) {
+    const response = await nativeOperation(
+      bridge,
+      connection,
+      options.tenantId,
+      options.signal,
+      (id) =>
+        bridge.request({
+          id,
+          engineUrl: connection.baseUrl,
+          revision: connection.revision!,
+          tenantId: options.tenantId,
+          path,
+          method: options.method ?? 'GET',
+          ...(options.body === undefined ? {} : { body: options.body }),
+        })
+    );
+    return responsePayload<T>(response);
+  }
+  const { baseUrl, apiKey } = connection;
   const authSchemes = ['Bearer', 'ApiKey'] as const;
   let lastResponse: Response | null = null;
 
@@ -124,17 +285,7 @@ export async function engineRequest<T>(path: string, options: RequestOptions): P
     } catch {
       payload = text;
     }
-    if (!response.ok) {
-      const record =
-        payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
-      const message =
-        (typeof record.message === 'string' && record.message) ||
-        (typeof record.error === 'string' && record.error) ||
-        (typeof payload === 'string' && payload) ||
-        `Durable workflow engine returned ${response.status}`;
-      throw Object.assign(new Error(message), { status: response.status });
-    }
-    return payload as T;
+    return responsePayload<T>({ ok: response.ok, status: response.status, body: payload });
   }
 
   throw Object.assign(
@@ -182,7 +333,31 @@ async function streamWorkflowEvents(
   workflowId: string,
   options: StreamDurableWorkflowEventsOptions
 ): Promise<void> {
-  const { baseUrl, apiKey } = configuredClient();
+  if (options.signal?.aborted) throw abortError();
+  const connection = configuredClient();
+  const bridge = typeof window === 'undefined' ? undefined : window.electronAPI?.durableWorkflows;
+  if (bridge) {
+    return nativeOperation(
+      bridge,
+      connection,
+      tenantId,
+      options.signal,
+      (id, deliver) =>
+        bridge.stream(
+          {
+            id,
+            engineUrl: connection.baseUrl,
+            revision: connection.revision!,
+            tenantId,
+            workflowId,
+            ...(options.lastEventId === undefined ? {} : { lastEventId: options.lastEventId }),
+          },
+          deliver
+        ),
+      options.onEvent
+    );
+  }
+  const { baseUrl, apiKey } = connection;
   const authSchemes = ['Bearer', 'ApiKey'] as const;
 
   for (const scheme of authSchemes) {
@@ -207,26 +382,35 @@ async function streamWorkflowEvents(
     if (!response.body) throw new Error('Workflow event stream did not return a response body.');
 
     const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-    let streamComplete = false;
-    while (!streamComplete) {
-      const { done, value } = await reader.read();
-      streamComplete = done;
-      buffer += decoder.decode(value, { stream: !done });
-      buffer = buffer.replace(/\r\n/g, '\n');
-      let boundary = buffer.indexOf('\n\n');
-      while (boundary >= 0) {
-        const event = parseWorkflowEvent(buffer.slice(0, boundary));
-        if (event) options.onEvent(event);
-        buffer = buffer.slice(boundary + 2);
-        boundary = buffer.indexOf('\n\n');
+    try {
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let streamComplete = false;
+      while (!streamComplete) {
+        const { done, value } = await reader.read();
+        streamComplete = done;
+        buffer += decoder.decode(value, { stream: !done });
+        buffer = buffer.replace(/\r\n/g, '\n');
+        let boundary = buffer.indexOf('\n\n');
+        while (boundary >= 0) {
+          const event = parseWorkflowEvent(buffer.slice(0, boundary));
+          if (event) options.onEvent(event);
+          buffer = buffer.slice(boundary + 2);
+          boundary = buffer.indexOf('\n\n');
+        }
+        if (done) {
+          const event = parseWorkflowEvent(buffer);
+          if (event) options.onEvent(event);
+          return;
+        }
       }
-      if (done) {
-        const event = parseWorkflowEvent(buffer);
-        if (event) options.onEvent(event);
-        return;
+    } finally {
+      try {
+        await reader.cancel();
+      } catch {
+        // Preserve the original stream or callback error during cleanup.
       }
+      reader.releaseLock();
     }
   }
 
@@ -241,6 +425,7 @@ function sandboxTask(params: {
   timeoutSeconds: number;
   agent?: DurableAgentProfile;
 }) {
+  if (params.agent) assertDurableAgentEngineLimits(params.agent);
   const timeoutSeconds = clamp(params.timeoutSeconds, 30, 1_800);
   const commands = params.commands.map((command) => ['sh', '-lc', command]);
   return {
@@ -376,6 +561,14 @@ export const durableWorkflowApi = {
   enqueueStep: async (input: EnqueueDurableStepInput) => {
     if (!input.commands.length) throw new Error('The new step must include at least one command.');
     assertNoInlineSecrets(input.commands);
+    const task = sandboxTask({
+      taskId: `desktop-added-${input.requestId.slice(0, 12)}`,
+      description: input.goal,
+      sessionName: `desktop-added-${input.requestId}`,
+      commands: input.commands,
+      timeoutSeconds: input.timeoutSeconds,
+      agent: input.agent,
+    });
     // Enqueued work consumes one additional supervisor turn. Extend the turn
     // budget first so the task cannot be accepted but left permanently starved.
     await durableWorkflowApi.extendBudget({
@@ -388,14 +581,7 @@ export const durableWorkflowApi = {
       {
         method: 'POST',
         tenantId: input.tenantId,
-        body: sandboxTask({
-          taskId: `desktop-added-${input.requestId.slice(0, 12)}`,
-          description: input.goal,
-          sessionName: `desktop-added-${input.requestId}`,
-          commands: input.commands,
-          timeoutSeconds: input.timeoutSeconds,
-          agent: input.agent,
-        }),
+        body: task,
       }
     );
   },

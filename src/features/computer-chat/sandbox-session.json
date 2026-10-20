@@ -1,0 +1,16 @@
+{
+  "name": "Desktop computer chat",
+  "sandbox": {
+    "durable": false,
+    "template": "computer-use",
+    "cpus": "2",
+    "memory": "4Gi",
+    "isolation": "gvisor",
+    "timeoutSeconds": 3600
+  },
+  "budget": {
+    "iterationLimit": 500,
+    "durationLimitSeconds": 3600,
+    "onExhausted": "stop"
+  }
+}

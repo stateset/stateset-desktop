@@ -1,0 +1,686 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-18T22:20:47.895068+00:00",
+  "source_parent_commit": "af5a206c89df6e82f9a2c01b722c4151f484090d",
+  "scope": "Keep engine connection settings readable and keyboard accessible in both themes, with stable API-key naming and described storage help.",
+  "baseline": {
+    "source_commit": "af5a206c89df6e82f9a2c01b722c4151f484090d",
+    "prior_source_evidence": "docs/evidence/desktop-native-workflow-transport-2026-10-17.json",
+    "findings": [
+      "Source inspection found pale success/error/removal foreground utilities without light-theme remapping.",
+      "The save action inherited its text color instead of using the shared primary-action foreground/background pair.",
+      "The API-key label included changing credential-storage helper text in its accessible name."
+    ],
+    "qualification": "These were source-level findings. No separate pre-fix native or contrast baseline was executed for this design slice."
+  },
+  "implementation": [
+    "Use existing theme-sensitive positive/negative tokens for feedback and key removal.",
+    "Use the existing shared primary button styles, including explicit foreground/background and disabled treatment.",
+    "Keep the exact API-key label stable with useId/htmlFor and expose unchanged storage help separately through aria-describedby.",
+    "Strengthen existing tests for the exact API-key name and storage description across loading, hydration, no-key, memory-only and encrypted states.",
+    "Retain native design captures in both CI workflows without changing the Linux packaged-bundle uploader."
+  ],
+  "verification": {
+    "job": {
+      "id": "7219b91f9df3",
+      "state": "succeeded",
+      "exit_code": 0,
+      "argv": ["bash", "/tmp/stateset-desktop-engine-settings-design-final.sh"],
+      "cwd": "/tmp/stateset-desktop-engine-settings-design",
+      "command_display": "bash /tmp/stateset-desktop-engine-settings-design-final.sh",
+      "wait_seconds": 0.02595210075378418,
+      "elapsed_seconds": 78.51885533332825
+    },
+    "initial_source_job": {
+      "id": "ef4745dff706",
+      "state": "succeeded",
+      "exit_code": 0,
+      "cwd": "/tmp/stateset-desktop-engine-settings-design",
+      "argv": ["bash", "/tmp/stateset-desktop-engine-settings-design-source-check.sh"]
+    },
+    "checks": [
+      "Formatting",
+      "Renderer typecheck",
+      "Desktop-test typecheck",
+      "Uncached full strict lint with unchanged rules",
+      "54 single-worker settings tests",
+      "Electron compilation",
+      "Three native cases without retries/skips",
+      "Renderer production build"
+    ],
+    "unit_tests": 54,
+    "unit_files": 1,
+    "native": {
+      "stats": {
+        "startTime": "2026-10-18T22:18:43.472Z",
+        "duration": 26626.717,
+        "expected": 3,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "critical_cases": {
+        "engine settings stay readable and keyboard accessible in both themes at minimum window width": {
+          "file": "settings-design.electron.spec.ts",
+          "status": "passed",
+          "retry": 0
+        },
+        "engine connection tests discard stale responses after editing settings": {
+          "file": "startup.spec.ts",
+          "status": "passed",
+          "retry": 0
+        },
+        "engine credential removal retains failed keys and confirms native removal": {
+          "file": "startup.spec.ts",
+          "status": "passed",
+          "retry": 0
+        }
+      },
+      "startup_retry_image_sha256": null,
+      "scheduled_recovery_evidence": null,
+      "blueprint_recovery_evidence": null,
+      "custom_agent_evidence": null,
+      "custom_agent_byte_limits": null,
+      "custom_agent_error_feedback": null,
+      "engine_settings": {
+        "health": {
+          "healthRequests": [
+            {
+              "method": "GET",
+              "path": "/health",
+              "tenantMatches": true,
+              "authenticated": true
+            },
+            {
+              "method": "GET",
+              "path": "/health",
+              "tenantMatches": true,
+              "authenticated": true
+            }
+          ],
+          "observedRequests": [
+            {
+              "method": "GET",
+              "path": "/health",
+              "tenantMatches": true,
+              "authenticated": true
+            },
+            {
+              "method": "GET",
+              "path": "/health",
+              "tenantMatches": true,
+              "authenticated": true
+            }
+          ],
+          "transport": "native",
+          "healthObservation": {
+            "calls": 2,
+            "settled": 2,
+            "resolved": 2,
+            "rejected": 0
+          },
+          "firstResponseFinished": true,
+          "staleResponseDiscarded": true,
+          "editedDraftPreserved": true,
+          "dirtyTestDisabled": true,
+          "savedUrlUnchanged": true,
+          "freshTestSucceeded": true,
+          "ambientRootProbeCount": 0,
+          "noWorkflowRequests": true,
+          "workflowRequests": [],
+          "attachment_sha256": "cc4746b7e80efb77db1dbb465d0e7a759fc9dbae6f98671f216c62ad691476b5"
+        },
+        "removal": {
+          "phases": {
+            "failed": {
+              "attempts": 2,
+              "caughtErrorVisible": true,
+              "nativeKeyRetained": true,
+              "retryEnabled": true,
+              "pageErrorCount": 0
+            },
+            "successful": {
+              "nativeKeyRemoved": true,
+              "nativeKeyRemovedAfterRefreshFailure": true,
+              "refreshFailureRemovalSucceeded": true,
+              "ordinaryRemovalConfirmed": true,
+              "noKeyConfigured": true,
+              "testDisabled": true,
+              "pageErrorCount": 0,
+              "originalHandlerUsed": true
+            }
+          },
+          "transport": "native",
+          "noWorkflowRequests": true,
+          "workflowRequests": [],
+          "attachment_sha256": "8b9b098f029697387f06644d569763532ce0fa6b0a7c148edfc186078c79e5a3"
+        }
+      },
+      "engine_settings_design": {
+        "layouts": {
+          "standard-dark": {
+            "viewportWidth": 1400,
+            "viewportHeight": 900,
+            "documentFits": true,
+            "sectionFits": true,
+            "controls": [
+              {
+                "tag": "INPUT",
+                "fits": true
+              },
+              {
+                "tag": "INPUT",
+                "fits": true
+              },
+              {
+                "tag": "BUTTON",
+                "fits": true
+              },
+              {
+                "tag": "BUTTON",
+                "fits": true
+              },
+              {
+                "tag": "BUTTON",
+                "fits": true
+              }
+            ],
+            "helper": {
+              "references": 1,
+              "helperOutsideLabel": true
+            },
+            "keyFocus": {
+              "focused": true,
+              "focusVisible": true,
+              "outlineStyle": "solid",
+              "outlineWidth": 2,
+              "outlineOffset": 2,
+              "outlineColor": "rgb(125, 211, 252)",
+              "background": "rgba(2, 6, 23, 0.7)",
+              "surroundingBackground": "rgb(15.6, 19.4, 28.200000000000003)",
+              "contrastRatio": 11.105313327952755
+            },
+            "saveFocus": {
+              "focused": true,
+              "focusVisible": true,
+              "outlineStyle": "solid",
+              "outlineWidth": 2,
+              "outlineOffset": 2,
+              "outlineColor": "rgb(125, 211, 252)",
+              "background": "rgb(3, 105, 161)",
+              "surroundingBackground": "rgb(15.6, 19.4, 28.200000000000003)",
+              "contrastRatio": 11.105313327952755
+            },
+            "primary": {
+              "text": "Save configuration",
+              "color": "rgb(255, 255, 255)",
+              "textFillColor": "rgb(255, 255, 255)",
+              "background": "rgb(3, 105, 161)",
+              "opacity": "1",
+              "visibility": "visible"
+            },
+            "primaryPixels": {
+              "width": 244,
+              "height": 31,
+              "foregroundPixels": 1283,
+              "sampledPixels": 7564,
+              "foregroundFraction": 0.16961924907456372
+            },
+            "successContrast": {
+              "rule": "color-contrast",
+              "minimumNormalTextRatio": 4.5,
+              "violations": 0,
+              "incomplete": 0,
+              "primaryPassed": true
+            },
+            "failureContrast": {
+              "rule": "color-contrast",
+              "minimumNormalTextRatio": 4.5,
+              "violations": 0,
+              "incomplete": 0,
+              "primaryPassed": true
+            },
+            "successVisible": true,
+            "failureVisible": true,
+            "screenshot": "engine-settings-standard-dark.png"
+          },
+          "standard-light": {
+            "viewportWidth": 1400,
+            "viewportHeight": 900,
+            "documentFits": true,
+            "sectionFits": true,
+            "controls": [
+              {
+                "tag": "INPUT",
+                "fits": true
+              },
+              {
+                "tag": "INPUT",
+                "fits": true
+              },
+              {
+                "tag": "BUTTON",
+                "fits": true
+              },
+              {
+                "tag": "BUTTON",
+                "fits": true
+              },
+              {
+                "tag": "BUTTON",
+                "fits": true
+              }
+            ],
+            "helper": {
+              "references": 1,
+              "helperOutsideLabel": true
+            },
+            "keyFocus": {
+              "focused": true,
+              "focusVisible": true,
+              "outlineStyle": "solid",
+              "outlineWidth": 2,
+              "outlineOffset": 2,
+              "outlineColor": "rgb(3, 105, 161)",
+              "background": "rgb(255, 255, 255)",
+              "surroundingBackground": "rgb(255, 255, 255)",
+              "contrastRatio": 5.933638668604332
+            },
+            "saveFocus": {
+              "focused": true,
+              "focusVisible": true,
+              "outlineStyle": "solid",
+              "outlineWidth": 2,
+              "outlineOffset": 2,
+              "outlineColor": "rgb(3, 105, 161)",
+              "background": "rgb(3, 105, 161)",
+              "surroundingBackground": "rgb(255, 255, 255)",
+              "contrastRatio": 5.933638668604332
+            },
+            "primary": {
+              "text": "Save configuration",
+              "color": "rgb(255, 255, 255)",
+              "textFillColor": "rgb(255, 255, 255)",
+              "background": "rgb(3, 105, 161)",
+              "opacity": "1",
+              "visibility": "visible"
+            },
+            "primaryPixels": {
+              "width": 244,
+              "height": 31,
+              "foregroundPixels": 1283,
+              "sampledPixels": 7564,
+              "foregroundFraction": 0.16961924907456372
+            },
+            "successContrast": {
+              "rule": "color-contrast",
+              "minimumNormalTextRatio": 4.5,
+              "violations": 0,
+              "incomplete": 0,
+              "primaryPassed": true
+            },
+            "failureContrast": {
+              "rule": "color-contrast",
+              "minimumNormalTextRatio": 4.5,
+              "violations": 0,
+              "incomplete": 0,
+              "primaryPassed": true
+            },
+            "successVisible": true,
+            "failureVisible": true,
+            "screenshot": "engine-settings-standard-light.png"
+          },
+          "minimum-dark": {
+            "viewportWidth": 1000,
+            "viewportHeight": 673,
+            "documentFits": true,
+            "sectionFits": true,
+            "controls": [
+              {
+                "tag": "INPUT",
+                "fits": true
+              },
+              {
+                "tag": "INPUT",
+                "fits": true
+              },
+              {
+                "tag": "BUTTON",
+                "fits": true
+              },
+              {
+                "tag": "BUTTON",
+                "fits": true
+              },
+              {
+                "tag": "BUTTON",
+                "fits": true
+              }
+            ],
+            "helper": {
+              "references": 1,
+              "helperOutsideLabel": true
+            },
+            "keyFocus": {
+              "focused": true,
+              "focusVisible": true,
+              "outlineStyle": "solid",
+              "outlineWidth": 2,
+              "outlineOffset": 2,
+              "outlineColor": "rgb(125, 211, 252)",
+              "background": "rgba(2, 6, 23, 0.7)",
+              "surroundingBackground": "rgb(15.6, 19.4, 28.200000000000003)",
+              "contrastRatio": 11.105313327952755
+            },
+            "saveFocus": {
+              "focused": true,
+              "focusVisible": true,
+              "outlineStyle": "solid",
+              "outlineWidth": 2,
+              "outlineOffset": 2,
+              "outlineColor": "rgb(125, 211, 252)",
+              "background": "rgb(3, 105, 161)",
+              "surroundingBackground": "rgb(15.6, 19.4, 28.200000000000003)",
+              "contrastRatio": 11.105313327952755
+            },
+            "primary": {
+              "text": "Save configuration",
+              "color": "rgb(255, 255, 255)",
+              "textFillColor": "rgb(255, 255, 255)",
+              "background": "rgb(3, 105, 161)",
+              "opacity": "1",
+              "visibility": "visible"
+            },
+            "primaryPixels": {
+              "width": 244,
+              "height": 31,
+              "foregroundPixels": 1283,
+              "sampledPixels": 7564,
+              "foregroundFraction": 0.16961924907456372
+            },
+            "successContrast": {
+              "rule": "color-contrast",
+              "minimumNormalTextRatio": 4.5,
+              "violations": 0,
+              "incomplete": 0,
+              "primaryPassed": true
+            },
+            "failureContrast": {
+              "rule": "color-contrast",
+              "minimumNormalTextRatio": 4.5,
+              "violations": 0,
+              "incomplete": 0,
+              "primaryPassed": true
+            },
+            "successVisible": true,
+            "failureVisible": true,
+            "screenshot": "engine-settings-minimum-dark.png"
+          },
+          "minimum-light": {
+            "viewportWidth": 1000,
+            "viewportHeight": 673,
+            "documentFits": true,
+            "sectionFits": true,
+            "controls": [
+              {
+                "tag": "INPUT",
+                "fits": true
+              },
+              {
+                "tag": "INPUT",
+                "fits": true
+              },
+              {
+                "tag": "BUTTON",
+                "fits": true
+              },
+              {
+                "tag": "BUTTON",
+                "fits": true
+              },
+              {
+                "tag": "BUTTON",
+                "fits": true
+              }
+            ],
+            "helper": {
+              "references": 1,
+              "helperOutsideLabel": true
+            },
+            "keyFocus": {
+              "focused": true,
+              "focusVisible": true,
+              "outlineStyle": "solid",
+              "outlineWidth": 2,
+              "outlineOffset": 2,
+              "outlineColor": "rgb(3, 105, 161)",
+              "background": "rgb(255, 255, 255)",
+              "surroundingBackground": "rgb(255, 255, 255)",
+              "contrastRatio": 5.933638668604332
+            },
+            "saveFocus": {
+              "focused": true,
+              "focusVisible": true,
+              "outlineStyle": "solid",
+              "outlineWidth": 2,
+              "outlineOffset": 2,
+              "outlineColor": "rgb(3, 105, 161)",
+              "background": "rgb(3, 105, 161)",
+              "surroundingBackground": "rgb(255, 255, 255)",
+              "contrastRatio": 5.933638668604332
+            },
+            "primary": {
+              "text": "Save configuration",
+              "color": "rgb(255, 255, 255)",
+              "textFillColor": "rgb(255, 255, 255)",
+              "background": "rgb(3, 105, 161)",
+              "opacity": "1",
+              "visibility": "visible"
+            },
+            "primaryPixels": {
+              "width": 244,
+              "height": 31,
+              "foregroundPixels": 1283,
+              "sampledPixels": 7564,
+              "foregroundFraction": 0.16961924907456372
+            },
+            "successContrast": {
+              "rule": "color-contrast",
+              "minimumNormalTextRatio": 4.5,
+              "violations": 0,
+              "incomplete": 0,
+              "primaryPassed": true
+            },
+            "failureContrast": {
+              "rule": "color-contrast",
+              "minimumNormalTextRatio": 4.5,
+              "violations": 0,
+              "incomplete": 0,
+              "primaryPassed": true
+            },
+            "successVisible": true,
+            "failureVisible": true,
+            "screenshot": "engine-settings-minimum-light.png"
+          }
+        },
+        "transport": "native",
+        "requests": [
+          {
+            "method": "GET",
+            "path": "/health",
+            "authorizationMatches": true,
+            "tenantMatches": true,
+            "lastEventIdAbsent": true,
+            "lastEventIdMatches": false,
+            "acceptsEventStream": false
+          },
+          {
+            "method": "GET",
+            "path": "/health",
+            "authorizationMatches": true,
+            "tenantMatches": true,
+            "lastEventIdAbsent": true,
+            "lastEventIdMatches": false,
+            "acceptsEventStream": false
+          },
+          {
+            "method": "GET",
+            "path": "/health",
+            "authorizationMatches": true,
+            "tenantMatches": true,
+            "lastEventIdAbsent": true,
+            "lastEventIdMatches": false,
+            "acceptsEventStream": false
+          },
+          {
+            "method": "GET",
+            "path": "/health",
+            "authorizationMatches": true,
+            "tenantMatches": true,
+            "lastEventIdAbsent": true,
+            "lastEventIdMatches": false,
+            "acceptsEventStream": false
+          }
+        ],
+        "noWorkflowRequests": true,
+        "ambientRootProbeCount": 2,
+        "qualification": "Scoped color-contrast analysis and measured native settings layouts; this is not a whole-application accessibility audit.",
+        "attachment_sha256": "37243254695bc55685fa03d279111925d694bd16dfc368ca0f7258c205224d01",
+        "contrast_checks": 8,
+        "layout_count": 4,
+        "screenshot_count": 4,
+        "authenticated_health_requests": 4
+      },
+      "inventory_sha256": "fa04765d721fcb8b99480960b3ea16a3387bf90a6ce9acf5b2bb24e4c18600f1",
+      "retries": 0
+    },
+    "screenshots": {
+      "engine-settings-minimum-dark.png": {
+        "sha256": "b36f497aa655c6dfd1c0b1caef72a1443a01789d13d1952a00abc872e0b095b7",
+        "width": 2000,
+        "height": 1346,
+        "layout": "minimum-dark",
+        "path": "dist/verification/design-native/engine-settings-minimum-dark.png"
+      },
+      "engine-settings-minimum-light.png": {
+        "sha256": "e0362e201f78f6cb9b2a966caa1105d9c3f87c3e44870cf09ea6094d19b50fea",
+        "width": 2000,
+        "height": 1346,
+        "layout": "minimum-light",
+        "path": "dist/verification/design-native/engine-settings-minimum-light.png"
+      },
+      "engine-settings-standard-dark.png": {
+        "sha256": "de930cfd1c70fac2bd98137d9c962cc2c473a0a896037158820a170b6369ff6b",
+        "width": 2800,
+        "height": 1800,
+        "layout": "standard-dark",
+        "path": "dist/verification/design-native/engine-settings-standard-dark.png"
+      },
+      "engine-settings-standard-light.png": {
+        "sha256": "00bd37c47c2076d82c3c92ad931a329fe0865dcb6261198458d85d8551ae394a",
+        "width": 2800,
+        "height": 1800,
+        "layout": "standard-light",
+        "path": "dist/verification/design-native/engine-settings-standard-light.png"
+      }
+    },
+    "earlier_failed_gate": {
+      "job": "c122b2503d0b",
+      "original_full_source_sha256": "a7e96ed968e9c96cf3e9b43f41eff530be725519732e7de111be593135f074aa",
+      "original_integration_sha256": "ce0efb58156f84a00685e980150f833f14773e9d9e7f52a7f38dd09375c5f052",
+      "original_ci_manifest_sha256": "e5918f5705a6d3d6f20b87410e930d3beb500f6b79ccba63b1e62297912464f5",
+      "preserved_packet": "/tmp/stateset-desktop-engine-settings-design/dist/verification/design-c122b2503d0b-focus-assertion-failure",
+      "changed_source": ["e2e/settings-design.electron.spec.ts"],
+      "qualification": "Application CSS/logic,all test timeouts, and eight scoped color-contrast requirements unchanged; refine invalid focus-background comparison."
+    },
+    "visual_review_refinement": {
+      "prior_gate": "31d532c6eb3f",
+      "prior_gate_status": "succeeded_with_visual_review_caveat_not_accepted",
+      "diagnostic_job": "517e4198b15b",
+      "original_full_source_sha256": "fd991ebfd5dd0bebe384f0653cc9c5674b4e101556ddd10adbf32f48629f8445",
+      "original_integration_sha256": "6b9b408f5be14925418def7f08d5bd6d5f4e417237a8ba02e56d0ac2a53220d2",
+      "original_ci_manifest_sha256": "097aae29e54fc973ca66965d1935124c6beeddf61d5208c94ce804182c8e78f3",
+      "preserved_packet": "/tmp/stateset-desktop-engine-settings-design/dist/verification/design-31d532c6eb3f-visual-review",
+      "diagnostic_packet": "/tmp/stateset-desktop-engine-settings-design/dist/verification/design-paint-probe",
+      "changed_source": ["e2e/settings-design.electron.spec.ts"],
+      "qualification": "Computed styles and text contrast did not provepaintedlabel. Extra captures displayedlabelbefore/afterAxe;rootcauseunproven. Refinedcase waitsfonts+2frames thenverifiesexactPNGtextboundscontainwhiteglyphpixels; noappCSS/timeouts changed."
+    },
+    "visual_preview_resolution": {
+      "status": "resolved_preview_artifact",
+      "finding": "Original-size PNG rendering and independent saved-PNG pixel reads show primary label glyphs in all four original31d and current7219 captures. Resized image previews were misleading; no application paint or Axe timing defect established.",
+      "prior_gate": "31d532c6eb3f",
+      "current_gate": "7219b91f9df3",
+      "diagnostic_job": "517e4198b15b",
+      "original31d_button_region_white_pixels": {
+        "standard-dark": 1283,
+        "standard-light": 1318,
+        "minimum-dark": 1283,
+        "minimum-light": 1316
+      },
+      "original31d_png_sha256": {
+        "engine-settings-standard-dark.png": "655f21b21238d348b9747bf27d4d2446953f68238abd434aac191add38b0e389",
+        "engine-settings-standard-light.png": "5b8275090bc6986aeb5bed910bfa223e9f6ad2fe3df95a89c058e190c6ae5802",
+        "engine-settings-minimum-dark.png": "9a6ce8718aace55f1d1fb380fafd5d11f5235fcb075c03ec85bb28b1363a4138",
+        "engine-settings-minimum-light.png": "d01fb168d7be7dd29636b969f9a46220429b3afb14a84452092283bca2da23b1"
+      },
+      "current7219_png_sha256": {
+        "engine-settings-standard-dark.png": "de930cfd1c70fac2bd98137d9c962cc2c473a0a896037158820a170b6369ff6b",
+        "engine-settings-standard-light.png": "00bd37c47c2076d82c3c92ad931a329fe0865dcb6261198458d85d8551ae394a",
+        "engine-settings-minimum-dark.png": "b36f497aa655c6dfd1c0b1caef72a1443a01789d13d1952a00abc872e0b095b7",
+        "engine-settings-minimum-light.png": "e0362e201f78f6cb9b2a966caa1105d9c3f87c3e44870cf09ea6094d19b50fea"
+      },
+      "test_refinement": "Retain font readiness/two paint frames and visible white glyph pixel assertion from exact screenshot buffer within DOM text bounds. Currentreceipt stores primaryPixels for each layout. This is captured-label evidence, not OCR or whole-app accessibility."
+    },
+    "source_guard": {
+      "inputs": 665,
+      "manifest_sha256": "0bc408659671205d5cd8bb5f1b58f6a5f2e3472d093432aaacf94282fc381afc",
+      "qualification": "Manual full-source inventory and before/after hashes, not an immutable filesystem or dependency snapshot."
+    },
+    "unit_report_sha256": "2d3da9698ffa896afe4c19b54ec8dcec10822e93d9226ee4e53e0bdf895116ae",
+    "native_report_sha256": "831cbd13c287a5f5c97d4eeff6ff398a23a073d622921c10bd52846aba6d30f4",
+    "prepared_ci_manifest_sha256": "da484d497580bd7c23cc3eda34b25a586901fd215111d6e33d00765d5f0fe365",
+    "dependencies": {
+      "layout": "real-directory-with-per-entry-symlinks",
+      "source_lock_sha256": "6b16f7726a827fae720886354509120e5b2e1a6acb00c14c8b4ed917b0317bbb",
+      "installed_lock_sha256": "081541a4251bec077b01ab05b862eaa99cf37bceade56064e927b803edf5950d",
+      "qualification": "Shared installed dependency bytes; permitted for source and unpackaged native checks only. Never use this layout as a packaging input."
+    },
+    "dependency_audit": {
+      "production": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 0,
+        "critical": 0,
+        "total": 0
+      },
+      "all": {
+        "info": 0,
+        "low": 0,
+        "moderate": 10,
+        "high": 5,
+        "critical": 0,
+        "total": 15
+      },
+      "qualification": "Unchanged package/lock bytes retain the prior source-bound audit (production 0, development 15 affected-package entries). This is not a fresh full audit; the new exact-head CI production gate is required."
+    },
+    "dependency_audit_qualification": "Package metadata and lockfile are unchanged. Prior audit findings apply to this graph; exact-head full CI remains required.",
+    "full_ci": "Required after committing this source. This local gate does not establish exact-head full-suite or multi-platform acceptance."
+  },
+  "changed_source_sha256": {
+    ".github/workflows/build-release.yml": "3c8654773f13b678856019733f7e8f3ec82fe5564188fb23b5db6e6cd63641dc",
+    ".github/workflows/e2e.yml": "8fe4e84df1af97526cd99898e40413e77c0b1e0f3cea28d7c187d6f6bc3832e6",
+    "CHANGELOG.md": "e8e7e8f19675003461be11d0c8afb6716bf45389e1f3fb625486702178e42ecc",
+    "e2e/settings-design.electron.spec.ts": "5a6fe880b5ddde0c2b589216a6a03fd4aaeaf5eb8dca6d6d7cb5c93b67fba3cd",
+    "src/features/settings/components/DurableWorkflowSettings.test.tsx": "7a9d134cd3a7d7b8c3861dd4383693d234a78b4cdeb137e25dc88bb2e8c45208",
+    "src/features/settings/components/DurableWorkflowSettings.tsx": "badb547f91a3c017b760d10c39842c8e5a19b217a008832094ce4c0cb463cdbb"
+  },
+  "limitations": [
+    "Owned deny-by-default HTTP responses simulate engine health outcomes. No live engine, Temporal, sandbox, provider or NSR execution is established.",
+    "The design case uses an owned memory-only credential profile and does not establish OS-keyring persistence.",
+    "Eight scoped color-contrast checks and four measured native layouts do not establish whole-application accessibility.",
+    "Dependency symlinks were used only for source checks and unpackaged native execution. No new package was built from that layout.",
+    "Linux native evidence does not establish macOS/Windows runtime behavior or signed installer/update delivery.",
+    "Screenshots are retained for human visual review; computed styles, scoped contrast and primary-label pixel evidence do not certify every pixel."
+  ]
+}

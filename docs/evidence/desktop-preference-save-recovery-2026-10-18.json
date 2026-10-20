@@ -1,0 +1,198 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-19T03:54:45.505424+00:00",
+  "source_parent_commit": "2f61a3e050122042c1cfd71ae11ce9088bb23b42",
+  "scope": "Acknowledge boolean preference writes, retain retry feedback across navigation, and immediately stop local telemetry collection on opt-out, including persistence failure.",
+  "baseline": {
+    "job": {
+      "id": "70d2bce7cf67",
+      "state": "failed",
+      "exit_code": 1,
+      "cwd": "/home/dom/stateset-desktop",
+      "argv": [
+        "bash",
+        "-c",
+        "export PATH=/home/dom/.nvm/versions/node/v22.18.0/bin:$PATH UV_THREADPOOL_SIZE=1 GOMAXPROCS=1; node node_modules/vitest/vitest.mjs run src/lib/telemetry-consent.test.ts --no-cache --no-coverage --maxWorkers=1 --no-file-parallelism --reporter=default --reporter=json --outputFile.json=dist/verification/telemetry-consent-baseline.json"
+      ],
+      "wait_seconds": 1603.0026285648346,
+      "elapsed_seconds": 8.917460680007935
+    },
+    "failed_regressions": 4,
+    "production_source_unchanged": true,
+    "report_sha256": "4c60bb7b26ae882bba85a9383b87eed70a6f9a7d494571e2b613c3d8c3a9f8c1",
+    "findings": [
+      "Opt-out waited for a final flush before disabling collection.",
+      "An active request was not aborted.",
+      "A delayed saved opt-in could re-enable collection.",
+      "A failed native opt-out save skipped stopping collection."
+    ]
+  },
+  "implementation": [
+    "Serialize writes per preference and accept only explicit native acknowledgements before applying non-privacy values. Preserve the last acknowledged value after failure.",
+    "Stop collection synchronously on opt-out, discard queued events and abort an active request. Do not replay a revoked batch after fresh opt-in.",
+    "Hold collection off while opt-in persistence is pending and reject stale acknowledgements after a newer opt-out. Serialize consent persistence with legacy collector calls.",
+    "Ignore stale startup reads and errors for preferences changed during initialization or already saving when the read began. Invalid runtime refresh/page inputs do not suppress valid hydration.",
+    "Respect restored consent revocations until a fresh explicit opt-in, including before collector creation.",
+    "Expose loading, saving, safe error messages and named Retry actions. Preserve error state across navigation and keyboard focus on save recovery.",
+    "Retain native fault/retry screenshots in both CI workflows."
+  ],
+  "verification": {
+    "job": {
+      "id": "15314a63b1a2",
+      "state": "succeeded",
+      "exit_code": 0,
+      "cwd": "/home/dom/stateset-desktop",
+      "argv": ["bash", "/tmp/stateset-desktop-preference-root-check.sh"],
+      "wait_seconds": 0.026134252548217773,
+      "elapsed_seconds": 568.4808666706085
+    },
+    "checks": [
+      "Renderer and desktop-test typechecks",
+      "Full uncached strict lint",
+      "Complete single-worker unit suite without coverage/cache",
+      "Electron compilation and renderer production build",
+      "674 source inputs and selected dependency-lock identity before/after"
+    ],
+    "unit": {
+      "passed": 3170,
+      "files": 235,
+      "skipped": 0,
+      "report_sha256": "c4cfed90889b2e38a372055a5beadb8b60fdd78f8934cc2ee24a4c7c3808efd5"
+    },
+    "focused": {
+      "job": {
+        "id": "af673963b0e1",
+        "state": "failed",
+        "exit_code": 1,
+        "cwd": "/tmp/stateset-desktop-preference-recovery",
+        "argv": ["bash", "/tmp/stateset-desktop-preference-recovery-check-v2.sh"],
+        "wait_seconds": 0.04980158805847168,
+        "elapsed_seconds": 165.89228224754333
+      },
+      "passed_unit": 93,
+      "unit_files": 8,
+      "report_sha256": "e2f5d92c930663ccf9a414b7d503464be1a96097fc149fd51cf11dd177715bba",
+      "qualification": "The job failed because two new native tests used unsupported dynamic Node imports in Electron evaluation. Its five existing native cases, focused unit tests, both typechecks, full strict lint and Electron compilation passed. The native harness was repaired separately."
+    },
+    "native_existing": {
+      "passed": 5,
+      "cases": [
+        "engine settings stay readable and keyboard accessible in both themes at minimum window width",
+        "settings toggles keep clear states and keyboard focus in both themes at minimum width",
+        "settings toggle preferences survive native restart",
+        "engine connection tests discard stale responses after editing settings",
+        "engine credential removal retains failed keys and confirms native removal"
+      ],
+      "report_sha256": "7bb53e312967f83a7e0afed7d4dcdd39b28210f0610d3c6780d00eb901468376",
+      "retries": 0,
+      "skips": 0,
+      "source_delta_to_final": "Only e2e/settings-save-recovery.electron.spec.ts changed afterwards; all production, unit and five passing test sources are unchanged."
+    },
+    "native_permission_recovery": {
+      "job": {
+        "id": "e8ba288a6289",
+        "state": "succeeded",
+        "exit_code": 0,
+        "cwd": "/tmp/stateset-desktop-preference-recovery",
+        "argv": ["bash", "/tmp/stateset-desktop-preference-recovery-check-v3.sh"],
+        "wait_seconds": 0.08007621765136719,
+        "elapsed_seconds": 102.90323853492737
+      },
+      "passed": 2,
+      "retries": 0,
+      "skips": 0,
+      "report_sha256": "f9f129676bda4e9d5ebe908e0ccb4f31cfc252b9c24eaecb6ac110e0a87aa757",
+      "receipts": [
+        {
+          "theme": "dark",
+          "failure": "owned-profile-file-and-directory-read-only",
+          "originalConfigUnchanged": true,
+          "genericValueRestored": true,
+          "sharingStoppedLocally": true,
+          "sharingPreferenceInitiallyRetained": true,
+          "retrySurvivedNavigation": true,
+          "realHandlerRetriesAcknowledged": true,
+          "savedValues": {
+            "soundAlerts": false,
+            "telemetryEnabled": false
+          },
+          "pageErrors": 0,
+          "qualification": "Actual owned Linux profile permissions and native IPC; restored before cleanup. No host profile, network telemetry endpoint, live workflow or OS keyring acceptance."
+        },
+        {
+          "theme": "light",
+          "failure": "owned-profile-file-and-directory-read-only",
+          "originalConfigUnchanged": true,
+          "genericValueRestored": true,
+          "sharingStoppedLocally": true,
+          "sharingPreferenceInitiallyRetained": true,
+          "retrySurvivedNavigation": true,
+          "realHandlerRetriesAcknowledged": true,
+          "savedValues": {
+            "soundAlerts": false,
+            "telemetryEnabled": false
+          },
+          "pageErrors": 0,
+          "qualification": "Actual owned Linux profile permissions and native IPC; restored before cleanup. No host profile, network telemetry endpoint, live workflow or OS keyring acceptance."
+        }
+      ],
+      "capture_sha256": {
+        "settings-save-failure-dark.png": "850a22e7d4e1b0c828263182d0673b44b8ab8503fdf6c84ed9ae2b574a604e8d",
+        "settings-save-failure-light.png": "f3e19631fc608aa67a90b58b8a1f802d06650672d683b5dd5b016fe2e3b12037",
+        "settings-save-recovery-dark.png": "84aa5270918d03a6e808aa982a27c28b7979b41cbc0fd36d785a95d12c331572",
+        "settings-save-recovery-light.png": "3d8ae22ba9ab4172f7ce1f7f29508c20215de5076ecdbd081cfc689a09ce5641"
+      },
+      "visual_review": "Original dark/light failure captures and light recovery capture reviewed; feedback remains inline and readable, with errors removed after acknowledged retries."
+    },
+    "dependency_audit": {
+      "production": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 0,
+        "critical": 0,
+        "total": 0
+      },
+      "all": {
+        "info": 0,
+        "low": 0,
+        "moderate": 10,
+        "high": 5,
+        "critical": 0,
+        "total": 15
+      },
+      "qualification": "Unchanged package/lock bytes retain the prior source-bound audit (production 0, development 15 affected-package entries). This is not a fresh full audit; the new exact-head CI production gate is required."
+    },
+    "dependency_audit_scope": "Inherited from verified parent with unchanged package metadata/resolutions; not a new complete audit. CI production audit is a separate gate.",
+    "source_manifest_sha256": "243c479c4ffcfe408261acf14c78180a46477065b739fb374c5188ee2f1bcb61"
+  },
+  "changed_source_sha256": {
+    "CHANGELOG.md": "ce7041b8a85a7a4acee42cb676c6534daa07ca1e0aa0390766396e06c5fb00a6",
+    ".github/workflows/build-release.yml": "8556003945b3f4f544b0866449de7a28613d07a07fda2702ee77233d389174c7",
+    ".github/workflows/e2e.yml": "317aae4b37463ad211d80273e0b4aa3e3634318720390e2ca19ac43ceeb4427b",
+    "e2e/settings-save-recovery.electron.spec.ts": "378e543bac78933422e796fcb7849fc9bd82950a7b838832703d679e78bee315",
+    "e2e/settings-toggles.electron.spec.ts": "ab15aa1e9f206aa3edb3c0830bd5418ad5a3ae4a2542ece5d848e7a53b8c3ca4",
+    "src/test-utils.tsx": "4058c5d50efabac72bf1c2bf46273cc40b491134b262c45c111ef8104cd09cce",
+    "src/features/settings/components/AppearanceSettings.test.tsx": "2fe6c0d5d65e5c6a15ba86817716c5d7d384648945ade6f0bc3fc15e99fb1fff",
+    "src/features/settings/components/AppearanceSettings.tsx": "998393e7f1bc3f5734badb1f391c2231baa9a2d01a9e895d428e5d16751ad082",
+    "src/features/settings/components/BackgroundSettings.test.tsx": "5f346ab314c64b7f922aed395daa1ca4a04e3ec9fe630bc1466cb3c8afe831d1",
+    "src/features/settings/components/BackgroundSettings.tsx": "11a3adac15e3e9e3419646207ef9f8565af2dd1ffb855630b07d9f9392db0780",
+    "src/features/settings/components/NotificationSettings.test.tsx": "be8fe57e1783049744cfed2ff8645df132c8637b3bd29389db5ceeb73d4076cd",
+    "src/features/settings/components/NotificationSettings.tsx": "d5ee9441e76cc7c4ca59d20647042ad856058ff1a445f62f5b45b72e8119aa4c",
+    "src/features/settings/components/SettingsToggle.test.tsx": "0964a04644e935af94a3b5c74ec6e8f836e07b515cef80e9a1cc345abbe59e56",
+    "src/features/settings/components/SettingsToggle.tsx": "3ca29209e0da954bb3790bf6f9ddce3ace8a17c306bb7b9ff682b311b701fc4b",
+    "src/lib/telemetry-consent.test.ts": "3519b575760d269fc57dc88f60be14a19581207a5414ec08db293ff0f87a4e7a",
+    "src/lib/telemetry.test.ts": "04d7022573a5feab4ae20e996f6e581365b7c5d74545ca8f21b4cdbb3aac0785",
+    "src/lib/telemetry.ts": "c4a4a011f17d3c6653e1f6ac43fda6f1a08da11e6352922a16666c7f418ec851",
+    "src/stores/preference-saves.test.ts": "a5d89c3dbffcc5e4d30605dc15aea9c8635f1d3cd5d4ba17aec27dd3b98e6ae5",
+    "src/stores/preferences.test.ts": "5480113e1ab845d21d17541f891cae388d598a6037d01255617228beced92a1b",
+    "src/stores/preferences.ts": "ec9bbfe76d8172dfbd33dec57df044ea67ced16232a0b253feb57de55f223c6d"
+  },
+  "qualification": [
+    "All four baseline regressions reproduced on unchanged parent production source; full root and scoped native checks passed on the promoted source.",
+    "Actual permission faults used owned temporary Linux profiles and original IPC handlers. Modes were restored by the test process, including failure cleanup. No host profile was modified.",
+    "Source hashes with shared mutable dependencies are not an immutable snapshot.",
+    "This increment does not establish live engine/Temporal/sandbox/NSR acceptance, OS-keyring persistence, macOS/Windows runtime behavior, whole-app accessibility or signed update delivery.",
+    "No release/version/tag/publication change."
+  ]
+}

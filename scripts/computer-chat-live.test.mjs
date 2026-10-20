@@ -3,6 +3,7 @@ import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
+import requiredChecks from '../src/features/computer-chat/setup-checks.json' with { type: 'json' };
 
 const brand = 'a2222222-b222-4222-8222-222222222222';
 const tenant = '11111111-1111-4111-8111-111111111111';
@@ -46,6 +47,7 @@ async function runHarness(environment, { forbidNetwork = false } = {}) {
 
 async function failedStart({
   mode = 'http-error',
+  incompleteDiagnostics = false,
   stopFails = false,
   delayed = false,
   foreignReceipt = false,
@@ -72,7 +74,14 @@ async function failedStart({
       return;
     }
     if (request.url === '/v1/computer-chats/diagnostics') {
-      reply({ ready: true, checks: [] });
+      reply({
+        version: 1,
+        ready: true,
+        checks: incompleteDiagnostics
+          ? [{ key: 'sandbox', status: 'pass', message: fixtureKey }]
+          : requiredChecks.map((key) => ({ key, status: 'pass', message: 'Configured' })),
+        mcp_servers: [],
+      });
       return;
     }
     if (request.url === '/v1/computer-chats/start') {
@@ -196,4 +205,14 @@ test('rejects an invalid workspace identifier before making requests or logging 
   assert(result.stderr.includes('CHAT_TEST_BRAND_ID must be a UUID'));
   assert(!result.stderr.includes('Unexpected harness network access'));
   assert(!result.stderr.includes(invalidValue));
+});
+
+test('does not create or stop a workflow from incomplete readiness evidence', async () => {
+  const result = await failedStart({ incompleteDiagnostics: true });
+  assert.deepEqual(
+    result.requests.map((request) => request.path),
+    ['/v1/computer-chats/diagnostics']
+  );
+  assert(result.stderr.includes('Computer service readiness is incomplete'));
+  assert(!result.stderr.includes(fixtureKey));
 });

@@ -52,3 +52,10 @@ jobs:
             e2e/*-results.json
             dist/verification/updater-*.png
             dist/verification/schedule-pending-*.png
+            dist/verification/agent-manager-*.png
+            dist/verification/agent-error-*.png
+            dist/verification/engine-settings-*.png
+            dist/verification/settings-toggles-*.png
+            dist/verification/settings-save-*.png
+            dist/verification/custom-engine-native-transport.json
+            dist/verification/linux-bundle-startup.png

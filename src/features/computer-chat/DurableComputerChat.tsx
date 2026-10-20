@@ -45,8 +45,22 @@ import { ChatMessageBubble } from '../chat-playground/components/ChatMessageBubb
 import { ToolActivityBubble } from '../chat-playground/components/ToolActivityBubble';
 import type { ChatConversation } from '../../types';
 import type { ComputerChat } from './types';
+import { SandboxConversation, SandboxChatSetup } from './SandboxConversation';
 
-export function DurableComputerChat() {
+export function DurableComputerChat({
+  initialRuntime = 'sandbox',
+}: {
+  initialRuntime?: 'sandbox' | 'workflow';
+}) {
+  const [runtime, setRuntime] = useState(initialRuntime);
+  const creatingChat = useRef(false);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   const tenantId = useAuthStore((s) => s.tenant?.id);
   const brandId = useAuthStore((s) => s.currentBrand?.id);
   const chats = useComputerChatsStore((s) => s.chats);
@@ -221,10 +235,36 @@ export function DurableComputerChat() {
     title: string;
     messages: { role: string; content: string }[];
   }) => {
-    if (!tenantId || !brandId || creating) return;
+    if (!tenantId || !brandId || creatingChat.current) return;
     const auth = useAuthStore.getState();
     const connection = useDurableWorkflowsStore.getState();
     if (auth.tenant?.id !== tenantId || auth.currentBrand?.id !== brandId) return;
+    if (!source && runtime === 'sandbox') {
+      if (!auth.sandboxApiKey) {
+        setSettingsOpen(true);
+        setSettingsFocusRequest((value) => value + 1);
+        setError('Save a Sandbox API key to create this chat’s computer.');
+        return;
+      }
+      creatingChat.current = true;
+      setCreating(true);
+      setError('');
+      try {
+        const id = await computerChatRuntime.create(tenantId, brandId);
+        const current = useAuthStore.getState();
+        if (current.tenant?.id === tenantId && current.currentBrand?.id === brandId) {
+          if (mounted.current) selectChat(id);
+          void computerChatRuntime.provision(id);
+        }
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e));
+      } finally {
+        creatingChat.current = false;
+        setCreating(false);
+      }
+      return;
+    }
+    setRuntime('workflow');
     if (
       !connection.initialized ||
       !checkedSetup?.report.ready ||
@@ -243,6 +283,7 @@ export function DurableComputerChat() {
       setError('Save the workflow connection and run its checks before creating a new computer.');
       return;
     }
+    creatingChat.current = true;
     setCreating(true);
     setError('');
     try {
@@ -264,6 +305,7 @@ export function DurableComputerChat() {
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
+      creatingChat.current = false;
       setCreating(false);
     }
   };
@@ -359,7 +401,26 @@ export function DurableComputerChat() {
           className="chat-settings"
           hidden={!settingsOpen}
         >
-          {tenantId && brandId && (
+          <label className="mb-4 block text-xs text-gray-400">
+            New chat runtime
+            <select
+              className="minimal-input mt-1 block"
+              value={runtime}
+              onChange={(event) => setRuntime(event.target.value as 'sandbox' | 'workflow')}
+            >
+              <option value="sandbox">Sandbox API</option>
+              <option value="workflow">Durable workflow</option>
+            </select>
+          </label>
+          {runtime === 'sandbox' && tenantId && brandId && (
+            <SandboxChatSetup
+              key={`${tenantId}:${brandId}`}
+              tenantId={tenantId}
+              brandId={brandId}
+              onError={setError}
+            />
+          )}
+          {runtime === 'workflow' && tenantId && brandId && (
             <DurableChatSetup
               key={`${tenantId}:${brandId}`}
               tenantId={tenantId}
@@ -372,7 +433,7 @@ export function DurableComputerChat() {
             />
           )}
         </div>
-        <WorkflowInitializationNotice />
+        {(runtime === 'workflow' || chat?.durableSession) && <WorkflowInitializationNotice />}
         {error && (
           <p role="alert" className="chat-page-alert text-sm text-red-400">
             {error}
@@ -439,7 +500,9 @@ export function DurableComputerChat() {
             )}
             {loaded && !scoped.length && (
               <p className="mt-3 text-xs text-gray-500">
-                Complete the connection checks, then create your first computer.
+                {runtime === 'sandbox'
+                  ? 'Start a chat. Its computer is prepared in the background.'
+                  : 'Complete the connection checks, then create your first computer.'}
               </p>
             )}
             <ChatLibrary
@@ -532,6 +595,16 @@ export function DurableComputerChat() {
                 Pick up any conversation from the sidebar.
               </span>
             </div>
+          ) : chat.sandboxApiSession ? (
+            <SandboxConversation
+              key={chat.id}
+              chat={chat}
+              busy={working}
+              onSettings={() => {
+                setRuntime('sandbox');
+                setSettingsOpen(true);
+              }}
+            />
           ) : !chat.durableSession ? (
             <LegacyConversation
               chat={chat}
@@ -644,6 +717,7 @@ export function DurableComputerChat() {
                   key={`connection:${chat.id}`}
                   chat={chat}
                   onOpenSettings={() => {
+                    setRuntime('workflow');
                     setSettingsOpen(true);
                     setSettingsFocusRequest((value) => value + 1);
                   }}

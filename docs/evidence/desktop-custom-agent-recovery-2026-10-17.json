@@ -1,0 +1,416 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-17T17:16:01.192173+00:00",
+  "source_parent_commit": "4189d16529fd194b0ddb71a9263aacaf44538464",
+  "scope": "Preserve custom background agent profiles through concurrent writes and storage failures; keep the editor accessible, readable and retryable.",
+  "baseline": {
+    "commit": "4189d16529fd194b0ddb71a9263aacaf44538464",
+    "counts": {
+      "unit_files": 228,
+      "unit": 2879,
+      "native": 80,
+      "live_skipped": 3,
+      "native_retries": 0,
+      "linux_bundle": 1,
+      "linux_installers": 3
+    },
+    "workflow_url": "https://github.com/stateset/stateset-desktop/actions/runs/39049167640",
+    "qualification": "Previous exact-head master CI passed. Lost updates and false acknowledgements were identified through source review; no separate pre-fix failing baseline run was performed."
+  },
+  "implementation": [
+    "Serialize custom agent saves and removals on a recoverable queue, reading the latest acknowledged collection inside each operation.",
+    "Deep-copy and validate submitted profiles before enqueue; require a real native setter, reject false acknowledgements and retain legacy undefined acknowledgements from an actual setter. Publish only after accepted persistence.",
+    "Guard editor actions before awaits. Keep fields stable while pending, retain creation drafts after failure, catch removal failures and preserve unrelated drafts when profiles are removed.",
+    "Give pending persistence a focused status that keeps Tab and Shift+Tab inside the modal; restore the initiating control after failure/cancellation without stealing focus from the opened workflow form.",
+    "Use semantic theme surfaces, complete wrapped profile names, selected-tool contrast and consistent primary controls; keep saved-state status truthful while initialization is unavailable.",
+    "Render shared modal overlays through a body portal so page stacking and overflow cannot obscure them behind the sidebar. Native probes verify centered placement, viewport coverage, unobscured title/profile/input hit targets and enabled readable inputs in both themes.",
+    "Retain custom-agent identity and complete bounded configuration across an actual native process restart; remove the saved profile without losing a new draft, then create/select its replacement.",
+    "Retain dark/light manager captures in both CI workflows and scan the named agent dialog with scoped Axe."
+  ],
+  "verification": {
+    "jobs": {
+      "integrated": {
+        "id": "041e355eebc6",
+        "state": "succeeded",
+        "exit_code": 0,
+        "command_display": "bash /tmp/stateset-desktop-agent-final.sh",
+        "wait_seconds": 0.02900075912475586,
+        "elapsed_seconds": 193.23841524124146
+      }
+    },
+    "queue_qualification": "Static/unit checks and native verification share one sequential Buildr admission.",
+    "unit_tests": 146,
+    "unit_files": 10,
+    "prior_local_attempts": [
+      {
+        "job": "6c65929fd23d",
+        "status": "passed",
+        "unit_tests": 125,
+        "native_passed": 1,
+        "qualification": "Passed before the focus-return refinement and shared modal portal fix. Visual review exposed sidebar occlusion despite scoped Axe passing. Original artifacts retained in dist/verification/agent-6c65929fd23d-before-focus-fallback."
+      },
+      {
+        "job": "dc3d7c110d4f",
+        "status": "lost",
+        "qualification": "Buildr reported owner exited during the renderer typecheck. Owner and child PIDs were confirmed absent; no pass/fail application conclusion. Job JSON and partial log retained in dist/verification/agent-dc3d7c110d4f-lost."
+      }
+    ],
+    "checks": [
+      "Renderer typecheck",
+      "Desktop-test typecheck",
+      "Uncached strict lint with unchanged rules",
+      "Real repository Vite test configuration, single worker"
+    ],
+    "native": {
+      "passed": 3,
+      "skipped": 0,
+      "retries": 0,
+      "flaky": 0,
+      "scoped_axe_violations": 0,
+      "receipt": {
+        "attachment_sha256": "1bfd0c8e3665163bf7c310435c137f38358d87978df2fd80e134d234bcf4e463",
+        "before_restart": [
+          {
+            "id": "custom-4fb0dc9c-aad8-499d-b938-fc4b7431d472",
+            "name": "Inventory investigator",
+            "description": "Checks inventory exports against saved evidence",
+            "provider": "openai",
+            "connectorKey": "openai-primary",
+            "model": "gpt-5.4",
+            "systemPrompt": "Inspect the inventory export, report mismatches, and preserve the source files.",
+            "maxIterations": 10,
+            "allowedExecutables": ["rg", "jq", "cat", "head", "tail", "wc", "sort"],
+            "maxTokens": 1024,
+            "maxTotalTokens": 20000
+          }
+        ],
+        "after_restart": [
+          {
+            "id": "custom-4fb0dc9c-aad8-499d-b938-fc4b7431d472",
+            "name": "Inventory investigator",
+            "description": "Checks inventory exports against saved evidence",
+            "provider": "openai",
+            "connectorKey": "openai-primary",
+            "model": "gpt-5.4",
+            "systemPrompt": "Inspect the inventory export, report mismatches, and preserve the source files.",
+            "maxIterations": 10,
+            "allowedExecutables": ["rg", "jq", "cat", "head", "tail", "wc", "sort"],
+            "maxTokens": 1024,
+            "maxTotalTokens": 20000
+          }
+        ],
+        "after_delete": [],
+        "after_second_save": [
+          {
+            "id": "custom-e5eefb42-674f-4ae8-a34a-aed13181959d",
+            "name": "Delivery evidence reviewer",
+            "description": "Reviews delivery receipts and reports missing evidence",
+            "provider": "openai",
+            "connectorKey": "openai-primary",
+            "model": "gpt-5.4",
+            "systemPrompt": "Inspect the delivery receipts and explain every missing confirmation before finishing.",
+            "maxIterations": 10,
+            "allowedExecutables": ["rg", "jq", "cat", "head", "tail", "wc", "sort"],
+            "maxTokens": 1024,
+            "maxTotalTokens": 20000
+          }
+        ],
+        "draft_preserved": true,
+        "workflow_requests": [],
+        "manager_layouts": {
+          "dark": {
+            "viewportWidth": 1024,
+            "viewportHeight": 768,
+            "inViewport": true,
+            "centered": true,
+            "coversViewport": true,
+            "bodyOverlay": true,
+            "unobscured": true,
+            "input": {
+              "color": "rgb(241, 245, 249)",
+              "background": "rgb(21, 22, 24)",
+              "opacity": "1",
+              "disabled": false
+            }
+          },
+          "light": {
+            "viewportWidth": 1024,
+            "viewportHeight": 768,
+            "inViewport": true,
+            "centered": true,
+            "coversViewport": true,
+            "bodyOverlay": true,
+            "unobscured": true,
+            "input": {
+              "color": "rgb(15, 23, 42)",
+              "background": "rgb(255, 255, 255)",
+              "opacity": "1",
+              "disabled": false
+            }
+          }
+        }
+      },
+      "related_recovery_receipts": {
+        "scheduled_recovery": {
+          "attachment_sha256": "4ea35747fa7c8ed4d98e727e3d8d04d45dd3a35af0bfc3b8d2da8423434b554d",
+          "status_path": "/v1/workflows/active-horizon-agent/active-horizon-agent-22222222222242228222222222222222-33333333333343338333333333333333/status",
+          "status_get_count": 2,
+          "ambient_root_probe_count": 2,
+          "primary_styles": {
+            "dark": {
+              "beforeScan": {
+                "text": " New workflow",
+                "color": "rgb(255, 255, 255)",
+                "textFillColor": "rgb(255, 255, 255)",
+                "background": "rgb(3, 105, 161)",
+                "opacity": "1",
+                "visibility": "visible"
+              },
+              "afterScan": {
+                "text": " New workflow",
+                "color": "rgb(255, 255, 255)",
+                "textFillColor": "rgb(255, 255, 255)",
+                "background": "rgb(3, 105, 161)",
+                "opacity": "1",
+                "visibility": "visible"
+              }
+            },
+            "light": {
+              "beforeScan": {
+                "text": " New workflow",
+                "color": "rgb(255, 255, 255)",
+                "textFillColor": "rgb(255, 255, 255)",
+                "background": "rgb(3, 105, 161)",
+                "opacity": "1",
+                "visibility": "visible"
+              },
+              "afterScan": {
+                "text": " New workflow",
+                "color": "rgb(255, 255, 255)",
+                "textFillColor": "rgb(255, 255, 255)",
+                "background": "rgb(3, 105, 161)",
+                "opacity": "1",
+                "visibility": "visible"
+              }
+            }
+          },
+          "viewport_layouts": {
+            "standard-dark": {
+              "viewportWidth": 1024,
+              "viewportHeight": 768,
+              "stacked": true,
+              "viewportFits": true,
+              "headerFits": true,
+              "buttons": [
+                {
+                  "name": "Agents",
+                  "lines": 1,
+                  "fits": true
+                },
+                {
+                  "name": "Track existing",
+                  "lines": 1,
+                  "fits": true
+                },
+                {
+                  "name": "New workflow",
+                  "lines": 1,
+                  "fits": true
+                }
+              ]
+            },
+            "standard-light": {
+              "viewportWidth": 1024,
+              "viewportHeight": 768,
+              "stacked": true,
+              "viewportFits": true,
+              "headerFits": true,
+              "buttons": [
+                {
+                  "name": "Agents",
+                  "lines": 1,
+                  "fits": true
+                },
+                {
+                  "name": "Track existing",
+                  "lines": 1,
+                  "fits": true
+                },
+                {
+                  "name": "New workflow",
+                  "lines": 1,
+                  "fits": true
+                }
+              ]
+            },
+            "minimum-dark": {
+              "viewportWidth": 1000,
+              "viewportHeight": 673,
+              "stacked": true,
+              "viewportFits": true,
+              "headerFits": true,
+              "buttons": [
+                {
+                  "name": "Agents",
+                  "lines": 1,
+                  "fits": true
+                },
+                {
+                  "name": "Track existing",
+                  "lines": 1,
+                  "fits": true
+                },
+                {
+                  "name": "New workflow",
+                  "lines": 1,
+                  "fits": true
+                }
+              ]
+            },
+            "minimum-light": {
+              "viewportWidth": 1000,
+              "viewportHeight": 673,
+              "stacked": true,
+              "viewportFits": true,
+              "headerFits": true,
+              "buttons": [
+                {
+                  "name": "Agents",
+                  "lines": 1,
+                  "fits": true
+                },
+                {
+                  "name": "Track existing",
+                  "lines": 1,
+                  "fits": true
+                },
+                {
+                  "name": "New workflow",
+                  "lines": 1,
+                  "fits": true
+                }
+              ]
+            }
+          },
+          "qualification": "Computed style checks preserve visible button text before/after the scoped Axe scan; this does not replace the test's accessibility analysis."
+        },
+        "blueprint_persistence": {
+          "attachment_sha256": "60f08509d3732e717b9b6d25165551adb94380b9fcb7f8c084466fa52e06d47d",
+          "before_restart": [
+            {
+              "id": "blueprint-5172d89a-1f2e-4a37-8f85-187d9571090c",
+              "name": "Orders audit"
+            },
+            {
+              "id": "blueprint-7366f9a5-1906-40f7-89d6-0d20a1c41aae",
+              "name": "Returns audit"
+            },
+            {
+              "id": "blueprint-b96cf088-4172-4781-90ba-1a3235a47325",
+              "name": "Weekly inventory"
+            }
+          ],
+          "after_restart": [
+            {
+              "id": "blueprint-5172d89a-1f2e-4a37-8f85-187d9571090c",
+              "name": "Orders audit"
+            },
+            {
+              "id": "blueprint-7366f9a5-1906-40f7-89d6-0d20a1c41aae",
+              "name": "Returns audit"
+            },
+            {
+              "id": "blueprint-b96cf088-4172-4781-90ba-1a3235a47325",
+              "name": "Weekly inventory"
+            }
+          ],
+          "after_delete": [
+            {
+              "id": "blueprint-7366f9a5-1906-40f7-89d6-0d20a1c41aae",
+              "name": "Returns audit"
+            },
+            {
+              "id": "blueprint-b96cf088-4172-4781-90ba-1a3235a47325",
+              "name": "Weekly inventory"
+            }
+          ],
+          "working_draft_preserved": true
+        }
+      },
+      "qualification": "Owned native profile and controlled API fixture, actual memory-only credential fallback and normal native storage. No workflow launch requests were observed. This is not live engine, sandbox, Temporal, provider or NSR acceptance, OS keyring persistence or whole-application accessibility certification."
+    },
+    "keyboard_focus_qualification": "Deferred-write UI regression checks pending focus and Tab/Shift+Tab containment with an offsetParent shim for Happy DOM layout; native Axe scans cover the ordinary editor state.",
+    "unit_report_sha256": "a58010b782378bd0ec600ba017713684d8b0e92a5189a4526cdc279bd1c6394f",
+    "native_report_sha256": "9f6dddc906ce53e97ef9cda786ac5d98477142c5bd7e56db63a9cbf4907d758f",
+    "source_guard": {
+      "inputs": 653,
+      "manifest_sha256": "d971ef71e49322628efde8badca5906829528ff1043fbf5232cfecd44058190a",
+      "qualification": "Manual before/after source hashes, not an immutable Buildr snapshot."
+    },
+    "screenshots": {
+      "agent-manager-dark.png": {
+        "path": "dist/verification/agent-native/agent-manager-dark.png",
+        "sha256": "0e0264faf474c8327cf5d91e88be6e9456ffcdc56c0eac73e60c08622c35015b"
+      },
+      "agent-manager-light.png": {
+        "path": "dist/verification/agent-native/agent-manager-light.png",
+        "sha256": "f5f600f810d14fbe31af5f9d6b2f0e7f95c3db7f67aaf1519708196cabfe272f"
+      },
+      "schedule-pending-dark.png": {
+        "path": "dist/verification/agent-native/schedule-pending-dark.png",
+        "sha256": "a35d1ad6c703e21c161b328b4a2f41c0a11fe32992c90cda1a5238dce4d248c7"
+      },
+      "schedule-pending-light.png": {
+        "path": "dist/verification/agent-native/schedule-pending-light.png",
+        "sha256": "57f8ed2745da85c6c26938b06e6f1d05b511fe0076482aa13e4a23befcf58eb0"
+      },
+      "schedule-pending-minimum-dark.png": {
+        "path": "dist/verification/agent-native/schedule-pending-minimum-dark.png",
+        "sha256": "ccf9a6907fc3a4934f50ddc6b9601091ace5f53f4d4065d3fe46647596d76f96"
+      },
+      "schedule-pending-minimum-light.png": {
+        "path": "dist/verification/agent-native/schedule-pending-minimum-light.png",
+        "sha256": "097f942e38443ef6c0413f6db0e714880e237786c5e9d72e93141f7d7ac77b1b"
+      }
+    },
+    "dependency_audit": {
+      "production": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 0,
+        "critical": 0,
+        "total": 0
+      },
+      "all": {
+        "info": 0,
+        "low": 0,
+        "moderate": 10,
+        "high": 5,
+        "critical": 0,
+        "total": 15
+      },
+      "qualification": "Unchanged package/lock bytes retain the prior source-bound audit (production 0, development 15 affected-package entries). This is not a fresh full audit; the new exact-head CI production gate is required."
+    },
+    "dependency_audit_qualification": "Package and lockfile are unchanged. Production audit was zero in parent master CI; development-tool findings are the earlier complete audit of the same dependency graph, not a new audit in this iteration.",
+    "full_ci": "Required on the next committed source; focused/local checks do not establish complete platform or installer acceptance."
+  },
+  "changed_source_sha256": {
+    ".github/workflows/build-release.yml": "bd0185b727a7d41383b7e789b8d465d58d8093125b202d18800ee43e94e3d086",
+    ".github/workflows/e2e.yml": "3b400f719e9c0afbccf1f684efafd16e3b06f30e5dbb177fee98911ebd24d08e",
+    "CHANGELOG.md": "e54842b36ace6bba4ee4dd42c6fa75ecef6adaee2fdfd090c1b7ede3844c5b08",
+    "docs/DESKTOP_STORAGE.md": "4bb76cc139d9ca16c9986b0a1d8ef41d6d33c9fd9fdc09ae6ad3b38822a198f7",
+    "e2e/startup.spec.ts": "cdd97b79710de565e58979f336551e97c73875b664be65e421bedc2f98f4a3d9",
+    "src/components/DurableAgentManager.test.tsx": "0356d848a0685f73aa401348460cc19d2c724fef4fc49f710e67910a49842378",
+    "src/components/DurableAgentManager.tsx": "75db82fb09deadd84d6c2576b30f7949b85eef3b243cb80961a062c8f7124ef6",
+    "src/components/Modal.test.tsx": "4b3f5a28e87c7ce2289f8830fbbc46fbb915a551d93ca634475ac5dd797707a0",
+    "src/components/Modal.tsx": "215b052b42a59f9a590e818e6b682ed9e1766f96768a0b0a2908417891f7c22c",
+    "src/stores/durableCustomAgentPersistence.test.ts": "a0209a50d2c0c38209aa94ed2c5cb631756a47665bdd9394cf54973010f7987d",
+    "src/stores/durableWorkflows.ts": "dc289a1fd20c7f4b594d2e7a03a9e7a01ee49dedc231a02e3c2b24549fb8c8bf"
+  },
+  "limitations": [
+    "Persistence is one local collection write; no cross-device transaction or indefinite exactly-once execution is claimed.",
+    "Agent snapshots in existing workflows are retained when a saved profile is removed.",
+    "The v1.1.21 tag stays immutable at 4189d16. Its signed publication is blocked by missing signing/notarization settings; this is subsequent unreleased branch work."
+  ]
+}

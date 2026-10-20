@@ -9,6 +9,15 @@ type StoredSecret = {
 
 type LocalSecretsState = Record<string, Record<string, Record<string, StoredSecret>>>;
 let fallbackState: LocalSecretsState | null = null;
+let mutationQueue: Promise<void> = Promise.resolve();
+
+// Read the latest committed vault inside each mutation, so overlapping brand
+// saves and removals cannot overwrite one another's credentials.
+function mutateVault(write: () => Promise<void>): Promise<void> {
+  const task = mutationQueue.then(write, write);
+  mutationQueue = task.catch(() => undefined);
+  return task;
+}
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
@@ -33,7 +42,8 @@ const readStorage = async (): Promise<string | null> => {
 const writeStorage = async (payload: string): Promise<void> => {
   if (typeof window === 'undefined') return;
   if (window.electronAPI?.secrets?.setLocal) {
-    await window.electronAPI.secrets.setLocal(payload);
+    const confirmed = await window.electronAPI.secrets.setLocal(payload);
+    if (confirmed !== true) throw new Error('Credential storage did not confirm the save.');
     return;
   }
   try {
@@ -46,7 +56,8 @@ const writeStorage = async (payload: string): Promise<void> => {
 const clearStorage = async (): Promise<void> => {
   if (typeof window === 'undefined') return;
   if (window.electronAPI?.secrets?.clearLocal) {
-    await window.electronAPI.secrets.clearLocal();
+    const confirmed = await window.electronAPI.secrets.clearLocal();
+    if (confirmed !== true) throw new Error('Credential storage did not confirm the removal.');
     return;
   }
   fallbackState = null;
@@ -109,19 +120,22 @@ export const localSecretsApi = {
     }));
   },
 
-  storeCredentials: async (
+  storeCredentials: (
     tenantId: string,
     brandId: string,
     platform: string,
     credentials: Record<string, string>
   ): Promise<void> => {
-    const state = await readState();
-    const brandState = ensureBrandState(state, tenantId, brandId);
-    brandState[platform] = {
-      credentials,
-      updated_at: new Date().toISOString(),
-    };
-    await writeState(state);
+    const snapshot = { ...credentials };
+    return mutateVault(async () => {
+      const state = await readState();
+      const brandState = ensureBrandState(state, tenantId, brandId);
+      brandState[platform] = {
+        credentials: snapshot,
+        updated_at: new Date().toISOString(),
+      };
+      await writeState(state);
+    });
   },
 
   /**
@@ -212,24 +226,25 @@ export const localSecretsApi = {
       }));
   },
 
-  deleteCredentials: async (tenantId: string, brandId: string, platform: string): Promise<void> => {
-    const state = await readState();
-    if (!state[tenantId]?.[brandId]?.[platform]) {
-      return;
-    }
-    delete state[tenantId][brandId][platform];
+  deleteCredentials: (tenantId: string, brandId: string, platform: string): Promise<void> =>
+    mutateVault(async () => {
+      const state = await readState();
+      if (!state[tenantId]?.[brandId]?.[platform]) {
+        return;
+      }
+      delete state[tenantId][brandId][platform];
 
-    if (Object.keys(state[tenantId][brandId]).length === 0) {
-      delete state[tenantId][brandId];
-    }
-    if (Object.keys(state[tenantId]).length === 0) {
-      delete state[tenantId];
-    }
+      if (Object.keys(state[tenantId][brandId]).length === 0) {
+        delete state[tenantId][brandId];
+      }
+      if (Object.keys(state[tenantId]).length === 0) {
+        delete state[tenantId];
+      }
 
-    if (Object.keys(state).length === 0) {
-      await clearStorage();
-      return;
-    }
-    await writeState(state);
-  },
+      if (Object.keys(state).length === 0) {
+        await clearStorage();
+        return;
+      }
+      await writeState(state);
+    }),
 };
