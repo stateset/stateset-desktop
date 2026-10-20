@@ -1,23 +1,15 @@
 import { z } from 'zod';
 import { sandboxRequest } from '../../lib/sandbox';
-import { localSecretsApi } from '../../lib/localSecrets';
-import {
-  POLICY_CONNECTION,
-  decisionFact,
-  evidenceDigest,
-  requestNsrDecision,
-} from './nsrDecisions';
+import { requirePolicyKey } from './api';
+import { decisionFact, evidenceDigest, requestNsrDecision } from './nsrDecisions';
 export { evidenceDigest } from './nsrDecisions';
 import { artifactSchema } from './durableTypes';
-import { decodeArtifactContent, workspaceDirectory } from './artifacts';
+import { decodeArtifactContent } from './artifacts';
+import { fileCheckCriterion, type FileCheckInput } from './fileCheck';
+export { fileCheckCriterion } from './fileCheck';
+export type { FileCheckInput, FileCheckKind } from './fileCheck';
 import type { ComputerChat } from './types';
 
-export type FileCheckKind = 'contains' | 'equals' | 'sha256';
-export interface FileCheckInput {
-  path: string;
-  kind: FileCheckKind;
-  expected: string;
-}
 const digestSchema = z.string().regex(/^[a-f0-9]{64}$/);
 const verificationSchema = z.object({
   verified: z.boolean(),
@@ -55,22 +47,6 @@ export const sandboxArtifactReceiptSchema = z.object({
 });
 export type SandboxArtifactReceipt = z.infer<typeof sandboxArtifactReceiptSchema>;
 
-export function fileCheckCriterion(input: FileCheckInput) {
-  if (input.path.endsWith('/')) throw new Error('Choose a file under /workspace.');
-  const path = workspaceDirectory(input.path);
-  if (path === '/workspace') throw new Error('Choose a file under /workspace.');
-  if (!['contains', 'equals', 'sha256'].includes(input.kind))
-    throw new Error('Choose a supported file check.');
-  const expected = input.kind === 'sha256' ? input.expected.trim().toLowerCase() : input.expected;
-  if (input.kind === 'contains' && !expected.length)
-    throw new Error('Enter the text the file must contain.');
-  if (input.kind === 'sha256' && !/^[a-f0-9]{64}$/.test(expected))
-    throw new Error('Enter a 64-character SHA-256 digest.');
-  if (new TextEncoder().encode(JSON.stringify(expected)).byteLength > 16384)
-    throw new Error('Expected values can use at most 16,384 JSON-encoded bytes.');
-  return { path, kind: input.kind, expected };
-}
-
 /** Verify exact bytes read by the controller; model descriptions are never evidence. */
 export async function checkSandboxArtifact(
   chat: ComputerChat,
@@ -87,13 +63,8 @@ export async function checkSandboxArtifact(
     assertCurrent();
   };
   guard();
-  const credentials = await localSecretsApi.getCredentials(
-    chat.tenantId,
-    chat.brandId,
-    POLICY_CONNECTION
-  );
+  const apiKey = await requirePolicyKey(chat);
   guard();
-  if (!credentials?.api_key) throw new Error('Save an NSR policy API key in Chat settings first.');
   const artifact = artifactSchema.parse(
     await sandboxRequest(
       `/api/v1/agent/sessions/${encodeURIComponent(session.id)}/workspace/read`,
@@ -134,7 +105,7 @@ export async function checkSandboxArtifact(
   const goal = { name: 'desktop_file_check', args: [session.id, binding] };
   const decision = await requestNsrDecision({
     scope: { tenantId: chat.tenantId, brandId: chat.brandId },
-    apiKey: credentials.api_key,
+    apiKey,
     organizationId: session.organizationId,
     requestId,
     signal,

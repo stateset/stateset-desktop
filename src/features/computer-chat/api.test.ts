@@ -42,6 +42,68 @@ afterEach(() => {
 });
 
 describe('computer service contracts', () => {
+  it('reads and validates capabilities without allocating compute or clearing a rejected saved key', async () => {
+    const clear = vi.spyOn(useAuthStore.getState(), 'clearSandboxApiKey');
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          version: 1,
+          organization_id: 'sandbox-org',
+          computer_use: true,
+          inference_ready: false,
+          workspace_evidence: true,
+          max_artifact_bytes: 131072,
+        })
+      )
+    );
+    const signal = new AbortController().signal;
+    expect(await computerSessionApi.capabilities(signal)).toMatchObject({
+      inference_ready: false,
+      computer_use: true,
+    });
+    expect(fetch).toHaveBeenCalledOnce();
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/api/v1/agent/sessions/capabilities'),
+      expect.objectContaining({ method: 'GET' })
+    );
+    vi.mocked(fetch).mockResolvedValue(new Response('{}', { status: 403 }));
+    await expect(computerSessionApi.capabilities(signal)).rejects.toThrow();
+    expect(clear).not.toHaveBeenCalled();
+    expect(useAuthStore.getState().sandboxApiKey).toBe('sandbox-key');
+  });
+  it('rejects incomplete capabilities instead of promoting an HTTP success to readiness', async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      new Response(JSON.stringify({ version: 1, computer_use: true }))
+    );
+    await expect(computerSessionApi.capabilities(new AbortController().signal)).rejects.toThrow();
+    expect(fetch).toHaveBeenCalledOnce();
+  });
+  it.each([
+    {
+      status: 400,
+      message: 'Your credit balance is too low to access the Anthropic API.',
+      code: 'provider-credit',
+    },
+    { status: 402, message: 'Insufficient credits', code: 'provider-credit' },
+    { status: 401, message: 'Provider access rejected', code: 'provider-auth' },
+    { status: 403, message: 'Provider access denied', code: 'provider-auth' },
+    { status: 429, message: 'Rate limited', code: 'provider-limit' },
+    { status: 502, message: 'Upstream failed', code: 'provider-unavailable' },
+  ])(
+    'retains model failure provenance ($code) without replay or credential removal',
+    async ({ status, message, code }) => {
+      const clear = vi.spyOn(useAuthStore.getState(), 'clearSandboxApiKey');
+      vi.mocked(fetch).mockResolvedValue(
+        new Response(JSON.stringify({ error: message }), { status })
+      );
+      await expect(
+        computerSessionApi.infer('sandbox-1', {}, new AbortController().signal)
+      ).rejects.toMatchObject({ code, message });
+      expect(fetch).toHaveBeenCalledOnce();
+      expect(clear).not.toHaveBeenCalled();
+      expect(useAuthStore.getState().sandboxApiKey).toBe('sandbox-key');
+    }
+  );
   it.each([null, { api_key: '' }, { api_key: '   ' }])(
     'rejects missing policy credentials %j without making requests',
     async (credentials) => {

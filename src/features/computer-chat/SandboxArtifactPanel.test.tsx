@@ -1,5 +1,5 @@
 /** @vitest-environment happy-dom */
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { SandboxArtifactPanel } from './SandboxArtifactPanel';
 import { computerChatRuntime } from './runtime';
@@ -95,8 +95,99 @@ it.each([{ busy: true }, { stopped: true }, { sandboxStopRequested: true }])(
     fireEvent.click(screen.getByText('Verify a file'));
     expect(screen.getByRole('button', { name: 'Check file with NSR' })).toBeDisabled();
     expect(screen.getByLabelText('Workspace file')).toBeDisabled();
+    expect(screen.getByRole('form', { name: 'File verification' })).toHaveAttribute(
+      'aria-busy',
+      'false'
+    );
   }
 );
+
+it.each(['/workspace/../private', '/etc/passwd', '/workspace/', `/workspace/${'é'.repeat(600)}`])(
+  'rejects invalid path %s inline without dispatch',
+  async (path) => {
+    render(<SandboxArtifactPanel chat={chat} busy={false} />);
+    fireEvent.click(screen.getByText('Verify a file'));
+    const input = screen.getByLabelText('Workspace file');
+    fireEvent.change(input, { target: { value: path } });
+    fireEvent.change(screen.getByLabelText('Expected value'), { target: { value: 'proof' } });
+    expect(input).toHaveAttribute('aria-invalid', 'true');
+    expect(input).toHaveAccessibleDescription(/workspace/);
+    expect(screen.getByRole('button', { name: 'Check file with NSR' })).toBeDisabled();
+    fireEvent.submit(screen.getByRole('form', { name: 'File verification' }));
+    expect(input).toHaveFocus();
+    expect(computerChatRuntime.verifyArtifact).not.toHaveBeenCalled();
+  }
+);
+
+it('rejects invalid digests and oversized expectations while preserving the entries for correction', () => {
+  render(<SandboxArtifactPanel chat={chat} busy={false} />);
+  fireEvent.click(screen.getByText('Verify a file'));
+  fireEvent.change(screen.getByLabelText('Workspace file'), {
+    target: { value: '/workspace/proof' },
+  });
+  fireEvent.change(screen.getByLabelText('File check'), { target: { value: 'sha256' } });
+  const expected = screen.getByLabelText('Expected value');
+  fireEvent.change(expected, { target: { value: 'invalid digest' } });
+  expect(expected).toHaveAttribute('aria-invalid', 'true');
+  expect(expected).toHaveAccessibleDescription(/64-character SHA-256/);
+  fireEvent.submit(screen.getByRole('form', { name: 'File verification' }));
+  expect(expected).toHaveFocus();
+  fireEvent.change(screen.getByLabelText('File check'), { target: { value: 'contains' } });
+  const value = '\u0001'.repeat(3000);
+  fireEvent.change(expected, { target: { value } });
+  expect(expected).toHaveValue(value);
+  expect(screen.getByRole('alert')).toHaveTextContent('16,384 JSON-encoded bytes');
+  expect(computerChatRuntime.verifyArtifact).not.toHaveBeenCalled();
+});
+
+it('submits a normalized digest while preserving the entered value', async () => {
+  render(<SandboxArtifactPanel chat={chat} busy={false} />);
+  fireEvent.click(screen.getByText('Verify a file'));
+  fireEvent.change(screen.getByLabelText('Workspace file'), {
+    target: { value: '/workspace//proof' },
+  });
+  fireEvent.change(screen.getByLabelText('File check'), { target: { value: 'sha256' } });
+  fireEvent.change(screen.getByLabelText('Expected value'), {
+    target: { value: ` ${'A'.repeat(64)} ` },
+  });
+  await act(async () => {
+    fireEvent.submit(screen.getByRole('form', { name: 'File verification' }));
+  });
+  expect(computerChatRuntime.verifyArtifact).toHaveBeenCalledWith('chat', {
+    path: '/workspace/proof',
+    kind: 'sha256',
+    expected: 'a'.repeat(64),
+  });
+  expect(screen.getByLabelText('Expected value')).toHaveValue(` ${'A'.repeat(64)} `);
+});
+
+it('retains entries and offers retry after an unexpected failure without exposing backend details', async () => {
+  vi.mocked(computerChatRuntime.verifyArtifact).mockRejectedValueOnce(
+    new Error('private backend details')
+  );
+  render(<SandboxArtifactPanel chat={chat} busy={false} />);
+  fireEvent.click(screen.getByText('Verify a file'));
+  fireEvent.change(screen.getByLabelText('Workspace file'), {
+    target: { value: '/workspace/proof' },
+  });
+  fireEvent.change(screen.getByLabelText('Expected value'), { target: { value: 'proof' } });
+  const button = screen.getByRole('button', { name: 'Check file with NSR' });
+  fireEvent.click(button);
+  expect(button).toHaveAttribute('aria-busy', 'true');
+  expect(button).toBeDisabled();
+  await waitFor(() =>
+    expect(screen.getByRole('alert')).toHaveTextContent('Your entries are retained')
+  );
+  expect(screen.queryByText(/private backend/)).toBeNull();
+  expect(screen.getByLabelText('Expected value')).toHaveValue('proof');
+  expect(button).toBeEnabled();
+  expect(computerChatRuntime.verifyArtifact).toHaveBeenCalledOnce();
+  await act(async () => {
+    fireEvent.click(button);
+  });
+  expect(computerChatRuntime.verifyArtifact).toHaveBeenCalledTimes(2);
+  expect(screen.queryByRole('alert')).toBeNull();
+});
 
 it('distinguishes a matching observation from an NSR refusal', () => {
   render(
@@ -138,4 +229,12 @@ it('distinguishes a matching observation from an NSR refusal', () => {
   expect(
     screen.getByText('Collected file matched; NSR did not accept this check.')
   ).toBeInTheDocument();
+  fireEvent.click(screen.getByText('Verify a file'));
+  expect(screen.getByText('Last recorded check')).toBeVisible();
+  expect(screen.getByText(`SHA-256: ${'a'.repeat(64)}`)).not.toBeVisible();
+  fireEvent.change(screen.getByLabelText('Workspace file'), {
+    target: { value: '/workspace/other.txt' },
+  });
+  expect(screen.getByText('These form edits have not been checked.')).toBeVisible();
+  expect(computerChatRuntime.verifyArtifact).not.toHaveBeenCalled();
 });

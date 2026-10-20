@@ -4,6 +4,7 @@ import { normalizeSandboxApiKey, useAuthStore } from '../../stores/auth';
 import { localSecretsApi } from '../../lib/localSecrets';
 import { useSecureStorageAvailability } from '../../hooks/useSecureStorageAvailability';
 import { POLICY_CONNECTION } from './api';
+import { SandboxConnectionCheck } from './SandboxConnectionCheck';
 
 type SavedPolicyKey = 'loading' | 'saved' | 'missing' | 'unavailable';
 const hasControlCharacters = (value: string) =>
@@ -158,10 +159,7 @@ export function SandboxChatSetup({
           </p>
         </li>
       </ul>
-      <p className="text-gray-500">
-        Saved keys have not been tested against live services. Saving keys does not create a
-        computer or start a task.
-      </p>
+      <p className="text-gray-500">Saving keys does not create a computer or start a task.</p>
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="text-gray-400">
           Sandbox API key
@@ -218,7 +216,7 @@ export function SandboxChatSetup({
         computer to end a session. Agent work runs while the app is open.
       </p>
       {secureStorage !== true && (
-        <p role="status" className="chat-setup-warning">
+        <p role="status" aria-label="Credential storage" className="chat-setup-warning">
           {secureStorage === false
             ? 'Your system keyring is unavailable. Both API keys last until you quit the app.'
             : 'Secure storage availability has not been confirmed. Saved keys may last only until you quit the app.'}
@@ -237,6 +235,11 @@ export function SandboxChatSetup({
           API keys saved
         </p>
       )}
+      <SandboxConnectionCheck
+        tenantId={tenantId}
+        brandId={brandId}
+        editing={saving || Boolean(key.trim() || policyKey.trim())}
+      />
     </section>
   );
 }

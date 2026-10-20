@@ -198,11 +198,18 @@ it('retains failed acceptance as a failed receipt rather than promoting it to ve
   expect((await check()).verification).toMatchObject({ outcome: 'failed', verified: false });
 });
 
-it('requires the separately scoped policy credential before collecting bytes', async () => {
-  vi.mocked(localSecretsApi.getCredentials).mockResolvedValue(null);
-  await expect(check()).rejects.toThrow('NSR policy API key');
-  expect(sandboxRequest).not.toHaveBeenCalled();
-});
+it.each([null, { api_key: '' }, { api_key: '   ' }])(
+  'requires the separately scoped policy credential before collecting bytes (%j)',
+  async (credentials) => {
+    vi.mocked(localSecretsApi.getCredentials).mockResolvedValue(credentials);
+    await expect(check()).rejects.toMatchObject({
+      code: 'policy-key',
+      message: expect.stringContaining('NSR policy API key'),
+    });
+    expect(sandboxRequest).not.toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalled();
+  }
+);
 
 it('discards obsolete context before sending collected bytes to NSR', async () => {
   let changed = false;

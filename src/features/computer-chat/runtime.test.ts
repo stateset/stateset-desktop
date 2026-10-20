@@ -7,6 +7,7 @@ import { useAuthStore } from '../../stores/auth';
 import { useDurableWorkflowsStore } from '../../stores/durableWorkflows';
 import type { ComputerChat, PendingAction, PolicyReceipt } from './types';
 import { SandboxRequestError } from '../../lib/sandbox';
+import { ChatIssueError } from './chatIssue';
 import { checkSandboxArtifact, type SandboxArtifactReceipt } from './sandboxArtifact';
 
 vi.mock('./sandboxArtifact', async (original) => ({
@@ -140,6 +141,36 @@ beforeEach(() => {
 });
 
 describe('computer chat lifecycle', () => {
+  it.each([
+    {
+      label: 'path traversal',
+      path: '/workspace/../private',
+      kind: 'contains' as const,
+      expected: 'proof',
+    },
+    {
+      label: 'invalid digest',
+      path: '/workspace/proof',
+      kind: 'sha256' as const,
+      expected: 'invalid',
+    },
+    {
+      label: 'oversized expectation',
+      path: '/workspace/proof',
+      kind: 'contains' as const,
+      expected: '\u0001'.repeat(3000),
+    },
+  ])('rejects $label before any status or evidence request', async (input) => {
+    const id = await chat();
+    store.getState().setDraft(id, 'Retain my draft');
+    vi.mocked(computerSessionApi.get).mockClear();
+    await computerChatRuntime.verifyArtifact(id, input);
+    expect(computerSessionApi.get).not.toHaveBeenCalled();
+    expect(checkSandboxArtifact).not.toHaveBeenCalled();
+    expect(computerSessionApi.infer).not.toHaveBeenCalled();
+    expect(read(id)).toMatchObject({ draft: 'Retain my draft', session });
+    expect(read(id).error).toBeTruthy();
+  });
   it('saves unfinished work before inference and reopens it without resubmitting the task', async () => {
     const id = await chat();
     store.getState().setDraft(id, 'Original task');
@@ -216,6 +247,56 @@ describe('computer chat lifecycle', () => {
     expect(read(id).agentTurnUnfinished).toBeUndefined();
     expect(read(id).stopped).toBe(true);
   });
+  it('retains the source of a model failure across a read-only refresh and clears it only for new work', async () => {
+    const id = await chat();
+    vi.mocked(computerSessionApi.infer).mockRejectedValueOnce(
+      new ChatIssueError('provider-credit', 'Insufficient credits')
+    );
+    await computerChatRuntime.send(id, 'Prepare the report', options);
+    expect(read(id)).toMatchObject({
+      error: 'Insufficient credits',
+      errorCode: 'provider-credit',
+      agentTurnUnfinished: true,
+    });
+    await computerChatRuntime.refresh(id);
+    expect(read(id).errorCode).toBe('provider-credit');
+    expect(computerSessionApi.infer).toHaveBeenCalledOnce();
+    await computerChatRuntime.send(id, 'Continue after credits were restored', options);
+    expect(read(id).errorCode).toBeUndefined();
+    expect(read(id).error).toBeUndefined();
+    expect(computerSessionApi.infer).toHaveBeenCalledTimes(2);
+  });
+  it.each([
+    { label: 'distinct', replacement: 'replacement-private-key' },
+    { label: 'overlapping', replacement: 'original-private-key-replacement' },
+  ])(
+    'bounds upstream error details and redacts $label request-start and current Sandbox keys before saving',
+    async ({ replacement }) => {
+      useAuthStore.setState({ sandboxApiKey: 'original-private-key' });
+      const id = await chat();
+      vi.mocked(computerSessionApi.infer).mockImplementationOnce(async () => {
+        useAuthStore.setState({ sandboxApiKey: replacement });
+        throw new ChatIssueError(
+          'provider-unavailable',
+          `original-private-key ${replacement} ${'x'.repeat(10000)}`
+        );
+      });
+      await computerChatRuntime.send(id, 'Prepare the report', options);
+      expect(read(id)).toMatchObject({
+        errorCode: 'provider-unavailable',
+        agentTurnUnfinished: true,
+        session,
+      });
+      expect(read(id).error).toContain('[redacted] [redacted]');
+      expect(read(id).error).not.toContain('original-private-key');
+      expect(read(id).error).not.toContain(replacement);
+      expect(read(id).error!.length).toBeLessThanOrEqual(2001);
+      const writes = vi.mocked(window.electronAPI!.store.set).mock.calls;
+      expect(JSON.stringify(writes)).not.toContain('original-private-key');
+      expect(JSON.stringify(writes)).not.toContain(replacement);
+      expect(computerSessionApi.infer).toHaveBeenCalledOnce();
+    }
+  );
   it.each([false, true])(
     'settles the submitted draft after a paused transcript save while preserving newer edits (%s)',
     async (edited) => {

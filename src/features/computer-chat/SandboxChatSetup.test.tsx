@@ -174,7 +174,7 @@ it('explains that both keys are temporary when the system keyring is unavailable
   vi.mocked(window.electronAPI!.auth.isSecureStorageAvailable).mockResolvedValue(false);
   mount();
   await waitFor(() =>
-    expect(screen.getByRole('status')).toHaveTextContent(
+    expect(screen.getByRole('status', { name: 'Credential storage' })).toHaveTextContent(
       'Both API keys last until you quit the app.'
     )
   );

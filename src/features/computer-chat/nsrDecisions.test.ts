@@ -85,6 +85,25 @@ it('replays the exact decision bundle and binds organization, goal and idempoten
   expect(calls[1][0]).toBe('https://api.nsr.stateset.com/v1/proofs/verify');
   expect(JSON.parse(calls[1][1]!.body as string)).toEqual(bundle());
 });
+it.each([401, 403, 503])(
+  'retains NSR failure provenance for recovery guidance (HTTP %s)',
+  async (status) => {
+    vi.mocked(fetch).mockResolvedValue(new Response('{}', { status }));
+    await expect(requestNsrDecision(options)).rejects.toMatchObject({
+      code: status === 503 ? 'policy-unavailable' : 'policy-key',
+    });
+    expect(fetch).toHaveBeenCalledOnce();
+  }
+);
+it('marks a foreign proof as a verification failure without sending it for replay', async () => {
+  vi.mocked(fetch).mockResolvedValue(
+    new Response(
+      JSON.stringify({ ...approval(), verifiable_bundle: { ...bundle(), org_id: 'other-org' } })
+    )
+  );
+  await expect(requestNsrDecision(options)).rejects.toMatchObject({ code: 'policy-proof' });
+  expect(fetch).toHaveBeenCalledOnce();
+});
 
 it('rejects raw variable-valued facts at the request boundary', async () => {
   await expect(
@@ -198,3 +217,67 @@ it('discards a decision when the caller cancels or changes context', async () =>
   );
   expect(fetch).toHaveBeenCalledOnce();
 });
+
+it.each(['decision', 'proof'] as const)(
+  'classifies a transport failure during %s without replaying a decision or exposing transport details',
+  async (phase) => {
+    vi.mocked(fetch).mockImplementation(async (url) => {
+      if (phase === 'decision' || String(url).endsWith('/v1/proofs/verify'))
+        throw new Error('private transport details');
+      return new Response(JSON.stringify(approval()));
+    });
+    const task = requestNsrDecision(options);
+    await expect(task).rejects.toMatchObject({ code: 'policy-unavailable' });
+    await expect(task).rejects.not.toThrow('private transport details');
+    expect(fetch).toHaveBeenCalledTimes(phase === 'decision' ? 1 : 2);
+  }
+);
+
+it.each(['json', 'decision', 'proof', 'binding', 'verification'] as const)(
+  'rejects malformed %s with typed verification guidance and no server payload preview',
+  async (fault) => {
+    const result: Record<string, unknown> = approval();
+    if (fault === 'decision') result.shadow = 'private response data';
+    if (fault === 'proof')
+      Object.assign(result.verifiable_bundle as object, { proof: 'private response data' });
+    if (fault === 'binding')
+      Object.assign(result.verifiable_bundle as object, {
+        goal_binding: { version: 2, args: ['private response data'] },
+      });
+    vi.mocked(fetch).mockImplementation(async (url) => {
+      if (fault === 'json') return new Response('private response data');
+      return new Response(
+        JSON.stringify(
+          String(url).endsWith('/v1/proofs/verify') ? { verified: 'private response data' } : result
+        )
+      );
+    });
+    const task = requestNsrDecision(options);
+    await expect(task).rejects.toMatchObject({ code: 'policy-proof' });
+    await expect(task).rejects.not.toThrow('private response data');
+    expect(fetch).toHaveBeenCalledTimes(fault === 'verification' ? 2 : 1);
+  }
+);
+
+it.each(['cancelled', 'workspace changed'] as const)(
+  'preserves caller ownership when transport fails after %s',
+  async (reason) => {
+    const controller = new AbortController();
+    let changed = false;
+    vi.mocked(fetch).mockImplementation(async () => {
+      if (reason === 'cancelled') controller.abort(new Error(reason));
+      else changed = true;
+      throw new Error('private transport details');
+    });
+    await expect(
+      requestNsrDecision({
+        ...options,
+        signal: controller.signal,
+        assertCurrent: () => {
+          if (changed) throw new Error(reason);
+        },
+      })
+    ).rejects.toThrow(reason);
+    expect(fetch).toHaveBeenCalledOnce();
+  }
+);

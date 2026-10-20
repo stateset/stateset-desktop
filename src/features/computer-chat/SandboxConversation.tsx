@@ -9,6 +9,7 @@ import { SandboxArtifactPanel } from './SandboxArtifactPanel';
 import { ActionRecoveryPanel } from './ActionRecoveryPanel';
 import { actionRecovery } from './actionRecovery';
 import { ConversationTranscript } from './ConversationTranscript';
+import { ChatIssueNotice } from './ChatIssueNotice';
 import {
   DEFAULT_SANDBOX_PREFERENCES,
   sandboxPreferencesKey,
@@ -36,6 +37,7 @@ export function SandboxConversation({
   const [preferencesSaved, setPreferencesSaved] = useState(false);
   const preferencesInFlight = useRef(false);
   const modelInput = useRef<HTMLInputElement>(null);
+  const fileDetails = useRef<HTMLDetailsElement>(null);
   const preferencesSaveButton = useRef<HTMLButtonElement>(null);
   const restorePreferencesFocus = useRef(false);
   const modelIssueId = useId();
@@ -127,13 +129,17 @@ export function SandboxConversation({
         ? 'Review the pending action below before continuing this conversation.'
         : chat.pauseNotice
           ? 'Your work is paused. Your chat and draft are saved.'
-          : ready
-            ? 'Your computer is ready. What would you like to work on?'
-            : busy
-              ? 'Your chat is saved. Its computer is being prepared in the background.'
-              : chat.error
-                ? 'Your chat is saved. Review the setup error above before continuing.'
-                : 'Your chat is saved. Check computer setup to continue.';
+          : chat.error
+            ? ready
+              ? 'Your chat is saved. Resolve the issue above before continuing.'
+              : 'Your chat is saved. Review the setup error above before continuing.'
+            : ready
+              ? 'Your computer is ready. What would you like to work on?'
+              : busy
+                ? 'Your chat is saved. Its computer is being prepared in the background.'
+                : chat.error
+                  ? 'Your chat is saved. Review the setup error above before continuing.'
+                  : 'Your chat is saved. Check computer setup to continue.';
   useEffect(() => {
     void computerChatRuntime.refresh(chat.id).catch(() => undefined);
   }, [chat.id]);
@@ -195,18 +201,18 @@ export function SandboxConversation({
               Reopening this chat does not resume work automatically.
             </p>
           )}
-        {chat.error && (
-          <div className="m-3 space-y-2">
-            <p role="alert" className="text-xs text-red-400">
-              {chat.error}
-            </p>
-            {ready && !busy && !chat.stopped && (!recovery || recovery.action === 'resume') && (
-              <button type="button" className="minimal-secondary-button" onClick={onSettings}>
-                Connection settings
-              </button>
-            )}
-          </div>
-        )}
+        <ChatIssueNotice
+          chat={chat}
+          busy={busy}
+          onSettings={onSettings}
+          onReviewFile={() => {
+            const details = fileDetails.current;
+            if (!details) return;
+            details.open = true;
+            details.scrollIntoView?.({ block: 'nearest' });
+            details.querySelector<HTMLInputElement>('input:not(:disabled)')?.focus();
+          }}
+        />
         {!busy && !chat.stopped && !chat.sandboxStopRequested && !ready && !chat.pending && (
           <div className="m-3 flex gap-2">
             <button
@@ -216,9 +222,14 @@ export function SandboxConversation({
             >
               {chat.sandboxStartUnconfirmed ? 'Check computer setup' : 'Retry computer setup'}
             </button>
-            <button type="button" className="minimal-secondary-button" onClick={onSettings}>
-              Connection settings
-            </button>
+            {(!chat.error ||
+              !['sandbox-key', 'policy-key', 'connection-changed'].includes(
+                chat.errorCode ?? ''
+              )) && (
+              <button type="button" className="minimal-secondary-button" onClick={onSettings}>
+                Connection settings
+              </button>
+            )}
           </div>
         )}
         <ConversationTranscript key={chat.id} chat={chat} emptyMessage={emptyMessage} />
@@ -259,12 +270,8 @@ export function SandboxConversation({
           {chat.pending && !chat.stopped && !chat.sandboxStopRequested && (
             <ActionRecoveryPanel key={chat.pending.requestId} chat={chat} busy={busy} />
           )}
-          <details className="m-3 text-xs text-gray-400">
+          <details className="chat-tool-disclosure">
             <summary>Computer and permissions</summary>
-            <p className="mt-2 break-all">
-              Sandbox: {chat.session?.currentSandboxId ?? 'Not allocated yet'}
-            </p>
-            <p className="break-all">Session: {chat.session?.id ?? 'Not allocated yet'}</p>
             <p className="mt-2">
               Agent work pauses when the app closes. The computer remains subject to its one-hour
               session limit. Stop computer ends the session.
@@ -364,6 +371,19 @@ export function SandboxConversation({
                 Latest policy {chat.policy.phase}: {chat.policy.verdict}
               </p>
             )}
+            <details className="mt-3">
+              <summary>Session details</summary>
+              <dl className="mt-2 space-y-2 break-all">
+                <div>
+                  <dt>Sandbox</dt>
+                  <dd>{chat.session?.currentSandboxId ?? 'Not allocated yet'}</dd>
+                </div>
+                <div>
+                  <dt>Session</dt>
+                  <dd>{chat.session?.id ?? 'Not allocated yet'}</dd>
+                </div>
+              </dl>
+            </details>
             <button
               type="button"
               className="minimal-secondary-button mt-3"
@@ -387,7 +407,7 @@ export function SandboxConversation({
               />
             )}
           </details>
-          <SandboxArtifactPanel chat={chat} busy={busy} />
+          <SandboxArtifactPanel chat={chat} busy={busy} detailsRef={fileDetails} />
         </section>
       </div>
     </div>

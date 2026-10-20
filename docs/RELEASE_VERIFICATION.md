@@ -16,6 +16,22 @@ Electron 42 requires signing for that API. See the upstream
 
 ## Before publishing
 
+Run `npm run doctor:release -- --json` for local source and version checks.
+Add `--github` to inspect the remote tag and the matching release workflow:
+
+```sh
+/home/dom/agent-builds/buildr run --lane quick -- npm run doctor:release -- --github --json
+```
+
+The diagnostic reads source and recorded workflow metadata; it never reads secret
+values, changes tags, starts CI or publishes artifacts. Exit code 1 means release
+readiness is blocked or unverified. `not_checked` is not a passing gate. Signing
+settings are assessed from the exact tagged workflow, including organization
+secrets available to that workflow, rather than guessing from a repository secret
+listing. A successful signing-settings check establishes presence only. Installer
+publication requires the matching completed platform and release jobs; actual
+updater installation and live service execution still need their own acceptance.
+
 - The version tag must equal `package.json`'s version.
 - Tagged and manually published releases require Windows signing credentials and
   macOS signing plus notarization credentials. Pull requests can build unsigned

@@ -1,6 +1,6 @@
 {
   "name": "stateset-desktop",
-  "version": "1.1.24",
+  "version": "1.1.25",
   "description": "StateSet AI Agent Desktop - Autonomous customer service agents",
   "packageManager": "npm@10.9.3",
   "engines": {
@@ -70,8 +70,10 @@
     "test:e2e:distribution": "npm run preflight && node ./node_modules/@playwright/test/cli.js test --config=playwright.distribution.config.ts --workers=1",
     "setup:electron": "install-electron",
     "prebuild:electron": "npm run preflight && npm run setup:electron",
-    "test:release-source": "node --test --test-concurrency=1 scripts/release-source.test.mjs",
+    "test:release-source": "node --test --test-concurrency=1 scripts/release-source.test.mjs scripts/release-readiness.test.mjs",
     "doctor:computer-chat": "npm run preflight && node scripts/computer-chat-preflight.mjs",
+    "doctor:release": "node scripts/release-readiness.mjs",
+    "test:release-readiness": "node --test --test-concurrency=1 scripts/release-readiness.test.mjs",
     "test:computer-chat:preflight": "npm run preflight && node --test --test-concurrency=1 scripts/computer-chat-preflight.test.mjs"
   },
   "dependencies": {

@@ -233,9 +233,9 @@ for (const theme of ['dark', 'light'] as const) {
     await expect(page.getByLabel('Sandbox chat model', { exact: true })).toHaveValue(
       'claude-sonnet-4-6'
     );
-    await expect(
-      page.getByText(`Sandbox: ${second.session.currentSandboxId}`, { exact: true })
-    ).toBeVisible();
+    await page.getByText('Session details', { exact: true }).click();
+    await expect(page.getByText(second.session.currentSandboxId, { exact: true })).toBeVisible();
+    await page.getByText('Session details', { exact: true }).click();
     await expect(
       page.getByRole('checkbox', { name: 'Check execution policy with NSR' })
     ).toBeChecked();

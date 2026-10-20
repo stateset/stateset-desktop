@@ -3,6 +3,8 @@ import { sandboxRequest, SandboxRequestError } from '../../lib/sandbox';
 import { engineRequest } from '../../lib/durableWorkflows';
 import { localSecretsApi } from '../../lib/localSecrets';
 import sandboxSessionConfiguration from './sandbox-session.json';
+import { ChatIssueError } from './chatIssue';
+import { sandboxCapabilitiesSchema } from './sandboxReadiness';
 import type {
   ActionResult,
   ComputerAction,
@@ -90,6 +92,16 @@ export function actionCommand(action: ComputerAction): string[] {
 }
 
 export const computerSessionApi = {
+  capabilities: async (signal: AbortSignal) =>
+    sandboxCapabilitiesSchema.parse(
+      await sandboxRequest('/api/v1/agent/sessions/capabilities', {
+        method: 'GET',
+        signal,
+        timeoutMs: 10_000,
+        maxRetries: 0,
+        clearAuthOnUnauthorized: false,
+      })
+    ),
   create: async (chatId: string): Promise<ComputerSession> =>
     sessionSchema.parse(
       await sandboxRequest('/api/v1/agent/sessions', {
@@ -150,25 +162,47 @@ export const computerSessionApi = {
         body: JSON.stringify(execBody(pending)),
       })
     ),
-  infer: (sandboxId: string, body: unknown, signal: AbortSignal) =>
-    sandboxRequest<{ content: ModelBlock[]; stop_reason?: string }>(
-      `/api/v1/sandbox/${encodeURIComponent(sandboxId)}/inference`,
-      {
-        method: 'POST',
-        signal,
-        timeoutMs: 120_000,
-        // This endpoint forwards provider status codes. A provider 401 does
-        // not establish that the Sandbox API credential is invalid.
-        clearAuthOnUnauthorized: false,
-        authFallback: false,
-        body: JSON.stringify({
-          provider: 'anthropic',
-          path: '/v1/messages',
-          headers: { 'anthropic-version': '2023-06-01' },
-          body,
-        }),
+  infer: async (sandboxId: string, body: unknown, signal: AbortSignal) => {
+    try {
+      return await sandboxRequest<{ content: ModelBlock[]; stop_reason?: string }>(
+        `/api/v1/sandbox/${encodeURIComponent(sandboxId)}/inference`,
+        {
+          method: 'POST',
+          signal,
+          timeoutMs: 120_000,
+          // This endpoint forwards provider status codes. A provider 401 does
+          // not establish that the Sandbox API credential is invalid.
+          clearAuthOnUnauthorized: false,
+          authFallback: false,
+          body: JSON.stringify({
+            provider: 'anthropic',
+            path: '/v1/messages',
+            headers: { 'anthropic-version': '2023-06-01' },
+            body,
+          }),
+        }
+      );
+    } catch (error) {
+      if (signal.aborted) throw error;
+      if (error instanceof SandboxRequestError) {
+        const code =
+          /(?:credit balance.*too low|insufficient.{0,20}credits?|credits?.{0,20}(?:exhausted|insufficient))/i.test(
+            error.message
+          )
+            ? 'provider-credit'
+            : [401, 403].includes(error.status)
+              ? 'provider-auth'
+              : error.status === 429
+                ? 'provider-limit'
+                : 'provider-unavailable';
+        throw new ChatIssueError(code, error.message);
       }
-    ),
+      throw new ChatIssueError(
+        'provider-unavailable',
+        error instanceof Error ? error.message : 'Model request failed.'
+      );
+    }
+  },
 };
 
 function execBody(pending: PendingAction) {
@@ -238,7 +272,8 @@ export async function requirePolicyKey(
     POLICY_CONNECTION
   );
   const key = credentials?.api_key?.trim();
-  if (!key) throw new Error('Save an NSR policy API key in Chat settings first.');
+  if (!key)
+    throw new ChatIssueError('policy-key', 'Save an NSR policy API key in Chat settings first.');
   return key;
 }
 

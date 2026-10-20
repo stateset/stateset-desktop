@@ -44,6 +44,26 @@ afterEach(async () => {
 });
 
 describe('computer chat persistence', () => {
+  it('restores typed failure guidance without discarding a chat that has a newer unknown issue code', async () => {
+    const first = {
+      ...fixture(),
+      error: 'Insufficient credits',
+      errorCode: 'provider-credit' as const,
+    };
+    const newer = { ...fixture(), error: 'Newer client issue', errorCode: 'future-issue-code' };
+    vi.mocked(window.electronAPI!.store.get).mockImplementation(async (key) =>
+      key === 'computerChats' ? [first, newer] : undefined
+    );
+    await store.getState().initialize();
+    expect(store.getState().chats.find((item) => item.id === first.id)).toMatchObject({
+      error: 'Insufficient credits',
+      errorCode: 'provider-credit',
+    });
+    expect(store.getState().chats.find((item) => item.id === newer.id)).toMatchObject({
+      error: 'Newer client issue',
+    });
+    expect(store.getState().chats.find((item) => item.id === newer.id)?.errorCode).toBeUndefined();
+  });
   it('commits scoped Sandbox preferences after acknowledgement, serializes saves and preserves concurrent drafts', async () => {
     const first = { ...fixture(), sandboxApiSession: { version: 1 as const } };
     const second = {

@@ -10,6 +10,7 @@ import {
 } from './durableTypes';
 import { parseStartConfiguration } from './configuration';
 import { sandboxArtifactReceiptSchema } from './sandboxArtifact';
+import { chatIssueCodes } from './chatIssue';
 import {
   parseSandboxPreferences,
   sandboxPreferencesKey,
@@ -121,6 +122,7 @@ const storedChatSchema = z.object({
   policyHistory: z.array(policySchema.extend({ requestId: z.uuid() })).optional(),
   stopped: z.boolean().optional(),
   error: z.string().optional(),
+  errorCode: z.enum(chatIssueCodes).optional().catch(undefined),
   pauseNotice: z.string().optional(),
   agentTurnUnfinished: z.boolean().optional(),
 });

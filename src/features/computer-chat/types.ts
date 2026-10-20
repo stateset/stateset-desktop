@@ -1,6 +1,7 @@
 import type { ChatMessage } from '../../types';
 import type { DurableChatIdentity, DurableChatStatus } from './durableTypes';
 import type { SandboxArtifactReceipt } from './sandboxArtifact';
+import type { ChatIssueCode } from './chatIssue';
 
 export interface ComputerSession {
   id: string;
@@ -79,6 +80,7 @@ export interface ComputerChat {
   screenshot?: string;
   stopped?: boolean;
   error?: string;
+  errorCode?: ChatIssueCode;
   pauseNotice?: string;
   agentTurnUnfinished?: boolean;
 }

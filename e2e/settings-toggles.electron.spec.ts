@@ -162,26 +162,26 @@ async function measure(input: Locator) {
   });
 }
 
-test('settings toggles keep clear states and keyboard focus in both themes at minimum width', async ({
-  desktop,
-}) => {
-  const { application, page } = await openSettings(
-    desktop,
-    await desktop.createProfile({ memoryOnlyCredentials: true })
-  );
-  const layouts: Record<string, unknown> = {};
-  try {
-    await mkdir('dist/verification', { recursive: true });
-    for (const size of ['standard', 'minimum'] as const) {
-      await application.evaluate(({ BrowserWindow }, size) => {
-        const window = BrowserWindow.getAllWindows()[0];
-        if (size === 'standard') window.setContentSize(1400, 900);
-        else {
-          const [width, height] = window.getMinimumSize();
-          window.setSize(width, height);
-        }
-      }, size);
-      for (const theme of ['dark', 'light'] as const) {
+for (const size of ['standard', 'minimum'] as const) {
+  for (const theme of ['dark', 'light'] as const) {
+    test(`settings toggles keep clear states and keyboard focus in ${size} ${theme} layout`, async ({
+      desktop,
+    }) => {
+      const { application, page } = await openSettings(
+        desktop,
+        await desktop.createProfile({ memoryOnlyCredentials: true })
+      );
+      const layouts: Record<string, unknown> = {};
+      try {
+        await mkdir('dist/verification', { recursive: true });
+        await application.evaluate(({ BrowserWindow }, size) => {
+          const window = BrowserWindow.getAllWindows()[0];
+          if (size === 'standard') window.setContentSize(1400, 900);
+          else {
+            const [width, height] = window.getMinimumSize();
+            window.setSize(width, height);
+          }
+        }, size);
         if ((await page.evaluate(() => document.documentElement.dataset.theme)) !== theme)
           await page.getByRole('button', { name: `Switch to ${theme} theme`, exact: true }).click();
         await expect
@@ -265,22 +265,22 @@ test('settings toggles keep clear states and keyboard focus in both themes at mi
           ),
         };
         expect((layouts[`${size}-${theme}`] as { documentFits: boolean }).documentFits).toBe(true);
+        await test.info().attach('settings-toggle-design', {
+          body: Buffer.from(
+            JSON.stringify({
+              layouts,
+              qualification:
+                'Seven native checkboxes in this independently tested layout; measured control contrast, focus, target geometry and scoped text contrast. Not a whole-app accessibility audit or live service acceptance.',
+            })
+          ),
+          contentType: 'application/json',
+        });
+      } finally {
+        await application.close();
       }
-    }
-    await test.info().attach('settings-toggle-design', {
-      body: Buffer.from(
-        JSON.stringify({
-          layouts,
-          qualification:
-            'Seven native checkboxes across four layouts; measured control contrast, focus, target geometry and scoped text contrast. Not a whole-app accessibility audit or live service acceptance.',
-        })
-      ),
-      contentType: 'application/json',
     });
-  } finally {
-    await application.close();
   }
-});
+}
 
 test('settings toggle preferences survive native restart', async ({ desktop }) => {
   const profile = await desktop.createProfile({ memoryOnlyCredentials: true });

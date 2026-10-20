@@ -1,6 +1,8 @@
 import { useAuthStore } from '../../stores/auth';
 import { SandboxRequestError } from '../../lib/sandbox';
+import { ChatIssueError } from './chatIssue';
 import { checkSandboxArtifact, type FileCheckInput } from './sandboxArtifact';
+import { fileCheckCriterion } from './fileCheck';
 import { useDurableWorkflowsStore } from '../../stores/durableWorkflows';
 import { useComputerChatsStore } from './store';
 import { parseSandboxPreferences } from './sandboxPreferences';
@@ -43,7 +45,10 @@ function current(id: string): ComputerChat {
     throw new Error('Select this chat’s original organization and brand before continuing.');
   }
   if (connectionKeys.has(id) && connectionKeys.get(id) !== auth.sandboxApiKey)
-    throw new Error('The Sandbox API connection changed. Check the connection before continuing.');
+    throw new ChatIssueError(
+      'connection-changed',
+      'The Sandbox API connection changed. Check the connection before continuing.'
+    );
   return chat;
 }
 
@@ -110,7 +115,8 @@ async function exclusive(
   connectionKeys.set(id, useAuthStore.getState().sandboxApiKey);
   useComputerChatsStore.getState().setActivity(id, { kind, pausing: false });
   try {
-    if (clearError) await update(id, { error: undefined, pauseNotice: undefined });
+    if (clearError)
+      await update(id, { error: undefined, errorCode: undefined, pauseNotice: undefined });
     controller.signal.throwIfAborted();
     await fn(controller.signal);
     controller.signal.throwIfAborted();
@@ -124,14 +130,32 @@ async function exclusive(
       : error instanceof Error
         ? error.message
         : String(error);
+    // API error bodies are untrusted. Do not copy saved connection keys or
+    // an unbounded upstream response into chat storage and diagnostics.
+    let safeDetail = detail;
+    const keys = [...new Set([connectionKeys.get(id), useAuthStore.getState().sandboxApiKey])]
+      .filter((key): key is string => Boolean(key))
+      .sort((a, b) => b.length - a.length);
+    for (const key of keys) {
+      safeDetail = safeDetail.split(key).join('[redacted]');
+    }
+    const savedDetail = safeDetail.length > 2000 ? `${safeDetail.slice(0, 2000)}…` : safeDetail;
     // Keep returned identities/results on the originating chat even after an
     // account switch; current() gates every subsequent network operation.
     try {
       await update(
         id,
         controller.signal.aborted && stored(id).sandboxApiSession
-          ? { error: undefined, pauseNotice: detail }
-          : { error: detail }
+          ? { error: undefined, errorCode: undefined, pauseNotice: savedDetail }
+          : {
+              error: savedDetail,
+              errorCode:
+                error instanceof ChatIssueError
+                  ? error.code
+                  : error instanceof SandboxRequestError && [401, 403].includes(error.status)
+                    ? 'sandbox-key'
+                    : undefined,
+            }
       );
     } catch {
       /* Storage itself may be unavailable. */
@@ -155,7 +179,7 @@ async function ensureSession(id: string, signal: AbortSignal): Promise<ComputerC
       'Shutdown has been requested. Confirm cleanup before starting another computer.'
     );
   if (!useAuthStore.getState().sandboxApiKey)
-    throw new Error('Configure a Sandbox API key in Settings first.');
+    throw new ChatIssueError('sandbox-key', 'Configure a Sandbox API key in Settings first.');
   if (!chat.session) {
     await update(id, { provisioningAttempted: true });
     if (signal.aborted) {
@@ -234,7 +258,7 @@ async function readExistingSession(id: string, signal: AbortSignal): Promise<Com
   const chat = current(id);
   if (!chat.session) throw new Error('This chat has no saved computer session.');
   if (!useAuthStore.getState().sandboxApiKey)
-    throw new Error('Configure a Sandbox API key in Settings first.');
+    throw new ChatIssueError('sandbox-key', 'Configure a Sandbox API key in Settings first.');
   const session = await computerSessionApi.get(chat.session.id);
   if (session.id !== chat.session.id || session.organizationId !== chat.session.organizationId)
     throw new Error(
@@ -684,6 +708,7 @@ export const computerChatRuntime = {
           chat.pending
         )
           throw new Error('Finish setup or recover the pending action before checking a file.');
+        const criterion = fileCheckCriterion(input);
         const session = await computerSessionApi.get(chat.session.id);
         if (
           session.id !== chat.session.id ||
@@ -693,7 +718,7 @@ export const computerChatRuntime = {
         await update(id, { session });
         signal.throwIfAborted();
         chat = current(id);
-        const receipt = await checkSandboxArtifact(chat, input, signal, () => {
+        const receipt = await checkSandboxArtifact(chat, criterion, signal, () => {
           const latest = current(id);
           if (
             latest.session?.id !== session.id ||

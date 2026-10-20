@@ -79,6 +79,30 @@ save from starting its next step or reporting errors into the new workspace.
 When the system keyring is unavailable, both Sandbox and NSR keys last only until
 the app quits; an unknown keyring capability is shown as unconfirmed.
 
+Choose **Check Sandbox connection** to make an authenticated, read-only request
+to `/api/v1/agent/sessions/capabilities`. The complete version-one response must
+declare the computer image, inference configuration, workspace evidence and the
+128 KiB file limit. Missing capability fields never count as successful readiness.
+The check creates no computer, performs no inference and creates no NSR decision.
+Model credit balances, actual execution, policy acceptance and Temporal remain
+separate live checks. Results are discarded after a key, organization, brand or
+unsaved-key change; rejected checks retain the saved credentials.
+
+Conversation errors name the service that needs attention and show the next
+useful action. Missing policy keys open connection settings; proof failures offer
+file review without rerunning verification. Provider credit or authentication
+failures do not suggest replacing the Sandbox key or retry tasks automatically.
+Original messages are available under **Technical details**. Computer/session IDs
+are under **Computer and permissions → Session details**.
+
+File checks validate workspace paths, SHA-256 digests and the 16,384 JSON-encoded
+byte expectation limit locally before making a status or evidence request. Invalid
+entries remain editable, and exact-text checks can intentionally match an empty
+file. Failed submissions retain the form for an explicit retry. Saved receipts
+are labeled **Last recorded check**; editing a new expectation does not verify it
+or change that historical receipt. NSR transport and response-contract failures
+never count as accepted verification and do not trigger automatic decision replay.
+
 Before a policy-enabled message is submitted, the desktop checks that an NSR key
 is saved for the selected organization and brand. This is a local configuration
 check, not an authorization or live connection test, and does not create a paid

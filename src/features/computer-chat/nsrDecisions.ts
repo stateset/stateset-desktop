@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { desktopServiceFetch } from '../../lib/desktopServiceTransport';
+import { ChatIssueError } from './chatIssue';
 
 export const POLICY_API_URL = (
   import.meta.env.VITE_POLICY_API_URL || 'https://api.nsr.stateset.com'
@@ -57,37 +58,66 @@ export async function requestNsrDecision(options: {
   };
   const post = async (path: string, body: unknown, idempotent = false) => {
     guard();
-    const response = await desktopServiceFetch(
-      'nsr',
-      POLICY_API_URL,
-      path,
-      {
-        method: 'POST',
-        redirect: 'error',
-        signal,
-        headers: {
-          'Content-Type': 'application/json',
-          'X-API-Key': options.apiKey,
-          'X-Org-ID': options.organizationId,
-          ...(idempotent ? { 'Idempotency-Key': `desktop-${options.requestId}` } : {}),
+    let response: Response;
+    try {
+      response = await desktopServiceFetch(
+        'nsr',
+        POLICY_API_URL,
+        path,
+        {
+          method: 'POST',
+          redirect: 'error',
+          signal,
+          headers: {
+            'Content-Type': 'application/json',
+            'X-API-Key': options.apiKey,
+            'X-Org-ID': options.organizationId,
+            ...(idempotent ? { 'Idempotency-Key': `desktop-${options.requestId}` } : {}),
+          },
+          body: JSON.stringify(body),
         },
-        body: JSON.stringify(body),
-      },
-      { timeoutMs: 30000, scope: options.scope }
-    );
+        { timeoutMs: 30000, scope: options.scope }
+      );
+    } catch {
+      // Caller cancellation and workspace changes retain their original meaning.
+      guard();
+      throw new ChatIssueError(
+        'policy-unavailable',
+        'The NSR request did not finish. No decision or proof was accepted from this response.'
+      );
+    }
     guard();
-    if (!response.ok) throw new Error(`NSR decision check failed (HTTP ${response.status}).`);
-    const payload: unknown = await response.json();
+    if (!response.ok)
+      throw new ChatIssueError(
+        [401, 403].includes(response.status) ? 'policy-key' : 'policy-unavailable',
+        `NSR decision check failed (HTTP ${response.status}).`
+      );
+    let payload: unknown;
+    try {
+      payload = await response.json();
+    } catch {
+      guard();
+      throw new ChatIssueError(
+        'policy-proof',
+        'NSR returned an unreadable decision or proof response. No verification was accepted.'
+      );
+    }
     guard();
     return payload;
   };
-  const decision = decisionSchema.parse(
+  const parsedDecision = decisionSchema.safeParse(
     await post(
       '/v1/decisions',
       { ...options.body, mode: 'safe', include_trace: false, shadow: false },
       true
     )
   );
+  if (!parsedDecision.success)
+    throw new ChatIssueError(
+      'policy-proof',
+      'NSR returned an invalid decision response. No verification was accepted.'
+    );
+  const decision = parsedDecision.data;
   const approved = decision.decision === 'approved';
   if (!approved || decision.shadow || decision.routing.band !== 'act')
     return {
@@ -101,11 +131,22 @@ export async function requestNsrDecision(options: {
 
   const bundle = decision.verifiable_bundle;
   const fail = () =>
-    new Error('The verification receipt does not match this file and request or action.');
+    new ChatIssueError(
+      'policy-proof',
+      'The verification receipt does not match this file and request or action.'
+    );
   if (!bundle || bundle.org_id !== options.organizationId) throw fail();
-  const goal = z
-    .object({ predicate: z.string(), terms: z.array(z.unknown()), negated: z.boolean().optional() })
-    .parse(z.object({ goal: z.unknown() }).parse(bundle.proof).goal);
+  const parsedProof = z
+    .object({
+      goal: z.object({
+        predicate: z.string(),
+        terms: z.array(z.unknown()),
+        negated: z.boolean().optional(),
+      }),
+    })
+    .safeParse(bundle.proof);
+  if (!parsedProof.success) throw fail();
+  const goal = parsedProof.data.goal;
   const expected = options.body.authorization_goal;
   const termValue = (term: unknown) => {
     const parsed = z.record(z.string(), z.unknown()).safeParse(term);
@@ -119,10 +160,12 @@ export async function requestNsrDecision(options: {
   )
     throw fail();
   if (bundle.goal_binding != null) {
-    const binding = z
+    const parsedBinding = z
       .object({ version: z.literal(1), registry: z.string().min(1), args: z.array(z.string()) })
       .strict()
-      .parse(bundle.goal_binding);
+      .safeParse(bundle.goal_binding);
+    if (!parsedBinding.success) throw fail();
+    const binding = parsedBinding.data;
     if (
       JSON.stringify(binding.args) !== JSON.stringify(expected.args) ||
       !goal.terms.every((term) => typeof termValue(term) === 'string')
@@ -130,14 +173,20 @@ export async function requestNsrDecision(options: {
       throw fail();
   } else if (!goal.terms.every((term, index) => termValue(term) === expected.args[index]))
     throw fail();
-  const verification = z
+  const parsedVerification = z
     .object({ verified: z.boolean(), goal_binding_verified: z.boolean().optional() })
-    .parse(await post('/v1/proofs/verify', bundle));
+    .safeParse(await post('/v1/proofs/verify', bundle));
+  if (!parsedVerification.success)
+    throw new ChatIssueError(
+      'policy-proof',
+      'NSR returned an invalid proof verification response. No verification was accepted.'
+    );
+  const verification = parsedVerification.data;
   if (
     !verification.verified ||
     (bundle.goal_binding != null && verification.goal_binding_verified !== true)
   )
-    throw new Error('NSR could not verify the decision proof.');
+    throw new ChatIssueError('policy-proof', 'NSR could not verify the decision proof.');
   guard();
   return {
     decisionId: decision.decision_id,

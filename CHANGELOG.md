@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## Unreleased
 
+## [1.1.25] - 2026-10-20
+
+### Changed
+
+- Validate file-check paths, digests and byte limits inline and again before status/evidence requests. Keep invalid entries editable, expose progress and retry without automatic resubmission, and label saved receipts as the last recorded check with technical metadata collapsed.
+- Preserve NSR error provenance for transport failures and malformed decision/proof responses without exposing backend payloads. Keep caller cancellation and workspace-change guards intact, and route missing file-verification policy keys to connection settings.
+- Give Sandbox chat errors service-specific guidance for provider credits, model access, policy credentials and proof failures. Retain technical details under a disclosure, route proof failures to file review, and avoid showing ready guidance beneath an unresolved error.
+- Keep computer/session identifiers under Session details and use shared theme surfaces for chat notices and tool disclosures.
+- Bound saved upstream error details and redact both the request-start and current Sandbox keys before persistence. Preserve error guidance during read-only computer status checks.
+- Give each settings-toggle layout its own native test budget, preserving interaction and contrast assertions without increasing timeouts. Native execution remains unverified after the user-requested Playwright stop.
+
+### Added
+
+- Check saved Sandbox connections on demand through the read-only capabilities endpoint. Validate complete versioned responses, retain rejected keys, discard stale results after key/workspace changes, and distinguish declared capabilities from actual model credits, execution, NSR and Temporal acceptance.
+- Add `doctor:release` with structured local checks and optional read-only GitHub evidence for source tags, signing settings and installer publication. Preserve all existing publication gates.
+
 ## [1.1.24] - 2026-10-20
 
 ### Added

@@ -1,0 +1,93 @@
+{
+  "version": "1.1.25",
+  "recorded_at": "2026-10-20T17:52:40.397245+00:00",
+  "source_parent": "cb30faa9a03f335949db407e03df1d91c84d2072",
+  "changed_file_sha256": {
+    "CHANGELOG.md": "7e93c2820fc4637be63224e77460bbac405a9cb6f9e23898c516b62e57cf97a1",
+    "RELEASE_NOTES_v1.1.25.md": "33122efe041093a6fa4bfa9008723ed1946caf63010807b8a933de4224c33590",
+    "docs/COMPUTER_CHATS.md": "8d05f7e7a94849d4ccc83bef03a2fddf81135b430194f58fbe9fdd529b49b8c3",
+    "docs/RELEASE_VERIFICATION.md": "a448b385ae4668906f55e8c8172654a1772191cfaaa474867c108402d752aea2",
+    "e2e/sandbox-chat.electron.spec.ts": "61761045e4f1f7de9de6de9804bf434731de0467f2b99a340b288d50f7cb7bfb",
+    "e2e/settings-toggles.electron.spec.ts": "6605521dc363390d77ac85e3e8f675cb3bc1b8167436830843e02ea247a63322",
+    "package-lock.json": "a02a6fefdd01b4d503d08e47fba68cc399db59699692c9845931f1fe324f7eb4",
+    "package.json": "f09326e5b11ec80216ca1e5382f3a4bd10d4a13a660b9a69519b85f06250f574",
+    "scripts/release-readiness.mjs": "79278d8b9af5084621abda8720d9a880c852728ede11170fda4b454b6e2cde36",
+    "scripts/release-readiness.test.mjs": "8b3a008db36c7298fe3f70ab98323ebf7fe7f341c43a9e59146a520dc83a7abd",
+    "src/features/computer-chat/ChatIssueNotice.test.tsx": "72d1351696538fa87558bf417c4752befa0c1b514d8aadb25d767498b689b18d",
+    "src/features/computer-chat/ChatIssueNotice.tsx": "d8c6714e6f341b40e706c767ceb6119259dc390f347dc502fbd9b68a52777877",
+    "src/features/computer-chat/SandboxArtifactPanel.test.tsx": "786e623ff4015526ae6d19e1dadda2d5d625fa41a923ab12d2cb41f75462aa65",
+    "src/features/computer-chat/SandboxArtifactPanel.tsx": "2db57d42f82b4a802859677c5ad9b2b739223a30973bef5f7b318df88c27b8d2",
+    "src/features/computer-chat/SandboxChatSetup.test.tsx": "e3879d51dc132448073c84b5aef8a4b0d2cd02e326b6771e8ca6a45796b480bf",
+    "src/features/computer-chat/SandboxChatSetup.tsx": "be0ca382fc566e85114f0f7fdff22d7dcfb745dff16e66722913ce985670f3c3",
+    "src/features/computer-chat/SandboxConnectionCheck.test.tsx": "eb6d3cddeb1d423343871352cc6dba8526ccebc502146443f201a8bb10a3df7f",
+    "src/features/computer-chat/SandboxConnectionCheck.tsx": "c98d530a48316e3e06d48a03086399e561c3f757aeb3f213c950f7365d8813d8",
+    "src/features/computer-chat/SandboxConversation.test.tsx": "ffcb5f911e053956cc3e6933e47e4bb757d3bf8c8378893dde574a969d66ff05",
+    "src/features/computer-chat/SandboxConversation.tsx": "8efc65058e08f441eea77501747b67771574ca8f9ffe89f79043c9a29bdc5c25",
+    "src/features/computer-chat/api.test.ts": "9600ffdb39b7d2e42047c40a2720c4117d7a097544081660ab401e1573cff8cd",
+    "src/features/computer-chat/api.ts": "faa0ac6c1039e33a1cd4bc7297555900feeb8ea5e692e2a14b718b35b635fda0",
+    "src/features/computer-chat/chatIssue.ts": "517e66cb673522229eb210aa711b5ca88dc4048fab69b438e0e4886bba4a916d",
+    "src/features/computer-chat/computer-chat.css": "5cc7167629ded0ded7b100b04874bd9c2c3561ac1b2cea7416050e946c1e77a9",
+    "src/features/computer-chat/fileCheck.ts": "e74ec68bc316d573964b8d6435a2c195c449a8aaec608a5a287ee1a2df212c52",
+    "src/features/computer-chat/nsrDecisions.test.ts": "48105576b37173232f1a272bf7d630a632edbb4fcbd4f3f3ba312e4433c62ece",
+    "src/features/computer-chat/nsrDecisions.ts": "d1edea9e07a1f259f3941d46abe0a26737509cd66e0d5d87f263d539634d22a9",
+    "src/features/computer-chat/runtime.test.ts": "cb32b10dfd9d5e1f63c75fbf2db57f48895ed566c56e73ef9cef473e0e128b48",
+    "src/features/computer-chat/runtime.ts": "3e804da37df709313a95619d187a3be47b07724832eeaff8e27232ac11f753d0",
+    "src/features/computer-chat/sandboxArtifact.test.ts": "a19a8fd62d4f9ee1f75503f94b9e5f2442fd6fccaf993570a482e47bbe59e0c8",
+    "src/features/computer-chat/sandboxArtifact.ts": "5d2c91553ac78b0527e4d3866e442e1290b5f524361e8b36af874f7bce8b58e2",
+    "src/features/computer-chat/sandboxReadiness.test.ts": "89fe21fe047a9ba71a23f645dfca1411d6619d6ca3a5a0abc533e0f3dafa3fc0",
+    "src/features/computer-chat/sandboxReadiness.ts": "209e1329d3b34a5e8dc1303f954f89897f4dcbe9b29078e5279405e8bda9d822",
+    "src/features/computer-chat/store.test.ts": "09d41ac66e85125688e7152cf615913dbfb81c79175274fed3093e43a898a2e0",
+    "src/features/computer-chat/store.ts": "bb9bd54cd6df9ce70ed52c7002ae0b99b8dae0a53ae8844e8b34c6e0d886cf77",
+    "src/features/computer-chat/types.ts": "8e91468de1678f2d3c12f919f65589f2db1b7c1213bd2261b6b570f118306fea"
+  },
+  "verification": {
+    "latest_application_job": "abf2361e423b",
+    "latest_focused_tests_passed": 232,
+    "latest_focused_test_files": 7,
+    "latest_unit_report_sha256": "74541115e117fffb10958d70ede7a491e924a13ddcd95628a4908d50399c8ec0",
+    "earlier_connection_readiness_jobs": ["2cc95a10af13", "a4fb9b2f32f5"],
+    "earlier_focused_tests_passed": 224,
+    "qualification": "Focused reports overlap; counts must not be added. Application files match the accepted snapshots. Only release metadata and documentation changed afterward.",
+    "release_metadata_and_build_job": "5448abf870aa",
+    "release_fixtures_passed": {
+      "release-source": 45,
+      "release-assets": 13
+    },
+    "release_fixture_report_sha256": {
+      "release-source": "a13ba9ccabe35df7af50d485d9ad117024f6902dee5f3535a4444e55c483862d",
+      "release-assets": "b501ce319f99705a02ea70c3ae26682114169e11df546e7380b4bcedbd0ae21c"
+    },
+    "checks_passed": [
+      "Renderer and native-test types (no browser execution)",
+      "Full repository strict lint",
+      "Affected formatting",
+      "Focused chat, file, policy, runtime, API, storage and connection-readiness tests",
+      "Release source, readiness and asset fixtures",
+      "Electron and renderer production builds rebuilt for v1.1.25",
+      "Before/after source SHA-256 guards"
+    ],
+    "production_dependency_findings": {
+      "info": 0,
+      "low": 0,
+      "moderate": 0,
+      "high": 0,
+      "critical": 0,
+      "total": 0
+    },
+    "production_audit_report_sha256": "5a7d6f4d922067456f7e405f42b72cfb8e00122015d468f5350eea0a99e760f4",
+    "production_audit_qualification": "Dependency versions are unchanged since the accepted audit; only package scripts and release versions changed.",
+    "playwright": {
+      "run": false,
+      "qualification": "Kept stopped at the user request. Native layout changes and visual acceptance have not been rerun."
+    }
+  },
+  "live_acceptance": {
+    "new_live_calls": false,
+    "previous_evidence": "docs/evidence/desktop-sandbox-reliability-2026-10-20.json",
+    "qualification": "Previous real Sandbox provisioning and cleanup passed, but inference was blocked by provider credits. Model execution, live platform login, NSR Decisions acceptance and Temporal execution remain unverified. Direct Sandbox chats run while the desktop is open."
+  },
+  "publication": {
+    "signed_installers_verified": false,
+    "qualification": "Tagging and pushing request the existing signed multi-platform release workflow. Local checks do not establish installer publication. Required signing and platform gates remain enforced."
+  }
+}

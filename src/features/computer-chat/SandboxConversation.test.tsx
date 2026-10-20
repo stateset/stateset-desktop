@@ -585,12 +585,24 @@ describe('Sandbox empty conversation guidance', () => {
       message: 'Your chat is saved. Check computer setup to continue.',
     },
     {
+      state: 'model credits unavailable',
+      changes: { error: 'Insufficient credits', errorCode: 'provider-credit' as const },
+      busy: false,
+      message: 'Your chat is saved. Resolve the issue above before continuing.',
+    },
+    {
+      state: 'checking status after a model error',
+      changes: { error: 'Insufficient credits', errorCode: 'provider-credit' as const },
+      busy: true,
+      message: 'Your chat is saved. Resolve the issue above before continuing.',
+    },
+    {
       state: 'preparing',
       changes: { session: undefined },
       busy: true,
       message: 'Your chat is saved. Its computer is being prepared in the background.',
     },
-  ])('shows accurate guidance when $state', ({ changes, busy, message }) => {
+  ])('shows accurate guidance when $state', ({ state, changes, busy, message }) => {
     vi.spyOn(computerChatRuntime, 'refresh').mockResolvedValue(undefined);
     const chat: ComputerChat = {
       id: 'empty-chat',
@@ -613,7 +625,9 @@ describe('Sandbox empty conversation guidance', () => {
     if (changes.stopped || changes.sandboxStopRequested)
       expect(screen.getByLabelText('Chat message')).toBeDisabled();
     else expect(screen.getByLabelText('Chat message')).toBeEnabled();
-    expect(screen.getByRole('button', { name: 'Send message' })).toBeDisabled();
+    if (state === 'model credits unavailable')
+      expect(screen.getByRole('button', { name: 'Send message' })).toBeEnabled();
+    else expect(screen.getByRole('button', { name: 'Send message' })).toBeDisabled();
     expect(
       screen.queryByText('Your computer is ready. What would you like to work on?')
     ).toBeNull();
