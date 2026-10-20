@@ -1,5 +1,5 @@
 /** @vitest-environment happy-dom */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 const clearSandboxApiKey = vi.fn();
 const authState = {
@@ -21,6 +21,7 @@ function jsonResponse(body: unknown, status = 200): Response {
 }
 
 describe('sandboxApi', () => {
+  afterEach(() => vi.useRealTimers());
   beforeEach(() => {
     vi.clearAllMocks();
     authState.sandboxApiKey = 'sandbox-key';
@@ -106,6 +107,63 @@ describe('sandboxApi', () => {
 
     await expect(sandboxApi.get('sandbox-1')).rejects.toThrow();
     expect(clearSandboxApiKey).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not clear or retry under a newly saved key after a stale unauthorized response', async () => {
+    global.fetch = vi.fn().mockImplementation(async () => {
+      authState.sandboxApiKey = 'new-key';
+      return new Response('unauthorized', { status: 401 });
+    });
+    const { sandboxRequest } = await import('./sandbox');
+    await expect(sandboxRequest('/api/v1/agent/sessions/old')).rejects.toThrow(
+      'connection changed'
+    );
+    expect(clearSandboxApiKey).not.toHaveBeenCalled();
+    expect(global.fetch).toHaveBeenCalledOnce();
+    expect(authState.sandboxApiKey).toBe('new-key');
+  });
+
+  it('bounds requests even when caller cancellation is supplied', async () => {
+    vi.useFakeTimers();
+    global.fetch = vi.fn().mockImplementation(
+      (_url, options) =>
+        new Promise((_resolve, reject) => {
+          options.signal.addEventListener('abort', () => reject(options.signal.reason), {
+            once: true,
+          });
+        })
+    );
+    const { sandboxRequest } = await import('./sandbox');
+    const request = sandboxRequest('/inference', {
+      method: 'POST',
+      timeoutMs: 50,
+      signal: new AbortController().signal,
+    });
+    const checked = expect(request).rejects.toThrow('Request timed out');
+    await vi.advanceTimersByTimeAsync(50);
+    await checked;
+    expect(global.fetch).toHaveBeenCalledOnce();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('preserves caller cancellation without retrying or reporting a timeout', async () => {
+    const controller = new AbortController();
+    const reason = new DOMException('Paused by user', 'AbortError');
+    global.fetch = vi.fn().mockImplementation(
+      (_url, options) =>
+        new Promise((_resolve, reject) => {
+          options.signal.addEventListener('abort', () => reject(options.signal.reason), {
+            once: true,
+          });
+        })
+    );
+    const { sandboxRequest } = await import('./sandbox');
+    const request = sandboxRequest('/read', { signal: controller.signal });
+    const checked = expect(request).rejects.toBe(reason);
+    controller.abort(reason);
+    await checked;
+    expect(global.fetch).toHaveBeenCalledOnce();
+    expect(clearSandboxApiKey).not.toHaveBeenCalled();
   });
 
   it('preserves a valid key on permission denial and exposes structured service errors', async () => {

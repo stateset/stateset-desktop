@@ -81,6 +81,13 @@ function streamDurableWorkflowEvents(
 // Expose protected methods that allow the renderer process to use
 // the ipcRenderer without exposing the entire object
 contextBridge.exposeInMainWorld('electronAPI', {
+  serviceApi: {
+    request: (
+      request: import('./service-api-bridge').DesktopServiceRequest
+    ): Promise<import('./service-api-bridge').DesktopServiceResponse> =>
+      ipcRenderer.invoke('service-api:request', request),
+    cancel: (id: string): Promise<boolean> => ipcRenderer.invoke('service-api:cancel', id),
+  },
   durableWorkflows: {
     request: (
       request: import('./durable-workflow-bridge').DurableWorkflowRequest
@@ -264,6 +271,12 @@ interface UpdateStatusSnapshot {
 
 // Type definitions for the exposed API
 export interface ElectronAPI {
+  serviceApi: {
+    request: (
+      request: import('./service-api-bridge').DesktopServiceRequest
+    ) => Promise<import('./service-api-bridge').DesktopServiceResponse>;
+    cancel: (id: string) => Promise<boolean>;
+  };
   durableWorkflows: {
     request: (
       request: import('./durable-workflow-bridge').DurableWorkflowRequest

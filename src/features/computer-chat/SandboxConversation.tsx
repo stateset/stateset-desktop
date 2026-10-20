@@ -1,129 +1,21 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { Camera, Pause, Square } from 'lucide-react';
-import { useAuthStore } from '../../stores/auth';
-import { localSecretsApi } from '../../lib/localSecrets';
-import { useSecureStorageAvailability } from '../../hooks/useSecureStorageAvailability';
 import { ChatInput } from '../chat-playground/components/ChatInput';
-import { ChatMessageBubble } from '../chat-playground/components/ChatMessageBubble';
-import { ToolActivityBubble } from '../chat-playground/components/ToolActivityBubble';
-import { POLICY_CONNECTION } from './api';
 import { computerChatRuntime } from './runtime';
 import { useComputerChatsStore } from './store';
 import { conversationStatus } from './presentation';
 import type { ComputerChat } from './types';
+import { SandboxArtifactPanel } from './SandboxArtifactPanel';
+import { ActionRecoveryPanel } from './ActionRecoveryPanel';
+import { actionRecovery } from './actionRecovery';
+import { ConversationTranscript } from './ConversationTranscript';
+import {
+  DEFAULT_SANDBOX_PREFERENCES,
+  sandboxPreferencesKey,
+  sandboxPreferencesSchema,
+} from './sandboxPreferences';
 
-export function SandboxChatSetup({
-  tenantId,
-  brandId,
-  onError,
-}: {
-  tenantId: string;
-  brandId: string;
-  onError: (message: string) => void;
-}) {
-  const savedKey = useAuthStore((state) => Boolean(state.sandboxApiKey));
-  const secureStorage = useSecureStorageAvailability();
-  const [key, setKey] = useState('');
-  const [policyKey, setPolicyKey] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const inFlight = useRef(false);
-  const alive = useRef(true);
-  useEffect(() => {
-    alive.current = true;
-    return () => {
-      alive.current = false;
-    };
-  }, []);
-  const save = async () => {
-    if (inFlight.current) return;
-    inFlight.current = true;
-    setSaving(true);
-    setSaved(false);
-    onError('');
-    try {
-      if (key.trim()) await useAuthStore.getState().setSandboxApiKey(key.trim());
-      if (policyKey.trim())
-        await localSecretsApi.storeCredentials(tenantId, brandId, POLICY_CONNECTION, {
-          api_key: policyKey.trim(),
-        });
-      if (alive.current) {
-        setKey('');
-        setPolicyKey('');
-        setSaved(true);
-      }
-    } catch {
-      if (alive.current)
-        onError('The API keys could not be saved. Your entries are still here; try again.');
-    } finally {
-      inFlight.current = false;
-      if (alive.current) setSaving(false);
-    }
-  };
-  return (
-    <section aria-label="Sandbox connection" className="space-y-3 text-xs">
-      <p className="text-gray-400">
-        Each new chat creates a dedicated computer through the Sandbox API. No workflow engine
-        connection is required.
-      </p>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <label className="text-gray-400">
-          Sandbox API key
-          <input
-            type="password"
-            autoComplete="off"
-            value={key}
-            disabled={saving}
-            onChange={(event) => {
-              setKey(event.target.value);
-              setSaved(false);
-            }}
-            placeholder={savedKey ? 'Use saved key' : 'Enter your API key'}
-            className="minimal-input mt-1 w-full"
-          />
-        </label>
-        <label className="text-gray-400">
-          NSR policy API key
-          <input
-            type="password"
-            autoComplete="off"
-            value={policyKey}
-            disabled={saving}
-            onChange={(event) => {
-              setPolicyKey(event.target.value);
-              setSaved(false);
-            }}
-            placeholder="Use saved key"
-            className="minimal-input mt-1 w-full"
-          />
-        </label>
-      </div>
-      <p className="text-gray-500">
-        Computer sessions last up to one hour. Agent work runs while this app is open. The sandbox
-        organization supplies the inference credentials; NSR checks require a policy key for the
-        same organization.
-      </p>
-      {secureStorage === false && (
-        <p role="status" className="chat-setup-warning">
-          Your system keyring is unavailable. The Sandbox API key lasts until you quit the app.
-        </p>
-      )}
-      <button
-        type="button"
-        className="minimal-primary-button"
-        disabled={saving || !(key.trim() || policyKey.trim())}
-        onClick={() => void save()}
-      >
-        {saving ? 'Saving…' : 'Save API keys'}
-      </button>
-      {saved && (
-        <p role="status" className="text-emerald-400">
-          API keys saved
-        </p>
-      )}
-    </section>
-  );
-}
+export { SandboxChatSetup } from './SandboxChatSetup';
 
 export function SandboxConversation({
   chat,
@@ -134,14 +26,114 @@ export function SandboxConversation({
   busy: boolean;
   onSettings: () => void;
 }) {
-  const [model, setModel] = useState('claude-sonnet-4-6');
-  const [verify, setVerify] = useState(true);
-  const options = { model, verify, durable: false };
+  const preferences =
+    useComputerChatsStore((state) => state.sandboxPreferences[sandboxPreferencesKey(chat)]) ??
+    DEFAULT_SANDBOX_PREFERENCES;
+  const [model, setModel] = useState(preferences.model);
+  const [verify, setVerify] = useState(preferences.verify);
+  const [savingPreferences, setSavingPreferences] = useState(false);
+  const [preferencesError, setPreferencesError] = useState('');
+  const [preferencesSaved, setPreferencesSaved] = useState(false);
+  const preferencesInFlight = useRef(false);
+  const modelInput = useRef<HTMLInputElement>(null);
+  const preferencesSaveButton = useRef<HTMLButtonElement>(null);
+  const restorePreferencesFocus = useRef(false);
+  const modelIssueId = useId();
+  const preferencesAlive = useRef(true);
+  useEffect(() => {
+    preferencesAlive.current = true;
+    return () => {
+      preferencesAlive.current = false;
+    };
+  }, []);
+  const parsedPreferences = sandboxPreferencesSchema.safeParse({ model, verify });
+  const preferencesIssue = parsedPreferences.success
+    ? ''
+    : parsedPreferences.error.issues[0].message;
+  const preferencesDirty = model.trim() !== preferences.model || verify !== preferences.verify;
+  const preferencesBlocked = savingPreferences || preferencesDirty || Boolean(preferencesIssue);
+  const options = { ...preferences, durable: false };
+  useLayoutEffect(() => {
+    if (savingPreferences || !restorePreferencesFocus.current) return;
+    restorePreferencesFocus.current = false;
+    if (
+      document.activeElement === document.body ||
+      document.activeElement === preferencesSaveButton.current
+    )
+      modelInput.current?.focus();
+  }, [savingPreferences]);
+  const savePreferences = async () => {
+    if (preferencesInFlight.current || !parsedPreferences.success) return;
+    preferencesInFlight.current = true;
+    restorePreferencesFocus.current = document.activeElement === preferencesSaveButton.current;
+    setSavingPreferences(true);
+    setPreferencesError('');
+    setPreferencesSaved(false);
+    try {
+      await useComputerChatsStore.getState().setSandboxPreferences(chat.id, parsedPreferences.data);
+      if (preferencesAlive.current) {
+        setModel(parsedPreferences.data.model);
+        setPreferencesSaved(true);
+      }
+    } catch (error) {
+      if (preferencesAlive.current)
+        setPreferencesError(error instanceof Error ? error.message : String(error));
+    } finally {
+      preferencesInFlight.current = false;
+      if (preferencesAlive.current) setSavingPreferences(false);
+    }
+  };
   const ready =
     !chat.sandboxStopRequested &&
     chat.session?.status === 'running' &&
     Boolean(chat.session.currentSandboxId);
-  const status = conversationStatus(chat);
+  const activity = useComputerChatsStore((state) => state.activities[chat.id]);
+  const activityKind = activity?.kind ?? (ready ? 'agent' : 'setup');
+  const pausing = Boolean(activity?.pausing);
+  const canPause =
+    busy && activityKind !== 'shutdown' && activityKind !== 'status' && !chat.stopped;
+  const status = conversationStatus(
+    chat,
+    undefined,
+    busy
+      ? (activity ?? {
+          kind: chat.sandboxStopRequested ? 'shutdown' : activityKind,
+          pausing: false,
+        })
+      : undefined
+  );
+  const recovery = actionRecovery(chat);
+  const allowDraftEditing = !chat.stopped && !chat.sandboxStopRequested;
+  const draftHint = !allowDraftEditing
+    ? undefined
+    : pausing
+      ? 'Pause requested. You can keep drafting; nothing sends automatically.'
+      : recovery
+        ? 'You can edit your draft while reviewing the pending action. Nothing sends automatically.'
+        : preferencesBlocked
+          ? 'Save your preferences under Computer and permissions before sending. Your draft stays here.'
+          : !ready
+            ? 'You can draft now. Sending becomes available when your computer is ready.'
+            : busy
+              ? activityKind === 'status'
+                ? 'Checking computer status. Your draft stays editable.'
+                : 'You can draft your next message while work continues. Nothing sends automatically.'
+              : undefined;
+  const emptyMessage = chat.stopped
+    ? 'This computer has ended. Your chat is saved. Start a new chat to continue.'
+    : chat.sandboxStopRequested
+      ? 'Computer shutdown is unconfirmed. Your chat and draft are saved.'
+      : recovery
+        ? 'Review the pending action below before continuing this conversation.'
+        : chat.pauseNotice
+          ? 'Your work is paused. Your chat and draft are saved.'
+          : ready
+            ? 'Your computer is ready. What would you like to work on?'
+            : busy
+              ? 'Your chat is saved. Its computer is being prepared in the background.'
+              : chat.error
+                ? 'Your chat is saved. Review the setup error above before continuing.'
+                : 'Your chat is saved. Check computer setup to continue.';
   useEffect(() => {
     void computerChatRuntime.refresh(chat.id).catch(() => undefined);
   }, [chat.id]);
@@ -152,23 +144,21 @@ export function SandboxConversation({
           <div className="min-w-0 flex-1">
             <h2 className="truncate text-sm font-medium">{chat.title}</h2>
             <p role="status" aria-label="Conversation status" className="chat-caption mt-1">
-              {busy
-                ? chat.sandboxStopRequested
-                  ? 'Stopping computer…'
-                  : ready
-                    ? 'Working'
-                    : 'Preparing computer…'
-                : status.label}
+              {status.label}
             </p>
+            {!preferences.verify && (
+              <p className="chat-setup-warning mt-1 text-xs">NSR policy checks off</p>
+            )}
           </div>
-          {busy && ready && (
+          {canPause && (
             <button
               type="button"
               className="minimal-secondary-button"
+              disabled={pausing}
               onClick={() => computerChatRuntime.pause(chat.id)}
             >
               <Pause className="h-3.5 w-3.5" />
-              Pause work
+              {pausing ? 'Pausing…' : activityKind === 'setup' ? 'Pause setup' : 'Pause work'}
             </button>
           )}
           {!chat.stopped && (
@@ -183,12 +173,41 @@ export function SandboxConversation({
             </button>
           )}
         </header>
-        {chat.error && (
-          <p role="alert" className="m-3 text-xs text-red-400">
-            {chat.error}
+        {pausing && (
+          <p className="m-3 text-xs text-gray-500">
+            Waiting for the current request. Your computer may still be running; use Stop computer
+            after work pauses to end it.
           </p>
         )}
-        {!busy && !chat.stopped && !chat.sandboxStopRequested && !ready && (
+        {chat.pauseNotice && !busy && (
+          <p role="status" aria-label="Pause notice" className="m-3 text-xs text-gray-500">
+            {chat.pauseNotice}
+          </p>
+        )}
+        {chat.agentTurnUnfinished &&
+          !busy &&
+          !chat.stopped &&
+          !chat.sandboxStopRequested &&
+          !chat.pending && (
+            <p role="status" aria-label="Unfinished task" className="m-3 text-xs text-gray-500">
+              Your last task did not finish.{' '}
+              {ready ? 'Send a follow-up to continue.' : 'Check computer setup before continuing.'}{' '}
+              Reopening this chat does not resume work automatically.
+            </p>
+          )}
+        {chat.error && (
+          <div className="m-3 space-y-2">
+            <p role="alert" className="text-xs text-red-400">
+              {chat.error}
+            </p>
+            {ready && !busy && !chat.stopped && (!recovery || recovery.action === 'resume') && (
+              <button type="button" className="minimal-secondary-button" onClick={onSettings}>
+                Connection settings
+              </button>
+            )}
+          </div>
+        )}
+        {!busy && !chat.stopped && !chat.sandboxStopRequested && !ready && !chat.pending && (
           <div className="m-3 flex gap-2">
             <button
               type="button"
@@ -202,102 +221,174 @@ export function SandboxConversation({
             </button>
           </div>
         )}
-        {chat.pending && !busy && !chat.stopped && !chat.sandboxStopRequested && (
-          <button
-            type="button"
-            className="minimal-secondary-button m-3"
-            onClick={() => void computerChatRuntime.resume(chat.id)}
-          >
-            Resume action
-          </button>
-        )}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4" aria-label="Chat transcript">
-          {!chat.messages.length && (
-            <p className="text-sm text-gray-500">
-              {ready
-                ? 'Your computer is ready. What would you like to work on?'
-                : 'Your chat is saved. Its computer is being prepared in the background.'}
-            </p>
-          )}
-          {chat.messages.map((message) =>
-            message.role === 'tool' ? (
-              <ToolActivityBubble key={message.id} message={message} />
-            ) : (
-              <ChatMessageBubble key={message.id} message={message} />
-            )
-          )}
-        </div>
+        <ConversationTranscript key={chat.id} chat={chat} emptyMessage={emptyMessage} />
         <ChatInput
           value={chat.draft ?? ''}
           onChange={(draft) => useComputerChatsStore.getState().setDraft(chat.id, draft)}
+          onBlur={() =>
+            void useComputerChatsStore
+              .getState()
+              .flushDrafts()
+              .catch(() => undefined)
+          }
           maxBytes={8000}
           isLoading={busy}
-          disabled={!ready || Boolean(chat.pending) || Boolean(chat.stopped)}
+          disabled={!ready || Boolean(chat.pending) || Boolean(chat.stopped) || preferencesBlocked}
+          allowDraftEditing={allowDraftEditing}
+          hint={draftHint}
           placeholder={
             chat.stopped
               ? 'Computer stopped. Start a new chat to continue.'
-              : !ready
-                ? 'Preparing your computer…'
-                : undefined
+              : chat.sandboxStopRequested
+                ? 'Computer shutdown pending.'
+                : chat.pending
+                  ? 'Review the pending action below to continue.'
+                  : !ready
+                    ? busy
+                      ? 'Preparing your computer…'
+                      : 'Computer not ready. Check setup above.'
+                    : undefined
           }
           onSend={(text) => void computerChatRuntime.send(chat.id, text, options)}
         />
-        <details className="m-3 text-xs text-gray-400">
-          <summary>Computer and permissions</summary>
-          <p className="mt-2 break-all">
-            Sandbox: {chat.session?.currentSandboxId ?? 'Not allocated yet'}
-          </p>
-          <p className="break-all">Session: {chat.session?.id ?? 'Not allocated yet'}</p>
-          <p className="mt-2">
-            Agent work pauses when the app closes. The computer remains subject to its one-hour
-            session limit. Stop computer ends the session.
-          </p>
-          <label className="mt-3 block">
-            Model
-            <input
-              aria-label="Sandbox chat model"
-              value={model}
-              disabled={busy}
-              onChange={(event) => setModel(event.target.value)}
-              className="minimal-input mt-1 block"
-            />
-          </label>
-          <label className="mt-3 flex gap-2">
-            <input
-              type="checkbox"
-              checked={verify}
-              disabled={busy || Boolean(chat.pending)}
-              onChange={(event) => setVerify(event.target.checked)}
-            />
-            Check actions and outputs with NSR
-          </label>
-          {!verify && (
-            <p className="chat-setup-warning mt-2">
-              Policy checks are off for new actions in this conversation.
-            </p>
+        <section
+          aria-label="Computer tools"
+          tabIndex={0}
+          className="max-h-[45%] shrink-0 overflow-y-auto focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-brand-500/40"
+        >
+          {chat.pending && !chat.stopped && !chat.sandboxStopRequested && (
+            <ActionRecoveryPanel key={chat.pending.requestId} chat={chat} busy={busy} />
           )}
-          {chat.policy && (
+          <details className="m-3 text-xs text-gray-400">
+            <summary>Computer and permissions</summary>
+            <p className="mt-2 break-all">
+              Sandbox: {chat.session?.currentSandboxId ?? 'Not allocated yet'}
+            </p>
+            <p className="break-all">Session: {chat.session?.id ?? 'Not allocated yet'}</p>
             <p className="mt-2">
-              Latest policy {chat.policy.phase}: {chat.policy.verdict}
+              Agent work pauses when the app closes. The computer remains subject to its one-hour
+              session limit. Stop computer ends the session.
             </p>
-          )}
-          <button
-            type="button"
-            className="minimal-secondary-button mt-3"
-            onClick={() => void computerChatRuntime.screenshot(chat.id, options)}
-            disabled={busy || !ready || Boolean(chat.pending) || Boolean(chat.stopped)}
-          >
-            <Camera className="h-3.5 w-3.5" />
-            Capture desktop
-          </button>
-          {chat.screenshot && (
-            <img
-              src={chat.screenshot}
-              alt="Latest screenshot of this chat’s sandbox desktop"
-              className="mt-3 max-h-80 rounded-lg"
-            />
-          )}
-        </details>
+            <label className="mt-3 block">
+              Model
+              <input
+                ref={modelInput}
+                aria-label="Sandbox chat model"
+                value={model}
+                disabled={
+                  busy ||
+                  savingPreferences ||
+                  Boolean(chat.pending) ||
+                  Boolean(chat.stopped) ||
+                  Boolean(chat.sandboxStopRequested)
+                }
+                aria-invalid={Boolean(preferencesIssue) || undefined}
+                aria-describedby={preferencesIssue ? modelIssueId : undefined}
+                onChange={(event) => {
+                  setModel(event.target.value);
+                  setPreferencesError('');
+                  setPreferencesSaved(false);
+                }}
+                className="minimal-input mt-1 block"
+              />
+            </label>
+            <label className="mt-3 flex gap-2">
+              <input
+                type="checkbox"
+                checked={verify}
+                disabled={
+                  busy ||
+                  savingPreferences ||
+                  Boolean(chat.pending) ||
+                  Boolean(chat.stopped) ||
+                  Boolean(chat.sandboxStopRequested)
+                }
+                onChange={(event) => {
+                  setVerify(event.target.checked);
+                  setPreferencesError('');
+                  setPreferencesSaved(false);
+                }}
+              />
+              Check execution policy with NSR
+            </label>
+            {preferencesIssue && (
+              <p id={modelIssueId} role="alert" className="mt-2 ui-negative">
+                {preferencesIssue}
+              </p>
+            )}
+            {preferencesError && (
+              <p role="alert" className="mt-2 ui-negative">
+                {preferencesError} Your entries are retained; try saving again.
+              </p>
+            )}
+            {preferencesDirty && (
+              <p className="mt-2 text-gray-500">
+                Unsaved preferences. Save before starting new work.
+              </p>
+            )}
+            <button
+              ref={preferencesSaveButton}
+              type="button"
+              className="minimal-secondary-button mt-3"
+              disabled={
+                !preferencesDirty ||
+                Boolean(preferencesIssue) ||
+                savingPreferences ||
+                busy ||
+                Boolean(chat.pending) ||
+                Boolean(chat.stopped) ||
+                Boolean(chat.sandboxStopRequested)
+              }
+              onClick={() => void savePreferences()}
+            >
+              {savingPreferences ? 'Saving preferences…' : 'Save preferences'}
+            </button>
+            {preferencesSaved && (
+              <p role="status" className="mt-2 text-gray-500">
+                Preferences saved for this chat
+              </p>
+            )}
+            <p className="mt-2 text-gray-500">
+              Checks cover action permissions and exit status. File contents and answer accuracy
+              require separate verification.
+            </p>
+            {!verify && (
+              <p className="chat-setup-warning mt-2">
+                {preferences.verify
+                  ? 'Save to turn off policy checks for new actions in this conversation.'
+                  : 'Policy checks are off for new actions in this conversation.'}
+              </p>
+            )}
+            {chat.policy && (
+              <p className="mt-2">
+                Latest policy {chat.policy.phase}: {chat.policy.verdict}
+              </p>
+            )}
+            <button
+              type="button"
+              className="minimal-secondary-button mt-3"
+              onClick={() => void computerChatRuntime.screenshot(chat.id, options)}
+              disabled={
+                busy ||
+                !ready ||
+                Boolean(chat.pending) ||
+                Boolean(chat.stopped) ||
+                preferencesBlocked
+              }
+            >
+              <Camera className="h-3.5 w-3.5" />
+              Capture desktop
+            </button>
+            {chat.screenshot && (
+              <img
+                src={chat.screenshot}
+                alt="Latest screenshot of this chat’s sandbox desktop"
+                className="mt-3 max-h-80 rounded-lg"
+              />
+            )}
+          </details>
+          <SandboxArtifactPanel chat={chat} busy={busy} />
+        </section>
       </div>
     </div>
   );

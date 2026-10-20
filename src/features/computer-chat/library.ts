@@ -1,4 +1,4 @@
-import type { ChatConnection, ComputerChat } from './types';
+import type { ChatConnection, ComputerChat, ComputerChatActivity } from './types';
 import { terminalChat } from './durableTypes';
 
 export type ChatFilter = 'all' | 'active' | 'attention' | 'ended' | 'archived';
@@ -24,9 +24,15 @@ export function chatEnded(chat: ComputerChat) {
     terminalChat(chat.serverState?.status ?? '')
   );
 }
-export function chatNeedsAttention(chat: ComputerChat) {
+export function chatNeedsAttention(chat: ComputerChat, activity?: ComputerChatActivity) {
   return Boolean(
     chat.error ||
+    (chat.sandboxApiSession &&
+      !chatEnded(chat) &&
+      !chat.sandboxStopRequested &&
+      !activity &&
+      chat.agentTurnUnfinished) ||
+    chat.pending ||
     chat.pendingMessage ||
     chat.serverState?.error ||
     [
@@ -46,7 +52,8 @@ export function selectChats(
   brandId: string | undefined,
   query = '',
   filter: ChatFilter = 'all',
-  connections: Record<string, ChatConnection> = {}
+  connections: Record<string, ChatConnection> = {},
+  activities: Record<string, ComputerChatActivity> = {}
 ) {
   const terms = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
   return chats
@@ -58,7 +65,7 @@ export function selectChats(
       if (filter === 'ended' && !chatEnded(chat)) return false;
       if (
         filter === 'attention' &&
-        !chatNeedsAttention(chat) &&
+        !chatNeedsAttention(chat, activities[chat.id]) &&
         connections[chat.id]?.status !== 'attention'
       )
         return false;

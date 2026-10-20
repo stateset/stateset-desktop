@@ -14,7 +14,13 @@ const Message = memo(function Message({ message }: { message: ChatMessage }) {
 });
 
 /** Keep long transcripts responsive and preserve the reader's scroll position. */
-export function ConversationTranscript({ chat }: { chat: ComputerChat }) {
+export function ConversationTranscript({
+  chat,
+  emptyMessage,
+}: {
+  chat: ComputerChat;
+  emptyMessage?: string;
+}) {
   const container = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
   const olderButton = useRef<HTMLButtonElement>(null);
@@ -115,8 +121,8 @@ export function ConversationTranscript({ chat }: { chat: ComputerChat }) {
           )}
           {!chat.messages.length && (
             <p className="text-sm text-gray-500">
-              Describe the task and the files you want delivered. The agent will use this computer
-              and your configured acceptance criteria.
+              {emptyMessage ??
+                'Describe the task and the files you want delivered. The agent will use this computer and your configured acceptance criteria.'}
             </p>
           )}
           {messages.map((message) => (

@@ -12,10 +12,13 @@ import type {
   PolicyReceipt,
 } from './types';
 
-export const POLICY_API_URL = (
-  import.meta.env.VITE_POLICY_API_URL || 'https://api.nsr.stateset.com'
-).replace(/\/+$/, '');
-export const POLICY_CONNECTION = 'computer-chat-policy';
+export { POLICY_API_URL, POLICY_CONNECTION } from './nsrDecisions';
+import {
+  POLICY_CONNECTION,
+  decisionFact,
+  evidenceDigest,
+  requestNsrDecision,
+} from './nsrDecisions';
 
 export const actionSchema = z.discriminatedUnion('name', [
   z.object({ name: z.literal('screenshot'), arguments: z.object({}).strict() }),
@@ -127,6 +130,17 @@ export const computerSessionApi = {
       method: 'POST',
       body: JSON.stringify({ reason: 'Stopped from desktop chat' }),
     }),
+  stopSandbox: async (id: string): Promise<void> => {
+    try {
+      await sandboxRequest(`/api/v1/sandbox/${encodeURIComponent(id)}/stop`, {
+        method: 'POST',
+        timeoutMs: 30_000,
+        headers: { 'Idempotency-Key': `desktop-cleanup-${id}` },
+      });
+    } catch (error) {
+      if (!(error instanceof SandboxRequestError && error.status === 404)) throw error;
+    }
+  },
   execute: async (sessionId: string, pending: PendingAction): Promise<ActionResult> =>
     resultSchema.parse(
       await sandboxRequest(`/api/v1/agent/sessions/${encodeURIComponent(sessionId)}/exec`, {
@@ -142,6 +156,11 @@ export const computerSessionApi = {
       {
         method: 'POST',
         signal,
+        timeoutMs: 120_000,
+        // This endpoint forwards provider status codes. A provider 401 does
+        // not establish that the Sandbox API credential is invalid.
+        clearAuthOnUnauthorized: false,
+        authFallback: false,
         body: JSON.stringify({
           provider: 'anthropic',
           path: '/v1/messages',
@@ -209,80 +228,103 @@ export const computerWorkflowApi = {
     }),
 };
 
-export async function evaluateAction(
-  chat: ComputerChat,
-  action: ComputerAction,
-  result?: ActionResult
-): Promise<PolicyReceipt> {
-  if (!chat.session?.currentSandboxId) throw new Error('The computer sandbox is unavailable.');
+/** Local configuration check only; never creates a decision or tests authorization. */
+export async function requirePolicyKey(
+  chat: Pick<ComputerChat, 'tenantId' | 'brandId'>
+): Promise<string> {
   const credentials = await localSecretsApi.getCredentials(
     chat.tenantId,
     chat.brandId,
     POLICY_CONNECTION
   );
-  if (!credentials?.api_key) throw new Error('Save an NSR policy API key in Chat settings first.');
+  const key = credentials?.api_key?.trim();
+  if (!key) throw new Error('Save an NSR policy API key in Chat settings first.');
+  return key;
+}
+
+export async function evaluateAction(
+  chat: ComputerChat,
+  action: ComputerAction,
+  result?: ActionResult,
+  context?: { signal: AbortSignal; assertCurrent: () => void }
+): Promise<PolicyReceipt> {
+  if (!chat.session?.currentSandboxId) throw new Error('The computer sandbox is unavailable.');
+  const policyKey = await requirePolicyKey(chat);
   const command = actionCommand(action);
-  const candidate =
-    action.name === 'execute'
-      ? {
-          action: {
-            type: 'execute_command',
-            command,
-            shell_mode: false,
-            working_dir: '/workspace',
-            env_keys: [],
-          },
-        }
-      : {
-          action: {
-            type: 'gui_action',
-            kind:
-              action.name === 'screenshot'
-                ? 'screenshot'
-                : action.name === 'click'
-                  ? 'mouse'
-                  : 'keyboard',
-          },
-        };
-  const response = await fetch(`${POLICY_API_URL}/api/v1/policy/sandbox/evaluate`, {
-    method: 'POST',
-    signal: AbortSignal.timeout(30_000),
-    headers: { Authorization: `Bearer ${credentials.api_key}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      org_id: chat.session.organizationId,
-      session_id: chat.session.id,
-      sandbox_id: chat.session.currentSandboxId,
-      phase: result ? 'verification' : 'admission',
-      candidate,
-      context: {
-        sandbox_role: 'operator',
-        sandbox_state: 'running',
-        runtime_class: 'gvisor',
-        workspace_root: '/workspace',
-        gui_grounded: action.name === 'screenshot' || Boolean(chat.screenshot),
-      },
+  const phase = result ? 'verification' : 'admission';
+  const actor = `desktop-chat-${chat.id}`;
+  const requestId = crypto.randomUUID();
+  const actionHash = await evidenceDigest(
+    JSON.stringify({
+      organizationId: chat.session.organizationId,
+      sessionId: chat.session.id,
+      sandboxId: chat.session.currentSandboxId,
+      actor,
+      phase,
+      action,
+      command,
+      requestId,
       observed: result
-        ? { exit_code: result.exitCode, output_truncated: result.outputTruncated }
-        : undefined,
-    }),
-  });
-  if (!response.ok) throw new Error(`NSR policy evaluation failed (HTTP ${response.status}).`);
-  const payload = z
-    .object({
-      final_verdict: z.enum(['allow', 'rewrite', 'ask_user', 'deny']),
-      evidence_ids: z.array(z.string()),
-      evaluation: z.object({
-        canonical_action_hash: z.string().min(1),
-        triggered_rules: z.array(z.object({ reason: z.string() })),
-      }),
+        ? { exitCode: result.exitCode, outputTruncated: result.outputTruncated }
+        : null,
     })
-    .parse(await response.json());
+  );
+  const goal = { name: result ? 'can_accept_execution' : 'can_execute', args: [actor, actionHash] };
+  const decision = await requestNsrDecision({
+    scope: { tenantId: chat.tenantId, brandId: chat.brandId },
+    ...context,
+    apiKey: policyKey,
+    organizationId: chat.session.organizationId,
+    requestId,
+    body: {
+      query: `May this desktop chat ${result ? 'accept the execution observation' : 'execute the requested computer action'}?`,
+      action: action.name,
+      authorization_goal: goal,
+      session_id: chat.session.id,
+      external_ref: actionHash,
+      hydrate_org_context: true,
+      // Observations are supplied by the desktop, never an inline permission grant.
+      // The organization's stored rules must authorize this exact call.
+      facts: [
+        decisionFact('requested_tool_call', actor, actionHash),
+        decisionFact('call_tool', actionHash, action.name),
+        decisionFact('call_resource', actionHash, chat.session.currentSandboxId),
+        decisionFact('call_nonce', actionHash, requestId),
+        decisionFact('call_session', actionHash, chat.session.id),
+        decisionFact('call_phase', actionHash, phase),
+        decisionFact('call_workspace', actionHash, '/workspace'),
+        decisionFact(
+          'call_command_sha256',
+          actionHash,
+          await evidenceDigest(JSON.stringify(command))
+        ),
+        decisionFact('call_executable', actionHash, command[0]),
+        ...command
+          .slice(1)
+          .map((argument, index) =>
+            decisionFact('call_argument_json', actionHash, index, JSON.stringify(argument))
+          ),
+        decisionFact(
+          'call_gui_grounded',
+          actionHash,
+          action.name === 'screenshot' || Boolean(chat.screenshot)
+        ),
+        ...(result
+          ? [
+              decisionFact('execution_exit_code', actionHash, result.exitCode),
+              decisionFact('execution_output_truncated', actionHash, result.outputTruncated),
+            ]
+          : []),
+      ],
+    },
+  });
   return {
-    phase: result ? 'verification' : 'admission',
-    verdict: payload.final_verdict,
-    actionHash: payload.evaluation.canonical_action_hash,
-    evidenceIds: payload.evidence_ids,
-    reasons: payload.evaluation.triggered_rules.map((rule) => rule.reason),
+    source: 'decisions-v1',
+    phase,
+    verdict: decision.verdict,
+    actionHash,
+    evidenceIds: [decision.decisionId],
+    reasons: [decision.reason],
     checkedAt: new Date().toISOString(),
   };
 }

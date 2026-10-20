@@ -6,6 +6,36 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## Unreleased
 
+## [1.1.24] - 2026-10-20
+
+### Added
+
+- Show a compact computer-access and policy-key checklist in Chat settings, with clear organization/brand scope, local-versus-live status and keyring lifetime guidance.
+- Save model and NSR preferences per Sandbox chat after confirmed storage, restore them when reopening, and show policy-off status outside collapsed settings. Keep unsaved preferences from starting new work.
+- Keep Sandbox chat drafts editable during computer setup, agent work and pending-action review. Block submission while unavailable, preserve newer edits during send acknowledgement, and require an explicit send after work finishes.
+- Add a compact action recovery panel with state-specific controls, original request/computer details and bounded, unverified output previews. Keep unsafe recovery controls hidden and the composer and Stop computer visible.
+- Independently check a Sandbox API chat's workspace file against expected text or a SHA-256 digest through NSR. Validate exact collected bytes and identity-bound receipts; retain receipt metadata, mark earlier checks outdated after work continues, and keep file contents and expectations out of saved transcripts.
+
+### Fixed
+
+- Close test-owned Electron processes and remove their temporary profiles after each native case while retaining suite-owned windows, preventing accumulation during long desktop regressions.
+
+- Send Sandbox and NSR requests through a restricted native transport so hosted API preflights cannot block desktop chats. Bind requests to saved endpoints and credentials, reject redirects and foreign destinations, and cancel owned requests when their document closes.
+
+- Require acknowledged credential saves and removals, serialize vault changes across brands, retain failed entries after partial setup saves, and prevent late saves from continuing after a workspace switch.
+- Retain unfinished agent work with the saved task before inference begins. After reopening, distinguish interrupted work from an idle computer, include it in Needs attention, and require an explicit follow-up without replaying the task or its actions.
+- Share live Sandbox activity across the conversation header, saved-chat library and command search. Show setup, pausing, recovery, file checks and shutdown consistently, then restore the saved state when work finishes.
+- Honor pause requests at setup, inference and action boundaries; retain late session identities and execution receipts without starting another step. Show pending pause and saved paused state, keep cleanup uninterrupted, and reject foreign shutdown identities.
+- Validate model names in UTF-8 bytes before computer access or draft submission, preserving tasks when model settings are invalid.
+- Use the shared, bounded transcript reader for Sandbox API chats, including older history, position-preserving updates and keyboard-accessible return to latest. Distinguish stopped, interrupted and actively preparing computers in empty chat guidance.
+- Recover pending work through read-only session reconciliation without allocating or starting a computer. Include pending actions in attention filtering even without an error.
+- Bind pending computer actions to their original organization, session and sandbox before dispatch. Block replay and output acceptance after identity changes, retain uncertain receipts, and reject foreign status/startup identities.
+- Check for the scoped NSR key before model inference, preserve unsent tasks when setup is incomplete, and offer connection settings beside chat errors.
+- Use NSR Decisions API requests and organization-scoped API-key headers for desktop action and file checks. Require exact-goal proof replay, live approvals and execution routing; keep file contents and expectations local while submitting bound comparison observations.
+- Retain every observed Sandbox API computer identity across session completion and desktop restarts so cleanup cannot be confirmed without checking the known computers.
+- Preserve newly saved Sandbox API credentials after stale failures, distinguish inference-provider authentication failures, and enforce request deadlines alongside user cancellation.
+- Carry bounded tool observations into follow-up agent turns, require fresh GUI observations, and clarify the scope of NSR execution-policy checks without persisting raw tool output.
+
 ## [1.1.23] - 2026-10-19
 
 ### Added

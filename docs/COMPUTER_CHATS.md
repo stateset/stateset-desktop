@@ -1,5 +1,20 @@
 # Computer chats
 
+The desktop sends Sandbox API and NSR Decisions requests through its native
+network transport. Hosted services do not need to accept browser preflight
+requests from `localhost` or `file:` origins. The transport accepts only the
+configured Sandbox/NSR endpoints and supported chat API paths, checks the
+current saved key before dispatch, and refuses redirects. NSR requests also
+carry the original chat's organization/brand vault scope. Existing action,
+receipt and exact-byte verification gates still apply.
+
+Requests have deadlines, response-size limits and per-window concurrency limits.
+Cancellation belongs to the requesting app document; closing or replacing that
+document cancels its outstanding requests. Pausing agent work still preserves
+acknowledgements for already submitted mutations, so their computer identities
+remain available for cleanup. Browser previews without the native bridge use
+browser networking and still require the service's CORS support.
+
 New chats use **Sandbox API** by default. Open **Chats → Settings**, save a
 Sandbox API key, then choose **New Chat**. The chat is saved first; its dedicated
 computer is created in the background through `POST /api/v1/agent/sessions` and
@@ -19,15 +34,143 @@ before deleting the saved chat; archiving retains the running computer.
 Agent work runs while the desktop is open. The Sandbox API manages the computer
 and its lifetime; closing the window does not imply that its compute has stopped.
 Use **Stop computer** to end the session. The desktop confirms the session has
-ended and the sandbox is stopped or absent before marking cleanup complete.
+ended and every known sandbox is stopped or absent before marking cleanup complete.
+Observed sandbox IDs survive terminal session responses and app restarts. An older
+session with a missing computer identity requires inspection rather than an assumed cleanup.
+If a completed session left a known computer running, the desktop retries that
+computer's stop endpoint and still waits for stopped/absent status.
 If cleanup is unconfirmed, use **Check shutdown**; further actions stay blocked. Runtime errors and provisioning failures
 remain visible in the conversation, with the transcript and draft retained.
 
+**Pause setup** and **Pause work** prevent the desktop from taking the next step.
+During **Pausing…**, a submitted setup or execution request may still be running;
+the desktop waits for its acknowledgement so it can retain the session identity
+or execution result. Pausing does not stop the computer or cancel an already
+submitted workflow. The saved **Paused** notice survives reopening; drafts remain
+editable, and continuing requires an explicit send, setup retry or action recovery.
+Use **Stop computer** once the current request settles to end the computer. Cleanup
+has no pause control and still requires confirmed shutdown of the original session
+and known computers. A shutdown response for a different session or organization
+is rejected before any computer cleanup based on that response.
+
+The desktop saves an unfinished-work marker with each submitted task before
+inference begins. If the app exits before that work finishes, reopening shows
+**Work interrupted**, includes the chat in **Needs attention**, and retains its
+transcript and draft. Send an explicit follow-up to continue. Pending actions still
+require their own recovery review first; opening a chat never resubmits its task
+or actions. Successful completion and confirmed shutdown clear the marker.
+
 The sandbox organization must supply inference credentials. NSR admission and
-output checks are on by default for actions and require a policy key saved in
-Chat settings. Disabling checks is explicit in **Computer and permissions**;
-policy denial, approval requests and rewrites are never silently executed.
-These checks do not certify the factual correctness of an answer.
+execution-policy checks are on by default and require an NSR API key saved in
+Chat settings. [nsr.stateset.com](https://nsr.stateset.com) is the NSR console;
+its API is `https://api.nsr.stateset.com` (override with `VITE_POLICY_API_URL`).
+The desktop uses `POST /v1/decisions` with `X-API-Key`, `X-Org-ID` set to the
+sandbox session's organization, and a unique idempotency key. It never sends the
+Sandbox API key to NSR.
+
+Chat settings includes a local setup checklist for computer access and the NSR
+key saved for the selected organization and brand. A saved key does not establish
+live authentication, model access, NSR policy readiness or workflow availability.
+Saving keys does not allocate a computer or start an agent. A partial save names
+which key succeeded and retains the failed entry for retry. Vault saves and
+removals are serialized so concurrent changes cannot erase another brand's keys;
+only confirmed writes report success. A workspace switch prevents an old setup
+save from starting its next step or reporting errors into the new workspace.
+When the system keyring is unavailable, both Sandbox and NSR keys last only until
+the app quits; an unknown keyring capability is shown as unconfirmed.
+
+Before a policy-enabled message is submitted, the desktop checks that an NSR key
+is saved for the selected organization and brand. This is a local configuration
+check, not an authorization or live connection test, and does not create a paid
+decision. If the key is missing, the task stays in the composer and no model call
+is made. Use **Connection settings** beside the error to finish setup.
+
+Action checks hydrate your organization's stored NSR policy. The desktop sends
+observations, not permission-granting rules. Configure rules proving
+`can_execute(actor, call_hash)` for admission and
+`can_accept_execution(actor, call_hash)` for post-execution checks. The actor is
+`desktop-chat-<chat UUID>`. Observations include `requested_tool_call`,
+`call_tool`, `call_resource` (computer ID), `call_session`, `call_nonce`,
+`call_phase`, `call_workspace`, `call_command_sha256`, `call_executable`,
+`call_argument_json(call_hash, zero_based_index_after_executable, JSON_encoded_value)`,
+`call_gui_grounded`, and, after execution, `execution_exit_code` and
+`execution_output_truncated`. These are desktop-supplied observations, not
+attested sandbox facts. The call hash binds organization, session, computer,
+exact action/argv, phase, observations and a fresh nonce. Argument values use
+JSON string literals so a leading `?` cannot become an NSR logic variable; other
+variable-valued observations are rejected before submission. Without a stored
+permission rule the decision cannot authorize execution.
+
+Only an explicitly live (`shadow: false`) approval routed to `act`, carrying a
+proof bundle for the exact organization and authorization goal, can pass. The
+bundle is replayed verbatim through `POST /v1/proofs/verify`; typed goal bindings
+also require explicit verifier confirmation. Denials and refusals block work;
+confirm/escalate routing requires attention. No automatic decision retry occurs
+following an uncertain response. Saved admission receipts never bypass a fresh
+check before a new dispatch; completed actions and existing workflows are reconciled
+without repeating execution. Disabling checks is explicit in **Computer and
+permissions**. Checks inspect permissions, exit status and truncation metadata;
+they do not establish answer accuracy or a business outcome.
+
+For a Sandbox API chat, open **Verify a file** under `/workspace`. Choose
+**Contains text**, **Exact text** or **SHA-256 digest**, then select **Check file
+with NSR**. The controller reads the file; the desktop validates the returned
+size/digest and performs the deterministic comparison locally. Text checks
+require valid UTF-8. The desktop then submits the comparison result and hashes
+to Decisions with an explicit request-scoped rule proving
+`desktop_file_check(session_id, binding)` only when the observation matched.
+This file check does not hydrate organization policy or authorize computer work.
+NSR verifies the proof over the desktop's observation; the Decisions API does
+not independently read or recompute the file bytes. The agent never judges its
+own output.
+
+Checks are limited to one regular file of at most 128 KiB and a 16,384-byte
+JSON-encoded expectation. The controller refuses symlinks, sensitive files and
+paths outside the workspace. The binding covers organization, session, request,
+path, file digest, criterion digest and comparison result. Wrong proof goals,
+foreign organizations, invalid proofs and approvals of failed observations are
+rejected. Checks share the chat operation lock; connection changes and
+cancellation discard late responses. Further actions or a rotated computer mark
+the receipt outdated. External changes require checking again.
+
+File bytes and expected values stay in the desktop and are not saved in the
+chat or sent to NSR. Only hashes and the comparison result reach Decisions.
+Receipts retain the decision ID, identities, digest, check kind and time.
+Expected text is not restored when reopening the chat. These hashes are
+integrity identifiers, not encryption of low-entropy content.
+
+When an action is pending, the **Action recovery** panel below the composer
+explains the saved state. **Verify saved result** reviews an existing execution
+receipt without running its command again; **Check workflow** reads the existing
+workflow. **Recover action** handles an unconfirmed outcome using its original
+request: it can execute the original action if that action was never executed.
+Expand **Action details** to inspect the request, original computer and bounded
+command preview. **Saved output** shows bounded plain-text observations labeled
+unverified; it does not restore screenshot pixels or imply acceptance.
+
+A changed, unavailable or unbound computer does not offer execution recovery.
+**Check computer status** only reads the saved session; it cannot allocate or
+start a computer. Recovery itself also uses this read-only path before checking
+the original action identity. Pending actions appear in the **Needs attention**
+filter even when there is no error message.
+
+Pending actions record their original organization, session and computer before
+dispatch. Recovery cannot run an uncertain action on a replacement computer or
+verify an earlier result against the replacement's identity. Completed execution
+receipts remain pending when identity checks fail; recovery never repeats a
+completed action. Existing workflows can be inspected without starting them
+again, but their results still require the original identity before acceptance.
+Older pending actions without a recorded computer binding remain readable for
+inspection and cannot be replayed. Stop the computer and start a new chat to
+continue; the saved transcript remains available. A status or startup response
+with a different session or organization is rejected without replacing the saved
+identity.
+
+Follow-up turns retain bounded, untrusted tool observations while the app is open.
+Raw tool results and screenshot pixels are excluded from saved transcripts; after
+reopening, the agent is told that earlier observations are unavailable and must
+inspect the computer again. Each new turn requires a fresh screenshot before GUI
+actions. Inference has a two-minute desktop deadline and can also be paused.
 
 Choose **Durable workflow** in **New chat runtime** to create an engine-owned
 computer instead. That mode retains its seven required connection checks,
@@ -215,6 +358,25 @@ message, then clears the submitted draft. Messages allow up to 8,000 UTF-8 bytes
 the composer shows the size and blocks oversized submissions without dropping
 the text.
 
+Sandbox chat drafts stay editable while a computer is preparing, agent work is
+running or a pending action needs review. A short composer hint explains when
+sending is blocked. Enter and the send button cannot submit during these states;
+becoming ready never sends a draft automatically. A submitted message is retained
+before its matching draft is cleared, and edits made during that save remain
+available as a separate draft. Stopped computers and unconfirmed shutdown keep
+their retained drafts read-only.
+
+Model and NSR preferences belong to each Sandbox chat. Edit them under
+**Computer and permissions**, then select **Save preferences**. New work stays
+blocked until changes are valid and the save is acknowledged; failed saves keep
+your entries for retry and retain the previously applied settings. Preferences
+restore when reopening the same chat, while new chats start with policy checks
+enabled. A policy-off notice remains visible in the conversation header even
+when details are collapsed. Pending actions keep their original policy choice;
+preferences cannot change during active work or pending-action review. Model
+names must be nonblank and fit within 255 UTF-8 bytes. Validation happens before
+computer access, model inference or clearing the submitted draft.
+
 Archiving hides a chat from the main list; its computer continues running and
 its status is still reconciled. Restore it from the archived view. Deletion is
 available after shutdown is confirmed and asks before removing the local
@@ -231,11 +393,19 @@ Responses arriving after an organization or brand change are discarded. Local
 save failures are reported separately and can be retried without restarting
 computer work; unsaved observations stay available in memory.
 
-Long transcripts initially render the latest 100 messages. **Show older messages**
+Both Sandbox API and durable chat transcripts initially render the latest 100 messages. **Show older messages**
 loads earlier cached entries. Reading earlier messages stops automatic scrolling;
-**Jump to latest** returns to live updates.
+**Jump to latest** returns to live updates. New messages are counted while you read
+earlier history, without moving your position or keyboard focus. Empty Sandbox
+chats distinguish active preparation, interrupted setup and ended computers;
+viewing saved history never starts a computer or replays an action.
 
 Conversation status is consistent in the chat header, library and command search.
+Sandbox chats show live setup, agent work, recovery, screenshots, file checks and
+shutdown in all three places. A pending pause appears as **Pausing…** until the
+current request is reconciled. When work finishes, the saved pause, pending-action
+review or computer state is shown again. These activity labels are temporary;
+opening a saved conversation does not resume or replay its work.
 The **Needs attention** filter counts nonarchived chats in the selected organization
 and brand, including pending approvals, unconfirmed messages, failed acceptance
 checks, exhausted budgets and unconfirmed cleanup.

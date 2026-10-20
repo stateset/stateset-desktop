@@ -4,9 +4,10 @@ import { useAuthStore } from '../../stores/auth';
 import { useComputerChatsStore } from './store';
 import { conversationStatus } from './presentation';
 import { selectChats } from './library';
-import type { ChatConnection, ComputerChat } from './types';
+import type { ChatConnection, ComputerChat, ComputerChatActivity } from './types';
 
 const EMPTY_CHATS: ComputerChat[] = [];
+const EMPTY_ACTIVITIES: Record<string, ComputerChatActivity> = {};
 const EMPTY_CONNECTIONS: Record<string, ChatConnection> = {};
 
 /** Keep private conversation summaries scoped, and subscribe only while searching. */
@@ -19,6 +20,9 @@ export function WorkspaceCommandPalette(
   const connections = useComputerChatsStore((state) =>
     props.isOpen ? state.connections : EMPTY_CONNECTIONS
   );
+  const activities = useComputerChatsStore((state) =>
+    props.isOpen ? state.activities : EMPTY_ACTIVITIES
+  );
   const options = useMemo(
     () =>
       [
@@ -28,9 +32,9 @@ export function WorkspaceCommandPalette(
         id: chat.id,
         title: chat.title,
         archived: chat.archived,
-        status: conversationStatus(chat, connections[chat.id]).label,
+        status: conversationStatus(chat, connections[chat.id], activities[chat.id]).label,
       })),
-    [chats, tenantId, brandId, connections]
+    [chats, tenantId, brandId, connections, activities]
   );
   return <CommandPalette {...props} chats={options} />;
 }

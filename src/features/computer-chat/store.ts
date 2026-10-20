@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { z } from 'zod';
 import { stripToolPayloads } from '../chat-playground/toolActivity';
-import type { ChatConnection, ComputerChat } from './types';
+import type { ChatConnection, ComputerChat, ComputerChatActivity } from './types';
 import { actionSchema } from './api';
 import {
   configurationSchema,
@@ -9,6 +9,13 @@ import {
   type DurableChatConfiguration,
 } from './durableTypes';
 import { parseStartConfiguration } from './configuration';
+import { sandboxArtifactReceiptSchema } from './sandboxArtifact';
+import {
+  parseSandboxPreferences,
+  sandboxPreferencesKey,
+  sandboxPreferencesSchema,
+  type SandboxPreferences,
+} from './sandboxPreferences';
 
 const STORAGE_KEY = 'computerChats';
 export class ChatPersistenceError extends Error {
@@ -18,6 +25,7 @@ export class ChatPersistenceError extends Error {
   }
 }
 const policySchema = z.object({
+  source: z.literal('decisions-v1').optional(),
   phase: z.enum(['admission', 'verification']),
   verdict: z.enum(['allow', 'rewrite', 'ask_user', 'deny']),
   actionHash: z.string(),
@@ -33,6 +41,7 @@ const storedChatSchema = z.object({
   brandId: z.string().min(1),
   title: z.string(),
   draft: z.string().optional(),
+  draftRevision: z.number().int().nonnegative().safe().optional(),
   lastOpenedAt: z.string().optional(),
   pinned: z.boolean().optional(),
   archived: z.boolean().optional(),
@@ -78,9 +87,18 @@ const storedChatSchema = z.object({
   provisioningAttempted: z.boolean().optional(),
   sandboxStartUnconfirmed: z.boolean().optional(),
   sandboxStopRequested: z.boolean().optional(),
+  sandboxCleanupIds: z.array(z.string().min(1)).optional(),
+  artifactVerification: sandboxArtifactReceiptSchema.optional(),
   pending: z
     .object({
       requestId: z.uuid(),
+      computer: z
+        .object({
+          sessionId: z.string().min(1),
+          sandboxId: z.string().min(1),
+          organizationId: z.string().min(1),
+        })
+        .optional(),
       action: actionSchema,
       command: z.array(z.string()).min(1),
       durable: z.boolean(),
@@ -103,9 +121,15 @@ const storedChatSchema = z.object({
   policyHistory: z.array(policySchema.extend({ requestId: z.uuid() })).optional(),
   stopped: z.boolean().optional(),
   error: z.string().optional(),
+  pauseNotice: z.string().optional(),
+  agentTurnUnfinished: z.boolean().optional(),
 });
 
 interface ComputerChatsState {
+  activities: Record<string, ComputerChatActivity>;
+  setActivity: (id: string, activity?: ComputerChatActivity) => void;
+  sandboxPreferences: Record<string, SandboxPreferences>;
+  setSandboxPreferences: (id: string, preferences: SandboxPreferences) => Promise<void>;
   persistenceError?: string;
   flush: () => Promise<void>;
   flushDrafts: () => Promise<void>;
@@ -130,6 +154,7 @@ interface ComputerChatsState {
 
 let writeQueue: Promise<unknown> = Promise.resolve();
 let configurationWriteQueue: Promise<unknown> = Promise.resolve();
+let sandboxPreferencesWriteQueue: Promise<unknown> = Promise.resolve();
 let initialization: Promise<void> | undefined;
 let draftTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -159,6 +184,38 @@ function persist(chats: ComputerChat[]) {
 }
 
 export const useComputerChatsStore = create<ComputerChatsState>((set, get) => ({
+  activities: {},
+  setActivity: (id, activity) =>
+    set((state) => {
+      const activities = { ...state.activities };
+      if (activity) activities[id] = activity;
+      else delete activities[id];
+      return { activities, busy: { ...state.busy, [id]: Boolean(activity) } };
+    }),
+  sandboxPreferences: {},
+  setSandboxPreferences: (id, preferences) => {
+    const parsed = parseSandboxPreferences(preferences);
+    const write = async () => {
+      const chat = get().chats.find((value) => value.id === id);
+      if (!chat?.sandboxApiSession) throw new Error('This Sandbox chat is no longer available.');
+      if (get().busy[id] || chat.pending || chat.stopped || chat.sandboxStopRequested)
+        throw new Error('Finish or recover the current work before changing preferences.');
+      const sandboxPreferences = {
+        ...get().sandboxPreferences,
+        [sandboxPreferencesKey(chat)]: parsed,
+      };
+      const result = await window.electronAPI?.store.set(
+        'sandboxChatPreferences',
+        sandboxPreferences
+      );
+      if (result !== true)
+        throw new ChatPersistenceError('Desktop storage did not confirm the preferences save.');
+      set({ sandboxPreferences });
+    };
+    const task = sandboxPreferencesWriteQueue.then(write, write);
+    sandboxPreferencesWriteQueue = task.catch(() => undefined);
+    return task;
+  },
   markOpened: async (id) => {
     const chat = get().chats.find((item) => item.id === id);
     if (!chat) return;
@@ -172,7 +229,9 @@ export const useComputerChatsStore = create<ComputerChatsState>((set, get) => ({
   setDraft: (id, draft) => {
     if (!get().chats.some((chat) => chat.id === id && chat.draft !== draft)) return;
     set((state) => ({
-      chats: state.chats.map((chat) => (chat.id === id ? { ...chat, draft } : chat)),
+      chats: state.chats.map((chat) =>
+        chat.id === id ? { ...chat, draft, draftRevision: (chat.draftRevision ?? 0) + 1 } : chat
+      ),
     }));
     // Coalesce keystrokes without postponing the save indefinitely while typing.
     draftTimer ??= setTimeout(
@@ -235,9 +294,10 @@ export const useComputerChatsStore = create<ComputerChatsState>((set, get) => ({
     if (get().loaded) return;
     if (initialization) return initialization;
     initialization = (async () => {
-      const [stored, preferences] = await Promise.all([
+      const [stored, preferences, sandboxSettings] = await Promise.all([
         window.electronAPI?.store.get(STORAGE_KEY),
         window.electronAPI?.store.get('computerChatPreferences'),
+        window.electronAPI?.store.get('sandboxChatPreferences'),
       ]);
       const chats = Array.isArray(stored)
         ? stored.flatMap((value) => {
@@ -252,7 +312,21 @@ export const useComputerChatsStore = create<ComputerChatsState>((set, get) => ({
           if (parsed.success) configurations[key] = parsed.data;
         }
       }
-      set({ chats, loaded: true, configurations });
+      const sandboxPreferences: Record<string, SandboxPreferences> = {};
+      if (
+        sandboxSettings &&
+        typeof sandboxSettings === 'object' &&
+        !Array.isArray(sandboxSettings)
+      ) {
+        for (const chat of chats.filter((value) => value.sandboxApiSession)) {
+          const key = sandboxPreferencesKey(chat);
+          const parsed = sandboxPreferencesSchema.safeParse(
+            (sandboxSettings as Record<string, unknown>)[key]
+          );
+          if (parsed.success) sandboxPreferences[key] = parsed.data;
+        }
+      }
+      set({ chats, loaded: true, configurations, sandboxPreferences });
     })().finally(() => {
       initialization = undefined;
     });

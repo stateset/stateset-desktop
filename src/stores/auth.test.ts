@@ -669,6 +669,42 @@ describe('useAuthStore', () => {
     expect(useAuthStore.getState().sandboxApiKey).toBeNull();
   });
 
+  it('preserves a newer connection while an old key removal acknowledgement is pending', async () => {
+    let finish!: (value: boolean) => void;
+    const clearSandboxApiKey = vi.fn().mockImplementation(
+      () =>
+        new Promise<boolean>((resolve) => {
+          finish = resolve;
+        })
+    );
+    setElectronApi(createElectronApiMock({ auth: { clearSandboxApiKey } }));
+    useAuthStore.setState({ sandboxApiKey: 'old-key' });
+    const removing = useAuthStore.getState().clearSandboxApiKey();
+    await useAuthStore.getState().setSandboxApiKey('new-valid-key');
+    finish(true);
+    await removing;
+    expect(useAuthStore.getState().sandboxApiKey).toBe('new-valid-key');
+  });
+
+  it.each([false, undefined])(
+    'preserves the Sandbox connection when storage does not acknowledge saving or removal (%s)',
+    async (ack) => {
+      const setSandboxApiKey = vi.fn().mockResolvedValue(ack);
+      const clearSandboxApiKey = vi.fn().mockResolvedValue(ack);
+      setElectronApi(createElectronApiMock({ auth: { setSandboxApiKey, clearSandboxApiKey } }));
+      useAuthStore.setState({ sandboxApiKey: 'retained-key' });
+      await expect(useAuthStore.getState().setSandboxApiKey('new-key')).rejects.toThrow(
+        'did not confirm'
+      );
+      expect(useAuthStore.getState().sandboxApiKey).toBe('retained-key');
+      await expect(useAuthStore.getState().clearSandboxApiKey()).rejects.toThrow('did not confirm');
+      expect(useAuthStore.getState().sandboxApiKey).toBe('retained-key');
+      await expect(useAuthStore.getState().setSandboxApiKey('placeholder')).rejects.toThrow(
+        'did not confirm'
+      );
+      expect(useAuthStore.getState().sandboxApiKey).toBe('retained-key');
+    }
+  );
   it('persists selected brand when switching brands', async () => {
     const storeSet = vi.fn().mockResolvedValue(true);
     const api = createElectronApiMock({

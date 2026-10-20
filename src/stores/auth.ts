@@ -713,24 +713,25 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const normalizedApiKey = normalizeSandboxApiKey(apiKey);
 
     if (!normalizedApiKey) {
-      if (window.electronAPI) {
-        await window.electronAPI.auth.clearSandboxApiKey();
-      }
-      set({ sandboxApiKey: null });
-      return;
+      return get().clearSandboxApiKey();
     }
 
     if (window.electronAPI) {
-      await window.electronAPI.auth.setSandboxApiKey(normalizedApiKey);
+      const confirmed = await window.electronAPI.auth.setSandboxApiKey(normalizedApiKey);
+      if (confirmed !== true)
+        throw new Error('Credential storage did not confirm the Sandbox key save.');
     }
     set({ sandboxApiKey: normalizedApiKey });
   },
 
   clearSandboxApiKey: async () => {
+    const previousKey = get().sandboxApiKey;
     if (window.electronAPI) {
-      await window.electronAPI.auth.clearSandboxApiKey();
+      const confirmed = await window.electronAPI.auth.clearSandboxApiKey();
+      if (confirmed !== true)
+        throw new Error('Credential storage did not confirm the Sandbox key removal.');
     }
-    set({ sandboxApiKey: null });
+    if (get().sandboxApiKey === previousKey) set({ sandboxApiKey: null });
   },
 }));
 

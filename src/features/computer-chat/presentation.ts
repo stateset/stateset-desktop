@@ -1,26 +1,50 @@
 import { chatEnded, chatNeedsAttention } from './library';
-import type { ChatConnection, ComputerChat } from './types';
+import type { ChatConnection, ComputerChat, ComputerChatActivity } from './types';
+import { actionRecovery } from './actionRecovery';
 
 export interface ConversationStatus {
   label: string;
   tone: 'quiet' | 'active' | 'paused' | 'attention';
 }
 
-/** One description of the saved computer state wherever a conversation is shown. */
+const activityLabels: Record<ComputerChatActivity['kind'], string> = {
+  setup: 'Preparing computer…',
+  status: 'Checking computer…',
+  agent: 'Working',
+  recovery: 'Recovering action…',
+  screenshot: 'Capturing desktop…',
+  'file-check': 'Checking file…',
+  shutdown: 'Stopping computer…',
+};
+
+/** Share live activity and saved state wherever a conversation is shown. */
 export function conversationStatus(
   chat: ComputerChat,
-  connection?: Pick<ChatConnection, 'status'>
+  connection?: Pick<ChatConnection, 'status'>,
+  activity?: ComputerChatActivity
 ): ConversationStatus {
   const state = chat.serverState;
   if (chat.sandboxApiSession) {
     if (chatEnded(chat)) return { label: 'Computer ended', tone: 'quiet' };
+    // A retained shutdown intent must never look like ordinary agent work.
+    if (activity && (!chat.sandboxStopRequested || activity.kind === 'shutdown'))
+      return {
+        label:
+          activity.pausing && activity.kind !== 'shutdown'
+            ? 'Pausing…'
+            : activityLabels[activity.kind],
+        tone: activity.kind === 'shutdown' ? 'quiet' : activity.pausing ? 'paused' : 'active',
+      };
     if (chat.sandboxStopRequested)
       return {
         label: chat.error ? 'Cleanup needs attention' : 'Stopping computer',
         tone: chat.error ? 'attention' : 'quiet',
       };
+    const recovery = actionRecovery(chat);
+    if (recovery) return { label: recovery.title, tone: 'attention' };
     if (chat.error) return { label: 'Needs attention', tone: 'attention' };
-    if (chat.pending) return { label: 'Action pending', tone: 'attention' };
+    if (chat.pauseNotice) return { label: 'Paused', tone: 'paused' };
+    if (chat.agentTurnUnfinished) return { label: 'Work interrupted', tone: 'attention' };
     if (chat.session?.status === 'running' && chat.session.currentSandboxId)
       return { label: 'Ready', tone: 'active' };
     return {
